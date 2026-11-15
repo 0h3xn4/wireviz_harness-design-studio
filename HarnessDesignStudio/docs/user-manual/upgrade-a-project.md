@@ -46,7 +46,7 @@ Open the project (**Open project…** on Home, or **File > Open project…**). T
 - **Open read-only** opens it without a change. The banner above the diagram says *This project is in format 1, so it is open read-only. Upgrade it to edit it.* Its button **Upgrade…** asks the question again.
 - **Cancel** opens nothing.
 
-(GUI, not run: the question was checked against the program's texts and in the tests without a screen; nobody watched it on a display.)
+(The end-to-end test of 2.0.0 ran these steps in the editor under a virtual display (Xvfb), driven by a script: the question, **Open read-only** with its banner and the button **Upgrade…**, and **Upgrade** with its message. Nobody watched them on a real display.)
 
 ## 3. Upgrade on the command line
 
@@ -143,7 +143,7 @@ harness-design-studio generate wheel-link
 error: this project is read-only (saved by a newer tool version).
 ```
 
-The exit code is 2. `validate`, `check` and `drc` still read it; `validate` says:
+The exit code is 2. `export` is refused in the same way, with the same message and exit code 2. `validate`, `check` and `drc` still read it; `validate` says:
 
 ```
 WARNING newer_version: This project was saved by a newer version of the tool (format 2; this tool understands up to 1). It is opened read-only. [project.json]
