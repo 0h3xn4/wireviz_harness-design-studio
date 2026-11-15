@@ -204,6 +204,10 @@ def wait_chip(view) -> None:
 
 def test_the_chip_never_says_passed_next_to_a_failed_rule(qtbot, tmp_path: Path) -> None:
     win = window(qtbot, tmp_path, with_harness(), role="electrical")
+    # Hold the design-rule check that loading the project armed (DRC_DELAY_MS): on a slow runner
+    # it could finish while the self-check is still running, and the first claim below is about
+    # the state before any check has run. settle() runs the check on purpose.
+    win.ctl._drc_timer.setInterval(600_000)
     win.set_area("drawings")
     wait_chip(win.harness_view)
     view = win.harness_view
