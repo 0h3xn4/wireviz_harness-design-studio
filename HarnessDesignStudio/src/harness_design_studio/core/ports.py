@@ -293,3 +293,11 @@ def ports_of(connector: Connector, itype: InterfaceType) -> ConnectorPorts:
         named.append(p)
     ambiguous.sort(key=lambda a: natural_key(a.pin_id))
     return ConnectorPorts(connector.id, itype.id, bare, tuple(named), tuple(ambiguous))
+
+
+def is_signal_of(name: str, types: Iterable[InterfaceType]) -> bool:
+    """True when `name` reads as one signal of one of `types`: its exact name, or the name of that
+    signal in one port (`RS422_2_TX+` is the RS-422 signal TX+). A name that reads in more than one
+    way for a type is not a signal of that type: no port uses it. The imports use this to say which
+    signals no interface type has."""
+    return any(len(read_signal(name, [s.name for s in t.signals])) == 1 for t in types)

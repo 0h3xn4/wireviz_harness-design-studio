@@ -409,3 +409,19 @@ def test_cli_signal_map_pairs_on_the_command_line(tmp_path: Path) -> None:
     pins = load_project(tmp_path / "p").project.connectors["OBC-J2"].pins
     assert {x.id: x.signal for x in pins if x.signal} == {"1": "PWR", "2": "RTN", "3": "RTN"}
     assert cli_main([*base, "--part", "J2=EX-DSUB-9-F", "--signal-map", "=PWR"]) == 2
+
+
+def test_unmatched_signals_read_port_names() -> None:
+    """2.1.0 (D-237): a net named for a port (`RS422_2_TX+`) is the RS-422 signal TX+, so it is not
+    reported; a name that no type has, or one that reads in two ways, still is."""
+    from harness_design_studio.core.kicad import Component, Netlist, PinInfo
+
+    nets = {"1": "/RS422_2_TX+", "2": "/io/RS422_2_TX-", "3": "/TX+.B", "4": "/FOO_7", "5": "/TX+_RX-"}  # fmt: skip
+    comp = Component(
+        ref="J1",
+        fields={"harnesspart": "EX-MICROD-9-F"},
+        pins={k: PinInfo(number=k, net=v) for k, v in nets.items()},
+    )
+    plan = plan_netlist_import(mini3(), Netlist(components={"J1": comp}), "OBC")
+    assert plan.rows[0].ok
+    assert plan.unmatched_signals == {"FOO_7": ["OBC-J1 pin 4"], "TX+_RX-": ["OBC-J1 pin 5"]}

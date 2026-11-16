@@ -63,7 +63,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `import-lengths` | `ok`, `dry_run`, `changed`, `ready`, `problems`, `hint`, `rows`, `import` |
 | `import-build-data` | `ok`, `dry_run`, `changed`, `kind`, `counts`, `rows`, `import` |
 | `import-netlist` | `ok`, `dry_run`, `changed`, `rows`, `warnings`, `unmatched_signals`, `import` |
-| `import-pinout` | `ok`, `dry_run`, `changed`, `connectors`, `pins`, `rows`, `warnings`, `unmatched_signals`, `import` |
+| `import-pinout` | `ok`, `dry_run`, `changed`, `connectors`, `pins`, `rows`, `warnings`, `unmatched_signals`, `ports`, `import` |
 | `import-devices` | `ok`, `dry_run`, `changed`, `rows`, `notes`, `import` |
 | `import-devices --list` | `ok`, `devices` |
 | `import-subsystem` | `ok`, `dry_run`, `changed`, `name`, `connections`, `rows`, `notes`, `import` |
@@ -599,7 +599,7 @@ harness-design-studio import-netlist my-design wheel.net --device RW1 --pin-dire
 
 ### harness-design-studio import-pinout
 
-Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Part, Gender); columns the project cannot store, such as a description or a voltage, are named in a warning and left out. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.
+Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Part, Gender, Port); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as a description or a voltage, are named in a warning and left out. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.
 
 `harness-design-studio import-pinout project file [options]`
 
@@ -614,7 +614,7 @@ Create or update the box connectors of one device from a table: one row per pin 
 | `--default-part DEFAULT_PART` | library part for new connectors that have none |
 | `--gender GENDER` | gender of new connectors (default: the part's) (one of female, male) |
 | `--connector CONNECTOR` | connector for rows of a table that has no Connector column (default J01) |
-| `--column FIELD=HEADING` | use this column for a field when the headings are not recognised, for example pin=Contact (repeat) (repeatable) |
+| `--column FIELD=HEADING` | use this column for a field when the headings are not recognised, for example pin=Contact or port=Channel (repeat) (repeatable) |
 | `--replace` | drop the pins of an existing connector that the table does not name (default: keep them) |
 | `--dry-run` | show the preview only |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |

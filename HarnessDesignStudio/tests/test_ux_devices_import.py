@@ -195,3 +195,32 @@ def test_every_control_of_the_page_has_a_name_and_a_tooltip(qtbot, ctl, tmp_path
     assert unnamed(w) == []
     for widget in w.map_page.pin_widgets.values():
         assert widget.accessibleName() and widget.toolTip()
+
+
+def test_a_port_column_is_matched_and_the_ports_are_listed(qtbot, ctl, tmp_path: Path) -> None:
+    """2.1.0 (D-237): the Port column is offered and matched by its heading, the preview shows the
+    signal with the port written into it, and the check page lists the ports of the connector."""
+    lines = ["Connector,Pin,Port,Signal,Mode"]
+    for k in (1, 2):
+        lines += [f"J1,{4 * k + i - 3},RS422_{k},{s},fixed" for i, s in enumerate(("TX+", "TX-", "RX+", "RX-"))]  # fmt: skip
+    w = make(qtbot, ctl, sheet(tmp_path, "\n".join(lines) + "\n"))
+    w.browse()
+    assert next_(w) == PAGE_MAP
+    page = w.map_page
+    assert page.map_boxes["port"].currentText() == "Port"
+    page.pin_widgets["device"].setCurrentIndex(page.pin_widgets["device"].findData("GYRO1"))
+    page.pin_widgets["part"].setCurrentIndex(page.pin_widgets["part"].findData("MY-BIG-8-M"))
+    assert w.plan is not None and w.plan.importable
+    rows = rows_of(page.model)
+    assert [r[3] for r in rows[:5]] == [
+        "RS422_1_TX+",
+        "RS422_1_TX-",
+        "RS422_1_RX+",
+        "RS422_1_RX-",
+        "RS422_2_TX+",
+    ]
+    assert next_(w) == PAGE_CHECK
+    assert w.check_page.notes.text() == (
+        "GYRO1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8)"
+    )
+    assert w.check_page.pending_model.rowCount() == 0  # the port names are RS-422 signals
