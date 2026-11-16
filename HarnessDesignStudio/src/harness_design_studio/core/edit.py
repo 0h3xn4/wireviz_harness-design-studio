@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -20,7 +19,7 @@ from .commands import Delete, Op, Put, SetConfig, SetZones
 from .describe import part_gender
 from .device_kinds import KIND_IDS
 from .errors import HarnessError
-from .generate.pins import Allocation, Request
+from .generate.pins import Allocation, PinRules, Request
 from .ids import check_id
 from .model import (
     Connector,
@@ -38,9 +37,6 @@ from .model.base import Name
 from .model.config import ConfigFile
 from .model.physical import TBD_PART_ID
 from .ports import ports_of
-
-if TYPE_CHECKING:
-    from .generate.engine import PinRules
 
 LANE_WIDTH = 470.0
 LANE_X0 = 10.0
