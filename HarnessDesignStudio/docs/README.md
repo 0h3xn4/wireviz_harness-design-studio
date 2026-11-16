@@ -48,7 +48,7 @@ This page lists the documents of the tool, grouped by what you want to do. The i
 | [`FILE_FORMAT.md`](FILE_FORMAT.md) | The project folder format |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | What changed, release by release |
 | [`STATUS.md`](STATUS.md) | The status of the tool and its release history (latest published release, tags, commits), moved from the README |
-| [`releases/`](releases/2.0.1.md) | The highlights of each release from 1.1.0 to 2.0.1, as the GitHub release page shows them (one file per version) |
+| [`releases/`](releases/2.1.0.md) | The highlights of each release from 1.1.0 to 2.1.0, as the GitHub release page shows them (one file per version) |
 
 ## Examples and templates
 
@@ -88,7 +88,7 @@ These explain how the tool was specified and checked; you do not need them to us
 | [`ait/TEST_USER_FEEDBACK_PLAN.md`](ait/TEST_USER_FEEDBACK_PLAN.md) | The feedback of the test users on 1.6.0 (a build spreadsheet instead of the PDF plans; the tool felt overwhelming), what the tool does about each, the decisions taken with the owner and the plan for 1.7.0, with what it built and what it did not |
 | [`ait/PLAN_2.0.md`](ait/PLAN_2.0.md) | The plan for the programme towards 2.0.0 (a cable-first, free-form harness workflow, team and process features, a rebuilt user experience): what exists, the milestones M0 to M10, the migration safety net, the risks and the owner's decisions (D-200). Nothing in it is built yet |
 | [`ait/SPIKE_M4_LOOSE_END.md`](ait/SPIKE_M4_LOOSE_END.md) | The report of the throw-away spike of milestone M4 of the 2.0 programme (the loose cable end as an ordinary connector): what was built, everything run over a project with loose ends, the wording and the open decisions, and at its end the eight decisions taken (D-201). Historical except section 8; M4a is built from it |
-| [`ait/DESIGN_2.1_PORTS.md`](ait/DESIGN_2.1_PORTS.md) | The design of 2.1.0 (D-237): several interfaces on one connector, one interface per port, ports read from the signal names of fixed pins (`RS422_2_TX+`), no format change; what the program does at 2.0.1, the pin assignment, the editor and the six pull requests. Only the port parser is built |
+| [`ait/DESIGN_2.1_PORTS.md`](ait/DESIGN_2.1_PORTS.md) | The design of 2.1.0 (D-237): several interfaces on one connector, one interface per port, ports read from the signal names of fixed pins (`RS422_2_TX+`), no format change; what the program does at 2.0.1, the pin assignment, the editor and the six pull requests. All six are built; 2.1.0 is prepared (D-238) |
 | [`ux-audit.md`](ux-audit.md) | The October 2026 audit of the editor against the UX/UI Standard (83 numbered issues) and, at the end, what was built for each one |
 | [`ux-custom-devices-audit.md`](ux-custom-devices-audit.md) | Audit and design proposal for custom devices (approved on 14 October 2026 and built as the Devices tab; the owner's decisions are at its end): what the tool does today for a device of your own (unit, connectors, pins, interfaces on pins, pinout import), the gaps, and a Devices tab with a pin table; pictures in [`ux/custom-devices/`](ux/custom-devices/) |
 | [`DECISIONS.md`](DECISIONS.md), [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md) | What was decided, and what still needs an owner |
