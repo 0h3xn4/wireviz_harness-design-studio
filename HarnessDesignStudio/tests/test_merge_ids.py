@@ -72,7 +72,7 @@ def edit(design: Path, ops_of: Callable) -> None:
     save_project(p, design)
 
 
-def branch(root: Path, name: str, *steps: Callable[[Path], None]) -> None:
+def branch(root: Path, name: str, steps: list[Callable[[Path], None]]) -> None:
     git(root, "checkout", "-q", "main")
     git(root, "checkout", "-q", "-b", name)
     journal.set_author(name)
@@ -165,8 +165,8 @@ def validate_clean(design: Path, capsys) -> str:
 def two_generated(root: Path) -> Path:
     """(a): each branch adds an interface (different ones) and presses Generate: both get W003."""
     start(root)
-    branch(root, "ann", interface("power_primary", "PCDU1", "OBC1", iid="IF-003"))
-    branch(root, "bob", interface("rs422", "OBC1", "PCDU1", "OBC1-J03", "PCDU1-J03", "IF-004"))
+    branch(root, "ann", [interface("power_primary", "PCDU1", "OBC1", iid="IF-003")])
+    branch(root, "bob", [interface("rs422", "OBC1", "PCDU1", "OBC1-J03", "PCDU1-J03", "IF-004")])
     return merge(root)
 
 
@@ -190,8 +190,8 @@ def test_a_both_generate_W003_git_stops_on_the_harness_and_validate_names_it(
 
 def test_c_both_add_a_link_git_stops_on_the_list_of_links(tmp_path, clock):
     start(tmp_path)
-    branch(tmp_path, "ann", link("OBC1-J03", "PCDU1-J03"))
-    branch(tmp_path, "bob", link("OBC1-J02", "PCDU1-J02"))
+    branch(tmp_path, "ann", [link("OBC1-J03", "PCDU1-J03")])
+    branch(tmp_path, "bob", [link("OBC1-J02", "PCDU1-J02")])
     design = merge(tmp_path)
     assert conflict_files(design) == ["logical/links.json"]
     assert gitobjects.stages(gitobjects.open_repo(design))["logical/links.json"].keys() == {2, 3}
@@ -199,8 +199,8 @@ def test_c_both_add_a_link_git_stops_on_the_list_of_links(tmp_path, clock):
 
 def test_d_the_same_harness_on_both_branches_merges_without_a_conflict(tmp_path, clock, capsys):
     start(tmp_path)
-    branch(tmp_path, "ann", cable("OBC1-J02"))
-    branch(tmp_path, "bob", cable("OBC1-J02"))
+    branch(tmp_path, "ann", [cable("OBC1-J02")])
+    branch(tmp_path, "bob", [cable("OBC1-J02")])
     design = merge(tmp_path, clean=True)
     assert conflict_files(design) == []
     validate_clean(design, capsys)
@@ -263,8 +263,8 @@ def test_a_generated_harness_renamed_without_a_record_conflict_is_generated_agai
     the record merges as Ann's, and names W003's wires. merge-fix renames Ann's harness and runs
     generate, so the record names W004."""
     start(tmp_path)
-    branch(tmp_path, "ann", interface("power_primary", "PCDU1", "OBC1", iid="IF-003"))
-    branch(tmp_path, "bob", cable("OBC1-J03"))
+    branch(tmp_path, "ann", [interface("power_primary", "PCDU1", "OBC1", iid="IF-003")])
+    branch(tmp_path, "bob", [cable("OBC1-J03")])
     design = merge(tmp_path)
     assert conflict_files(design) == ["physical/harnesses/W003.json"]
     capsys.readouterr()
@@ -336,8 +336,10 @@ def test_both_generate_for_the_same_group_is_refused(tmp_path, clock, capsys):
     assert main(["generate", str(design)]) == 0
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-q", "-m", "start")
-    branch(tmp_path, "ann", interface("power_primary", "PCDU1", "OBC1", iid="IF-003"))
-    branch(tmp_path, "bob", interface("rs422", "OBC1", "PCDU1", "OBC1-J03", "PCDU1-J03", "IF-004"))
+    branch(tmp_path, "ann", [interface("power_primary", "PCDU1", "OBC1", iid="IF-003")])
+    branch(
+        tmp_path, "bob", [interface("rs422", "OBC1", "PCDU1", "OBC1-J03", "PCDU1-J03", "IF-004")]
+    )
     design = merge(tmp_path)
     assert conflict_files(design) == ["generated/generation.json", "physical/harnesses/W003.json"]
     before = tree(design)
@@ -356,8 +358,8 @@ def test_an_interface_id_on_both_branches_is_set_aside_and_merge_fix_undoes(
     subsystems merges without a conflict, the loader sets one aside, and merge-fix puts every file
     back (interface IDs are not renamed; D-231, Not done)."""
     start(tmp_path)
-    branch(tmp_path, "ann", interface("power_primary", "PCDU1", "OBC1"))
-    branch(tmp_path, "bob", interface("rs422", "OBC1", "PCDU1", "OBC1-J03", "PCDU1-J03"))
+    branch(tmp_path, "ann", [interface("power_primary", "PCDU1", "OBC1")])
+    branch(tmp_path, "bob", [interface("rs422", "OBC1", "PCDU1", "OBC1-J03", "PCDU1-J03")])
     design = merge(tmp_path)
     before = tree(design)
     capsys.readouterr()
@@ -374,11 +376,11 @@ def test_an_interface_id_on_both_branches_is_set_aside_and_merge_fix_undoes(
 @pytest.mark.parametrize("ours_moved", [False, True])
 def test_b_a_hand_drawn_harness_and_the_place_of_its_loose_end(tmp_path, clock, capsys, ours_moved):
     start(tmp_path)
-    branch(tmp_path, "ann", cable("PCDU1-J02"), mark("pos:W003-P2", 40.0))
+    branch(tmp_path, "ann", [cable("PCDU1-J02"), mark("pos:W003-P2", 40.0)])
     if ours_moved:
-        branch(tmp_path, "bob", cable("OBC1-J02"), mark("pos:W003-P2", -25.0))
+        branch(tmp_path, "bob", [cable("OBC1-J02"), mark("pos:W003-P2", -25.0)])
     else:
-        branch(tmp_path, "bob", cable("OBC1-J02"))
+        branch(tmp_path, "bob", [cable("OBC1-J02")])
     design = merge(tmp_path)
     expected = ["physical/harnesses/W003.json"] + (["diagram/marks.json"] if ours_moved else [])
     assert conflict_files(design) == sorted(expected)
@@ -410,8 +412,8 @@ def test_c_the_other_branchs_link_gets_the_next_free_id(tmp_path, clock, capsys,
         ("OBC1-J03", "PCDU1-J03"), ("OBC1-J02", "PCDU1-J02"),
     ]  # fmt: skip
     new_id = f"L{existing + 1}"
-    branch(tmp_path, "ann", link(*pairs[0], [("3", "3")]), mark(f"bend:{new_id}", 12.0))
-    branch(tmp_path, "bob", link(*pairs[1], [("4", "4")]))
+    branch(tmp_path, "ann", [link(*pairs[0], [("3", "3")]), mark(f"bend:{new_id}", 12.0)])
+    branch(tmp_path, "bob", [link(*pairs[1], [("4", "4")])])
     design = merge(tmp_path)
     assert "logical/links.json" in conflict_files(design)
     capsys.readouterr()
@@ -430,8 +432,8 @@ def test_c_the_other_branchs_link_gets_the_next_free_id(tmp_path, clock, capsys,
 
 def test_c_and_b_a_link_and_the_harness_made_from_it_on_each_branch(tmp_path, clock, capsys):
     start(tmp_path)
-    branch(tmp_path, "ann", link("OBC1-J03", "PCDU1-J03"), harness_from("L1"))
-    branch(tmp_path, "bob", link("OBC1-J02", "PCDU1-J02"), harness_from("L1"))
+    branch(tmp_path, "ann", [link("OBC1-J03", "PCDU1-J03"), harness_from("L1")])
+    branch(tmp_path, "bob", [link("OBC1-J02", "PCDU1-J02"), harness_from("L1")])
     design = merge(tmp_path)
     assert conflict_files(design) == ["logical/links.json", "physical/harnesses/W003.json"]
     capsys.readouterr()
@@ -453,8 +455,8 @@ def test_a_link_that_merged_without_a_conflict_is_told_apart_by_this_branchs_com
     without a conflict (the two changes are far apart), both links name W003, and only the commit
     of HEAD tells which is Bob's."""
     start(tmp_path, links=2)
-    branch(tmp_path, "ann", harness_from("L2"))
-    branch(tmp_path, "bob", harness_from("L1"))
+    branch(tmp_path, "ann", [harness_from("L2")])
+    branch(tmp_path, "bob", [harness_from("L1")])
     design = merge(tmp_path)
     assert conflict_files(design) == ["physical/harnesses/W003.json"]
     capsys.readouterr()
@@ -473,8 +475,8 @@ def test_a_waiver_of_the_other_branch_follows_the_new_id_and_must_be_given_again
     tmp_path, clock, capsys
 ):
     start(tmp_path)
-    branch(tmp_path, "ann", cable("PCDU1-J02"), waive("W003-001"))
-    branch(tmp_path, "bob", cable("OBC1-J02"), waive("W003-002"))
+    branch(tmp_path, "ann", [cable("PCDU1-J02"), waive("W003-001")])
+    branch(tmp_path, "bob", [cable("OBC1-J02"), waive("W003-002")])
     design = merge(tmp_path)
     capsys.readouterr()
     assert main(["merge-fix", str(design)]) == 0
@@ -494,8 +496,8 @@ def test_a_harness_in_review_on_the_other_branch_is_not_renamed(tmp_path, clock,
         assert main(["review", str(design), "W003", "--by", "Ann"]) == 0
 
     start(tmp_path)
-    branch(tmp_path, "ann", cable("PCDU1-J02"), review)
-    branch(tmp_path, "bob", cable("OBC1-J02"))
+    branch(tmp_path, "ann", [cable("PCDU1-J02"), review])
+    branch(tmp_path, "bob", [cable("OBC1-J02")])
     design = merge(tmp_path)
     before = tree(design)
     capsys.readouterr()
@@ -527,8 +529,8 @@ def released(hid: str):
 
 def test_a_released_harness_is_not_renamed(tmp_path, clock, capsys):
     start(tmp_path)
-    branch(tmp_path, "ann", cable("PCDU1-J02"), released("W003"))
-    branch(tmp_path, "bob", cable("OBC1-J02"))
+    branch(tmp_path, "ann", [cable("PCDU1-J02"), released("W003")])
+    branch(tmp_path, "bob", [cable("OBC1-J02")])
     design = merge(tmp_path)
     assert (design / "baselines" / "W003").is_dir()
     before = tree(design)
@@ -550,8 +552,8 @@ def test_a_harness_changed_on_both_branches_is_not_an_id_collision(tmp_path, clo
         return step
 
     start(tmp_path)
-    branch(tmp_path, "ann", rename("Ann's note"))
-    branch(tmp_path, "bob", rename("Bob's note"))
+    branch(tmp_path, "ann", [rename("Ann's note")])
+    branch(tmp_path, "bob", [rename("Bob's note")])
     design = merge(tmp_path)
     before = tree(design)
     capsys.readouterr()
@@ -572,8 +574,8 @@ def test_a_link_changed_on_both_branches_is_refused(tmp_path, clock, capsys):
         return step
 
     start(tmp_path, links=1)
-    branch(tmp_path, "ann", note("Ann"))
-    branch(tmp_path, "bob", note("Bob"))
+    branch(tmp_path, "ann", [note("Ann")])
+    branch(tmp_path, "bob", [note("Bob")])
     design = merge(tmp_path)
     before = tree(design)
     capsys.readouterr()
@@ -586,8 +588,8 @@ def test_a_link_changed_on_both_branches_is_refused(tmp_path, clock, capsys):
 
 def test_a_baselined_link_is_not_renamed(tmp_path, clock, capsys):
     start(tmp_path)
-    branch(tmp_path, "ann", link("OBC1-J03", "PCDU1-J03"), harness_from("L1"), released("W003"))
-    branch(tmp_path, "bob", link("OBC1-J02", "PCDU1-J02"))
+    branch(tmp_path, "ann", [link("OBC1-J03", "PCDU1-J03"), harness_from("L1"), released("W003")])
+    branch(tmp_path, "bob", [link("OBC1-J02", "PCDU1-J02")])
     design = merge(tmp_path)
     assert conflict_files(design) == ["logical/links.json"]
     before = tree(design)
@@ -616,8 +618,8 @@ def test_the_same_harness_written_differently_is_kept_once(tmp_path, clock, caps
         path.write_text(json.dumps(json.loads(path.read_text()), indent=4, sort_keys=True))
 
     start(tmp_path)
-    branch(tmp_path, "ann", cable("OBC1-J02"), relayout)
-    branch(tmp_path, "bob", cable("OBC1-J02"))
+    branch(tmp_path, "ann", [cable("OBC1-J02"), relayout])
+    branch(tmp_path, "bob", [cable("OBC1-J02")])
     design = merge(tmp_path)
     assert conflict_files(design) == ["physical/harnesses/W003.json"]
     capsys.readouterr()
