@@ -61,7 +61,7 @@ A project can add rules of its own with an extension (a data file or a Python pl
 
 ## Also reported as errors
 
-Mismatches found by the independent verifier (`verify-mismatch`): a wire missing, extra, swapped or duplicated compared with the interfaces; a wire that starts and ends on the same pin (`wire_same_pin`) or joins two pins of the same end (`wire_same_end`); a wire label (`wire_signal_mismatch`) or a signal written on a cable connector pin (`cable_pin_mismatch`) that differs from the pinout, so two wires with exchanged pins are found. Fix: regenerate the harnesses.
+Mismatches found by the independent verifier (`verify-mismatch`): a wire missing, extra, swapped or duplicated compared with the interfaces; a wire that starts and ends on the same pin (`wire_same_pin`) or joins two pins of the same end (`wire_same_end`); a wire label (`wire_signal_mismatch`) or a signal written on a cable connector pin (`cable_pin_mismatch`) that differs from the pinout, so two wires with exchanged pins are found; an interface that uses the pins of two ports of one connector (`port_mixed`: a fixed pin `RS422_2_TX+` carries TX+ of the port RS422_2). Fix: regenerate the harnesses.
 
 The same rule name also reports a stale generation: the design changed after the harness plans were generated. Fix: generate again, then export again.
 

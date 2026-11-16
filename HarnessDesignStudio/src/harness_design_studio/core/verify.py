@@ -6,18 +6,20 @@ It reads the project as data (exactly what is saved), re-derives from the logica
 the harnesses must contain, and compares. If generation has a bug, this is where it shows.
 Checks: every logical signal appears end to end exactly once; both ends of every wire agree with
 the pinout tables (pins, the wire's signal label and the cable connector's own pin table); no pin
-is used twice; a shielded type has a shield group covering its wires; harness bookkeeping matches
-its wires; outputs are not stale. Wire gauge, colour and part are not checked (they are design
-choices, see the design rules). It never raises.
+is used twice; an interface uses the pins of one port of a connector (a fixed pin `RS422_2_TX+`
+carries TX+ of port RS422_2, read by a copy of the rule of `core/ports.py`); a shielded type has
+a shield group covering its wires; harness bookkeeping matches its wires; outputs are not stale.
+Wire gauge, colour and part are not checked (they are design choices, see the design rules). It
+never raises.
 """
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
 from .generation_status import generation_status
 from .issues import Issue
-from .model import Connector, Harness, Project, Wire
+from .model import Connector, Harness, InterfaceInstance, Pin, Project, Wire
 
 Endpoint = tuple[int, str]  # (end index of the interface, signal name at that end)
 Connection = frozenset[Endpoint]
@@ -89,6 +91,70 @@ def expected_connections(signals: Sequence[tuple[str, str]]) -> Counter[Connecti
         if direction in ("passive", "bidir") or name in leftover:
             need[frozenset({(0, name), (1, name)})] += 1
     return need
+
+
+# Port names (D-237). The verifier reads them with its own copy of the rule of `core/ports.py`
+# (`read_signal`), not with an import of it; `tests/test_ports_checks.py` compares the two.
+_PORT_SEPARATORS = ("_", ".", "-")
+
+PortReading = tuple[str, str, str, str]  # (port, signal, form, separator); port "" is bare
+
+
+def port_readings(name: str, signals: Iterable[str]) -> tuple[PortReading, ...]:
+    """Every way a fixed pin's name reads against the signal names of a type, sorted: a signal name
+    itself is the bare reading; `P<sep>t` and `t<sep>P` (sep `_`, `.` or `-`, P not empty) are
+    signal t of port P. One reading: the pin carries t. None, or two and more: it carries its own
+    name (no port is guessed)."""
+    names = set(signals)
+    if name in names:
+        return (("", name, "bare", ""),)
+    out: set[PortReading] = set()
+    for t in names:
+        if not t:
+            continue
+        for sep in _PORT_SEPARATORS:
+            tail, head = sep + t, t + sep
+            if len(name) > len(tail) and name.endswith(tail):
+                out.add((name[: -len(tail)], t, "prefix", sep))
+            if len(name) > len(head) and name.startswith(head):
+                out.add((name[len(head) :], t, "suffix", sep))
+    return tuple(sorted(out))
+
+
+def _carried(pin: Pin, signals: Sequence[str]) -> tuple[str | None, str | None]:
+    """(signal of the type, port) a box pin carries: a fixed pin `RS422_2_TX+` carries TX+ of port
+    RS422_2; a fixed pin with a signal name carries it in the bare port ""; any other pin carries
+    its own name and no port (None)."""
+    if pin.fixed and pin.signal:
+        found = port_readings(pin.signal, signals)
+        if len(found) == 1:
+            return found[0][1], found[0][0]
+    return pin.signal, None
+
+
+def _check_ports(
+    project: Project, rep: VerifyReport, i: InterfaceInstance, names: list[str]
+) -> None:
+    """An interface uses the pins of one port at each connector (`port_mixed`)."""
+    for cid in sorted({e.connector_id for e in i.endpoints if e.connector_id}):
+        box = project.connectors.get(cid)
+        if box is None:
+            continue
+        ports = {
+            port
+            for pin in box.pins
+            if pin.interface_id == i.id
+            for _sig, port in [_carried(pin, names)]
+            if port is not None
+        }
+        if len(ports) > 1:
+            shown = ", ".join(n or "pins named by the signal alone" for n in sorted(ports))
+            rep.error(
+                "port_mixed",
+                f"Interface {i.id} uses the pins of {len(ports)} ports on {cid} ({shown}); "
+                "an interface uses the pins of one port. Regenerate, or lock the pins of one port.",
+                i.id,
+            )
 
 
 def _cable_index(project: Project) -> dict[str, tuple[Harness, Connector]]:
@@ -203,7 +269,9 @@ def _wire_connection(
                 w.id,
             )
             return None
-        ends.append((idx, pin.signal))
+        itype = project.interface_types.get(i.type_id)
+        carried = _carried(pin, [s.name for s in itype.signals] if itype else [])[0]
+        ends.append((idx, carried or pin.signal))
     if ends[0] == ends[1]:
         if (w.from_connector, w.from_pin) != (w.to_connector, w.to_pin):  # else reported earlier
             rep.error(
@@ -357,6 +425,7 @@ def verify_project(project: Project) -> VerifyReport:
         ):
             continue  # not routable (reported elsewhere)
         rep.interfaces_checked += 1
+        _check_ports(project, rep, i, [s.name for s in itype.signals])
         need = expected_connections([(s.name, s.direction) for s in itype.signals])
         found: Counter[Connection] = Counter()
         unreadable = 0

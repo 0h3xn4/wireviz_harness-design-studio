@@ -1,11 +1,12 @@
 # Pin allocation and the choice of a connector
 
-This page explains why a signal is on a pin of a device connector, and why a connector is the connector of an interface. It is written from what the program does (`core/generate/pins.py`, `core/checks.py`), and the examples come from the `flatsat` example, where you can repeat them with `harness-design-studio explain DIR MTQ1-J01.1` (a pin) and `explain DIR GPSU1-J01` (a connector).
+This page explains why a signal is on a pin of a device connector, and why a connector is the connector of an interface. It is written from what the program does (`core/generate/pins.py`, `core/ports.py`, `core/checks.py`), and the examples come from the `flatsat` example, where you can repeat them with `harness-design-studio explain DIR MTQ1-J01.1` (a pin) and `explain DIR GPSU1-J01` (a connector).
 
 ## Contents
 
 - [What the tool decides](#what-the-tool-decides)
 - [The order](#the-order)
+- [Ports on a fixed pinout](#ports-on-a-fixed-pinout)
 - [The inputs and where they come from](#the-inputs-and-where-they-come-from)
 - [The assumptions it rests on](#the-assumptions-it-rests-on)
 - [A worked example](#a-worked-example)
@@ -27,8 +28,25 @@ On one device connector the interfaces are placed in this order:
 Inside that order each group of signals (a pair, a power block, a single signal) takes the **first free run of pins** in the order of the pin list, starting after the gap (this is the strategy `first_fit`; the setting `model.pin_fit_strategy` can choose `last_fit`, which fills from the last pin down, or `spread`, which leaves a free pin between interfaces, and `explain` names the one in force). A pair sits on neighbouring pins. Three things override the order:
 
 - a pin that is **locked** is never moved, and a pin held by a released harness stays;
-- a connector with a **fixed pinout** (the device design names every pin) gives each signal the free pin of its name;
+- a connector with a **fixed pinout** (the device design names every pin) gives each signal the free pin of its name, or the pins of one port (see below);
 - an earlier allocation is **kept** while it is still valid, so a small change makes a small difference.
+
+## Ports on a fixed pinout
+
+A connector with a fixed pinout can carry several interfaces of one type, one on each **port**. A port is part of the signal name of a pin (decision D-237): `RS422_2_TX+` is the signal TX+ of the port RS422_2. The prefix form `PORT<sep>SIGNAL` and the suffix form `SIGNAL<sep>PORT` are read, with the separator `_`, `.` or `-`. A pin named only by the signal (`TX+`) belongs to no named port. A port can be used when it has exactly one pin for each signal of the type.
+
+On such a connector each interface gets the pins of one port, all or nothing:
+
+1. An interface whose locked pins are in a port takes its other signals from that port. When the port has no free pin for a signal, Generate stops with an error that names the port and the signal. Locked pins in two ports are an error too. The pins of two ports are never mixed.
+2. An interface gets back the port it used at the last Generate, while that port is still free. So a second Generate changes nothing.
+3. Every other interface takes the free pins of the exact signal names, as 2.0.1 did. When they hold every signal, nothing changes: a project that generates at 2.0.1 generates the same.
+4. An interface that step 3 cannot place takes the first free complete port, in the order a person reads the names (`RS422_2` before `RS422_10`). Interfaces go in the order of their category, then by ID.
+
+A port that misses a signal or has two pins for one signal is not used; when no port is free, the error says why for each port (*port RS422_3 has no pin for RX-*). The explanation of a pin names its port: *TX+ of IF-012 uses pin 5, the TX+ of port RS422_2 of OBC1-J1; an interface keeps the port it used before, else takes the first free RS-422 port (ports in name order, interfaces in ID order)*. `explain DIR CONNECTOR.PIN` adds the step *Port of the pin*.
+
+When two or more interfaces of one type need signal names that repeat on a connector (`TX+` on two pins), the tool cannot tell which pins form one port. It keeps the assignment of 2.0.1 and adds the warning `pin_port_unknown`: name the ports (`P1_TX+`, `P2_TX+`) or lock the pins of each port.
+
+The design rules `signal-unassigned` and `direction-conflict` read the signal of a port pin, and so does the independent verifier. The verifier reports `port_mixed` when one interface uses the pins of two ports of one connector.
 
 ## The inputs and where they come from
 
@@ -46,7 +64,7 @@ Inside that order each group of signals (a pair, a power block, a single signal)
 ## The assumptions it rests on
 
 - **A-PIN-ORDER.** The order of the categories and the gaps are settings.
-- **A-PIN-FIRST-FIT.** First fit in the order of the pin list (the default of the setting `model.pin_fit_strategy`; `last_fit` and `spread` are the alternatives, see [selectable models](selectable-models.md#pin-fit-strategy)); an earlier choice is kept while it was made by the same strategy; locks and fixed pinouts win. Neighbours are neighbours in the list of pins, not a measured position.
+- **A-PIN-FIRST-FIT.** First fit in the order of the pin list (the default of the setting `model.pin_fit_strategy`; `last_fit` and `spread` are the alternatives, see [selectable models](selectable-models.md#pin-fit-strategy)); an earlier choice is kept while it was made by the same strategy; locks and fixed pinouts win. On a fixed pinout the ports are taken in name order. Neighbours are neighbours in the list of pins, not a measured position.
 
 ## A worked example
 
