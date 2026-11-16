@@ -520,7 +520,9 @@ NOTICES_ABOUT = (
 SOURCE_OFFER = (
     "SOURCE CODE. For every component under the GNU General Public Licence or the GNU Lesser General Public "
     "Licence (Qt for Python and Qt, and the libraries of the operating system listed below) the corresponding "
-    "source code is offered: source archives are attached to the release page of this version, and the "
+    "source code is offered: the source archives are in the bundle "
+    "`harness-design-studio-<version>-release-bundle.tar` on the release page of this version (in its "
+    "folder `sources/`, listed in `SOURCES.txt`; `<version>` is the version at the top of this file), and the "
     "package sources of the libraries named `Debian package` are in the Ubuntu 24.04 archive "
     "(https://archive.ubuntu.com/ubuntu/pool/) under the version given here. This offer is valid for at least "
     "three years after the release. The libraries are separate files in this package; you may replace them "

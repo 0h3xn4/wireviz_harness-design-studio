@@ -29,7 +29,8 @@ DELIVERABLE_SUFFIXES = (
     ".tar.gz",
     ".exe",
     ".zip",
-)  # Linux, Windows (setup, portable)
+    "-release-bundle.tar",
+)  # Linux, Windows (setup, portable), and from 2.0.1 the release bundle (tools/release_bundle.py, D-232)
 
 
 def sha256(path: Path) -> str:
