@@ -219,7 +219,8 @@ def test_merge_fix_refuses_when_another_file_conflicts(
 def test_two_new_connections_get_the_same_id_and_conflict_in_links_json(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A-23, as the manual says it: merge-fix leaves this to the people (the IDs are not changed)."""
+    """A-23: both branches use the next free number. Since M7b (D-231) merge-fix keeps this
+    branch's L1 and gives the other branch's link the next free ID (`tests/test_merge_ids.py`)."""
     from harness_design_studio.core.commands import apply_ops
     from harness_design_studio.core.io.loader import load_project
     from harness_design_studio.core.io.saver import save_project
@@ -244,11 +245,11 @@ def test_two_new_connections_get_the_same_id_and_conflict_in_links_json(
         git(tmp_path, "commit", "-q", "-m", name)
     assert git(tmp_path, "merge", "ann", check=False).returncode != 0
     assert conflict_files(design) == ["logical/links.json"]
-    before = tree(design)
     capsys.readouterr()
-    assert main(["merge-fix", str(design)]) == 1
-    assert "logical/links.json" in capsys.readouterr().err
-    assert tree(design) == before
+    assert main(["merge-fix", str(design)]) == 0
+    assert "  link L1 -> L2\n" in capsys.readouterr().out
+    links = {x.id: x for x in load_project(design).project.links.values()}
+    assert (links["L1"].a_connector, links["L2"].a_connector) == ("PCDU-J02", "OBC-J01")
 
 
 @needs_git

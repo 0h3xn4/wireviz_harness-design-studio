@@ -56,7 +56,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `export-data` | `ok`, `count`, `model_hash`, `files`, `run_record` |
 | `generate` | `ok`, `saved`, `added`, `changed`, `unchanged`, `removed`, `frozen`, `kept_locks`, `findings`, `interfaces_checked`, `wires_checked`, `verify_issues` |
 | `export` | `ok`, `written`, `blocked`, `model_hash`, `drawings_removed`, `file_count`, `files`, `issues` |
-| `merge-fix` | `ok`, `result`, `conflicts`, `problem`, `generate`, `check` |
+| `merge-fix` | `ok`, `result`, `conflicts`, `problem`, `generate`, `check`, `dry_run`, `renamed` |
 | `config` | `ok`, `set_count`, `total`, `values`, `problems`, `placeholder_files`, `waiting_for_decision`, `counterpart_pairs`, `release_distinct_roles`, `comment_warnings`, `changes` |
 | `library` | `ok`, `name`, `version`, `source`, `date`, `changed` |
 | `import-parts` | `ok`, `dry_run`, `changed`, `ready`, `problems`, `rows`, `library`, `import` |
@@ -448,13 +448,14 @@ harness-design-studio export-data my-design --out my-design-data --run-record --
 
 ### harness-design-studio merge-fix
 
-After a Git merge. When two people each pressed Generate, `generated/generation.json` conflicts: this command keeps this branch's version of that file, then runs `generate` (which writes the record again for the merged design) and `check`. When both added entries to the change journal (`journal.jsonl`), Git keeps the lines of both (`merge=union` in `.gitattributes`); if it stopped on the journal instead, this command keeps both sides' lines. Then it adds one `merge` entry to the journal that names the last entry of each side. It refuses, and changes nothing, when any other file of the project is in conflict, and it writes nothing itself apart from that record, the journal and what `generate` writes. Commit the result afterwards.
+After a Git merge. When two people each pressed Generate, `generated/generation.json` conflicts: this command keeps this branch's version of that file, then runs `generate` (which writes the record again for the merged design) and `check`. When both added entries to the change journal (`journal.jsonl`), Git keeps the lines of both (`merge=union` in `.gitattributes`); if it stopped on the journal instead, this command keeps both sides' lines. Then it adds one `merge` entry to the journal that names the last entry of each side. When both branches made a harness or a link with the same ID (`W005`, `L7`) and different content, this branch's keeps the ID and the other branch's gets the next free one, with the IDs inside the harness and every link, waiver and diagram mark of the other branch that names it; it prints each rename and adds one journal entry that names them. It refuses to rename a harness or link with a release history (released IDs never change). It refuses, and changes nothing, when any other file of the project is in conflict, and it writes nothing itself apart from those files, the journal and what `generate` writes. Commit the result afterwards.
 
 `harness-design-studio merge-fix project [options]`
 
 | Argument | Meaning |
 | --- | --- |
 | `project` | project folder |
+| `--dry-run` | show what merge-fix would do (the files it resolves, the renames) and write nothing |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
 
 Examples:

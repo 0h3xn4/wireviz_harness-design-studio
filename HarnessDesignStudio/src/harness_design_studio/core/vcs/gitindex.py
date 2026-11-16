@@ -9,6 +9,11 @@ starts the `git` program (D-164). Nothing is written. A damaged or unknown index
 that says the file is still in conflict.
 
     unmerged_paths(project_folder)    # ["generated/generation.json"], [] or None, relative to the folder
+    conflict_stages(project_folder)   # {"physical/harnesses/W005.json": {2: sha, 3: sha}} or None
+
+The stages of a path in conflict (M7b, D-231): 1 is the version both branches started from, 2 ours
+(the branch you are on), 3 theirs (the branch being merged). A path with 2 and 3 but no 1 was added
+on both branches (Git's "add/add").
 """
 
 import struct
@@ -16,7 +21,7 @@ from pathlib import Path
 
 from harness_design_studio.core.vcs.gitinfo import find_work_tree
 
-__all__ = ["unmerged_paths"]
+__all__ = ["conflict_stages", "unmerged_paths"]
 
 MAX_INDEX = 256 << 20  # an index larger than this is not read
 _FIXED = 62  # bytes of an entry before its name: times, numbers, hash (SHA-1), flags
@@ -49,13 +54,44 @@ def unmerged_paths(start: Path) -> list[str] | None:
     return sorted({n[len(prefix) :] for n in names if n.startswith(prefix)})
 
 
+def conflict_stages(start: Path) -> dict[str, dict[int, str]] | None:
+    """The paths in conflict at or below `start` (relative to it, with "/"), each with the object
+    id (40 hexadecimal characters) of each of its stages. {} when there is none; None when there is
+    no repository or its index cannot be read."""
+    found = find_work_tree(start)
+    if found is None:
+        return None
+    work, git_dir, _ = found
+    index = git_dir / "index"
+    try:
+        if not index.is_file():
+            return {}
+        if index.stat().st_size > MAX_INDEX:
+            return None
+        entries = _entries(index.read_bytes())
+        base = start.resolve().relative_to(work).as_posix()
+    except _Unreadable, OSError, ValueError, UnicodeError, struct.error, IndexError:
+        return None
+    prefix = "" if base == "." else base + "/"
+    out: dict[str, dict[int, str]] = {}
+    for name, stage, sha in entries:
+        if stage and name.startswith(prefix):
+            out.setdefault(name[len(prefix) :], {})[stage] = sha
+    return {k: out[k] for k in sorted(out)}
+
+
 def _conflicted(data: bytes) -> list[str]:
+    return [name for name, stage, _ in _entries(data) if stage]
+
+
+def _entries(data: bytes) -> list[tuple[str, int, str]]:
+    """Every entry of the index: (path, stage, object id)."""
     if data[:4] != b"DIRC" or len(data) < 12:
         raise _Unreadable("header")
     version, count = struct.unpack(">II", data[4:12])
     if version not in (2, 3, 4):
         raise _Unreadable("version")
-    out: list[str] = []
+    out: list[tuple[str, int, str]] = []
     pos, previous = 12, b""
     for _ in range(count):
         start = pos
@@ -80,8 +116,8 @@ def _conflicted(data: bytes) -> list[str]:
             pos = start + ((fixed + len(name) + 8) & ~7)  # padded to a multiple of 8, 1 to 8 NULs
         if pos > len(data):
             raise _Unreadable("entry")
-        if (flags >> 12) & 3:
-            out.append(name.decode("utf-8", errors="replace"))
+        sha = data[start + 40 : start + 60].hex()
+        out.append((name.decode("utf-8", errors="replace"), (flags >> 12) & 3, sha))
     return out
 
 

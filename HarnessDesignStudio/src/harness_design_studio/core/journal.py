@@ -70,6 +70,7 @@ __all__ = [
     "files_hash",
     "history",
     "merge_rows",
+    "rename_rows",
     "merged",
     "now",
     "render",
@@ -206,6 +207,28 @@ def merge_rows(journal: Journal) -> list[Row]:
             None,
             {"heads": names},
             f"Merged the journal of {len(names)} lines of work (merge-fix).",
+        )
+    ]
+
+
+def rename_rows(renamed: Mapping[str, str]) -> list[Row]:
+    """The one entry that records the IDs `merge-fix` renamed after a merge (M7b, D-231): two
+    branches each made a harness or a link with the same ID, and the other branch's got a new one.
+    An `edit` of the object `project`, field `ids`, `new` = `{"renamed": {old: new}}`: a kind every
+    reader accepts, so nothing about it needs a new file format. [] when nothing was renamed."""
+    if not renamed:
+        return []
+    pairs = sorted(renamed.items())
+    said = ", ".join(f"{old} -> {new}" for old, new in pairs)
+    return [
+        _row(
+            "edit",
+            "project",
+            "ids",
+            None,
+            {"renamed": dict(pairs)},
+            f"merge-fix renamed IDs that both branches of a merge made: {said}. The renamed "
+            "ones are the other branch's; this branch's keep their IDs.",
         )
     ]
 
