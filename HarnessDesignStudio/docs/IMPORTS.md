@@ -44,7 +44,42 @@ Until the values exist, wire gauges stay "pending", the affected checks say "not
 
 The import **echoes every value it converts**: the value as written, the unit it was read in and the metres that were stored, on the line of its row (`row 2: OK W001 / W001-L1: 850 mm = 0.85 m`). A bare `5.0` in a file without `--unit` is read as millimetres and shows as `5.0 mm = 0.005 m`; the line `Unit: length in mm (assumed; --unit says another).` says that the unit was assumed, and `Unit: length in in (given with --unit).` that it was given. A row that is dropped says why (`row 3: ERROR Harness 'W009' does not exist`), and a column beyond the third is named in a warning, because the columns are read by position.
 
+## Device pinouts and KiCad netlists
+
 Device pinouts from a spreadsheet: `harness-design-studio import-pinout DIR FILE --device D [--new-device NAME] [--default-part PART] [--part J1=PART] [--column FIELD=HEADING] [--replace] [--dry-run]`, or **File > Import > Import device pinout…**. One row is one pin. The headings are matched by name (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Function, Direction, Part, Gender); a column the project cannot hold (a description, remarks, a voltage) is named in a warning and left out. A *Direction* column (also `Dir`, `Pin direction`, `IO mode`) is read since 1.9.0: `in`, `out` or `bidirectional` (also Input, Output, I/O, inout); an empty cell, `n/a` or `passive` leaves the direction unset; any other word (Power, Ground ...) stops the whole import with the row named, because a direction is never guessed. A new connector needs a library part. A bad row stops the whole import. Every column that is not read is named in a warning. `harness-design-studio export-pinout DIR --device U` writes the pinout of a device in the same shape, and its CSV and XLSX can be read back (the comment line and the About sheet of the tool's own files are skipped). User manual: [define a device](user-manual/define-a-device.md). The heading *Cable contact* (or *Contact part*) names the contact part of the cable side of a pin (since 1.7.0).
+
+**Ports in a pinout (since 2.1.0, decision D-237).** A connector can carry several interfaces of one type, one per port ([the design of 2.1.0](ait/DESIGN_2.1_PORTS.md)). A port is part of the signal name: `RS422_2_TX+` is the signal TX+ of the port RS422_2. An optional *Port* column (also *Port name*, *Port ID*, or `--column port=HEADING`) names the port of each pin, and the import writes it into the signal: port `RS422_2` and signal `TX+` give `RS422_2_TX+`. A row with an empty port keeps its signal as it is. Which interface type a port belongs to is read from the signal, against the types the connector can carry: the types it names (*Carries*), or every interface type of the project when it names none. The rule per row:
+
+- The signal is a signal of one of these types (`TX+`): the pin gets `PORT_SIGNAL`. The port name must read back as that port for each such type, else the row is refused (`RX+` cannot be a port of RS-422: `RX+_TX+` reads as two signals).
+- The signal already names this port (`RS422_2_TX+`, or `TX+.RS422_2`): it is kept as it is.
+- The signal names another port (`RS422_1_TX+` with the port `RS422_2`): the row is refused.
+- The signal is no signal of these types in any form (`HEATER`): it is imported as it is, as before 2.1.0, with a warning. The port is not added to a name the tool cannot read.
+
+A row with a port and no signal is refused, and so is a composed name longer than 200 characters. A refused row stops the whole import, as any other bad row. Only fixed pins form ports, so give the pins the mode `fixed`; a warning names pins that name a port but are not fixed. The preview lists the ports of each connector, and `--json` has them under `ports` (per connector and type: each port with its pins, whether it can be used, the missing and doubled signals, and the notes):
+
+```
+GYRO1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)
+```
+
+Ethernet and RS-422 have the same signal names, so a connector that carries no type lists both; give the connector *Carries* to see one. An incomplete port (no `RX-`), a port with two pins for one signal and a pin that reads in two ways (`TX+_RX-`) are warnings: Generate does not use them. A file for a connector with three RS-422 ports:
+
+```
+Connector,Pin,Port,Signal,Mode
+J1,1,RS422_1,TX+,fixed
+J1,2,RS422_1,TX-,fixed
+J1,3,RS422_1,RX+,fixed
+J1,4,RS422_1,RX-,fixed
+J1,5,RS422_2,TX+,fixed
+J1,6,RS422_2,TX-,fixed
+J1,7,RS422_2,RX+,fixed
+J1,8,RS422_2,RX-,fixed
+J1,9,RS422_3,TX+,fixed
+J1,10,RS422_3,TX-,fixed
+J1,11,RS422_3,RX+,fixed
+J1,12,RS422_3,RX-,fixed
+```
+
+`export-pinout` writes the composed names (`RS422_2_TX+`) and no Port column, and `import-pinout` reads them back as they are. The list of signals that match no interface type reads port names too: `RS422_2_TX+` is the RS-422 signal TX+ and is not listed. Before 2.1.0 a column headed *Port* was not read; now it is.
 
 KiCad: it is used for the electronics inside each device, so it is where each device connector's pinout comes from. It has no harness segment lengths; those come from a plain table as above. The connector pinouts are read from a KiCad netlist with `harness-design-studio import-netlist` (see `docs/KICAD.md`). The import record keeps what the netlist says that the pins have no field for: the KiCad **pin type** of every imported pin (`OBC1-J01.3` is `power_in`) and the name of the **schematic** the netlist was made from (the file name only; KiCad writes a path, which is not kept). The component value and the footprint are named as not imported. With `--pin-direction` the pin types `input`, `output` and `bidirectional` also fill the direction (`in`, `out`, `bidir`) of a pin that has none; the other types (`passive`, `power_in` ...) say nothing about a direction and set nothing.
 

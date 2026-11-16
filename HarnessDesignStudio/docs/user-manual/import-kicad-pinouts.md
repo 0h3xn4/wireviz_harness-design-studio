@@ -43,6 +43,7 @@ What the options mean:
 - `--connector J1=RW1-J01` says which connector of the device a KiCad reference becomes. A field called `HarnessConnector` on the KiCad symbol does the same; the practice netlist has it, so `--connector` is optional there.
 - `--part J1=PART-ID` chooses the library part of a new connector. A KiCad field `HarnessPart` does the same.
 - `--signal-map` renames KiCad net names to the signal names of the interface type. Either pairs (`--signal-map CAN_H=CANH --signal-map CAN_L=CANL`) or a file of pairs (`--signal-map my-templates/signal-map.csv`). Names that match nothing are listed. They are never guessed.
+- Keep net names that name a port, such as `RS422_2_TX+` (since 2.1.0). It is the signal TX+ of the port RS422_2, so it is not listed as a name that matches nothing. Do not map it to `TX+` with `--signal-map`: Generate needs the port to give each interface the pins of one port.
 - `--pin-function` takes the pin names of the symbol (for example `CAN_H`) as the signals, in place of the net names.
 - `--pin-direction` also sets the direction of a pin that has none from the KiCad pin type: `input` becomes `in`, `output` becomes `out`, `bidirectional` becomes `bidir`. The other types (`passive`, `power_in`, `open_collector` ...) do not say which way a signal runs, so they set nothing. A direction that is set already is kept. Without the option no direction is set.
 
