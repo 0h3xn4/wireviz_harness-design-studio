@@ -13,7 +13,10 @@ changelog section folded away, and the SHA-256 table. `--root` is the `HarnessDe
 of the tagged checkout (default: this one); the highlights file is looked for there first and then
 here, so that the notes of an older tag can be written again with a newer version of this script.
 `complete` fails unless SHA256SUMS lists a file of every kind in PACKAGES (the .deb, the .tar.gz,
-and the Windows setup program and zip): a release that lacks one is not made.
+and the Windows setup program and zip): a release that lacks one is not made. From `BUNDLED_FROM`
+(2.0.1, decision D-232) on it also fails unless SHA256SUMS lists the release bundle and the bundle
+beside SHA256SUMS holds what it must (`tools/release_bundle.py`); the page text says where the
+signatures, the SBOMs, the notices and the sources are. Older versions keep the text they had.
 """
 
 from __future__ import annotations
@@ -31,10 +34,12 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from harness_design_studio.core import legal_texts  # noqa: E402
+from tools import release_bundle  # noqa: E402
 from tools.release_check import unreleased_text  # noqa: E402
 
 REPO_URL = "https://github.com/0h3xn4/wireviz_harness-design-studio"
 SIGNED_FROM = (1, 17, 1)  # the first release made by the workflow that signs (decision D-213)
+BUNDLED_FROM = (2, 0, 1)  # the first release whose page holds the bundle (decision D-232)
 CAVEAT_UNSIGNED = (
     "The packages are not signed, the configuration values are placeholders and the parts are "
     "example parts: this release is not a statement of compliance with any standard."
@@ -52,10 +57,20 @@ COSIGN_VERIFY = (
 )
 
 
+def _from(version: str, first: tuple[int, int, int]) -> bool:
+    parts = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
+    return parts is not None and tuple(int(p) for p in parts.groups()) >= first
+
+
 def is_signed(version: str) -> bool:
     """Releases from `SIGNED_FROM` on are signed and attested; earlier ones are not."""
-    parts = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
-    return parts is not None and tuple(int(p) for p in parts.groups()) >= SIGNED_FROM
+    return _from(version, SIGNED_FROM)
+
+
+def is_bundled(version: str) -> bool:
+    """Releases from `BUNDLED_FROM` on carry the packages, SHA256SUMS, its signature and one
+    bundle with everything else; earlier ones carry every file on its own (D-213, D-232)."""
+    return _from(version, BUNDLED_FROM)
 
 
 LEGAL_SECTION = (
@@ -207,8 +222,42 @@ def missing_packages(version: str, names: list[str]) -> list[str]:
     ]
 
 
+def missing_files(version: str, names: list[str]) -> list[str]:
+    """`missing_packages`, and from `BUNDLED_FROM` on the release bundle when `names` lacks it."""
+    absent = missing_packages(version, names)
+    bundle = release_bundle.bundle_name(version)
+    if is_bundled(version) and bundle not in names:
+        absent.append(bundle)
+    return absent
+
+
 def _first_paragraph(text: str) -> str:
     return text.strip().split("\n\n", 1)[0].strip()
+
+
+BUNDLE_LINE = (
+    "Everything else is in one archive, `{bundle}` (a plain tar file): the source of the LGPL and "
+    "GPL components, the SBOMs, the inventories and notices of the third-party components, the "
+    "signatures of the packages and the report of the offline audit, each in its own folder, with "
+    "a `README.txt`. You do not need it to install the program."
+)
+
+
+def _check_bundled(version: str, bundle: str) -> str:
+    """The signature part of *Check your download* from `BUNDLED_FROM` on (D-232)."""
+    sums = COSIGN_VERIFY.replace("<file>", "SHA256SUMS")
+    return (
+        f"`SHA256SUMS` lists the four packages and the bundle `{bundle}`. It is signed with "
+        "Sigstore; its signature, `SHA256SUMS.sigstore.json`, is on this page. Check it with "
+        f"`{sums}` (install cosign first): a valid signature and a matching checksum show that a "
+        "file is the one the release workflow made. The signature of each package "
+        "(`<file>.sigstore.json`) is in the folder `signatures/` of the bundle: put it beside the "
+        f"package and run `{COSIGN_VERIFY}`. The packages and `SHA256SUMS` also have a build "
+        "provenance attestation, checked on its own with "
+        "`gh attestation verify <file> --repo 0h3xn4/wireviz_harness-design-studio`; it needs no "
+        "file from the bundle. The same commands, per platform, are in "
+        f"[`INSTALL.md`]({REPO_URL}/blob/v{version}/HarnessDesignStudio/docs/INSTALL.md)."
+    )
 
 
 def notes(version: str, changelog: str, sums: str, highlights: str | None = None) -> str:
@@ -218,6 +267,8 @@ def notes(version: str, changelog: str, sums: str, highlights: str | None = None
     body = section(changelog, version) or ""
     lead = (highlights or "").strip() or _first_paragraph(body)
     signed = is_signed(version)
+    bundled = is_bundled(version)
+    bundle = release_bundle.bundle_name(version)
     parts = [INTRO, f"> {CAVEAT_SIGNED if signed else CAVEAT_UNSIGNED}"]
 
     if found:
@@ -225,7 +276,10 @@ def notes(version: str, changelog: str, sums: str, highlights: str | None = None
         for package, name in found:
             table.append(f"| {package.system} | `{name}` ({package.kind}) | {package.install} |")
         parts.append("## Download\n\n" + "\n".join(table))
-    other = [name for name in names if name not in {n for _, n in found}]
+    known = {n for _, n in found} | ({bundle} if bundled else set())
+    other = [name for name in names if name not in known]
+    if bundled and bundle in names:
+        parts.append(BUNDLE_LINE.format(bundle=bundle))
     if other:
         parts.append("Other files: " + ", ".join(f"`{name}`" for name in other) + ".")
 
@@ -252,26 +306,30 @@ def notes(version: str, changelog: str, sums: str, highlights: str | None = None
     keys = {package.key for package, _ in found}
     commands = []
     if keys & {"deb", "tar"} or not keys:
-        commands.append("`sha256sum -c SHA256SUMS` (Linux)")
+        check = "sha256sum -c SHA256SUMS" + (" --ignore-missing" if bundled else "")
+        commands.append(f"`{check}` (Linux)")
     if keys & {"win-setup", "win-zip"} or not keys:
         commands.append("`Get-FileHash <file> -Algorithm SHA256` in PowerShell (Windows)")
-    parts.append(
-        "## Check your download\n\n"
-        f"{sums_table}\n\n"
-        "Put the file you downloaded and `SHA256SUMS` in one folder, then run "
-        + ", ".join(commands)
-        + " and compare the result with the table. "
-        + (
+    if bundled:
+        signatures = _check_bundled(version, bundle)
+    elif signed:
+        signatures = (
             "Every file is also signed with Sigstore (the `.sigstore.json` file beside it) and has "
             "a build provenance attestation. Check the signature with "
             f"`{COSIGN_VERIFY}` (install cosign first) and the attestation with "
             "`gh attestation verify <file> --repo 0h3xn4/wireviz_harness-design-studio`. The "
             "same commands, per platform, are in "
             f"[`INSTALL.md`]({REPO_URL}/blob/v{version}/HarnessDesignStudio/docs/INSTALL.md)."
-            if signed
-            else "The packages are not signed, so this check is the only proof that a download "
-            "is intact."
         )
+    else:
+        signatures = "The packages are not signed, so this check is the only proof that a download is intact."
+    parts.append(
+        "## Check your download\n\n"
+        f"{sums_table}\n\n"
+        "Put the file you downloaded and `SHA256SUMS` in one folder, then run "
+        + ", ".join(commands)
+        + " and compare the result with the table. "
+        + signatures
     )
     parts.append(LEGAL_SECTION)
     parts.append(
@@ -309,11 +367,16 @@ def main(argv: list[str]) -> int:
             sys.stdout.write(f"{argv[1]}: version {version}, changelog section found\n")
         return 1 if found else 0
     if len(argv) == 2 and argv[0] == "complete":
-        names = [name for name, _ in parse_sums(Path(argv[1]).read_text(encoding="utf-8"))]
-        absent = missing_packages(version, names)
+        sums_file = Path(argv[1])
+        names = [name for name, _ in parse_sums(sums_file.read_text(encoding="utf-8"))]
+        absent = missing_files(version, names)
         for item in absent:
             sys.stderr.write(f"error: no file {item} in {argv[1]}\n")
-        return 1 if absent else 0
+        bundle = sums_file.parent / release_bundle.bundle_name(version)
+        wrong = release_bundle.problems(bundle, version) if is_bundled(version) else []
+        for item in wrong:
+            sys.stderr.write(f"error: the release bundle: {item}\n")
+        return 1 if absent or wrong else 0
     if len(argv) == 4 and argv[0] == "notes":
         # the highlights of an older tag may only exist in the newer checkout that runs this
         found = [p for p in problems(argv[1], version, changelog) if "highlights" not in p]

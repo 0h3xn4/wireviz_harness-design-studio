@@ -2,8 +2,10 @@ name: harness-design-studio sources
 
 # Runs the source step of the release workflow without a release: it builds the Linux package
 # the same way, makes its inventory, and fetches the corresponding source of the LGPL and GPL
-# components (tools/fetch_sources.py, decision D-213). It publishes nothing and keeps nothing
-# but a short listing. Before this workflow, the step ran only on a release tag, so each fix
+# components (tools/fetch_sources.py, decision D-213). Then it builds the release bundle from them
+# twice (tools/release_bundle.py, D-232), with stand-ins for the files only a release makes (the
+# Windows inventory, the signatures, the offline-audit report), checks it and compares the two
+# builds byte for byte. It publishes nothing and keeps nothing but a short listing. Before this workflow, the step ran only on a release tag, so each fix
 # needed a new release candidate (1.17.1rc1 and rc2 stopped there).
 on:
   pull_request:
@@ -11,6 +13,8 @@ on:
       - "HarnessDesignStudio/tools/fetch_sources.py"
       - "HarnessDesignStudio/tools/third_party.py"
       - "HarnessDesignStudio/tools/build_installer.py"
+      - "HarnessDesignStudio/tools/release_bundle.py"
+      - "HarnessDesignStudio/tools/release_notes.py"
       - ".github/workflows/harness-sources.yml"
       - ".github/workflows/release.yml"
   workflow_dispatch:
@@ -50,3 +54,23 @@ jobs:
           python -m tools.fetch_sources dist/legal/third-party-inventory-*-linux.json --out dist/sources
           cat dist/sources/SOURCES.txt
           du -sh dist/sources
+      - name: The release bundle, dry (as the release workflow, with stand-ins; nothing is published)
+        run: |
+          version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          for f in json md; do
+            echo "stand-in" > "dist/legal/third-party-inventory-${version}-windows.$f"
+            echo "stand-in" > "dist/offline-audit-${version}.$f"
+          done
+          echo "stand-in" > dist/legal/THIRD_PARTY_NOTICES-windows.txt
+          echo "{}" > "dist/legal/sbom-${version}-windows.cdx.json"
+          for f in "harness-design-studio_${version}_amd64.deb" "harness-design-studio-${version}-linux-x86_64.tar.gz" \
+                   "harness-design-studio-${version}-windows-x86_64-setup.exe" "harness-design-studio-${version}-windows-x86_64.zip" \
+                   "sbom-${version}-linux.cdx.json" "sbom-${version}-windows.cdx.json"; do
+            echo "{}" > "dist/$f.sigstore.json"
+          done
+          python -m tools.release_bundle build dist --version "$version" --out "$RUNNER_TEMP/a.tar"
+          python -m tools.release_bundle build dist --version "$version" --out "$RUNNER_TEMP/b.tar"
+          cmp "$RUNNER_TEMP/a.tar" "$RUNNER_TEMP/b.tar"
+          python -m tools.release_bundle check "$RUNNER_TEMP/a.tar" --version "$version"
+          tar -tvf "$RUNNER_TEMP/a.tar" | grep -v '/sources/'
+          ls -l "$RUNNER_TEMP/a.tar"
