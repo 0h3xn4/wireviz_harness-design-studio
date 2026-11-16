@@ -47,6 +47,7 @@ from .model.logical import Category, Construction, Direction, Shielding, Side
 from .model.physical import TBD_PART_ID, Gender, PinDirection, PinRole, Termination
 from .outputs.stamp import Table
 from .outputs.tables import box_pinouts
+from .ports import ports_of, read_signal
 from .vcs.lockview import LockRef, field_lock_reason, lock_reason, locked_objects
 from .vcs.snapshot import carried_interfaces, wire_pins
 
@@ -1048,13 +1049,16 @@ def ops_paste_rows(
 
 
 def suggest_carries(project: Project, connector_id: str) -> list[str]:
-    """Interface types whose signals are all on the pins of this connector, sorted by ID."""
+    """Interface types whose signals are all on the pins of this connector, by their exact names
+    or as a complete named port of a fixed pinout (`RS422_2_TX+` ..., D-237), sorted by ID."""
     c = _box(project, connector_id)
     have = {p.signal for p in c.pins if p.signal}
+    fixed = _fixed_pinout(c)
     return sorted(
         t.id
         for t in project.interface_types.values()
-        if t.signals and {s.name for s in t.signals} <= have
+        if t.signals
+        and ({s.name for s in t.signals} <= have or (fixed and bool(ports_of(c, t).usable)))
     )
 
 
@@ -1268,7 +1272,7 @@ def pinout_table(project: Project, unit_id: str) -> Table:
 
 @dataclass(frozen=True)
 class PinProblem:
-    check: str  # "CD-K1" ... "CD-K8"
+    check: str  # "CD-K1" ... "CD-K9"
     code: str
     severity: Severity
     message: str
@@ -1288,8 +1292,10 @@ def _interface_has_end(i: InterfaceInstance, unit_id: str | None, connector_id: 
 
 
 def pinout_problems(project: Project, connector_id: str) -> list[PinProblem]:
-    """The inline notes about one box connector (CD-K1 to CD-K8), worst first, then in pin order.
-    None of them is a design rule; they are shown under the pin table."""
+    """The inline notes about one box connector (CD-K1 to CD-K9), worst first, then in pin order.
+    None of them is a design rule; they are shown under the pin table. On a fixed pinout they read
+    port names (D-237, `core/ports.py`): a fixed pin `RS422_2_TX+` is TX+ of port RS422_2, a type
+    with a complete named port is complete, and CD-K9 says what is wrong with a port."""
     c = _box(project, connector_id)
     out: list[PinProblem] = []
     pos = {p.id: k for k, p in enumerate(c.pins)}
@@ -1328,18 +1334,28 @@ def pinout_problems(project: Project, connector_id: str) -> list[PinProblem]:
             add("CD-K3", "signal_on_two_pins", "warning", f"The signal {sig} is on pins {', '.join(pins)}.", pins[1])  # fmt: skip
     known = {s.name for t in project.interface_types.values() for s in t.signals}
     folded = {k.casefold(): k for k in known}
+    type_names = {t.id: [s.name for s in t.signals] for t in project.interface_types.values()}
+    fixed = _fixed_pinout(c)
+    ports = {t.id: ports_of(c, t) for t in project.interface_types.values()} if fixed else {}
+
+    def reads(p: Pin) -> bool:
+        """A fixed pin whose name is a signal of a type in a port (`RS422_2_TX+`)."""
+        return bool(p.fixed and p.signal) and any(
+            read_signal(p.signal or "", names) for names in type_names.values()
+        )
+
     for p in c.pins:
-        if p.signal and p.signal not in known and p.interface_id is None:
+        if p.signal and p.signal not in known and p.interface_id is None and not reads(p):
             near = folded.get(p.signal.casefold())
             hint = f" Did you mean {near}?" if near else ""
             add("CD-K4", "signal_unknown", "info", f"No interface type has a signal called '{p.signal}', so nothing can connect to pin {p.id}.{hint}", p.id)  # fmt: skip
     # CD-K5 and CD-K8: interface types on a fixed pinout
-    if _fixed_pinout(c):
+    if fixed:
         have = set(by_signal)
         complete = {
             t.id
             for t in project.interface_types.values()
-            if t.signals and {s.name for s in t.signals} <= have
+            if t.signals and ({s.name for s in t.signals} <= have or ports[t.id].usable)
         }
         explained = {
             s.name for t in project.interface_types.values() if t.id in complete for s in t.signals
@@ -1354,9 +1370,20 @@ def pinout_problems(project: Project, connector_id: str) -> list[PinProblem]:
             add("CD-K5", "interface_incomplete", "warning", f"{', '.join(present)} of {t.name} {'is' if len(present) == 1 else 'are'} here but {', '.join(gone)} has no pin on {c.id}.", first)  # fmt: skip
         for tid in c.carries:
             carried_t = project.interface_types.get(tid)
-            if carried_t is not None and tid not in complete:
+            if carried_t is not None and tid not in complete and not ports[tid].named:
                 gone = [s.name for s in carried_t.signals if s.name not in have]
                 add("CD-K8", "carries_incomplete", "warning", f"{c.id} is meant for {carried_t.name}, but its pins have no {', '.join(gone)}.")  # fmt: skip
+        # CD-K9: ports that cannot be used (incomplete, doubled, written in two ways) and pins that
+        # read in two ways, for the types the connector carries (else the types it has a port of)
+        shown = [t for t in c.carries if t in ports] or [
+            t for t in sorted(ports) if ports[t].usable
+        ]
+        seen: set[str] = set()
+        for tid in shown:
+            for msg in ports[tid].notes:
+                if msg not in seen:
+                    seen.add(msg)
+                    add("CD-K9", "port_problem", "warning", msg, _note_pin(msg, c))
     # CD-K6: a locked pin and its interface
     for p in c.pins:
         if not (p.locked and p.interface_id):
@@ -1368,13 +1395,23 @@ def pinout_problems(project: Project, connector_id: str) -> list[PinProblem]:
         if not _interface_has_end(i, c.unit_id, c.id):
             add("CD-K6", "locked_pin_wrong_connector", "error", f"Pin {p.id} is locked to {i.id}, which does not end on {c.id}.", p.id)  # fmt: skip
         itype = project.interface_types.get(i.type_id)
-        if itype is not None and p.signal not in {s.name for s in itype.signals}:
+        names = [s.name for s in itype.signals] if itype is not None else []
+        bare_or_port = p.signal in names or (
+            p.fixed and len(read_signal(p.signal or "", names)) == 1
+        )
+        if itype is not None and not bare_or_port:
             add("CD-K6", "locked_pin_wrong_signal", "error", f"Pin {p.id} is locked to {i.id} with the signal {p.signal or '(none)'}, which is not a signal of {itype.name}.", p.id)  # fmt: skip
     # CD-K7: gender nobody states
     if c.gender == "unspecified" and part_gender(part) == "unspecified":
         add("CD-K7", "gender_unspecified", "warning", f"The gender of {c.id} is not set and {c.part_id} does not say it, so the cable end cannot be checked to fit.")  # fmt: skip
     out.sort(key=lambda x: (_RANK[x.severity], pos.get(x.pin_id or "", len(pos)), x.check))
     return out
+
+
+def _note_pin(message: str, c: Connector) -> str | None:
+    """The pin a port note is about: the pin it starts with (`Pin 5 of J01: ...`), else none."""
+    head = message.removeprefix("Pin ").split(" ", 1)[0]
+    return head if message.startswith("Pin ") and any(p.id == head for p in c.pins) else None
 
 
 # ---- the state of a device ---------------------------------------------------------------------
@@ -1586,8 +1623,11 @@ def ops_assign_pins(
 ) -> list[Op]:
     """Put an interface on pins: each pin becomes locked, with the interface and one signal of its
     type (the type's signals in order unless `signals` names one per pin). The interface must end
-    on this device; an end without a connector gets this one in the same step. A connector carries
-    one interface in the editor, so a connector another interface ends on is refused."""
+    on this device; an end without a connector gets this one in the same step. A connector can
+    carry several interfaces (D-237), but a pin carries one: a pin that another interface on this
+    connector holds is refused. A fixed pin keeps its signal and `fixed` (`RS422_2_TX+` stays), so
+    it must read as the signal it gets (`core/ports.py`), and the pins of two ports are never
+    mixed; a pin that is not fixed gets the bare signal name, as before."""
     _writable(project)
     c = _box(project, connector_id)
     i = project.interfaces.get(interface_id)
@@ -1605,11 +1645,6 @@ def ops_assign_pins(
         if fill is None:
             raise EditError(
                 f"{interface_id} ends on {i.endpoints[ends[0]].connector_id}, not on {connector_id}."
-            )
-        used = edit.interface_using(project, connector_id)
-        if used is not None and used.id != interface_id:
-            raise EditError(
-                f"{connector_id} already carries {used.id}. One interface per connector."
             )
         if not edit.carries(c, i.type_id):
             raise EditError(f"{connector_id} is not meant for {t.name}.")
@@ -1631,13 +1666,35 @@ def ops_assign_pins(
     missing = sorted(set(pin_ids) - {p.id for p in c.pins})
     if missing:
         raise EditError(f"{connector_id} has no pin '{missing[0]}'.")
+    type_signals = [s.name for s in t.signals]
+    ports: dict[str, str] = {}  # port name -> the first chosen pin in it (fixed pins only)
     pins = []
     for p in c.pins:
         if p.id in mapping:
             if why := pin_lock_reason(project, connector_id, p.id):
                 raise EditError(f"Pin {p.id} of {connector_id} cannot change. {why}")
-            p = evolve(p, signal=mapping[p.id], interface_id=interface_id, locked=True, fixed=False)
+            if (holder := _holder(project, c, p)) is not None and holder != interface_id:
+                raise EditError(f"Pin {p.id} carries {holder}; unassign it first.")
+            if p.fixed and p.signal:
+                found = read_signal(p.signal, type_signals)
+                if len(found) != 1 or found[0].signal != mapping[p.id]:
+                    raise EditError(
+                        f"Pin {p.id} is fixed as {p.signal}, which is not {mapping[p.id]} of"
+                        f" {t.name}. Choose the pin of {mapping[p.id]}."
+                    )
+                ports.setdefault(found[0].port, p.id)
+                p = evolve(p, interface_id=interface_id, locked=True)
+            else:
+                p = evolve(
+                    p, signal=mapping[p.id], interface_id=interface_id, locked=True, fixed=False
+                )
         pins.append(p)
+    if len(ports) > 1:
+        shown = ", ".join(name or "the pins named by the signal alone" for name in sorted(ports))
+        raise EditError(
+            f"Pins {' and '.join(ports.values())} are in {len(ports)} ports ({shown}); an"
+            " interface uses the pins of one port."
+        )
     ops: list[Op] = [Put("connectors", c.model_copy(update={"pins": pins}))]
     if fill is not None:
         eps = [
@@ -1646,6 +1703,49 @@ def ops_assign_pins(
         ]
         ops.append(Put("interfaces", evolve(i, endpoints=eps)))
     return ops
+
+
+def _holder(project: Project, c: Connector, pin: Pin) -> str | None:
+    """The interface a pin carries: its `interface_id` when that interface exists and ends on the
+    connector (a pin that Generate gave to an interface that has moved away holds nothing)."""
+    i = project.interfaces.get(pin.interface_id or "")
+    if i is None or not _interface_has_end(i, c.unit_id, c.id):
+        return None
+    return i.id
+
+
+def ops_assign_port(
+    project: Project, connector_id: str, port_name: str, interface_id: str
+) -> list[Op]:
+    """Put an interface on a named port of a fixed pinout (D-237, `core/ports.py`): the port's pins
+    become locked with the interface; `fixed` and the signal names stay. Refused when the port
+    cannot be used (incomplete, doubled, written in two ways), when a release locks one of its
+    pins (`pin_lock_reason`), or when another interface holds one of them. The rest is
+    `ops_assign_pins`: the interface must end on the device, and an end without a connector gets
+    this one in the same step."""
+    _writable(project)
+    c = _box(project, connector_id)
+    i = project.interfaces.get(interface_id)
+    if i is None:
+        raise EditError(f"Interface '{interface_id}' does not exist.")
+    t = project.interface_types.get(i.type_id)
+    if t is None:
+        raise EditError(f"Interface type '{i.type_id}' does not exist.")
+    found = ports_of(c, t)
+    port = found.port(port_name)
+    if port is None:
+        twice = sum(1 for x in found.named if x.name == port_name) > 1
+        if twice:
+            raise EditError(next(x for x in found.named if x.name == port_name).problems[0])
+        raise EditError(f"{connector_id} has no {t.name} port {port_name}.")
+    if not port.usable:
+        raise EditError(port.problems[0] if port.problems else f"Port {port_name} cannot be used.")
+    names = [s.name for s in t.signals]
+    pin_ids = [port.pin_of(sig) or "" for sig in names]
+    for pid in pin_ids:
+        if why := pin_lock_reason(project, connector_id, pid):
+            raise EditError(f"Port {port_name} of {connector_id} cannot change. {why}")
+    return ops_assign_pins(project, connector_id, pin_ids, interface_id, names)
 
 
 def ops_unassign_pins(project: Project, connector_id: str, pin_ids: Sequence[str]) -> list[Op]:
@@ -2040,6 +2140,7 @@ __all__ = [
     "suggest_device_id",
     "ops_update_device",
     "ops_assign_pins",
+    "ops_assign_port",
     "ops_unassign_pins",
     "ops_add_part",
     "ops_add_part_pair",

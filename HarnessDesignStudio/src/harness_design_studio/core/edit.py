@@ -9,7 +9,8 @@ edit is a transaction that is rolled back if it would leave the project inconsis
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -18,11 +19,13 @@ from .commands import Delete, Op, Put, SetConfig, SetZones
 from .describe import part_gender
 from .device_kinds import KIND_IDS
 from .errors import HarnessError
+from .generate.pins import Allocation, Request
 from .ids import check_id
 from .model import (
     Connector,
     Endpoint,
     InterfaceInstance,
+    InterfaceType,
     Link,
     Pin,
     Placement,
@@ -33,6 +36,10 @@ from .model import (
 from .model.base import Name
 from .model.config import ConfigFile
 from .model.physical import TBD_PART_ID
+from .ports import ports_of
+
+if TYPE_CHECKING:
+    from .generate.engine import PinRules
 
 LANE_WIDTH = 470.0
 LANE_X0 = 10.0
@@ -339,35 +346,50 @@ class Compat:
     ok: bool
     short: str = ""
     why: str = ""
+    # what the person should know although the connector can take the interface (not a refusal):
+    # a second harness plug on the connector, or a released harness that plugs into it (D-237)
+    note: str = ""
 
 
-_USED: tuple[tuple[InterfaceInstance, ...], dict[str, InterfaceInstance]] | None = None
+_USED: tuple[tuple[InterfaceInstance, ...], dict[str, tuple[InterfaceInstance, ...]]] | None = None
 
 
-def _used_connectors(project: Project) -> dict[str, InterfaceInstance]:
-    """Connector ID -> the first interface that ends on it. Built once and reused while the
-    interfaces are the same objects (they are immutable), so asking about every connector of a
-    large project does not scan all interfaces each time."""
+def _same(a: tuple[object, ...], b: tuple[object, ...]) -> bool:
+    """The same objects in the same order (entities are immutable, so this means nothing changed)."""
+    return len(a) == len(b) and all(x is y for x, y in zip(a, b, strict=True))
+
+
+def _used_connectors(project: Project) -> dict[str, tuple[InterfaceInstance, ...]]:
+    """Connector ID -> the interfaces that end on it, in the order of the project. Built once and
+    reused while the interfaces are the same objects (they are immutable), so asking about every
+    connector of a large project does not scan all interfaces each time."""
     global _USED
     current = tuple(project.interfaces.values())
     hit = _USED
-    if (
-        hit is not None
-        and len(hit[0]) == len(current)
-        and all(a is b for a, b in zip(hit[0], current, strict=True))
-    ):
+    if hit is not None and _same(hit[0], current):
         return hit[1]
-    index: dict[str, InterfaceInstance] = {}
+    found: dict[str, list[InterfaceInstance]] = {}
     for i in current:
         for e in i.endpoints:
             if e.connector_id is not None:
-                index.setdefault(e.connector_id, i)
+                on = found.setdefault(e.connector_id, [])
+                if not on or on[-1] is not i:
+                    on.append(i)
+    index = {cid: tuple(on) for cid, on in found.items()}
     _USED = (current, index)
     return index
 
 
 def interface_using(project: Project, connector_id: str) -> InterfaceInstance | None:
-    return _used_connectors(project).get(connector_id)
+    """The first interface that ends on the connector, or None. A connector can carry several
+    (D-237): `interfaces_using` gives them all."""
+    on = _used_connectors(project).get(connector_id)
+    return on[0] if on else None
+
+
+def interfaces_using(project: Project, connector_id: str) -> tuple[InterfaceInstance, ...]:
+    """Every interface that ends on the connector, in ID order."""
+    return tuple(sorted(_used_connectors(project).get(connector_id, ()), key=lambda i: i.id))
 
 
 def unit_connectors(project: Project, unit_id: str) -> list[Connector]:
@@ -381,23 +403,321 @@ def carries(connector: Connector, type_id: str) -> bool:
     return not connector.carries or type_id in connector.carries
 
 
+def fixed_pinout(connector: Connector) -> bool:
+    """The device design names the pins (a pin with `fixed` and a signal): Generate places the
+    signals by name, and a connector can hold several interfaces by ports (D-237)."""
+    return any(p.fixed and p.signal for p in connector.pins)
+
+
 def free_connectors(project: Project, unit_id: str, type_id: str) -> list[Connector]:
+    """The connectors of the device that carry the type and that no interface ends on (tier 1 of
+    the choice of a connector)."""
     used = _used_connectors(project)
     return [
         c for c in unit_connectors(project, unit_id) if carries(c, type_id) and c.id not in used
     ]
 
 
+# ---- room on a connector: a dry run of Generate's own pin allocation (D-237) ---------------------
+
+
+@dataclass(frozen=True)
+class Room:
+    """Whether one more interface of a type fits on a connector, by a dry run of the pin allocation
+    of Generate with every interface that ends on the connector and the new one."""
+
+    ok: bool
+    why: str = ""  # the refusal in plain words; "" when it fits
+    pins: tuple[tuple[str, str], ...] = ()  # (signal, pin) the new interface would get
+    port: str = ""  # the named port these pins form; "" for none (bare names or a free pinout)
+
+
+@dataclass
+class _RoomCache:
+    """The dry runs made while the project is the same objects (like `_USED`). A run and an answer
+    also keep the connector object they were made for, and count only while it is the same."""
+
+    token: tuple[tuple[object, ...], ...]
+    frozen: set[str] | None = None
+    rules: PinRules | None = None
+    next_id: str | None = None
+    runs: dict[tuple[str, str, str, str], tuple[Connector, Allocation]] = field(
+        default_factory=dict
+    )
+    answers: dict[tuple[str | None, ...], tuple[Connector, Compat]] = field(default_factory=dict)
+
+
+_ROOM: _RoomCache | None = None
+
+
+def _same_values(kept: tuple[object, ...], table: Mapping[str, object]) -> bool:
+    """`table` holds the objects of `kept`, in the same order (no tuple is built to compare)."""
+    return len(kept) == len(table) and all(
+        x is y for x, y in zip(kept, table.values(), strict=True)
+    )
+
+
+def _room_cache(project: Project) -> _RoomCache:
+    """The cache of dry runs, kept while every entity that the allocation and the notes read is the
+    same object: the interfaces, the harnesses, the interface types, the devices, the settings and
+    the generation record (the connector itself is checked per run). Asking about every connector
+    while the pointer moves costs one allocation per connector, once."""
+    global _ROOM
+    tables: tuple[Mapping[str, object], ...] = (
+        project.interfaces,
+        project.harnesses,
+        project.interface_types,
+        project.units,
+        project.config,
+    )
+    hit = _ROOM
+    if (
+        hit is not None
+        and all(_same_values(k, t) for k, t in zip(hit.token, tables, strict=False))
+        and hit.token[-1][0] is project.generation
+    ):
+        return hit
+    _ROOM = _RoomCache((*(tuple(t.values()) for t in tables), (project.generation,)))
+    return _ROOM
+
+
+def _dry_run(
+    cache: _RoomCache,
+    project: Project,
+    connector_id: str,
+    new_id: str,
+    type_id: str,
+    leave_out: str,
+) -> Allocation:
+    """The allocation Generate would make on the connector for the interfaces that end on it (not
+    `leave_out`), plus an interface `new_id` of `type_id` when one is given."""
+    from .generate import engine
+
+    box = project.connectors[connector_id]
+    key = (connector_id, new_id, type_id, leave_out)
+    hit = cache.runs.get(key)
+    if hit is not None and hit[0] is box:
+        return hit[1]
+    if cache.frozen is None:
+        cache.frozen = engine.frozen_interfaces(project)
+    if cache.rules is None:
+        cache.rules = engine.pin_rules(project)
+    requests = [
+        Request(i.id, project.interface_types[i.type_id])
+        for i in interfaces_using(project, connector_id)
+        if i.id != leave_out and i.id not in cache.frozen and i.type_id in project.interface_types
+    ]
+    if new_id:
+        requests.append(Request(new_id, project.interface_types[type_id]))
+    result = engine.allocate_box(project, box, requests, cache.frozen, cache.rules)
+    cache.runs[key] = (box, result)
+    return result
+
+
+def _new_interface_id(project: Project, cache: _RoomCache) -> str:
+    if cache.next_id is None:
+        cache.next_id = next_interface_id(project)
+    return cache.next_id
+
+
+def taken_pins(project: Project, connector_id: str) -> frozenset[str]:
+    """The pins of the connector that the interfaces ending on it hold in the dry run, and the
+    pins that must stay (locked, or of a released or hand-made harness)."""
+    c = project.connectors[connector_id]
+    cache = _room_cache(project)
+    run = _dry_run(cache, project, connector_id, "", "", "")
+    frozen = cache.frozen or set()
+    held = {p.id for p in c.pins if p.locked or (p.interface_id and p.interface_id in frozen)}
+    return frozenset(run.pins.values()) | frozenset(held)
+
+
+def free_ports(project: Project, connector_id: str, type_id: str) -> tuple[str, ...]:
+    """The complete named ports of the type on the connector that no interface holds in the dry
+    run and no lock keeps, in natural order of their names."""
+    c = project.connectors.get(connector_id)
+    itype = project.interface_types.get(type_id)
+    if c is None or itype is None or not fixed_pinout(c):
+        return ()
+    taken = taken_pins(project, connector_id)
+    return tuple(
+        p.name for p in ports_of(c, itype).usable if not any(pp.pin_id in taken for pp in p.pins)
+    )
+
+
+def connector_room(
+    project: Project, connector_id: str, type_id: str, interface_id: str | None = None
+) -> Room:
+    """Can the connector take one more interface of `type_id`? A dry run of `generate.pins.allocate`
+    (through `engine.allocate_box`, the very function Generate calls) with every interface that
+    ends on the connector and the new one: refused when the new interface gets no pins, or when it
+    would take the pins of an interface that has them now. `interface_id` is the interface being
+    placed (left out of the others); a new one gets the next free interface ID, so it is placed in
+    the order Generate would place it."""
+    c = project.connectors[connector_id]
+    itype = project.interface_types[type_id]
+    cache = _room_cache(project)
+    new_id = interface_id or _new_interface_id(project, cache)
+    leave_out = interface_id or ""
+    base = _dry_run(cache, project, connector_id, "", "", leave_out)
+    after = _dry_run(cache, project, connector_id, new_id, type_id, leave_out)
+    others = [i for i in interfaces_using(project, connector_id) if i.id != leave_out]
+    head = (
+        f"{c.id} cannot take another {itype.name}"
+        if any(i.type_id == type_id for i in others)
+        else f"{c.id} cannot take {itype.name} as well"
+    )
+    failed = [msg for iid, msg in after.errors if iid == new_id]
+    if failed:
+        return Room(False, f"{head}: {_full_text(c, itype, base, failed[0])}")
+    before = {iid for iid, _msg in base.errors}
+    pushed = sorted({iid for iid, _msg in after.errors if iid != new_id and iid not in before})
+    if pushed:
+        return Room(
+            False,
+            f"{head}: {', '.join(pushed)} would lose {'its' if len(pushed) == 1 else 'their'}"
+            " pins to it",
+        )
+    got = tuple(sorted((sig, pid) for (iid, sig), pid in after.pins.items() if iid == new_id))
+    port = ""
+    if fixed_pinout(c):
+        mine = {pid for _sig, pid in got}
+        port = next(
+            (p.name for p in ports_of(c, itype).usable if {pp.pin_id for pp in p.pins} == mine),
+            "",
+        )
+    return Room(True, "", got, port)
+
+
+def _full_text(c: Connector, itype: InterfaceType, base: Allocation, msg: str) -> str:
+    """Why a connector is full, in plain words: the ports of the type and who uses them, else the
+    words of the pin allocation."""
+    if fixed_pinout(c):
+        usable = ports_of(c, itype).usable
+        owner = {pid: iid for (iid, _sig), pid in base.pins.items()}
+        owner.update({p.id: p.interface_id for p in c.pins if p.locked and p.interface_id})
+        users = [{owner[pp.pin_id] for pp in p.pins if pp.pin_id in owner} for p in usable]
+        if usable and all(users):
+            names = ", ".join(p.name for p in usable)
+            ids = ", ".join(sorted(set().union(*users)))
+            word = "port" if len(usable) == 1 else "ports"
+            verb = "is" if len(usable) == 1 else "are"
+            return f"its {itype.name} {word} {names} {verb} used by {ids}"
+    own = f"{c.id} has "
+    if msg.startswith(own + "too few"):
+        return msg[len(own) :]
+    if msg.startswith(own):
+        return "it has " + msg[len(own) :]
+    return msg
+
+
+def _far_key(project: Project, unit_id: str | None, connector_id: str | None) -> str | None:
+    """What decides, in the segmentation in force, whether two interfaces from one connector share
+    a harness: the far connector, the far device or the zone of the far device. None: not known."""
+    from .generate.segmentation import MODES
+
+    cfg = project.config.get("segmentation")
+    mode = str(cfg.values.get("mode", MODES[0])) if cfg is not None else MODES[0]
+    if mode == "per_connector_pair" or mode not in MODES:
+        if connector_id is not None:
+            return f"connector {connector_id}"
+        mode = "per_unit_pair"
+    if unit_id is None:
+        return None
+    if mode == "per_unit_pair":
+        return f"device {unit_id}"
+    unit = project.units.get(unit_id)
+    return f"zone {unit.zone or ''}" if unit is not None else None
+
+
+def _shared_note(
+    project: Project,
+    c: Connector,
+    others: Collection[InterfaceInstance],
+    far_unit: str | None,
+    far_connector: str | None,
+) -> str:
+    """The notes of a connector that already carries interfaces: a second harness plug when the
+    others go elsewhere, and a released harness that plugs into it."""
+    notes: list[str] = []
+    mine = _far_key(project, far_unit, far_connector)
+    elsewhere: list[str] = []
+    if mine is not None:
+        for i in others:
+            far = [e for e in i.endpoints if e.connector_id != c.id]
+            # compared at what is known of the new end: the far connector, else the far device
+            keys = {
+                _far_key(project, e.unit_id, e.connector_id if far_connector else None) for e in far
+            }
+            if far and mine not in keys:
+                elsewhere.append(i.id)
+    if elsewhere:
+        notes.append(
+            f"{c.id} also carries {', '.join(elsewhere)} to another connector: Generate makes a"
+            f" second harness with its own plug on {c.id} and warns about it, until a harness can"
+            " branch (planned for 2.3.0)."
+        )
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        if h.status != "released" or not any(k.mates_with == c.id for k in h.connectors):
+            continue
+        ends = {k.mates_with for k in h.connectors if k.mates_with and k.mates_with != c.id}
+        units = {project.connectors[x].unit_id for x in ends if x in project.connectors}
+        if far_connector is not None and far_connector not in ends:
+            continue
+        if far_connector is None and far_unit is not None and units and far_unit not in units:
+            continue
+        notes.append(
+            f"{h.id} is released and plugs into {c.id}: the new interface is wired only after a"
+            f" new revision of {h.id}."
+        )
+    return " ".join(notes)
+
+
+def shared_connectors(project: Project, unit_id: str, type_id: str) -> list[Connector]:
+    """Tier 2 of the choice of a connector: the connectors of the device that carry the type, that
+    interfaces already end on, that have a fixed pinout, and on which the dry run places the new
+    interface on a free complete named port. A connector whose pins the device leaves free is
+    never shared by the tool's choice: only a person shares it (Expert mode)."""
+    used = _used_connectors(project)
+    if type_id not in project.interface_types:
+        return []
+    return [
+        c
+        for c in unit_connectors(project, unit_id)
+        if c.id in used
+        and carries(c, type_id)
+        and fixed_pinout(c)
+        and connector_room(project, c.id, type_id).port
+    ]
+
+
+def _guided_fits(project: Project, type_id: str, connector_id: str) -> bool:
+    """The tool may choose this connector itself: it is free and carries the type (tier 1), or it
+    is one of the shared connectors of tier 2."""
+    c = project.connectors.get(connector_id)
+    if c is None or c.role != "box" or c.unit_id is None or not carries(c, type_id):
+        return False
+    if connector_id not in _used_connectors(project):
+        return True
+    return c in shared_connectors(project, c.unit_id, type_id)
+
+
 def choose_connector(
     project: Project, unit_id: str, type_id: str, avoid: Collection[str] = ()
 ) -> Connector | None:
-    """The connector the tool chooses for an interface of this type at a device: the first of the
-    free connectors that carry the type in the order of the model `model.connector_choice`
-    (`connector_choice.ranked`), leaving out the connectors in `avoid`. None when there is none."""
+    """The connector the tool chooses for an interface of this type at a device, in two tiers
+    (D-237). Tier 1: the free connectors that carry the type, in the order of the model
+    `model.connector_choice` (`connector_choice.ranked`), as it always was. Tier 2, only when tier
+    1 finds none: the connectors with a fixed pinout that have a free complete port of the type
+    (`shared_connectors`), in the same order, counting the pins the other interfaces hold. The
+    connectors in `avoid` are left out of both. None when there is none."""
+    itype = project.interface_types.get(type_id)
+    method = connector_choice.method(project)
     free = [c for c in free_connectors(project, unit_id, type_id) if c.id not in avoid]
-    ranked = connector_choice.ranked(
-        connector_choice.method(project), free, project.interface_types.get(type_id)
-    )
+    if free:
+        return connector_choice.ranked(method, free, itype)[0]
+    shared = [c for c in shared_connectors(project, unit_id, type_id) if c.id not in avoid]
+    taken = {c.id: taken_pins(project, c.id) for c in shared}
+    ranked = connector_choice.ranked(method, shared, itype, taken)
     return ranked[0] if ranked else None
 
 
@@ -409,7 +729,8 @@ def _type_name(project: Project, type_id: str) -> str:
 def unit_compat(
     project: Project, type_id: str, unit_id: str, source_unit: str | None = None
 ) -> Compat:
-    """Can `unit_id` take an interface of this type (Guided mode: connector chosen automatically)?"""
+    """Can `unit_id` take an interface of this type (Guided mode: connector chosen automatically)?
+    Yes when a connector of either tier of `choose_connector` is there."""
     if type_id not in project.interface_types:
         return Compat(
             False, "Unknown interface type", f"Interface type '{type_id}' does not exist."
@@ -418,7 +739,9 @@ def unit_compat(
         return Compat(False, "Unknown device", f"Device '{unit_id}' does not exist.")
     if source_unit == unit_id:
         return Compat(False, "Same device", "A device cannot be connected to itself.")
-    if not free_connectors(project, unit_id, type_id):
+    if not free_connectors(project, unit_id, type_id) and not shared_connectors(
+        project, unit_id, type_id
+    ):
         name = _type_name(project, type_id)
         return Compat(
             False,
@@ -429,9 +752,20 @@ def unit_compat(
 
 
 def connector_compat(
-    project: Project, type_id: str, connector_id: str, source_unit: str | None = None
+    project: Project,
+    type_id: str,
+    connector_id: str,
+    source_unit: str | None = None,
+    *,
+    interface_id: str | None = None,
+    far_unit: str | None = None,
+    far_connector: str | None = None,
 ) -> Compat:
-    """Can this exact connector take an interface of this type (Expert mode)?"""
+    """Can this exact connector take an interface of this type (Expert mode)? A connector that
+    interfaces already end on takes one more when it has room (`connector_room`, D-237); the
+    answer then carries a note when the others go to another far connector or a released harness
+    plugs into it. `interface_id` is the interface being moved onto the connector, if any; the far
+    end is `far_unit` (else `source_unit`) and `far_connector` when they are known."""
     c = project.connectors.get(connector_id)
     if c is None or c.role != "box" or c.unit_id is None:
         return Compat(
@@ -439,11 +773,6 @@ def connector_compat(
         )
     if source_unit == c.unit_id:
         return Compat(False, "Same device", "A device cannot be connected to itself.")
-    used = interface_using(project, connector_id)
-    if used is not None:
-        return Compat(
-            False, "In use", f"{c.id} already carries {used.id}. One interface per connector."
-        )
     if not carries(c, type_id):
         names = ", ".join(_type_name(project, t) for t in c.carries)
         return Compat(
@@ -451,7 +780,26 @@ def connector_compat(
             "Wrong type",
             f"{c.id} does not carry {_type_name(project, type_id)} (it carries {names}).",
         )
-    return Compat(True)
+    others = [i for i in interfaces_using(project, connector_id) if i.id != interface_id]
+    if not others:
+        return Compat(True)
+    if type_id not in project.interface_types:
+        return Compat(
+            False, "Unknown interface type", f"Interface type '{type_id}' does not exist."
+        )
+    cache = _room_cache(project)
+    key = (connector_id, type_id, interface_id, far_unit or source_unit, far_connector)
+    hit = cache.answers.get(key)
+    if hit is not None and hit[0] is c:
+        return hit[1]
+    room = connector_room(project, connector_id, type_id, interface_id)
+    if not room.ok:
+        answer = Compat(False, "Full", room.why + ".")
+    else:
+        note = _shared_note(project, c, others, far_unit or source_unit, far_connector)
+        answer = Compat(True, note=note)
+    cache.answers[key] = (c, answer)
+    return answer
 
 
 # ---- unit operations ---------------------------------------------------------------------------
@@ -705,11 +1053,15 @@ def ops_add_interface(
     redundancy: str | None = None,
     avoid_connectors: set[str] | None = None,
 ) -> tuple[list[Op], str]:
-    """Add an interface; connectors not given are chosen automatically and marked `auto`."""
+    """Add an interface; connectors not given are chosen automatically (`choose_connector`, two
+    tiers) and marked `auto`. A connector given may already carry interfaces when it has room
+    (`connector_compat`)."""
     chosen: list[tuple[str, str, bool]] = []
     if interface_id is not None and interface_id in project.interfaces:
         raise EditError(f"ID {interface_id} is already used.")
-    for unit_id, conn_id in ((from_unit, from_connector), (to_unit, to_connector)):
+    ends = ((from_unit, from_connector), (to_unit, to_connector))
+    for k, (unit_id, conn_id) in enumerate(ends):
+        far_unit, far_connector = ends[1 - k]
         if unit_id not in project.units:
             raise EditError(f"Device '{unit_id}' does not exist.")
         if conn_id is None:
@@ -724,7 +1076,13 @@ def ops_add_interface(
             chosen.append((unit_id, pick.id, True))
         else:
             compat = connector_compat(
-                project, type_id, conn_id, from_unit if unit_id == to_unit else None
+                project,
+                type_id,
+                conn_id,
+                from_unit if unit_id == to_unit else None,
+                interface_id=interface_id,
+                far_unit=far_unit,
+                far_connector=far_connector,
             )
             if not compat.ok:
                 raise EditError(compat.why)
@@ -875,7 +1233,7 @@ def ops_complete_chain(project: Project, interface_id: str) -> tuple[list[Op], s
         ops += _twin_unit_ops(project, project.units[end.unit_id])
         scratch = clone_with(project, ops)
     conn = _twin_connector(end, tid)
-    if conn is None or not connector_compat(scratch, i.type_id, conn).ok:
+    if conn is None or not _guided_fits(scratch, i.type_id, conn):
         pick = choose_connector(scratch, tid, i.type_id)
         if pick is None:
             raise EditError(f"{tid} has no free {_type_name(project, i.type_id)} connector.")
@@ -928,7 +1286,16 @@ def ops_set_endpoint_connector(
     end = i.endpoints[index]
     if end.connector_id == connector_id:
         return []
-    compat = connector_compat(project, i.type_id, connector_id, None)
+    far = [e for k, e in enumerate(i.endpoints) if k != index]
+    compat = connector_compat(
+        project,
+        i.type_id,
+        connector_id,
+        None,
+        interface_id=interface_id,
+        far_unit=far[0].unit_id if len(far) == 1 else None,
+        far_connector=far[0].connector_id if len(far) == 1 else None,
+    )
     if not compat.ok:
         raise EditError(compat.why)
     c = project.connectors[connector_id]

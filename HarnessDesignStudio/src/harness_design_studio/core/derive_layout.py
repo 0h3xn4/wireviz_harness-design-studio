@@ -6,8 +6,8 @@
 The pin allocation, the segmentation and the choice of a connector are decisions of the generator.
 This module does not decide again: it reads the pins, groups and settings the generator left in the
 design and calls the very functions the generator calls (`pins._rank`, `pins.groups_of`,
-`segmentation.segment`, `segmentation._class_of`, `edit.free_connectors`), and it quotes the reasons
-generation recorded (the Why tab: `core.why`). The derivations are:
+`segmentation.segment`, `segmentation._class_of`, `edit.free_connectors`, `edit.free_ports`), and it
+quotes the reasons generation recorded (the Why tab: `core.why`). The derivations are:
 
     pin-allocation       why a signal is on a pin of a device connector (the order, the gaps, locks)
     segmentation         why the interfaces of a harness share it (the mode, the chain, the zones)
@@ -522,6 +522,17 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
                 f"config/model.json: connector_choice ({origin_text(project, 'model', 'connector_choice')})",
             )
         )
+    shared = len({i.id for i, _e in ends}) > 1  # several interfaces on one connector (D-237)
+    if shared and edit.fixed_pinout(box):
+        for type_id in sorted({i.type_id for i, _e in ends}):
+            inputs.append(
+                Input(
+                    f"Free {type_id} ports",
+                    ", ".join(edit.free_ports(project, box.id, type_id)) or "none",
+                    "",
+                    f"connector {box.id}: the pins named by port (A-PORTS)",
+                )
+            )
     for i, e in ends:
         siblings = [c.id for c in unit_connectors(project, e.unit_id) if carries(c, i.type_id)]
         inputs.append(
@@ -541,9 +552,12 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
                 "in ID order: "
                 + _names(siblings)
                 + (
-                    "; the tool takes the first one that is free"
-                    if e.auto
-                    else "; a person picked this one"
+                    "; a person picked this one"
+                    if not e.auto
+                    else "; the tool takes the first one that is free, else the first with a free"
+                    " complete port of the type"
+                    if shared and edit.fixed_pinout(box)
+                    else "; the tool takes the first one that is free"
                 ),
                 box.id,
                 "",
@@ -563,7 +577,7 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
         tuple(inputs),
         tuple(steps),
         None,
-        ("A-CONNECTOR-CHOICE",),
+        ("A-CONNECTOR-CHOICE", "A-PORTS") if shared else ("A-CONNECTOR-CHOICE",),
         "A connector the tool chose is marked until a person confirms it (the finding 'unconfirmed'). "
         "The part of a device connector is a choice of the device design or the library, not of this tool.",
         text=text,
@@ -575,23 +589,25 @@ def _ranking_step(
 ) -> Step:
     """The connectors of the device that carry the type in the order of the model in force, each
     with the pins it has, the pins an interface may take, the pins the interface needs and what is
-    left over (the numbers the choice is made from)."""
+    left over (the numbers the choice is made from), every interface that ends on it and, on a
+    fixed pinout, its free ports of the type (D-237)."""
     itype = project.interface_types.get(i.type_id)
     candidates = [c for c in unit_connectors(project, unit_id) if carries(c, i.type_id)]
     parts = []
     for c in connector_choice.ranked(method, candidates, itype):
         f = connector_choice.fit_of(c, itype)
-        user = edit.interface_using(project, c.id)
-        state = (
-            "this interface"
-            if user is not None and user.id == i.id
-            else f"in use by {user.id}"
-            if user is not None
-            else "free"
-        )
+        users = [u.id for u in edit.interfaces_using(project, c.id)]
+        others = [u for u in users if u != i.id]
+        if i.id in users:
+            state = "this interface" + (f" and {', '.join(others)}" if others else "")
+        else:
+            state = f"in use by {', '.join(others)}" if others else "free"
         fits = f"{f.spare} spare" if f.fits else f"too few pins ({f.available} for {f.needed})"
+        ports = edit.free_ports(project, c.id, i.type_id) if edit.fixed_pinout(c) else ()
+        free = f", free ports {', '.join(ports)}" if ports else ""
         parts.append(
             f"{c.id}: {f.pins} pins, {f.available} available, {f.needed} needed, {fits}, {state}"
+            f"{free}"
         )
     return text_step(
         f"Connectors of {unit_id} in the order of {method}",

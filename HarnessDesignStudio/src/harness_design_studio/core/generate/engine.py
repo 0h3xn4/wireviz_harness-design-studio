@@ -253,16 +253,9 @@ def plan_generation(
             s.interface_id,
         )
 
-    old_by_key = {h.group_key: h for h in project.harnesses.values() if h.generated}
+    old_by_key = _old_by_key(project)
     frozen = {h.id for h in old_by_key.values() if h.status == "released"}
-    frozen_ifaces = {i for h in old_by_key.values() if h.id in frozen for i in h.interfaces}
-    frozen_ifaces |= {
-        w.interface_id
-        for h in project.harnesses.values()
-        if not h.generated
-        for w in h.wires
-        if w.interface_id
-    }  # manual harnesses own their pins
+    frozen_ifaces = _frozen_ifaces(project, old_by_key, frozen)
     old_for = _match_renamed(old_by_key, frozen, seg.groups)
     tick(0.02, "Segmenting")
 
@@ -433,6 +426,110 @@ def _held_signal(project: Project, pin: Pin, signal: str) -> str:
     return found[0].signal if len(found) == 1 else signal
 
 
+def _old_by_key(project: Project) -> dict[str, Harness]:
+    return {h.group_key: h for h in project.harnesses.values() if h.generated}
+
+
+def _frozen_ifaces(project: Project, old_by_key: dict[str, Harness], frozen: set[str]) -> set[str]:
+    """The interfaces whose pins Generate keeps as they are: those of a released generated harness,
+    and those a harness made by hand has wires of (manual harnesses own their pins)."""
+    out = {i for h in old_by_key.values() if h.id in frozen for i in h.interfaces}
+    out |= {
+        w.interface_id
+        for h in project.harnesses.values()
+        if not h.generated
+        for w in h.wires
+        if w.interface_id
+    }
+    return out
+
+
+def frozen_interfaces(project: Project) -> set[str]:
+    """The interfaces whose pins the next Generate does not place again (see `_frozen_ifaces`)."""
+    old_by_key = _old_by_key(project)
+    frozen = {h.id for h in old_by_key.values() if h.status == "released"}
+    return _frozen_ifaces(project, old_by_key, frozen)
+
+
+@dataclass(frozen=True)
+class PinRules:
+    """The settings the pin allocation of every connector runs with."""
+
+    gap: int  # generation.power_signal_gap_pins (0 when unset)
+    return_gap: int  # generation.power_return_gap_pins
+    categories: tuple[str, ...]  # model.pin_allocation_categories
+    fit: str  # model.pin_fit_strategy in force
+    earlier: str  # the fit the harnesses were last generated with
+
+
+def pin_rules(project: Project, gen: dict[str, object] | None = None) -> PinRules:
+    """The pin allocation settings from the checked generation values `gen` (Generate passes its
+    own; without them they are checked here, and what is wrong counts as unset, as in Generate)."""
+    if gen is None:
+        gen = _checked_config(project, RegenReport())[0]
+    return PinRules(
+        int(_num(gen.get("power_signal_gap_pins")) or 0),
+        int(_num(gen.get("power_return_gap_pins")) or 0),
+        settings.names(project, "model", "pin_allocation_categories"),
+        pin_strategy(project),
+        earlier_strategy(project),
+    )
+
+
+def allocate_box(
+    project: Project,
+    box: Connector,
+    requests: list[Request],
+    frozen_ifaces: set[str],
+    rules: PinRules,
+) -> Allocation:
+    """The pin allocation of one device connector, as Generate makes it: the pins held before, the
+    pins that must stay (locked, of a released or hand-made harness, typed in by a person) and the
+    settings `rules`. The editor's dry run of a connector's room calls this same function, so the
+    editor and Generate cannot disagree (D-237)."""
+    previous = {
+        (pin.interface_id, _held_signal(project, pin, pin.signal)): pin.id
+        for pin in box.pins
+        if pin.interface_id and pin.signal and not pin.locked
+    }
+
+    # pins that must stay: locked, frozen-owned, or typed in by a person without a lock
+    def keep(pin: Pin) -> Pin:
+        if pin.fixed:  # a fixed pin is free for its signal unless a released harness uses it
+            if pin.interface_id in frozen_ifaces or not pin.signal:
+                return evolve(pin, locked=True)  # a fixed pin with no signal is never offered
+            return evolve(pin, interface_id=None)
+        if (
+            pin.locked
+            or pin.interface_id in frozen_ifaces
+            or (pin.signal and pin.interface_id is None)
+        ):
+            return evolve(pin, locked=True)
+        return pin
+
+    pinned = [keep(pin) for pin in box.pins]
+    work = evolve(box, pins=pinned)
+    held = {
+        (pin.interface_id, _held_signal(project, pin, pin.signal)): pin.id
+        for pin in box.pins
+        if pin.locked and pin.interface_id and pin.signal and pin.interface_id not in frozen_ifaces
+    }
+    return allocate(
+        work,
+        requests,
+        {
+            k2: v
+            for k2, v in previous.items()
+            if k2[0] not in frozen_ifaces and rules.earlier == rules.fit
+        },
+        rules.gap,
+        held,
+        rules.return_gap,
+        rules.categories,
+        rules.fit,
+    )
+
+
 def _allocate_pins(
     ctx: _Ctx, groups: list[Group], frozen_ifaces: set[str], tick: Callable[[float, str], None]
 ) -> None:
@@ -447,59 +544,16 @@ def _allocate_pins(
                 requests.setdefault(e.connector_id, []).append(
                     Request(iid, p.interface_types[i.type_id])
                 )
-    gap = int(_num(ctx.gen.get("power_signal_gap_pins")) or 0)
     if ctx.gen.get("power_signal_gap_pins") is None:
         ctx.note("rules", "pin-allocation: power-to-signal pin gap is a placeholder (0 used)")
-    ret_gap = int(_num(ctx.gen.get("power_return_gap_pins")) or 0)
-    fit = pin_strategy(p)
+    rules = pin_rules(p, ctx.gen)
     # An earlier allocation is kept while it is valid, but only if it was made by the same fit:
     # the strategy of a non-default model is recorded below, so a change of model re-places the pins.
-    earlier = earlier_strategy(p)
-    if fit != DEFAULT_STRATEGY:
-        ctx.note("model:pin_fit_strategy", f"{fit}: {STRATEGY_TEXT[fit]}")
+    if rules.fit != DEFAULT_STRATEGY:
+        ctx.note("model:pin_fit_strategy", f"{rules.fit}: {STRATEGY_TEXT[rules.fit]}")
     for k, cid in enumerate(sorted(requests)):
         tick(0.05 + 0.15 * k / max(1, len(requests)), f"Allocating pins of {cid}")
-        box = p.connectors[cid]
-        previous = {
-            (pin.interface_id, _held_signal(p, pin, pin.signal)): pin.id
-            for pin in box.pins
-            if pin.interface_id and pin.signal and not pin.locked
-        }
-
-        # pins that must stay: locked, frozen-owned, or typed in by a person without a lock
-        def keep(pin: Pin) -> Pin:
-            if pin.fixed:  # a fixed pin is free for its signal unless a released harness uses it
-                if pin.interface_id in frozen_ifaces or not pin.signal:
-                    return evolve(pin, locked=True)  # a fixed pin with no signal is never offered
-                return evolve(pin, interface_id=None)
-            if (
-                pin.locked
-                or pin.interface_id in frozen_ifaces
-                or (pin.signal and pin.interface_id is None)
-            ):
-                return evolve(pin, locked=True)
-            return pin
-
-        pinned = [keep(pin) for pin in box.pins]
-        work = evolve(box, pins=pinned)
-        held = {
-            (pin.interface_id, _held_signal(p, pin, pin.signal)): pin.id
-            for pin in box.pins
-            if pin.locked
-            and pin.interface_id
-            and pin.signal
-            and pin.interface_id not in frozen_ifaces
-        }
-        res = allocate(
-            work,
-            requests[cid],
-            {k2: v for k2, v in previous.items() if k2[0] not in frozen_ifaces and earlier == fit},
-            gap,
-            held,
-            ret_gap,
-            settings.names(ctx.project, "model", "pin_allocation_categories"),
-            fit,
-        )
+        res = allocate_box(p, p.connectors[cid], requests[cid], frozen_ifaces, rules)
         ctx.alloc[cid] = res
         for iid, msg in res.errors:
             ctx.failed.add(iid)

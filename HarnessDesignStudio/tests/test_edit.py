@@ -129,11 +129,19 @@ def test_compat_rules_connector_level() -> None:
     p = mini3()
     assert not edit.connector_compat(p, "rs422", "GHOST").ok
     assert not edit.connector_compat(p, "rs422", "W001-P1").ok  # not a unit connector
-    assert "already carries IF-PWR-RW1" in edit.connector_compat(p, "power_primary", "RW1-J01").why
+    # RW1-J01 carries IF-PWR-RW1, whose hand-made harness holds pins 1 and 2: no room (D-237)
+    full = edit.connector_compat(p, "power_primary", "RW1-J01")
+    assert not full.ok and full.short == "Full"
+    assert full.why == (
+        "RW1-J01 cannot take another Primary power: too few free pins for PWR, RTN"
+        " (1 free, 2 needed)."
+    )
     p.connectors["OBC-J01"] = evolve(p.connectors["OBC-J01"], carries=["rs422"])
-    c = edit.connector_compat(p, "power_primary", "PCDU-J01")  # busy first
-    assert not c.ok
+    c = edit.connector_compat(p, "power_primary", "PCDU-J01")  # full
+    assert not c.ok and c.short == "Full"
     p.connectors["PCDU-J01"] = evolve(p.connectors["PCDU-J01"], carries=["rs422"])
+    wrong = edit.connector_compat(p, "power_primary", "PCDU-J01")  # the type is checked first
+    assert not wrong.ok and wrong.short == "Wrong type"
     del p.interfaces["IF-PWR-RW1"]
     wrong = edit.connector_compat(p, "power_primary", "PCDU-J01")
     assert not wrong.ok and "does not carry Primary power" in wrong.why
@@ -164,7 +172,7 @@ def test_add_interface_errors() -> None:
         edit.ops_add_interface(p, "rs422", "OBC", "OBC")
     with pytest.raises(edit.EditError, match="no free"):
         edit.ops_add_interface(p, "can", "OBC", "PCDU")
-    with pytest.raises(edit.EditError, match="already carries"):
+    with pytest.raises(edit.EditError, match="cannot take another Primary power"):
         edit.ops_add_interface(p, "power_primary", "PCDU", "RW1", "PCDU-J01", "RW1-J01")
     with pytest.raises(edit.EditError, match="no free"):
         edit.ops_add_interface(
