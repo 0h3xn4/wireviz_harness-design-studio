@@ -38,14 +38,14 @@ Findings of `pip-audit` that were not fixed, each with the decision and the reas
 | SBOM (CycloneDX) per package format, file names and SHA-256 | |
 | Third-party inventory (`third-party-inventory-X.Y.Z.md`) matches the built packages | yes / no |
 | `THIRD_PARTY_NOTICES.txt`, `LICENSE` and `NOTICE` inside every package (checked by listing each package) | .deb / .tar.gz / Windows zip / Windows setup |
-| Source archives of the LGPL and GPL components attached to the release (names, SHA-256) | |
+| Source archives of the LGPL and GPL components in the release bundle (`sources/`; from 2.0.1, D-232): bundle name, SHA-256, and what `python -m tools.release_bundle check` printed | |
 | Open source offer text in `THIRD_PARTY_NOTICES.txt` | |
 
 ## Signing and provenance
 
 | Item | Entry |
 |---|---|
-| Every package, `SHA256SUMS` and the SBOM signed with cosign (keyless); the `.sigstore.json` bundle names | |
+| Every package, `SHA256SUMS` and the SBOM signed with cosign (keyless); the `.sigstore.json` bundle names (from 2.0.1: `SHA256SUMS.sigstore.json` on the page, the others in `signatures/` of the release bundle) | |
 | Build provenance attestations made (`actions/attest-build-provenance`), link | |
 | Signature and attestation checked after the release with the commands in `docs/INSTALL.md` | yes / no |
 | `SHA256SUMS` attached | yes / no |

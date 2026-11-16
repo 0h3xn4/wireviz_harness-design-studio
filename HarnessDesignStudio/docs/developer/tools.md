@@ -56,6 +56,7 @@ A test fails when one of these outputs is stale. The table of outputs and tests 
 | `collect_licences` | Collects the licence texts of the shipped runtime packages, and of the bundled fonts (Inter, JetBrains Mono) and icons, into a `LICENSES` folder; fails when a licence text is missing |
 | `check_vulnerabilities` | Checks the shipped dependencies for known vulnerabilities (needs network access) |
 | `gen_scf` | Writes the software configuration file and the `SHA256SUMS` of a delivery |
+| `release_bundle` | Builds the release bundle `harness-design-studio-<version>-release-bundle.tar` from the release folder (`build DIST --version V`: the sources, SBOMs, inventories, notices, offline-audit report and signatures, a reproducible plain tar) and checks one (`check FILE --version V`); D-232 |
 | `release_notes` | Checks that a release tag fits the version and the changelog and writes the text of the GitHub release page: download table, highlights from `docs/releases/<version>.md`, folded changelog, install steps, checksums (used by `.github/workflows/release.yml`) |
 
 ## Checks and measurements

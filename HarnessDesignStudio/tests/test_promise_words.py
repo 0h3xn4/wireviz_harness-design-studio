@@ -72,6 +72,7 @@ TEXT = [
 PYTHON = [
     SRC / "gui" / "strings.py",
     ROOT / "tools" / "release_notes.py",
+    ROOT / "tools" / "release_bundle.py",
     ROOT / "tools" / "build_deb.py",
 ]
 PYTHON += sorted((SRC / "cli").glob("*.py"))

@@ -6,10 +6,14 @@ name: harness-design-studio release
 # artifacts; one final job, `release`, writes the checksums of all of them and publishes.
 #
 # Every release is signed without a key (Sigstore, through the GitHub OIDC identity of this
-# workflow, `cosign sign-blob`) and gets build provenance attestations; the checksums, the SBOM,
-# the inventory of the third-party components and the source of the LGPL and GPL components are
-# attached (decision D-213, docs/INSTALL.md says how to check them). A Windows code-signing
-# certificate is optional and used only when these repository secrets exist (docs/RELEASE.md):
+# workflow, `cosign sign-blob`) and gets build provenance attestations (decision D-213,
+# docs/INSTALL.md says how to check them). The page holds seven files (D-232, from 2.0.1): the four
+# packages, SHA256SUMS (over the packages and the bundle), its signature SHA256SUMS.sigstore.json,
+# and the release bundle harness-design-studio-<version>-release-bundle.tar with everything else:
+# the source of the LGPL and GPL components, the SBOMs, the inventories, the notices, the
+# offline-audit report and the signatures of the packages and the SBOMs (tools/release_bundle.py).
+# A Windows code-signing certificate is optional and used only when these repository secrets
+# exist (docs/RELEASE.md):
 #   Windows: WINDOWS_CERT_PFX_BASE64 (the .pfx certificate, base64), WINDOWS_CERT_PASSWORD
 # Without them the Windows packages carry no Authenticode signature (the Sigstore signature is
 # still made).
@@ -56,6 +60,12 @@ jobs:
           python-version: "3.14"
       - name: The tag matches the version and the changelog
         run: python -m tools.release_notes check "$TAG"
+      - name: The tag has the release bundle (D-232; a tag before 2.0.1 keeps its page)
+        run: |
+          if [ ! -f tools/release_bundle.py ]; then
+            echo "::error::$TAG has no tools/release_bundle.py: run the release workflow of that tag (gh workflow run release.yml --ref $TAG), not this one"
+            exit 1
+          fi
       - name: Qt system libraries
         run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
       - run: python -m pip install -e ".[gui,dev]"
@@ -119,10 +129,11 @@ jobs:
           name: sources-linux
           if-no-files-found: error
           path: HarnessDesignStudio/dist/sources
-      - name: Offline audit of the built .tar.gz (REQ-OFFLINE-02, D-203; the report is attached to the release)
+      - name: Offline audit of the built .tar.gz (REQ-OFFLINE-02, D-203; the report goes into the release bundle)
         # Not a gate yet: a finding is shown in the report (Result: FAIL) and as a warning here, and
-        # the release goes on. A tag made before the audit existed has no tools/offline_audit.py.
-        # continue-on-error: a failure of this step itself (apt, a timeout) never stops a release.
+        # the release goes on. continue-on-error: this step itself never stops the build; but the
+        # release bundle must hold the report (D-232), so a run that wrote no report stops the
+        # release job at `tools.release_notes complete`, before anything is published.
         continue-on-error: true
         timeout-minutes: 20
         run: |
@@ -252,23 +263,31 @@ jobs:
           ls -l dist
           # a .deb, a .tar.gz, and the Windows setup program and zip
           test "$(ls dist/*.deb dist/*.tar.gz dist/*-setup.exe dist/*.zip | wc -l)" = 4
-      - name: Checksums (one SHA256SUMS over all packages, names without folders)
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
+      - name: Sign every package and the SBOMs (keyless, Sigstore); the signatures go into the bundle
+        run: |
+          cd dist
+          for f in *.deb *.tar.gz *-setup.exe *.zip legal/sbom-*.cdx.json; do
+            cosign sign-blob --yes --bundle "$(basename "$f").sigstore.json" "$f"
+          done
+          ls -l *.sigstore.json
+      - name: The release bundle (everything but the packages; reproducible plain tar, D-232)
+        run: |
+          python -m tools.release_bundle build dist --version "${TAG#v}"
+          ls -l "dist/harness-design-studio-${TAG#v}-release-bundle.tar"
+      - name: Checksums (one SHA256SUMS over the packages and the bundle, names without folders)
         run: |
           python -m tools.gen_scf dist
           cd dist && sha256sum -c SHA256SUMS
+          # every package kind, the bundle, and what the bundle must hold
           cd .. && python -m tools.release_notes complete dist/SHA256SUMS
       - name: Release notes
         run: python -m tools.release_notes notes "$TAG" dist/SHA256SUMS "$RUNNER_TEMP/notes.md"
-      - name: The SBOMs beside the packages
-        run: cp dist/legal/sbom-*.cdx.json dist/
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
-      - name: Sign every package, the checksums and the SBOMs (keyless, Sigstore)
+      - name: Sign SHA256SUMS (keyless, Sigstore); it lists the packages and the bundle
         run: |
           cd dist
-          for f in *.deb *.tar.gz *-setup.exe *.zip SHA256SUMS sbom-*.cdx.json; do
-            cosign sign-blob --yes --bundle "$f.sigstore.json" "$f"
-          done
-          ls -l *.sigstore.json
+          cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
+          ls -l SHA256SUMS.sigstore.json
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: |
@@ -289,16 +308,15 @@ jobs:
             HarnessDesignStudio/dist/SHA256SUMS
             HarnessDesignStudio/dist/scf.json
             HarnessDesignStudio/dist/*.sigstore.json
-            HarnessDesignStudio/dist/sbom-*.cdx.json
-            HarnessDesignStudio/dist/legal
-            HarnessDesignStudio/dist/sources
-            HarnessDesignStudio/dist/offline-audit-*
+            HarnessDesignStudio/dist/*-release-bundle.tar
       - name: Publish the release page
         run: |
           title="Harness Design Studio ${TAG#v}"
-          files=(dist/*.tar.gz dist/*.deb dist/*-setup.exe dist/*.zip dist/SHA256SUMS dist/*.sigstore.json dist/sbom-*.cdx.json dist/legal/third-party-inventory-* dist/legal/THIRD_PARTY_NOTICES-*.txt dist/sources/*)
-          # the report of the offline audit of the Linux package, when the tag has the audit (D-203)
-          for f in dist/offline-audit-*.md dist/offline-audit-*.json; do [ -f "$f" ] && files+=("$f"); done
+          bundle="harness-design-studio-${TAG#v}-release-bundle.tar"
+          files=(dist/*.tar.gz dist/*.deb dist/*-setup.exe dist/*.zip dist/SHA256SUMS dist/SHA256SUMS.sigstore.json dist/"$bundle")
+          # the page holds these seven files and nothing else (D-232); the rest is in the bundle
+          test "${#files[@]}" = 7
+          for f in "${files[@]}"; do test -f "$f"; done
           flags=()
           case "$TAG" in *rc*) flags+=(--prerelease) ;; esac
           if gh release view "$TAG" >/dev/null 2>&1; then
