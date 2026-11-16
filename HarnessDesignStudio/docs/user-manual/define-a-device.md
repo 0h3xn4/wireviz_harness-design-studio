@@ -76,7 +76,7 @@ Click a cell and type, or press F2 or Enter. Enter keeps the value and goes down
 
 - **Fill…** (Ctrl+L): select the pins, choose an interface type, check the preview, press **Fill pins**. The signals of the type go on the pins in order (`CANH`, `CANL`), and the pins become *Fixed*. If the type you need is not there, **New interface type…** in the dialog makes one (one line per signal: name, direction `out`, `in`, `bidir` or `passive`, and a pair name for twisted signals); it is marked *unverified*.
 - **Assign…** (Ctrl+Enter): select the pins, choose an interface that ends on this device, pick the pin for each signal, press **Assign pins**. The pins become *Locked* to that interface with its signals. An interface end that has no connector yet gets this one in the same step.
-- **A port** (since 2.1.0). On a fixed pinout whose pin names name ports (`RS422_1_TX+`, `RS422_2_TX+` ...), **Assign…** also has a **Port** list: *The selected pins*, then each complete port with its pins, for example *RS422_2 (pins 5-8)*. When the selected pins form one port, that port is chosen for you. A port puts the interface on all its pins at once: the pins become *Locked* to the interface, and their names stay. The undo step reads *Assign port RS422_2 to IF-012*. A port that another interface holds is refused with the reason, for example *Pin 5 carries IF-011; unassign it first.*
+- **A port** (since 2.1.0). On a fixed pinout whose pin names name ports (`RS422_1_TX+`, `RS422_2_TX+` ...), **Assign…** also has a **Port** list: *The selected pins*, then each complete port with its pins, for example *RS422_2 (pins 5-8)*. When the selected pins form one port, that port is chosen for you. A port puts the interface on all its pins at once: the pins become *Locked* to the interface, and their names stay. The pins of that connector that Generate gave the interface before are freed in the same step. The undo step reads *Assign port RS422_2 to IF-012*. A port that another interface holds is refused with the reason, for example *Pin 5 carries IF-011; unassign it first.*
 
 The **Port** column (since 2.1.0) shows the complete named port each pin is in, and the interface on it: *RS422_2 (IF-012)*. The tool works it out from the pin names. It is not stored and not exported. A port that cannot be used gets a note under the pin table (CD-K9), for example *Port RS422_2 of OBC1-J1 has no pin for RX-, so it is not offered for RS-422.*
 
@@ -155,6 +155,20 @@ The preview lists the ports it found on each connector, for example `OBC1-J01: E
 
 The import refuses a row, and then imports nothing, when the row has a port but no signal, when the port name cannot be read back (`RX+` as a port of RS-422 gives `RX+_TX+`, which reads two ways), when the signal already names another port, or when the name would be longer than 200 characters. A signal that no interface type of the connector has (`HEATER`) is imported as it is, without the port, and a warning says so. The full rule is in [`IMPORTS.md`](../IMPORTS.md#device-pinouts-and-kicad-netlists). `export-pinout` writes the names with the port in them and no Port column, and they read back as they are.
 
+On the command line, with the table above saved as `obc1.csv` (twelve rows, three ports):
+
+```
+harness-design-studio import-pinout obc-demo obc1.csv --device OBC1 --new-device "On-board computer" --default-part EX-MICROD-25-F
+```
+
+```
+OBC1-J01: OK added (12 pin(s))
+OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)
+Imported 1 connector(s), 12 pin(s).
+```
+
+**After the import.** Connect OBC1 to three other devices with RS-422 in Guided mode: J1 is OBC1's only connector, so the tool puts all three interfaces on it, one per port, and Generate gives IF-001 the port RS422_1, IF-002 RS422_2 and IF-003 RS422_3 (ports in name order, interfaces in ID order). To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface, or **Assign…** with its **Port** list in this tab. When every port is used, the connector is *Full*: a fourth interface is refused with the reason. Each interface to another far connector gets its own harness with its own plug on J1, and Generate warns (`box_connector_shared`) until a harness can branch (planned for 2.3.0). The whole case, step by step: [three RS-422 links on one connector](generate-harnesses.md#worked-example-three-rs-422-links-on-one-connector-since-210).
+
 ## Check the result and write it out
 
 - Under the pin table the **notes** list what is odd about the connector, each with the pin it is about: a pin name that is the same ignoring case, fewer pins than the part has, a signal on two pins, a signal no interface type has, an interface type that is only half there on a fixed pinout (for example `CANH` without `CANL`), a locked pin whose interface does not end on this connector, a gender that nobody states. They are notes, not design rules: nothing here changes the design rules or what Generate does.
@@ -211,7 +225,7 @@ A pin has a name or number, a signal, a mode, a contact size, a termination, a *
 ## Common mistakes
 
 - **Fixed pins and a missing name.** After you fix one pin with a signal, an interface whose signal has no pin of that name fails with *has a fixed pinout and no free pin named …*. Add the pin or fill it from the interface type.
-- **Two interfaces on one connector.** A connector takes a second interface while it has room for it (since 2.1.0). The tool counts the room as Generate places the pins. A full connector is refused with the reason: *J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2 are used by IF-010, IF-011*. Use a second connector, or add pins. On a fixed pinout, name the pins of each port (`RS422_1_TX+`, `RS422_2_TX+` ...), so the tool knows which pins belong together. **Assign…** refuses a pin that another interface holds: *Pin 5 carries IF-011; unassign it first.* To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface ([generate harnesses](generate-harnesses.md#1-and-2-devices-interfaces-and-auto-filled-connectors)).
+- **Two interfaces on one connector.** A connector takes a second interface while it has room for it (since 2.1.0). The tool counts the room as Generate places the pins. A full connector is refused with the reason: *J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2 are used by IF-010, IF-011*, and the Inspector's list of an end shows it as *J01: Full*. Use a second connector, or add pins. On a fixed pinout, name the pins of each port (`RS422_1_TX+`, `RS422_2_TX+` ...), so the tool knows which pins belong together. **Assign…** refuses a pin that another interface holds: *Pin 5 carries IF-011; unassign it first.* To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface ([generate harnesses](generate-harnesses.md#1-and-2-devices-interfaces-and-auto-filled-connectors)).
 - **A signal typed a little differently** (`canh` for `CANH`): it is free text and nothing connects to it. The note says *Did you mean CANH?*.
 - **A part with no gender in its description.** The cable end cannot be checked to fit. Set the gender on the card.
 - **Changing a part of a released device.** Start a new revision first ([change a released harness](change-a-released-harness.md)).

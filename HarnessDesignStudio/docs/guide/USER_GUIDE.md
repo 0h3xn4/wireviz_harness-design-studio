@@ -222,9 +222,9 @@ The role is not the mode. Guided and Expert change only how much the diagram sho
 - **Guided** (default): you work with devices and interfaces. The tool chooses connectors and pins and marks its choices as *auto-filled* until you confirm them.
 - **Expert**: you also see each connector of a device and can choose the exact connector for every end of an interface.
 
-**Several interfaces on one connector** (since 2.1.0). In Expert mode a connector that already carries interfaces takes one more while it has room; the tool counts the room the way Generate places the pins. A full connector is refused with the reason, and a list of an end shows it as *J1: Full*. A note says when Generate will make a second harness with its own plug on the connector, or when a released harness plugs into it. In Guided mode the tool first takes a free connector; only when none is free does it take a free complete port of a fixed pinout.
+**Several interfaces on one connector** (since 2.1.0). In Expert mode a connector that already carries interfaces takes one more while it has room; the tool counts the room the way Generate places the pins. A full connector is refused with the reason, and a list of an end shows it as *J1: Full*. A note says when Generate will make a second harness with its own plug on the connector (until a harness can branch, planned for 2.3.0), or when a released harness plugs into it. In Guided mode the tool first takes a free connector; only when none is free does it take a free complete port of a fixed pinout.
 
-In the Inspector each end on a fixed pinout with named ports shows its port, for example *Port RS422_2 (pins 5-8), chosen by Generate*; **Choose port…** locks the interface to the port you pick. A device's Inspector has one **Confirm** for each interface whose connector the tool chose.
+In the Inspector each end on a fixed pinout with named ports shows its port, for example *Port RS422_2 (pins 5-8), chosen by Generate*; **Choose port…** locks the interface to the port you pick, in one undo step, and frees the pins Generate gave it before. Generate gives the other interfaces the free ports in name order (`RS422_2` before `RS422_10`), one port each. A device's Inspector has one **Confirm** for each interface whose connector the tool chose.
 
 Switching modes never changes your data.
 
@@ -421,7 +421,7 @@ Every import first shows what it would do. A bad row stops the whole import, so 
 | Interfaces as a table | **File > Import > Import interfaces…** (Ctrl+Shift+I; CSV or XLSX with the columns id, type, from, to and optionally redundancy), or **Paste table text instead…** in the wizard for CSV text |
 | An approved-parts list (CSV, TSV, JSON or XLSX; an InvenTree export file works too: its `IPN` column is the part ID) | **File > Import > Import approved parts…**, or `harness-design-studio import-parts`, saying what your approval values mean |
 | Segment lengths | **File > Import > Import segment lengths…**, or `harness-design-studio import-lengths`, then generate again |
-| A device's pinout as a table (connector, pin, signal ...) | **File > Import > Import device pinout…**, or `harness-design-studio import-pinout`; a new connector needs a library part; a column the project cannot store is named and left out |
+| A device's pinout as a table (connector, pin, signal ...) | **File > Import > Import device pinout…**, or `harness-design-studio import-pinout`; a new connector needs a library part; a column the project cannot store is named and left out; a *Port* column writes the port into the signal name (`RS422_2` and `TX+` give `RS422_2_TX+`) |
 | A device's connector pinout in KiCad | export a netlist, then **File > Import > Import KiCad netlist…**, or `harness-design-studio import-netlist`; the pins become fixed |
 | A current-by-gauge table | **File > Import > Import engineering values: ampacity table…**, or `harness-design-studio config DIR --ampacity-csv FILE` |
 | Strip lengths, pin contacts, accessories or crimp tools as a table | `harness-design-studio import-build-data` (command line only; templates `strip-lengths.csv`, `pin-contacts.csv`, `accessories.csv`) |

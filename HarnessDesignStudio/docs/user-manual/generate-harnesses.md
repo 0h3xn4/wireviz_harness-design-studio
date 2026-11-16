@@ -132,10 +132,10 @@ This section follows one design from the devices to a checked harness. At each s
 | Step | What the tool does by itself | What you decide |
 | --- | --- | --- |
 | 1. Devices | Gives each device an ID, and each of its connectors an ID made from the device ID (`PCDU1`, `PCDU1-J01`). A KiCad import puts the signal names on the pins and marks those pins *fixed*. | Which devices there are, their connectors and parts, and their pinouts ([define a device](define-a-device.md), [import KiCad pinouts](import-kicad-pinouts.md)). |
-| 2. Interfaces | When you connect two devices with an interface type, it picks at each device the first free connector that carries the type, and marks the choice *auto-filled*. | The type and the two devices. You confirm the connectors, or choose others in Expert mode. |
+| 2. Interfaces | When you connect two devices with an interface type, it picks at each device the first free connector that carries the type (when none is free, a connector with a free port of the type, since 2.1.0), and marks the choice *auto-filled*. | The type and the two devices. You confirm the connectors, or choose others in Expert mode. |
 | 2a. Connections, pin by pin | In the window *Link connectors* it proposes pairs of pins from the signal names (`TX+` with `RX+`, `PWR` with `PWR`), never from the pin numbers. | You read the pairs, change them, and press **Apply**. A harness is made from a connection only when you press **Create harness**. |
 | 3. Generate | Groups the interfaces into harnesses (one for each pair of device connectors by default), and makes the cable connectors, the pins and the wires. | You press **Generate**, read the preview and press **Apply**. The grouping is a setting ([above](#how-links-become-harnesses)). |
-| 4. Pins | Fills a fixed pin by its name. Gives free pins to signals with the pin allocator: power first, then the other signals, each group on the first free pins. | You can lock a pin, fix a pinout, or change the order and the gaps in the settings. |
+| 4. Pins | Fills a fixed pin by its name, and gives each interface the pins of one port when the names name ports (since 2.1.0). Gives free pins to signals with the pin allocator: power first, then the other signals, each group on the first free pins. | You can lock a pin, fix a pinout, or change the order and the gaps in the settings. |
 | 5. Checks | Runs the quick checks on every edit, the design rules a moment after you stop editing, and the self-check on the harnesses. | You fix a finding, waive a warning with a reason, or enter the missing values. The tool does not waive or approve anything. |
 
 ### 1 and 2: devices, interfaces and auto-filled connectors
@@ -155,7 +155,7 @@ Confirm them with **Confirm auto-filled connectors** in the Inspector of the lin
 
 **Several interfaces on one connector.** A device connector can carry several interfaces (since 2.1.0, decisions D-233 and D-237 in [`DECISIONS.md`](../DECISIONS.md)). In Expert mode you can connect another interface to a connector that already carries some, as long as it has room. The tool decides the room with the same pin assignment that Generate uses, so the two always agree. A full connector is refused with the reason, for example *RW1-J02 cannot take another RS-422: too few free pins for TX+, TX- (1 free, 2 needed)*. In Guided mode the tool first takes a free connector, as before. Only when no connector is free does it take a connector with a fixed pinout that has a free complete port of the type (pins named `RS422_2_TX+` ...). It never shares a connector whose pins the device leaves free.
 
-The editor adds a note in two cases. When the connector's other interfaces go to another far connector, Generate makes a second harness with its own plug on the connector and warns (`box_connector_shared`), until a harness can branch. When a released harness plugs into the connector, the new interface is wired only after a new revision of that harness ([change a released harness](change-a-released-harness.md)). The note shows in the tooltip while the pointer is over the connector, in the message after you connect, and in the tooltip of the connector in the Inspector's list of an end.
+The editor adds a note in two cases. When the connector's other interfaces go to another far connector, Generate makes a second harness with its own plug on the connector and warns (`box_connector_shared`), until a harness can branch (planned for 2.3.0). The [worked example](#worked-example-three-rs-422-links-on-one-connector-since-210) shows it, and how to avoid it. When a released harness plugs into the connector, the new interface is wired only after a new revision of that harness ([change a released harness](change-a-released-harness.md)). The note shows in the tooltip while the pointer is over the connector, in the message after you connect, and in the tooltip of the connector in the Inspector's list of an end.
 
 **On screen** (since 2.1.0):
 
@@ -196,7 +196,49 @@ Pin 3 of RW1-J02. Pin allocation: RX+ of IF-002 on pin 3
 
 Without the import the same line says `Pinout is fixed by the device design = no`, and the pin was chosen by the allocator. The **Why** tab of a pin shows the same text.
 
-**Not automatic yet.** A fixed pin is matched by the signal name of the interface type only. When one connector has several ports of one type (four RS-422 ports, say), its pins must carry the bare names (`TX+` four times, and so on), and the interfaces then take them in the order of their IDs, each the first free pin of the name. The tool does not know which pins form one port. Net names such as `RS422_2_TX+` from KiCad match nothing until a signal map renames them. An assignment that knows the ports is planned for 2.1.0 (D-233).
+**A connector with several ports** (since 2.1.0). On a fixed pinout whose pin names name ports (`RS422_1_TX+`, `RS422_2_TX+` ...), each interface gets the pins of one port, all or nothing, and the pins of two ports are never mixed. A port you chose with **Choose port…** comes first, then the port the interface had at the last Generate, then the pins of the bare signal names (as in 2.0.1), then the first free complete port in name order (`RS422_2` before `RS422_10`). The full rule is in [pin allocation](../models/pin-allocation.md#ports-on-a-fixed-pinout). When the pins carry the bare names more than once (`TX+` three times) and several interfaces of the type need them, the tool cannot tell which pins form one port: it keeps the assignment of 2.0.1 (each signal takes the first free pin of its name, interfaces in ID order) and warns with `pin_port_unknown`. Name the ports, or lock the pins of each port.
+
+### Worked example: three RS-422 links on one connector (since 2.1.0)
+
+An on-board computer OBC1 talks to three star trackers over RS-422, and all three links leave on its one connector J1. The pinout of J1 names a port for each link.
+
+1. **Import the pinout of OBC1** with a *Port* column (or with names such as `RS422_2_TX+` and no Port column; both give the same pins):
+
+   ```
+   Connector,Pin,Port,Signal,Mode
+   J1,1,RS422_1,TX+,fixed
+   J1,2,RS422_1,TX-,fixed
+   ...
+   J1,12,RS422_3,RX-,fixed
+   ```
+
+   ```
+   harness-design-studio import-pinout obc-demo obc1.csv --device OBC1 --new-device "On-board computer" --default-part EX-MICROD-25-F
+   ```
+
+   ```
+   OBC1-J01: OK added (12 pin(s))
+   OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)
+   Imported 1 connector(s), 12 pin(s).
+   ```
+
+   Import the three star trackers STR1, STR2 and STR3 the same way, each with one connector whose pins are `TX+`, `TX-`, `RX+` and `RX-` ([define a device](define-a-device.md#a-connector-with-several-ports-since-210)).
+
+2. **Connect OBC1 to each star tracker** with the type RS-422, in Guided mode. The first link takes J1, the only free connector of OBC1. J1 is not free for the second and the third, so the tool takes it again because it has a free complete port. In the Inspector the end of IF-002 at OBC1 says *Port RS422_2 (pins 5-8), Generate will choose it*.
+
+3. **Generate.** IF-001 gets port RS422_1 (pins 1-4), IF-002 gets RS422_2 and IF-003 gets RS422_3: ports in name order, interfaces in ID order. The default segmentation makes one harness per pair of device connectors, so each link gets its own harness with its own plug on J1, and Generate warns:
+
+   ```
+   warning: [box_connector_shared] OBC1-J01 has more than one cable plug on it: W001-P1 (W001), W002-P1 (W002), W003-P1 (W003). ...
+   ```
+
+   The design rules report the same as `model-inconsistent` (*The device connector OBC1-J01 has 3 cable plugs on it*). A real connector takes one plug. Until a harness can branch (planned for 2.3.0, decision D-235), give the three links one harness: set `segmentation.mode` to `per_zone_pair` and put the three star trackers in one zone (one lane of the diagram). Generate then makes one harness W001 with one plug on J1 and one on each star tracker, and the warning and the finding go away ([how links become harnesses](#how-links-become-harnesses)).
+
+4. **Check.** `harness-design-studio verify obc-demo` says `3 interfaces and 12 wires checked: 0 error(s)`. `system/box_pinouts.csv` lists each pin with its port name and its interface (`OBC1-J01,box,,EX-MICROD-25-F,5,RS422_2_TX+,IF-002,W002-001,no`). `harness-design-studio explain obc-demo OBC1-J01.5` names the port: *Port of the pin: RS422_2_TX+ is the TX+ of port RS422_2 of OBC1-J01*. A second Generate changes nothing.
+
+5. **Choose a port yourself** when the wiring must follow another plan, say IF-003 on RS422_1. In the Inspector of IF-003, **Choose port…** on the end at OBC1 lists *RS422_1 (pins 1-4)*, *RS422_2 (pins 5-8)* and *RS422_3 (pins 9-12)*. Once Generate has run, a port that another interface holds says why it cannot be taken (*Pin 1 carries IF-001; unassign it first.*), so choose before you generate, or first free those pins with **Unassign from interface** in the **Devices** tab. Pick RS422_1: its pins become *Locked* to IF-003 in one undo step, and the pins Generate gave IF-003 before are freed in the same step. The next Generate keeps IF-003 on RS422_1 and gives IF-001 and IF-002 the free ports in name order, RS422_2 and RS422_3. **Assign…** with its **Port** list in the **Devices** tab does the same.
+
+6. **When J1 is full**, a fourth link cannot use it: the Inspector lists it as *J1: Full*, and connecting to it in Expert mode is refused with the reason (*OBC1-J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2, RS422_3 are used by IF-001, IF-002, IF-003.*). Add a connector, or add a port to the pinout.
 
 ### 5: when the checks run
 

@@ -16,6 +16,7 @@ The screen says *device*, the files say *unit*: what the program shows as a devi
 - [Hash](#hash)
 - [Editor additions](#editor-additions-connector-use-layout-waivers-autosave-schema-version-stays-1)
 - [Generation additions](#generation-additions-pins-mating-locks-generation-record-schema-version-stays-1)
+- [Ports on a fixed pinout](#ports-on-a-fixed-pinout-210-format-2-unchanged)
 - [Device kind](#device-kind-after-1150-schema-version-stays-1)
 - [Build data additions](#build-data-additions-170-schema-version-stays-1)
 - [Links and pin roles](#links-and-pin-roles-m2-schema-version-stays-1)
@@ -142,6 +143,9 @@ All optional with defaults; projects saved before them load unchanged.
 - `Part.mates_with`: library connector parts that mate with it.
 - `generated/generation.json`: the last generation record: `input_hash`, `generator_version`, `next_harness_number`, `placeholders_used`, and `provenance` (object key to list of "rule: reason" lines; the data behind Explain).
 - `config/generation.json`: generation settings (see PLACEHOLDERS.md).
+
+## Ports on a fixed pinout (2.1.0; format 2 unchanged)
+A **port** (decision D-237) is a naming convention on `Pin.signal`, not a field. On a fixed pin (`fixed: true`) the signal `RS422_2_TX+` is the signal TX+ of the interface type in the port `RS422_2`: the prefix form `PORT<sep>SIGNAL` or the suffix form `SIGNAL<sep>PORT`, with the separator `_`, `.` or `-`, read exactly and case-sensitive (`core/ports.py`; the full rule is in [pin allocation](models/pin-allocation.md#ports-on-a-fixed-pinout)). The interface that uses a port is the existing `Pin.interface_id`: Generate writes it, or a person chooses the port and the pins get `locked: true` as well. Several interfaces on one connector use the existing `Endpoint.connector_id`. A Port column of an imported pinout is written into the signal name; `export-pinout` writes the names as they are. `Endpoint.role` stays unused and does not hold the port. So 2.1.0 writes no new field, every field keeps its meaning, and format 2 is unchanged: a project of 2.0.x opens and saves in 2.1.0 as before, and 2.0.x reads a project of 2.1.0. 2.0.x does not read port names, though: its Generate fails for an interface that needs a port (*no free pin named TX+*) and drops the draft harness of that interface; released harnesses and locked pins stay, and 2.1.0 makes the drafts again. Update everyone who generates a shared project at the same time.
 
 ## Device kind (after 1.15.0; schema version stays 1)
 
