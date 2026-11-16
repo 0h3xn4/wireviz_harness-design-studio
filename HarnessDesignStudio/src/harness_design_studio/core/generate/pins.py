@@ -31,6 +31,17 @@ STRATEGY_TEXT = {
 }
 
 
+@dataclass(frozen=True)
+class PinRules:
+    """The settings the pin allocation of every connector runs with."""
+
+    gap: int  # generation.power_signal_gap_pins (0 when unset)
+    return_gap: int  # generation.power_return_gap_pins
+    categories: tuple[str, ...]  # model.pin_allocation_categories
+    fit: str  # model.pin_fit_strategy in force
+    earlier: str  # the fit the harnesses were last generated with
+
+
 def strategy(project: Project) -> str:
     """The pin fit strategy in force: the one function generation and the explanation call."""
     value = settings.effective(project, "model", "pin_fit_strategy").value

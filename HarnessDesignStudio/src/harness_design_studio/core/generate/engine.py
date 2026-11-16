@@ -45,7 +45,15 @@ from harness_design_studio.core.wirecolours import signal_colour
 from . import bundle, shields
 from .lengths import generated_length, path_length, path_trail
 from .naming import Namer, namer_for
-from .pins import DEFAULT_STRATEGY, STRATEGY_TEXT, Allocation, Request, allocate, earlier_strategy
+from .pins import (
+    DEFAULT_STRATEGY,
+    STRATEGY_TEXT,
+    Allocation,
+    PinRules,
+    Request,
+    allocate,
+    earlier_strategy,
+)
 from .pins import strategy as pin_strategy
 from .segmentation import Group, orient, segment
 from .sizing import size_wire
@@ -449,17 +457,6 @@ def frozen_interfaces(project: Project) -> set[str]:
     old_by_key = _old_by_key(project)
     frozen = {h.id for h in old_by_key.values() if h.status == "released"}
     return _frozen_ifaces(project, old_by_key, frozen)
-
-
-@dataclass(frozen=True)
-class PinRules:
-    """The settings the pin allocation of every connector runs with."""
-
-    gap: int  # generation.power_signal_gap_pins (0 when unset)
-    return_gap: int  # generation.power_return_gap_pins
-    categories: tuple[str, ...]  # model.pin_allocation_categories
-    fit: str  # model.pin_fit_strategy in force
-    earlier: str  # the fit the harnesses were last generated with
 
 
 def pin_rules(project: Project, gen: dict[str, object] | None = None) -> PinRules:
