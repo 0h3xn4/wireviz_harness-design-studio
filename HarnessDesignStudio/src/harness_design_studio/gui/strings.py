@@ -3594,3 +3594,43 @@ HOME_CLEAR_BODY = (
 )
 HOME_CLEAR_OK = "Clear list"
 HOME_CLEARED = "The list of recent projects is empty."
+# ---- several interfaces on one connector, one interface per port (D-237, pull request 5) -------
+CONNECTOR_FULL = "Full"  # the short word of a connector that has no room for one more interface
+END_CONNECTOR_FULL = "{name}: {short}"
+END_PORT = "Port {port} (pins {pins}), {how}"
+END_PORT_HOW = {
+    "locked": "locked",
+    "generated": "chosen by Generate",
+    "planned": "Generate will choose it",
+}
+END_PORT_TIP = (
+    "The pins of one port of the connector's fixed pinout carry this interface. Choose port… "
+    "locks the interface to a port of your choice."
+)
+CHOOSE_PORT = "Choose port…"
+CHOOSE_PORT_NAME = "Choose the port of {interface} on {connector}"
+CHOOSE_PORT_TIP = "Lock {interface} to a port of {connector}; Generate then keeps it there."
+PORT_TITLE = "Choose port"
+PORT_INTRO = (
+    "{interface} ({type}) ends on {connector}. Choose the port it uses. Its pins are locked "
+    "to {interface}; their names stay."
+)
+PORT_FIELD = "Port"
+PORT_FIELD_TIP = "A complete port of the connector's fixed pinout for this interface type"
+PORT_ROW = "{port} (pins {pins})"
+PORT_OK = "Assign port"
+PORT_NONE = "{connector} has no complete {type} port."
+STEP_ASSIGN_PORT = "Assign port {port} to {interface}"
+DVD_ASSIGN_PORT = "Port"
+DVD_ASSIGN_PORT_TIP = (
+    "Put the interface on a complete port of the fixed pinout, or on the selected pins"
+)
+DVD_ASSIGN_PORT_PINS = "The selected pins"
+DV_COL_PORT = "Port"
+DV_COL_PORT_TIP = (
+    "The complete port of the fixed pinout this pin is in, and the interface on it. Worked out "
+    "from the pin names; not stored and not exported."
+)
+DV_PORT_CELL = "{port} ({interface})"
+CONFIRM_ONE = "Confirm {}"
+CONFIRM_ONE_TIP = "Keep {connector} for {interface}: the tool chose it, and it stays marked Auto until you confirm it."

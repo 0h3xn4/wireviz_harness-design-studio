@@ -133,6 +133,7 @@ from harness_design_studio.gui.devices_dialogs import (
     NewDeviceDialog,
     NewPartDialog,
     NewTypeDialog,
+    PortDialog,
     QuickDeviceDialog,
 )
 from harness_design_studio.gui.devices_view import DevicesView
@@ -615,6 +616,7 @@ class MainWindow(QMainWindow):
         self.ctl.problemsRequested.connect(self._show_problems)
         self.ctl.whyRequested.connect(self._show_why)
         self.props.deleteRequested.connect(self.delete_flow)
+        self.props.portRequested.connect(self.choose_port_flow)
         self.ctl.connectChanged.connect(self._on_connect)
         self.ctl.cableHint.connect(self._on_cable_hint)
         self.ctl.linkRequested.connect(self.link_flow)
@@ -1659,9 +1661,25 @@ class MainWindow(QMainWindow):
             if set(self.ctl.project.interfaces) != before:
                 self.assign_pins_flow(connector_id, pins)
             return
-        if accepted:
+        if accepted and dlg.port():  # a whole named port (D-237)
+            self.ctl.assign_port(connector_id, dlg.port(), dlg.interface_id())
+        elif accepted:
             chosen, signals = dlg.assignment()
             self.ctl.assign_pins(connector_id, chosen, dlg.interface_id(), signals)
+
+    def choose_port_flow(self, interface_id: str, connector_id: str) -> bool:
+        """Choose port… of an interface end in the Inspector: the port's pins are locked to the
+        interface, one undo step (D-237)."""
+        if self.ctl.read_only:
+            self.ctl.refuse_read_only()
+            return False
+        p = self.ctl.project
+        if interface_id not in p.interfaces or connector_id not in p.connectors:
+            return False
+        dlg = PortDialog(self, self.theme, p, connector_id, interface_id)
+        if self.run_dialog(dlg) != QDialog.DialogCode.Accepted or not dlg.port():
+            return False
+        return self.ctl.assign_port(connector_id, dlg.port(), interface_id)
 
     def _duplicate_device(self, unit_id: str) -> None:
         """Duplicate in the Devices tab: the same step as Edit > Duplicate on that unit."""

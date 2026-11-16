@@ -776,11 +776,9 @@ class Inspector(QWidget):
                     out.append((combo, "box_connector", name.removeprefix("part-"), "part_id"))
             for btn in self.props.findChildren(QPushButton):
                 name = btn.objectName()
-                if name.startswith("confirm-"):
-                    cid = name.removeprefix("confirm-")
-                    for i in p.interfaces.values():
-                        if any(e.connector_id == cid and e.auto for e in i.endpoints):
-                            out.append((btn, "interface", i.id, "endpoints"))
+                iid = btn.property("interface")  # one Confirm per interface (D-237)
+                if name.startswith("confirm-") and isinstance(iid, str) and iid in p.interfaces:
+                    out.append((btn, "interface", iid, "endpoints"))
         elif kind == "interface":
             for key in ("name", "max_current_a", "voltage_v", "requirement_id"):
                 if key in fields:
@@ -794,6 +792,9 @@ class Inspector(QWidget):
             confirm = self.props.findChild(QPushButton, "if-confirm")
             if confirm is not None:
                 out.append((confirm, "interface", oid, "endpoints"))
+            for btn in self.props.findChildren(QPushButton):  # Choose port… of each end
+                if btn.objectName().startswith("end-port-choose-"):
+                    out.append((btn, "interface", oid, "endpoints"))
         return out
 
     def _apply_locks(self) -> None:

@@ -8,6 +8,7 @@ small `Delta` so they redraw only what changed.
 """
 
 import atexit
+import dataclasses
 import json
 import threading
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -718,10 +719,42 @@ class EditorController(QObject):
         return edit.unit_compat(self.project, self.connect_type, unit_id, src)
 
     def connector_compat(self, connector_id: str) -> edit.Compat:
-        src = self.connect_from.unit_id if self.connect_from else None
+        """Can the connector take an interface of the chosen type (Expert mode)? A connector that
+        carries interfaces takes one more while it has room (D-237); the answer's `note` says
+        what the person should know although it is taken (a second plug, a released harness)."""
+        src = self.connect_from
         if self.connect_type is None:
             return edit.Compat(False, strings.PICK_TYPE_SHORT, strings.PICK_TYPE_FIRST)
-        return edit.connector_compat(self.project, self.connect_type, connector_id, src)
+        c = edit.connector_compat(
+            self.project,
+            self.connect_type,
+            connector_id,
+            src.unit_id if src else None,
+            far_connector=src.connector_id if src else None,
+        )
+        if not c.ok and c.short == "Full":  # (the core's word; the screen's is in strings)
+            return dataclasses.replace(c, short=strings.CONNECTOR_FULL)
+        return c
+
+    def _connect_notes(self, unit_id: str, connector_id: str | None) -> str:
+        """The notes of the two connectors of a new interface (Expert mode), each counted with the
+        other end as its far end; "" when there is none."""
+        src = self.connect_from
+        if src is None or self.connect_type is None:
+            return ""
+        notes: list[str] = []
+        for here, far_unit, far_conn in (
+            (src.connector_id, unit_id, connector_id),
+            (connector_id, src.unit_id, src.connector_id),
+        ):
+            if here is None:
+                continue
+            c = edit.connector_compat(
+                self.project, self.connect_type, here, far_unit=far_unit, far_connector=far_conn
+            )
+            if c.ok and c.note and c.note not in notes:
+                notes.append(c.note)
+        return " ".join(notes)
 
     def unit_has_valid_connector(self, unit_id: str) -> bool:
         if self.connect_type is None:
@@ -781,6 +814,7 @@ class EditorController(QObject):
             self.connectChanged.emit()
             return
         src, type_id = self.connect_from, self.connect_type
+        notes = self._connect_notes(unit_id, connector_id) if self.mode == "expert" else ""
         try:
             ops, iid = edit.ops_add_interface(
                 self.project, type_id, src.unit_id, unit_id, src.connector_id, connector_id
@@ -791,7 +825,8 @@ class EditorController(QObject):
             self.connectChanged.emit()
             return
         auto = strings.IF_ADDED_AUTO if self.mode == "guided" else ""
-        if self.run(strings.STEP_ADD_INTERFACE, ops, message=strings.IF_ADDED.format(iid) + auto):
+        said = strings.IF_ADDED.format(iid) + auto + (f" {notes}" if notes else "")
+        if self.run(strings.STEP_ADD_INTERFACE, ops, message=said):
             self.connect_from = None
             self.select("interface", iid)
             self.connectChanged.emit()
@@ -1330,6 +1365,13 @@ class EditorController(QObject):
             lambda: devices.ops_assign_pins(
                 self.project, connector_id, pin_ids, interface_id, signals
             ),
+        )
+
+    def assign_port(self, connector_id: str, port: str, interface_id: str) -> bool:
+        """Put an interface on a named port of a fixed pinout: its pins are locked to it (D-237)."""
+        return self.attempt(
+            strings.STEP_ASSIGN_PORT.format(port=port, interface=interface_id),
+            lambda: devices.ops_assign_port(self.project, connector_id, port, interface_id),
         )
 
     def unassign_pins(self, connector_id: str, pin_ids: list[str]) -> bool:

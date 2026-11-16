@@ -839,13 +839,21 @@ def test_every_new_control_has_a_name_and_a_tooltip(qtbot, tmp_path: Path) -> No
         FillDialog,
         NewPartDialog,
         NewTypeDialog,
+        PortDialog,
     )
 
+    ops, obc = edit.ops_add_unit(win.ctl.project, "computer")
+    win.ctl.run("u", ops)
+    ops, iid = edit.ops_add_interface(
+        win.ctl.project, "can", obc, "GYRO1", to_connector="GYRO1-J01"
+    )
+    win.ctl.run("i", ops)
     for dlg in (
         NewPartDialog(win, win.theme, win.ctl.project),
         NewTypeDialog(win, win.theme, win.ctl.project),
         FillDialog(win, win.theme, win.ctl.project, "GYRO1-J01", ["1", "2"]),
         AssignDialog(win, win.theme, win.ctl.project, "GYRO1-J01", ["1", "2"]),
+        PortDialog(win, win.theme, win.ctl.project, "GYRO1-J01", iid),
     ):
         dlg.show()
         assert unnamed(dlg) == [], type(dlg).__name__

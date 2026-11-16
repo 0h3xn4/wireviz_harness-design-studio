@@ -158,7 +158,9 @@ With **Contact** on there is one more column, **Cable contact** (since 1.7.0): t
 
 A pin can also say which way its signal runs (`in`, `out` or `bidirectional`; since 1.9.0): `import-pinout` reads a *Direction* column for it. Where it is set, **Check my connections** and the pairing proposal use it before any name. The *Direction* column of the table above is still the one of the interface type.
 
-Under it the notes about the connector, for example a signal that no interface type has, or *CANH* without *CANL* on a fixed pinout; a double-click selects the pin the note is about.
+The **Port** column (since 2.1.0) shows the complete named port of a fixed pinout that the pin is in, and the interface on it, for example *RS422_2 (IF-012)*. A pin named `RS422_2_TX+` is the signal TX+ of the port RS422_2. The tool works the column out from the pin names; it is not stored and not exported.
+
+Under it the notes about the connector, for example a signal that no interface type has, *CANH* without *CANL* on a fixed pinout, or a port that misses a signal; a double-click selects the pin the note is about.
 
 At the bottom, **Pinout as exported** shows the rows of `system/box_pinouts.csv` for this device; **Export pinout…** saves them as a CSV file or an Excel workbook.
 
@@ -181,7 +183,7 @@ The **library** is a folder that your team shares, on a shared drive or in a Git
 - **Edit > Add device > Device…** (Ctrl+Shift+N; also **Add** in the Project tab, and the button **Add a device** on an empty diagram) opens the window **Add device**: type the **Name** (for example *Star tracker*), accept or change the **ID** it suggests (`STAR1`; once you edit it, it stops following the name) and pick the **Subsystem**, and optionally a **First connector** (kind, pins, gender). **Add device** adds the device in a free slot and opens the Devices tab (the Systems engineer stays on the Next step page or the diagram). The kinds in **Edit > Add device** need no name.
 - Under the connector list pick a part (type to search; the first entry is **New part…**, which also makes the mating half) and press **Add connector** (Ctrl+Shift+C goes to the picker; Enter adds). The pins are numbered from the part's pin count. **Delete connector** shows what it touches first.
 - Click a cell and type, or press F2 or Enter. Enter keeps the value and goes down; Esc cancels. A pin name is checked while you type. **Add pin** (Insert) adds a pin after the current one; Delete clears the signal of the selected pins; **Delete** (Shift+Delete) deletes pins after a line that says what they touch; Space cycles the mode (*Free*, *Fixed*, *Locked*); Ctrl+V pastes cells copied from a spreadsheet, either a column from the current cell down or a table with a header row (*Pin*, *Signal*, *Mode*, *Contact size*, *Termination*, *Cable contact*).
-- **Fill…** (Ctrl+L) puts the signals of an interface type on the selected pins in order (for example *CANH*, *CANL*). **Assign…** (Ctrl+Enter) locks the selected pins to an interface that ends on this device. Both are one undo step; **New interface type…** is in the dialog.
+- **Fill…** (Ctrl+L) puts the signals of an interface type on the selected pins in order (for example *CANH*, *CANL*). **Assign…** (Ctrl+Enter) locks the selected pins to an interface that ends on this device. On a fixed pinout with named ports its **Port** list puts the interface on a whole port (*Assign port RS422_2 to IF-012*). Both are one undo step; **New interface type…** is in the dialog.
 - On the card, a part with another pin count asks on one line whether to resize the pins and set the gender; both happen in one step. A fixed pinout is a promise that each interface signal has a pin of its name (the card says so).
 - A part or interface type made here is marked *pending* or *unverified*. The tool never approves a part. A released device shows a banner with **Start new revision…**; its spare pins stay editable, its pin names and count do not.
 
@@ -219,6 +221,10 @@ The role is not the mode. Guided and Expert change only how much the diagram sho
 
 - **Guided** (default): you work with devices and interfaces. The tool chooses connectors and pins and marks its choices as *auto-filled* until you confirm them.
 - **Expert**: you also see each connector of a device and can choose the exact connector for every end of an interface.
+
+**Several interfaces on one connector** (since 2.1.0). In Expert mode a connector that already carries interfaces takes one more while it has room; the tool counts the room the way Generate places the pins. A full connector is refused with the reason, and a list of an end shows it as *J1: Full*. A note says when Generate will make a second harness with its own plug on the connector, or when a released harness plugs into it. In Guided mode the tool first takes a free connector; only when none is free does it take a free complete port of a fixed pinout.
+
+In the Inspector each end on a fixed pinout with named ports shows its port, for example *Port RS422_2 (pins 5-8), chosen by Generate*; **Choose port…** locks the interface to the port you pick. A device's Inspector has one **Confirm** for each interface whose connector the tool chose.
 
 Switching modes never changes your data.
 
