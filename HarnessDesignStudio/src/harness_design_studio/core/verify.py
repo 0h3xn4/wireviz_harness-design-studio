@@ -8,8 +8,9 @@ Checks: every logical signal appears end to end exactly once; both ends of every
 the pinout tables (pins, the wire's signal label and the cable connector's own pin table); no pin
 is used twice; an interface uses the pins of one port of a connector (a fixed pin `RS422_2_TX+`
 carries TX+ of port RS422_2, read by a copy of the rule of `core/ports.py`); a shielded type has
-a shield group covering its wires; harness bookkeeping matches its wires; outputs are not stale. Wire gauge, colour and part are not checked (they are design
-choices, see the design rules). It never raises.
+a shield group covering its wires; harness bookkeeping matches its wires; outputs are not stale.
+Wire gauge, colour and part are not checked (they are design choices, see the design rules). It
+never raises.
 """
 
 from collections import Counter
@@ -93,7 +94,7 @@ def expected_connections(signals: Sequence[tuple[str, str]]) -> Counter[Connecti
 
 
 # Port names (D-237). The verifier reads them with its own copy of the rule of `core/ports.py`
-# (`read_signal`), not with an import of it; `tests/test_verify_checks.py` compares the two.
+# (`read_signal`), not with an import of it; `tests/test_ports_checks.py` compares the two.
 _PORT_SEPARATORS = ("_", ".", "-")
 
 PortReading = tuple[str, str, str, str]  # (port, signal, form, separator); port "" is bare
