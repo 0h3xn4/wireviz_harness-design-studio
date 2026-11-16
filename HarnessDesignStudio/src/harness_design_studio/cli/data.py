@@ -202,7 +202,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     pn = sub.add_parser(
         "import-pinout",
         help="import a device's pinout from a spreadsheet (CSV or XLSX)",
-        description="Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Part, Gender); columns the project cannot store, such as a description or a voltage, are named in a warning and left out. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.",
+        description="Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Part, Gender, Port); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as a description or a voltage, are named in a warning and left out. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.",
     )
     pn.add_argument("project", type=Path)
     pn.add_argument("file", type=Path)
@@ -249,7 +249,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         action="append",
         default=[],
         metavar="FIELD=HEADING",
-        help="use this column for a field when the headings are not recognised, for example pin=Contact (repeat)",
+        help="use this column for a field when the headings are not recognised, for example pin=Contact or port=Channel (repeat)",
     )
     pn.add_argument(
         "--replace",
@@ -1080,6 +1080,8 @@ def _pinout(
         n = sum(1 for r in plan.rows if r.ok and r.connector == cid)
         rep.say(f"{cid}: OK {verb} ({n} pin(s))")
         listed.append({"connector": cid, "action": verb, "pins": n})
+    for line in plan.port_lines:
+        rep.say(line)
     for w in plan.warnings:
         rep.say(f"warning: {w}")
     if plan.unmatched_signals:
@@ -1107,6 +1109,7 @@ def _pinout(
         unmatched_signals={
             n: list(plan.unmatched_signals[n]) for n in sorted(plan.unmatched_signals)
         },
+        ports=[r.as_dict() for r in plan.ports],
     )
     if plan.bad_count:
         rep.say("Nothing was changed.")

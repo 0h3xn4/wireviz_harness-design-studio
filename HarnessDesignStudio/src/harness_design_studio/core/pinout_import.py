@@ -6,7 +6,9 @@ the signal on it, whether the device fixes it, a contact size, a termination, a 
 a sheet with only a Function column and no Signal column reads it as the signal, as before) and the
 contact part the cable side uses (a part of category contact; the heading `Cable contact`, or
 `Contact` next to a Pin heading) and a direction (`Direction`: in, out or bidirectional; empty
-leaves it unset, 1.9.0).
+leaves it unset, 1.9.0). An optional Port column (2.1.0, D-237) names the port of the pin; the
+import writes it into the signal name (`RS422_2` and `TX+` give `RS422_2_TX+`), because a port is a
+naming convention on the signal, not a field (`core/ports.py`, `docs/IMPORTS.md`).
 
 The tool knows no program's table format: columns are matched by their headings (with common
 aliases), the way the parts import does. Columns it cannot store (remarks,
@@ -17,6 +19,8 @@ what is imported is one `History` step ("Import pinout (2 connectors, 36 pins)")
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -32,7 +36,17 @@ from .imports import (
     parse_csv_file,
     read_table_sheet,
 )
-from .model import Project
+from .model import Connector, InterfaceType, Project
+from .ports import (
+    SEPARATORS,
+    Port,
+    compose,
+    is_signal_of,
+    natural_key,
+    port_name_problem,
+    ports_of,
+    read_signal,
+)
 
 Table = list[list[str]]
 
@@ -48,6 +62,7 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("direction", "Direction"),
     ("part", "Part"),
     ("gender", "Gender"),
+    ("port", "Port"),
 )
 _ALIASES = {
     "connector": ("connector", "conn", "connectorid", "connectorname", "ref", "reference"),
@@ -66,6 +81,7 @@ _ALIASES = {
     "direction": ("direction", "pindirection", "dir", "iomode"),
     "part": ("part", "partid", "partnumber", "connectorpart"),
     "gender": ("gender", "sex"),
+    "port": ("port", "portname", "portid"),
 }
 # headings the file format has no field for: named in a warning, never written
 _UNSTORED = frozenset(
@@ -139,6 +155,41 @@ class PinoutRow:
     message: str
     connector: str = ""  # the connector ID the row goes to
     pin: str = ""
+    signal: str = ""  # the signal the pin gets: with the port of a Port column written into it
+
+
+# the longest signal name the file format takes (`Pin.signal` is a `Name`)
+MAX_SIGNAL = 200
+
+
+@dataclass(frozen=True)
+class PortReport:
+    """The named ports of one imported connector for one interface type it can carry."""
+
+    connector: str
+    type_id: str
+    type_name: str
+    ports: tuple[Port, ...]  # natural order of the names; ports that cannot be used included
+    notes: tuple[str, ...]  # incomplete or doubled ports and ambiguous pins, in plain words
+
+    def as_dict(self) -> dict[str, object]:
+        """The report as `--json` writes it."""
+        return {
+            "connector": self.connector,
+            "type": self.type_id,
+            "type_name": self.type_name,
+            "ports": [
+                {
+                    "name": p.name,
+                    "usable": p.usable,
+                    "pins": [{"signal": pp.signal, "pin": pp.pin_id} for pp in p.pins],
+                    "missing": list(p.missing),
+                    "doubled": list(p.doubled),
+                }
+                for p in self.ports
+            ],
+            "notes": list(self.notes),
+        }
 
 
 @dataclass
@@ -153,6 +204,21 @@ class PinoutPlan:
     warnings: list[str] = field(default_factory=list)
     unit_id: str = ""
     new_unit: bool = False
+    ports: list[PortReport] = field(default_factory=list)  # per connector, then per type ID
+
+    @property
+    def port_lines(self) -> list[str]:
+        """One line per connector and port list: `J01: RS-422 ports: RS422_1 (pins 1-4), RS422_2
+        (5-8)`. Types with the same ports on a connector share a line (`Ethernet or RS-422`)."""
+        lines: list[str] = []
+        groups: dict[tuple[str, str, int], list[str]] = {}
+        for r in self.ports:
+            key = (r.connector, _ports_text(r.ports), len(r.ports))
+            groups.setdefault(key, []).append(r.type_name)
+        for (cid, text, count), names in groups.items():
+            word = "ports" if count > 1 else "port"
+            lines.append(f"{cid}: {' or '.join(names)} {word}: {text}")
+        return lines
 
     @property
     def ok_count(self) -> int:
@@ -281,19 +347,39 @@ def plan_pinout_import(
                 continue
             ops += new_ops
             work = edit.clone_with(work, new_ops)
+        types = _types_of(work, work.connectors[cid])
+        refused: dict[int, str] = {}
+        with_port: list[str] = []  # pins whose signal names the port of a Port column
+        written_rows: list[tuple[int, dict[str, str]]] = []
+        for n, r in rows:
+            port = r.get("port", "")
+            if port:
+                signal, problem, warning = port_signal(port, r.get("signal", ""), types, cid)
+                if problem:
+                    refused[n] = problem
+                    continue
+                if warning:
+                    plan.warnings.append(f"Row {n}: {warning}")
+                elif is_signal_of(signal, types):
+                    with_port.append(r["pin"])
+                r = {**r, "signal": signal}
+            written_rows.append((n, r))
+        rows = written_rows
         sheet = [{k: v for k, v in r.items() if k in devices.ROW_COLUMNS} for _n, r in rows]
         pins = devices.plan_pin_rows(
             work, cid, sheet, replace=replace or is_new, row_numbers=[n for n, _r in rows]
         )
-        if pins.issues:
-            bad: set[int] = set()
+        if pins.issues or refused:
+            bad: set[int] = set(refused)
+            for n, message in refused.items():
+                plan.rows.append(PinoutRow(n, False, message, name, _pin_of(by_connector[name], n)))
             for issue in pins.issues:
-                src = issue.row or rows[0][0]
+                src = issue.row or by_connector[name][0][0]
                 bad.add(src)
                 plan.rows.append(PinoutRow(src, False, issue.reason, name, issue.pin))
             for n, r in rows:  # the rows without a problem are listed too (nothing is imported)
                 if n not in bad:
-                    plan.rows.append(PinoutRow(n, True, "ok", name, r["pin"]))
+                    plan.rows.append(PinoutRow(n, True, "ok", name, r["pin"], r.get("signal", "")))
             continue
         try:
             set_ops = devices.ops_set_pinout(work, cid, list(pins.pins))
@@ -311,19 +397,144 @@ def plan_pinout_import(
             plan.pins += len(rows)
         if is_new:
             plan.added.append(cid)
-        known = {s.name for t in work.interface_types.values() for s in t.signals}
-        for _n, r in rows:
+        all_types = sorted(work.interface_types.values(), key=lambda t: t.id)
+        for _n, r in rows:  # a port name reads as the signal of its type (`RS422_2_TX+`)
             sig = r.get("signal", "")
-            if sig and sig not in known:
+            if sig and not is_signal_of(sig, all_types):
                 plan.unmatched_signals.setdefault(sig, []).append(f"{cid} pin {r['pin']}")
+        _report_ports(plan, work.connectors[cid], types, with_port)
         for n, r in rows:
             word = "added" if is_new else "unchanged" if same else "updated"
-            seen_rows.append((n, PinoutRow(n, True, word, cid, r["pin"])))
+            seen_rows.append((n, PinoutRow(n, True, word, cid, r["pin"], r.get("signal", ""))))
     plan.rows += [r for _n, r in seen_rows]
     plan.rows.sort(key=lambda r: r.row_number)
     if plan.bad_count:
         plan.ops = []  # a sheet with a bad row is not imported at all
     return plan
+
+
+def _types_of(project: Project, connector: Connector) -> list[InterfaceType]:
+    """The interface types a connector can carry, in ID order: the ones it names (`carries`), or
+    every type of the project when it names none."""
+    named = [project.interface_types[t] for t in connector.carries if t in project.interface_types]
+    return sorted(named or project.interface_types.values(), key=lambda t: t.id)
+
+
+def port_signal(
+    port: str, signal: str, types: Sequence[InterfaceType], connector_id: str = "the connector"
+) -> tuple[str, str, str]:
+    """The signal a row with the port `port` writes, as (signal, refusal, warning); a refusal or a
+    warning is "" when there is none. `types` are the types the connector can carry (`_types_of`).
+
+    - `signal` is a signal of one or more of `types`: the pin gets `PORT_SIGNAL` (`compose`), and
+      the port name must read back as that port for each of these types (`port_name_problem`);
+    - `signal` already reads as a signal of the port `port` (`RS422_2_TX+`, `TX+.RS422_2`): kept;
+    - `signal` reads as a signal of another port only: refused;
+    - `signal` is no signal of these types in any form: kept as it is, as before 2.1.0, with a
+      warning (the port is not added blindly to a name the tool cannot read).
+    A composed name longer than a signal name may be is refused."""
+    if not signal:
+        return (
+            "",
+            f"Port {port} has no signal on this row: give the signal or leave the port empty",
+            "",
+        )
+    bare = [t for t in types if signal in {s.name for s in t.signals}]
+    if bare:
+        for t in bare:
+            problem = port_name_problem(port, [s.name for s in t.signals])
+            if problem:
+                return signal, problem, ""
+        name = compose(port, signal, [s.name for s in bare[0].signals])
+    else:
+        readings = [r for t in types for r in read_signal(signal, [s.name for s in t.signals])]
+        if any(r.port == port for r in readings):
+            name = signal
+        elif readings:
+            others = sorted({r.port for r in readings}, key=natural_key)
+            return (
+                signal,
+                f"The signal {signal} names the port {' or '.join(others)}, not {port}",
+                "",
+            )
+        elif any(signal.startswith(port + sep) for sep in SEPARATORS):
+            return signal, "", ""  # it already starts with the port
+        else:
+            return (
+                signal,
+                "",
+                f"{signal} is no signal of an interface type that {connector_id} can carry, so the"
+                f" port {port} is not added to it; the signal is imported as it is.",
+            )
+    if len(name) > MAX_SIGNAL:
+        return (
+            signal,
+            f"The signal {name} would have {len(name)} characters; a signal name has at most"
+            f" {MAX_SIGNAL}",
+            "",
+        )
+    return name, "", ""
+
+
+def _pin_of(rows: list[tuple[int, dict[str, str]]], n: int) -> str:
+    return next((r.get("pin", "") for m, r in rows if m == n), "")
+
+
+def _report_ports(
+    plan: PinoutPlan, connector: Connector, types: Sequence[InterfaceType], with_port: list[str]
+) -> None:
+    """The named ports of `connector` per type into `plan.ports`, their problems into the
+    warnings; a warning when pins that name a port are not fixed (only fixed pins form ports)."""
+    for t in types:
+        found = ports_of(connector, t)
+        if not found.named:
+            continue
+        plan.ports.append(PortReport(connector.id, t.id, t.name, found.named, found.notes))
+        plan.warnings += [n for n in found.notes if n not in plan.warnings]
+    loose = sorted(
+        (p.id for p in connector.pins if p.id in with_port and not p.fixed), key=natural_key
+    )
+    if loose:
+        plan.warnings.append(
+            f"{connector.id}: pin{'s' if len(loose) > 1 else ''} {pin_ranges(loose)}"
+            f" name{'' if len(loose) > 1 else 's'} a port but"
+            f" {'are' if len(loose) > 1 else 'is'} not fixed; only fixed pins form ports, so give"
+            f" {'them' if len(loose) > 1 else 'it'} the mode fixed."
+        )
+
+
+_NUMBERED = re.compile(r"^(.*?)([0-9]+)$")
+
+
+def pin_ranges(pin_ids: Sequence[str]) -> str:
+    """Pins in natural order with runs written as ranges: `1-4`, `A1-A3, B7`."""
+    out: list[str] = []
+    run: list[str] = []
+    last: tuple[str, int] | None = None
+    for pid in sorted(pin_ids, key=natural_key):
+        m = _NUMBERED.match(pid)
+        key = (m.group(1), int(m.group(2))) if m else None
+        if run and key is not None and last is not None and key == (last[0], last[1] + 1):
+            run.append(pid)
+        else:
+            if run:
+                out.append(run[0] if len(run) == 1 else f"{run[0]}-{run[-1]}")
+            run = [pid]
+        last = key
+    if run:
+        out.append(run[0] if len(run) == 1 else f"{run[0]}-{run[-1]}")
+    return ", ".join(out)
+
+
+def _ports_text(ports: Sequence[Port]) -> str:
+    """`RS422_1 (pins 1-4), RS422_2 (5-8)`; a port that cannot be used says so."""
+    parts: list[str] = []
+    for k, p in enumerate(ports):
+        where = pin_ranges([pp.pin_id for pp in p.pins])
+        tail = "" if p.usable else "; not usable"
+        label = ("pins " if len(p.pins) > 1 else "pin ") if k == 0 else ""
+        parts.append(f"{p.name} ({label}{where}{tail})")
+    return ", ".join(parts)
 
 
 def _usable_name(name: str) -> bool:
