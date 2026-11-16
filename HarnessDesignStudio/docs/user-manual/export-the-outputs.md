@@ -9,6 +9,7 @@ This page shows how to write the build workbook and the lists of a design (wire 
 - [Before you start](#before-you-start)
 - [1. Export](#1-export)
 - [2. What you get](#2-what-you-get)
+  - [PDF and Excel files at a glance](#pdf-and-excel-files-at-a-glance)
 - [3. The build workbook, sheet by sheet](#3-the-build-workbook-sheet-by-sheet)
 - [4. Build a harness from the workbook](#4-build-a-harness-from-the-workbook)
 - [What the build workbook holds, and what it does not](#what-the-build-workbook-holds-and-what-it-does-not)
@@ -89,6 +90,32 @@ wheel-link/outputs/
 | `provenance.json` | Which tool version and which design made the outputs, the library, and every config file with its placeholder flag. |
 
 Only the A3 drawing is also written as SVG; the A4 drawing is a PDF only. Full list and limits: [`OUTPUTS.md`](../OUTPUTS.md). With the box **Include the open data** ticked in the Export window, the same files as `harness-design-studio export-data` are also written into `outputs/data/`; they are not listed in `manifest.json` ([export the data](export-the-data.md)).
+
+### PDF and Excel files at a glance
+
+Every PDF and Excel file the tool writes, in one place:
+
+| You want | File | How you get it |
+| --- | --- | --- |
+| a harness to build from, as a spreadsheet | `harnesses/<ID>/<ID>_build.xlsx` | every export ([section 3](#3-the-build-workbook-sheet-by-sheet)) |
+| the tables of one harness as a spreadsheet (wire list, pinouts, parts, mass, tests, labels) | `harnesses/<ID>/<ID>.xlsx` | every export |
+| the tables of the whole system as a spreadsheet | `system/system.xlsx` | every export |
+| the connection list (ICD style) as a spreadsheet | `system/connections.xlsx` | every export of a project with connections |
+| the block diagram as a PDF | `system/block_diagram.pdf` | every export; or **File > Export diagram…** for a PDF, SVG and PNG of the diagram alone |
+| the overview of the harnesses as a PDF | `system/harness_overview.pdf` | every export |
+| a harness drawing as a PDF | `harnesses/<ID>/drawing_A3.pdf` and `drawing_A4.pdf` | only with **Include the PDF drawings** or `export --drawings` ([section 5](#5-the-pdf-drawings-optional)) |
+
+The same lists as `.csv` files sit next to the workbooks. With the practice project:
+
+```
+harness-design-studio export wheel-link --drawings
+```
+
+```
+41 files written to wheel-link/outputs (model <hash>).
+```
+
+The PDF files are then `system/block_diagram.pdf`, `system/harness_overview.pdf` and `drawing_A3.pdf` and `drawing_A4.pdf` of `W001` and `W002`; the Excel files are `system/system.xlsx` and `W001.xlsx`, `W001_build.xlsx`, `W002.xlsx` and `W002_build.xlsx`. (The same export without `--drawings` says 35 files; the six drawing files come on top.)
 
 ## 3. The build workbook, sheet by sheet
 
