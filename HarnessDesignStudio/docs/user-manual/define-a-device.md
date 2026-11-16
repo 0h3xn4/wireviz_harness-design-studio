@@ -188,7 +188,7 @@ A pin has a name or number, a signal, a mode, a contact size, a termination, a *
 ## Common mistakes
 
 - **Fixed pins and a missing name.** After you fix one pin with a signal, an interface whose signal has no pin of that name fails with *has a fixed pinout and no free pin named …*. Add the pin or fill it from the interface type.
-- **Two interfaces on one connector.** The app offers one interface per connector. Use a second connector.
+- **Two interfaces on one connector.** A connector takes a second interface while it has room for it (since 2.1.0). The tool counts the room as Generate places the pins. A full connector is refused with the reason: *J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2 are used by IF-010, IF-011*. Use a second connector, or add pins. On a fixed pinout, name the pins of each port (`RS422_1_TX+`, `RS422_2_TX+` ...), so the tool knows which pins belong together. **Assign…** refuses a pin that another interface holds: *Pin 5 carries IF-011; unassign it first.*
 - **A signal typed a little differently** (`canh` for `CANH`): it is free text and nothing connects to it. The note says *Did you mean CANH?*.
 - **A part with no gender in its description.** The cable end cannot be checked to fit. Set the gender on the card.
 - **Changing a part of a released device.** Start a new revision first ([change a released harness](change-a-released-harness.md)).
