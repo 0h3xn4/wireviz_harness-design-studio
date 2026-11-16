@@ -4,6 +4,12 @@ Versions follow semantic versioning. Every project file records the tool version
 
 ## Unreleased
 
+### Changed
+
+- **The release page carries only what users need (decision D-232, amends D-213).** From 2.0.1 a release page has seven files instead of 221: the four packages, `SHA256SUMS`, its signature `SHA256SUMS.sigstore.json`, and one archive, `harness-design-studio-<version>-release-bundle.tar`, with everything else, each kind in its folder: the source of the LGPL and GPL components with `SOURCES.txt` (`sources/`), the SBOMs, the inventories, the notices, the offline-audit report, the signatures of the packages and the SBOMs (`signatures/`), and a `README.txt`. The archive is a reproducible plain tar (`python -m tools.release_bundle`). `SHA256SUMS` lists the packages and the bundle and is signed, so one signature covers both; the build provenance attestation is unchanged. The page text says what the bundle holds and where the signatures are; the notices and `THIRD_PARTY_NOTICES.txt` say that the source is in the bundle on the release page. The release stops before publishing when a package kind or the bundle is missing, or the bundle lacks `SOURCES.txt` or a file it lists, an SBOM, a notices file or the audit report. The pages of 2.0.0 and older are not changed, and the `notes_only` run writes them as before. Not proven yet: the release workflow runs first on the tag of 2.0.1.
+
+### Documentation
+
 - **Documents added after the first demo feedback (2026-11-16):** the user manual explains how auto-linking and the checks work ([generate harnesses](docs/user-manual/generate-harnesses.md#how-auto-linking-and-the-checks-work)), connector IDs and tags ([naming and title block](docs/user-manual/naming-and-title-block.md#connector-ids-and-tags)), every PDF and Excel file in one table ([export the outputs](docs/user-manual/export-the-outputs.md#pdf-and-excel-files-at-a-glance)) and, on a new page, how to use the tool in an organisation ([using HDS in your organisation](docs/user-manual/use-hds-in-your-organisation.md)); the feedback is recorded in [`docs/ux/feedback-2026-11-16.md`](docs/ux/feedback-2026-11-16.md), with the owner decisions D-233 to D-235. No change of the program.
 
 ## 2.0.0 (2026-11-12; not a statement of compliance)

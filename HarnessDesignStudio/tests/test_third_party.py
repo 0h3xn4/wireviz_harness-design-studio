@@ -14,6 +14,8 @@ import pytest
 from tools import third_party as tp
 from tools.licence_report import classify
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def _fake_package(root: Path) -> Path:
     app = root / "pkg"
@@ -88,6 +90,12 @@ def test_the_notices_hold_the_licence_texts_and_the_source_offer(tmp_path: Path)
     text = tp.to_notices(parts, "1.0", "windows")
     assert "GNU General Public Licence, version 3 only" in text
     assert "SOURCE CODE" in text and "three years" in text and "replace" in text
+    # D-232: the source is in the release bundle on the release page, and the notices say so
+    assert (
+        "in the bundle `harness-design-studio-<version>-release-bundle.tar` on the release page"
+        in (text)
+    )
+    assert "attached to the release page" not in text
     assert "LGPL text" in text and "MIT text" in text and "Demo Authors" in text
 
 
@@ -101,3 +109,9 @@ def test_the_sbom_is_cyclonedx_and_lists_every_component(tmp_path: Path) -> None
 @pytest.mark.parametrize("package", sorted(tp.SYSTEM_LICENCES))
 def test_every_reviewed_system_licence_is_on_the_allow_list(package: str) -> None:
     assert classify(tp.SYSTEM_LICENCES[package]) == "allowed", package
+
+
+def test_the_committed_notices_carry_the_source_offer_of_the_tool() -> None:
+    """THIRD_PARTY_NOTICES.txt in the repository says where the source is, as the packages do."""
+    committed = (ROOT / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
+    assert tp.SOURCE_OFFER in committed
