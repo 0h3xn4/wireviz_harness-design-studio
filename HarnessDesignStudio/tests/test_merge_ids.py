@@ -375,8 +375,10 @@ def test_an_interface_id_on_both_branches_is_set_aside_and_merge_fix_undoes(
 def test_b_a_hand_drawn_harness_and_the_place_of_its_loose_end(tmp_path, clock, capsys, ours_moved):
     start(tmp_path)
     branch(tmp_path, "ann", cable("PCDU1-J02"), mark("pos:W003-P2", 40.0))
-    bob = [cable("OBC1-J02")] + ([mark("pos:W003-P2", -25.0)] if ours_moved else [])
-    branch(tmp_path, "bob", *bob)
+    if ours_moved:
+        branch(tmp_path, "bob", cable("OBC1-J02"), mark("pos:W003-P2", -25.0))
+    else:
+        branch(tmp_path, "bob", cable("OBC1-J02"))
     design = merge(tmp_path)
     expected = ["physical/harnesses/W003.json"] + (["diagram/marks.json"] if ours_moved else [])
     assert conflict_files(design) == sorted(expected)
