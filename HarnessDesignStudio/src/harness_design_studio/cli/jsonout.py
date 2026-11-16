@@ -49,7 +49,9 @@ SHAPES: dict[str, tuple[str, ...]] = {
         "ok", "written", "blocked", "model_hash", "drawings_removed", "file_count", "files",
         "issues",
     ),
-    "merge-fix": ("ok", "result", "conflicts", "problem", "generate", "check"),
+    "merge-fix": (
+        "ok", "result", "conflicts", "problem", "generate", "check", "dry_run", "renamed",
+    ),
     "config": (
         "ok", "set_count", "total", "values", "problems", "placeholder_files",
         "waiting_for_decision", "counterpart_pairs", "release_distinct_roles", "comment_warnings",

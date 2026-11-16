@@ -30,7 +30,7 @@ MAX_DELTA_DEPTH = 64
 MAX_UP = 12  # parent folders searched for `.git`
 _HEX = re.compile(r"[0-9a-f]{40}")
 _REF = re.compile(r"refs/[A-Za-z0-9._/@+-]+")
-COMMIT, OFS_DELTA, REF_DELTA = 1, 6, 7
+COMMIT, TREE, BLOB, OFS_DELTA, REF_DELTA = 1, 2, 3, 6, 7
 
 
 @dataclass(frozen=True)
@@ -144,23 +144,29 @@ def _read_text(path: Path, limit: int = 1 << 20) -> str:
 # ---- objects ------------------------------------------------------------------------------
 
 
-def _read_object(common: Path, sha: str) -> bytes:
+def _read_object(common: Path, sha: str, kind: int = COMMIT, limit: int = MAX_OBJECT) -> bytes:
+    """The body of object `sha` of type `kind` (a commit unless said otherwise), at most `limit`
+    bytes; `_Unreadable` when it is missing, of another type, too large or damaged."""
+    word_of = {COMMIT: b"commit", TREE: b"tree", BLOB: b"blob"}
+    if not _HEX.fullmatch(sha):
+        raise _Unreadable("object id")
     loose = common / "objects" / sha[:2] / sha[2:]
     if loose.is_file():
         d = zlib.decompressobj()
+        room = limit + 64  # the header ("blob 1234\0") and the body
         with loose.open("rb") as f:
-            data = d.decompress(f.read(MAX_OBJECT), MAX_OBJECT)
+            data = d.decompress(f.read(room), room)
         head, _, body = data.partition(b"\0")
         word, _, size = head.partition(b" ")
-        if word != b"commit" or int(size) != len(body):
-            raise _Unreadable("not a commit")
+        if word != word_of.get(kind) or int(size) != len(body) or len(body) > limit:
+            raise _Unreadable("not the object asked for")
         return body
     for idx in sorted((common / "objects" / "pack").glob("pack-*.idx")):
         offset = _pack_offset(idx, bytes.fromhex(sha))
         if offset is not None:
-            kind, body = _pack_object(idx.with_suffix(".pack"), idx, offset, 0)
-            if kind != COMMIT:
-                raise _Unreadable("not a commit")
+            found, body = _pack_object(idx.with_suffix(".pack"), idx, offset, 0, limit)
+            if found != kind:
+                raise _Unreadable("not the object asked for")
             return body
     raise _Unreadable("object not found")
 
@@ -206,7 +212,9 @@ def _inflate(f: object, limit: int = MAX_OBJECT) -> bytes:
     return bytes(out)
 
 
-def _pack_object(pack: Path, idx: Path, offset: int, depth: int) -> tuple[int, bytes]:
+def _pack_object(
+    pack: Path, idx: Path, offset: int, depth: int, limit: int = MAX_OBJECT
+) -> tuple[int, bytes]:
     if depth > MAX_DELTA_DEPTH:
         raise _Unreadable("delta chain too deep")
     with pack.open("rb") as f:
@@ -232,19 +240,19 @@ def _pack_object(pack: Path, idx: Path, offset: int, depth: int) -> tuple[int, b
             base_ref = 0
         if kind not in (COMMIT, OFS_DELTA, REF_DELTA, 2, 3, 4):
             raise _Unreadable("object type")
-        data = _inflate(f)
+        data = _inflate(f, limit)
     if kind == OFS_DELTA:
-        base_kind, base = _pack_object(pack, idx, int(base_ref), depth + 1)
+        base_kind, base = _pack_object(pack, idx, int(base_ref), depth + 1, limit)
     elif kind == REF_DELTA:
         at = _pack_offset(idx, bytes(base_ref))
         if at is None:
             raise _Unreadable("delta base outside this pack")
-        base_kind, base = _pack_object(pack, idx, at, depth + 1)
+        base_kind, base = _pack_object(pack, idx, at, depth + 1, limit)
     else:
         if len(data) != size:
             raise _Unreadable("size mismatch")
         return kind, data
-    return base_kind, _apply_delta(base, data)
+    return base_kind, _apply_delta(base, data, limit)
 
 
 def _varint(data: bytes, at: int) -> tuple[int, int]:
@@ -258,10 +266,10 @@ def _varint(data: bytes, at: int) -> tuple[int, int]:
             return n, at
 
 
-def _apply_delta(base: bytes, delta: bytes) -> bytes:
+def _apply_delta(base: bytes, delta: bytes, limit: int = MAX_OBJECT) -> bytes:
     src, at = _varint(delta, 0)
     dst, at = _varint(delta, at)
-    if src != len(base) or dst > MAX_OBJECT:
+    if src != len(base) or dst > limit:
         raise _Unreadable("delta size")
     out = bytearray()
     while at < len(delta):

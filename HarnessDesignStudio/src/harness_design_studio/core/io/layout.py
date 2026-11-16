@@ -322,6 +322,17 @@ def serialize(project: Project, *, tool_version: str | None = None) -> dict[str,
     return files
 
 
+def harness_bytes(h: Harness) -> bytes:
+    """The file `physical/harnesses/<id>.json` of one harness, as a save writes it."""
+    return _harness_bytes(h)
+
+
+def list_bytes(key: str, items: list[Entity]) -> bytes:
+    """A file that holds one list of objects under `key` (`logical/links.json`, `waivers.json`,
+    `diagram/marks.json`), sorted by ID, as a save writes it."""
+    return canonical.dumps({key: _dump(items)})
+
+
 def _harness_bytes(h: Harness) -> bytes:
     data = h.model_dump(mode="json")
     for key in (

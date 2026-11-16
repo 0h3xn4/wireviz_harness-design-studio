@@ -30,9 +30,11 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from harness_design_studio.core.errors import SaveError
 from harness_design_studio.core.io.fs import atomic_write_bytes
+from harness_design_studio.core.merge_ids import IdFix
 from harness_design_studio.core.vcs.gitindex import unmerged_paths
 
 __all__ = [
@@ -42,10 +44,13 @@ __all__ = [
     "MergeFixPlan",
     "add_journal_union",
     "conflict_files",
+    "current_journal",
     "plan_merge_fix",
     "record_journal_merge",
+    "record_renames",
     "take_both_sides",
     "take_our_side",
+    "take_their_side",
     "write_gitattributes",
 ]
 
@@ -193,6 +198,43 @@ def take_our_side(data: bytes) -> bytes:
     return b"".join(out)
 
 
+def take_their_side(data: bytes) -> bytes:
+    """The file with every conflict hunk reduced to their side (the lines between `=======` and
+    `>>>>>>>`; the common ancestor of the `diff3` style is dropped). The mirror of `take_our_side`:
+    `merge-fix` reads both sides of a harness or a list that both branches changed (M7b, D-231).
+    Raises ValueError when the markers are not well formed."""
+    out: list[bytes] = []
+    state = "text"  # text, ours, base, theirs
+    for line in data.splitlines(keepends=True):
+        bare = line.rstrip(b"\r\n")
+        if state == "text":
+            if bare.startswith(b"<<<<<<<"):
+                state = "ours"
+            elif bare.startswith(b">>>>>>>") or bare == b"=======":
+                raise ValueError("a conflict marker without its start")
+            else:
+                out.append(line)
+        elif bare.startswith(b"<<<<<<<"):
+            raise ValueError("conflict markers inside conflict markers")
+        elif state == "ours":
+            if bare.startswith(b"|||||||"):
+                state = "base"
+            elif bare == b"=======":
+                state = "theirs"
+            elif bare.startswith(b">>>>>>>"):
+                raise ValueError("a conflict hunk without its middle line")
+        elif state == "base":
+            if bare == b"=======":
+                state = "theirs"
+        elif bare.startswith(b">>>>>>>"):  # theirs
+            state = "text"
+        else:
+            out.append(line)
+    if state != "text":
+        raise ValueError("a conflict hunk without its end")
+    return b"".join(out)
+
+
 def take_both_sides(data: bytes) -> bytes:
     """The file with every conflict hunk replaced by our side's lines and then theirs (the common
     ancestor of the `diff3` style is dropped): what `merge=union` would have made. For the journal,
@@ -234,15 +276,17 @@ def take_both_sides(data: bytes) -> bytes:
 
 @dataclass(frozen=True)
 class MergeFixPlan:
-    """What `merge-fix` finds. `ok` is True only when the record and the journal are the only
-    files in conflict."""
+    """What `merge-fix` finds. `ok` is True only when every file in conflict is one it resolves:
+    the record, the journal, and the harness files and lists of IDs that both branches made
+    (`ids`, M7b, D-231)."""
 
     conflicts: list[str] = field(default_factory=list)  # every file in conflict
-    others: list[str] = field(default_factory=list)  # all of them except the record and journal
+    others: list[str] = field(default_factory=list)  # the files in conflict it does not resolve
     record_has_markers: bool = False
     new_record: bytes | None = None  # our side of the record when it has markers
-    problem: str = ""  # why the record or the journal cannot be taken
+    problem: str = ""  # why the record, the journal or the IDs cannot be taken
     new_journal: bytes | None = None  # both sides of the journal when it has markers
+    ids: IdFix = field(default_factory=IdFix)  # the harnesses and lists of IDs in conflict
 
     @property
     def nothing_to_do(self) -> bool:
@@ -271,33 +315,60 @@ def _journal_both_sides(folder: Path) -> tuple[bytes | None, str]:
 def plan_merge_fix(folder: Path) -> MergeFixPlan:
     """Read-only: which files are in conflict, and the record and the journal as they will be
     kept."""
+    from harness_design_studio.core.merge_ids import handles, plan_id_fix
+
     conflicts = conflict_files(folder)
-    others = [c for c in conflicts if c not in (GENERATION_FILE, JOURNAL_FILE)]
+    others = [c for c in conflicts if c not in (GENERATION_FILE, JOURNAL_FILE) and not handles(c)]
+    ids = IdFix()
+    if not others:
+        ids = plan_id_fix(folder, conflicts)
     journal, problem = _journal_both_sides(folder) if JOURNAL_FILE in conflicts else (None, "")
+    problem = problem or ids.problem
     if problem or GENERATION_FILE not in conflicts:
-        return MergeFixPlan(conflicts, others, problem=problem, new_journal=journal)
+        return MergeFixPlan(conflicts, others, problem=problem, new_journal=journal, ids=ids)
     path = folder / GENERATION_FILE
     try:
         data = path.read_bytes() if path.is_file() and not path.is_symlink() else b""
     except OSError:
-        return MergeFixPlan(conflicts, others, problem="The record cannot be read.")
+        return MergeFixPlan(conflicts, others, problem="The record cannot be read.", ids=ids)
     marked = has_markers(data)
     if marked:
         try:
             data = take_our_side(data)
         except ValueError as exc:
-            return MergeFixPlan(conflicts, others, True, None, f"The record: {exc}.", journal)
+            return MergeFixPlan(conflicts, others, True, None, f"The record: {exc}.", journal, ids)
     try:
         record = json.loads(data.decode("utf-8"))
     except ValueError:
         return MergeFixPlan(
-            conflicts, others, marked, None, "The record is not valid JSON.", journal
+            conflicts, others, marked, None, "The record is not valid JSON.", journal, ids
         )
     if not isinstance(record, dict) or "input_hash" not in record:
         return MergeFixPlan(
-            conflicts, others, marked, None, "The file is not a generation record.", journal
+            conflicts, others, marked, None, "The file is not a generation record.", journal, ids
         )
-    return MergeFixPlan(conflicts, others, marked, data if marked else None, "", journal)
+    return MergeFixPlan(conflicts, others, marked, data if marked else None, "", journal, ids)
+
+
+def current_journal(folder: Path) -> Any:
+    """The journal of a project of the current format as `journal.jsonl` holds it, or None (no
+    such file, or a project of another format). Raises `JournalError` when it cannot be read."""
+    from harness_design_studio.core.io import canonical
+    from harness_design_studio.core.io.layout import parse_file
+    from harness_design_studio.core.io.migrate import current_version, schema_version_of
+    from harness_design_studio.core.model import Journal, JournalEntry, JournalError
+
+    path = folder / JOURNAL_FILE
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        meta = canonical.loads_strict((folder / "project.json").read_bytes())
+        if schema_version_of({"project.json": meta}) != current_version():
+            return None
+        raws = parse_file(JOURNAL_FILE, path.read_bytes())["journal"]
+        return Journal(JournalEntry.model_validate(r) for r in raws)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise JournalError(f"The journal cannot be read: {exc}") from None
 
 
 def record_journal_merge(folder: Path) -> int:
@@ -307,24 +378,33 @@ def record_journal_merge(folder: Path) -> int:
     a project of another format). Raises `JournalError` when the journal is damaged and
     `SaveError` when it cannot be written."""
     from harness_design_studio.core import journal as journal_module
-    from harness_design_studio.core.io import canonical
-    from harness_design_studio.core.io.layout import journal_bytes, parse_file
-    from harness_design_studio.core.io.migrate import current_version, schema_version_of
-    from harness_design_studio.core.model import Journal, JournalEntry, JournalError
+    from harness_design_studio.core.io.layout import journal_bytes
 
-    path = folder / JOURNAL_FILE
-    if not path.is_file() or path.is_symlink():
+    journal = current_journal(folder)
+    if journal is None:
         return 0
-    try:
-        meta = canonical.loads_strict((folder / "project.json").read_bytes())
-        if schema_version_of({"project.json": meta}) != current_version():
-            return 0
-        raws = parse_file(JOURNAL_FILE, path.read_bytes())["journal"]
-        journal = Journal(JournalEntry.model_validate(r) for r in raws)
-    except (OSError, ValueError, RecursionError) as exc:
-        raise JournalError(f"The journal cannot be read: {exc}") from None
     heads = len(journal.heads())
     if heads < 2:
         return 0
+    path = folder / JOURNAL_FILE
     atomic_write_bytes(path, journal_bytes(journal_module.merged(journal)), root=folder)
     return heads
+
+
+def record_renames(folder: Path, renamed: dict[str, str]) -> bool:
+    """Add the one entry that names the IDs `merge-fix` renamed (`core.journal.rename_rows`, M7b,
+    D-231) to the journal of a project, after the merge entry, and write only the journal. False
+    when there was nothing to record (no renames, no `journal.jsonl`, a project of another
+    format). Raises `JournalError` when the journal is damaged and `SaveError` when it cannot be
+    written."""
+    from harness_design_studio.core import journal as journal_module
+    from harness_design_studio.core.io.layout import journal_bytes
+
+    if not renamed:
+        return False
+    journal = current_journal(folder)
+    if journal is None:
+        return False
+    more = journal_module.extended(journal, journal_module.rename_rows(renamed))
+    atomic_write_bytes(folder / JOURNAL_FILE, journal_bytes(more), root=folder)
+    return True

@@ -102,7 +102,7 @@ git add -A
 git commit
 ```
 
-`merge-fix` first looks at which files of the project are in conflict, the files with conflict markers and the files Git still lists as unmerged (it reads the repository's own files; it does not start `git`). If the record is the only one, it keeps this branch's version of it, runs `generate` and then `check`, and prints what they print. If any other file is in conflict (for example both people changed the same line of a device), it refuses, names the files and changes nothing; resolve those yourself, then run it again. It writes nothing itself except that record; `generate` then writes what it always writes, and a harness that a person made by hand is never touched. If `generate` or `check` is blocked, the record is put back as it was found. When the merged design needs no new harness, `generate` prints `0 added, 0 changed, ... unchanged`; if it does, `generate` builds it and you commit those files too. `git add -A` is still yours to run: `merge-fix` does not change the Git index.
+`merge-fix` first looks at which files of the project are in conflict, the files with conflict markers and the files Git still lists as unmerged (it reads the repository's own files; it does not start `git`). If the record is the only one, it keeps this branch's version of it, runs `generate` and then `check`, and prints what they print. A harness or a connection that both people made with the same ID it also resolves ([how](#when-both-branches-made-the-same-harness-or-connection-id)). If any other file is in conflict (for example both people changed the same line of a device), it refuses, names the files and changes nothing; resolve those yourself, then run it again. It writes nothing itself except that record (and the files of the renames); `generate` then writes what it always writes, and a harness that a person made by hand is never touched. If `generate` or `check` is blocked, the record is put back as it was found. When the merged design needs no new harness, `generate` prints `0 added, 0 changed, ... unchanged`; if it does, `generate` builds it and you commit those files too. `git add -A` is still yours to run: `merge-fix` does not change the Git index.
 
 With the `.gitattributes` of a new project, the record is a valid JSON file during the conflict (our side, no markers), so `check` and the app can read the project and `verify` says that the record is out of date. Without it, the file holds the markers and `check` reports `merge_conflict` until `merge-fix` has run. `merge-fix` works the same way in both cases.
 
@@ -120,7 +120,89 @@ git commit
 
 Another way is to keep `generated/` out of Git (a line `generated/` in the `.gitignore` of the repository) and to run `generate` after every checkout. Then the record can never conflict, but it also holds the reasons that the Why tab shows and the number of the next harness, so each checkout starts those from what `generate` finds.
 
-By design, a few other files can conflict when two people change them on two branches, and `merge-fix` leaves them to you: `changelog.json` and `baselines/` when two people release (keep both entries), `layout.json` (all positions of the diagram are in one file), `logical/links.json` (one file for all connections, numbered `L1`, `L2` ...: two people who each add a connection on their own branch both create the next number, so after the merge one of the two must be renumbered by hand), and the number of a new harness (two new interfaces get the same harness number on two branches; run `generate` after the merge and read what it says). Files in `outputs/`, if you keep them in Git, are made from the design: after a merge run `export` again, or leave the folder out of Git.
+By design, a few other files can conflict when two people change them on two branches, and `merge-fix` leaves them to you: `changelog.json` and `baselines/` when two people release (keep both entries), `layout.json` (all positions of the diagram are in one file), and any file in which both people changed the same object in different ways. A harness or a connection that both people made with the same ID is the next section. Files in `outputs/`, if you keep them in Git, are made from the design: after a merge run `export` again, or leave the folder out of Git.
+
+### When both branches made the same harness or connection ID
+
+A new harness gets the next free number (`W003`), and a new connection (a link) the next free `L1`, `L2` ... Two people who each make one on their own branch get the same ID for two different things. Git then stops on the files: both branches added `physical/harnesses/W003.json` (Git says `CONFLICT (add/add)`), and both added a link `L1` to `logical/links.json`. `check` reports `merge_conflict` for each file, and the app opens the project in recovery mode without the harness of that file. Here Ann and Bob each made a connection and a harness from it, and Bob merges Ann's branch:
+
+```
+harness-design-studio check design
+```
+
+```
+ERROR   merge_conflict: The file contains unresolved Git merge conflict markers. Resolve the conflict first. [logical/links.json]
+ERROR   merge_conflict: The file contains unresolved Git merge conflict markers. Resolve the conflict first. [physical/harnesses/W003.json]
+INFO    placeholder_config: Placeholder rule configuration still in use: derating, emc, generation, segmentation, segregation, titleblock. An engineer must review these before results are trusted.
+3 devices, 2 interfaces, 13 connectors, 2 harnesses: 2 error(s), 0 warning(s).
+```
+
+Look first at what `merge-fix` would do; `--dry-run` writes nothing:
+
+```
+harness-design-studio merge-fix design --dry-run
+```
+
+```
+logical/links.json is in conflict: both branches changed it.
+physical/harnesses/W003.json is in conflict: both branches added it.
+Renamed (the other branch's; this branch's keep their IDs):
+  harness W003 -> W004
+    W003-001 -> W004-001
+    W003-002 -> W004-002
+    W003-P1 -> W004-P1
+    W003-P2 -> W004-P2
+  link L1 -> L2
+Note: Harnesses W003 and W004 are both called 'OBC1 to PCDU1'. Give one of them another name.
+Then it would run check.
+Dry run: nothing was written.
+```
+
+Then run it, and commit:
+
+```
+harness-design-studio merge-fix design
+git add -A
+git commit
+```
+
+```
+logical/links.json is in conflict: both branches changed it.
+physical/harnesses/W003.json is in conflict: both branches added it.
+Renamed (the other branch's; this branch's keep their IDs):
+  harness W003 -> W004
+    W003-001 -> W004-001
+    W003-002 -> W004-002
+    W003-P1 -> W004-P1
+    W003-P2 -> W004-P2
+  link L1 -> L2
+Note: Harnesses W003 and W004 are both called 'OBC1 to PCDU1'. Give one of them another name.
+journal.jsonl holds the entries of 2 lines of work: one merge entry that names them is added.
+journal.jsonl: one entry that names the renames is added.
+--- check
+INFO    placeholder_config: Placeholder rule configuration still in use: derating, emc, generation, segmentation, segregation, titleblock. An engineer must review these before results are trusted.
+3 devices, 2 interfaces, 17 connectors, 4 harnesses: 0 error(s), 0 warning(s).
+Done. Commit the merge now: `git add -A`, then `git commit` (or `git merge --continue`).
+```
+
+What it does:
+
+- The harness or link of the branch you are on (Bob's, the branch you merge into) keeps its ID. The other branch's (Ann's) gets the next free ID: a harness the next free number of the naming pattern, a link the next free `L<n>`. The IDs inside the renamed harness that start with its ID (its connectors, wires, shields and so on) change with it.
+- Every entry of the other branch that names a renamed ID is changed too: the link a harness was made from, the place of a loose cable end on the diagram (`pos:W003-P2` in `diagram/marks.json`), the label marks of a link, and a waiver or a deviation (`waivers.json`). A waiver or deviation whose finding names the old ID no longer applies after the rename; `merge-fix` says so, and `check` shows the finding until you give it again.
+- When both branches made the same harness with the same content, it is kept once and nothing is renamed. (Git merges an identical file without a conflict, so usually you see nothing at all.)
+- It prints every rename (`old -> new`) and adds one entry to the journal, kind `edit`, that names them (`harness-design-studio journal design` shows it last). The journal entries written before the merge keep the IDs they had.
+- `--json` lists the renames under `renamed`.
+- It reads which branch added what from Git's own files (the index and the commit you are on); it does not start `git`. Your files outside the project and the Git index are not changed.
+
+It refuses, names the reason and changes nothing:
+
+- when the harness has a release history on either branch (it is in review or released, or a baseline, a change-log entry or an as-built record names it), or a baseline holds the link. Released IDs never change. Resolve it by hand: rename the other branch's draft yourself, or keep one of the two;
+- when both branches let Generate make a harness for the same group (the same pair of connectors, devices or zones). Keep one of the two versions, then run `generate`;
+- when both branches changed an existing harness or link in different ways (a real conflict, not a new ID);
+- when the project folder is not in a Git repository it can read;
+- when another file of the project is in conflict. One case to know: two new interfaces get the same ID (`IF-003`) on two branches. When they belong to devices of different subsystems they are kept in two different files and Git merges them without a conflict; the project then holds `IF-003` twice, `check` reports `quarantined: ... duplicate ID 'IF-003'`, and `merge-fix` puts every file back. Give one of the two interfaces another ID by hand (in its file in `logical/interfaces/` and in the wires and pins that name it) or delete it and add it again, then run `merge-fix`.
+
+The editor does not show these renames; use the command line for this step.
 
 ### The change journal after a merge
 
