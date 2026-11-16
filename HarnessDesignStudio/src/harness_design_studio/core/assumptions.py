@@ -291,12 +291,29 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "A connector is the first free one that carries the type; the cable end is the mating part",
             "When the tool chooses the connector of an interface at a device, it takes the first free "
             "connector of that device (in ID order) that carries the interface type, and marks it as "
-            "chosen for you until a person confirms it. The setting model.connector_choice selects "
-            "another order of the same candidates: fewest_spare_pins (best fit) or most_spare_pins. The cable end of a device connector is the part "
+            "chosen for you until a person confirms it. Only when no such connector is free does it "
+            "take a connector with a fixed pinout that has a free complete port of the type "
+            "(A-PORTS); it never shares a connector whose pins the device leaves free. The setting "
+            "model.connector_choice selects another order of the same candidates: fewest_spare_pins "
+            "(best fit) or most_spare_pins. The cable end of a device connector is the part "
             "the library names as its mating part; a part with none is mated with itself, and "
             "generation says so. Gender is the opposite of the device connector's, and keying is copied.",
             "setting",
             "config/model.json: connector_choice (default first_free); core/edit.py (choose_connector), core/generate/engine.py (_build_harness)",
+        ),
+        Assumption(
+            "A-PORTS",
+            "A connector takes another interface while the pin allocation has room for it",
+            "A device connector can carry several interfaces. Whether it takes one more is decided by "
+            "a dry run of the pin allocation of Generate with every interface that ends on it and the "
+            "new one: a connector is full when the new interface gets no pins or would take the pins "
+            "of another. On a fixed pinout the pins of one port are named by the port and the signal "
+            "(RS422_2_TX+ is TX+ of port RS422_2); an interface uses the pins of one complete port, "
+            "and pins of two ports are never mixed. Interfaces from one connector to different far "
+            "connectors get a harness each, with two plugs on the connector, until a harness can "
+            "branch.",
+            "built in",
+            "core/edit.py (connector_room, choose_connector); core/ports.py (ports_of); core/generate/pins.py (allocate)",
         ),
         Assumption(
             "A-SPARE-PINS",

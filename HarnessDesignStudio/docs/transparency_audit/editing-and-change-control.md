@@ -136,6 +136,8 @@ Row: id | file:line | value or rule | what it does / feeds | unit | visible? | e
 | EDIT-C4-015 | snapshot.py:248-258 | The frozen config set is not selectable per project | R3 | ELEC |
 | EDIT-C4-016 | wires.py:90-100 (context) | One `locked` flag for four attributes (gauge, type, colour, length); cannot lock only the length | R7 | ELEC AIT |
 
+**Note of 2026-11-16 (2.1.0, D-237).** The rows above are the record of the audit and stay as written. Since pull request 4 of 2.1.0 the editor core no longer holds EDIT-C4-008, nor the part of EDIT-C4-007 that says a device connector takes one interface: a connector takes another interface while a dry run of the pin allocation has room for it (`core/edit.py` `connector_room`, `connector_compat`), and *Assign…* refuses only a pin that another interface holds (`core/devices.py` `ops_assign_pins`, `ops_assign_port`). A connector still takes one plug.
+
 ## C5. Inputs and outputs exchanged with other tools or files
 
 | id | file:line | exchange | R | persona |

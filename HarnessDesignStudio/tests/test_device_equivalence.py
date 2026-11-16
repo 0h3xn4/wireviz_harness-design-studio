@@ -152,3 +152,76 @@ def test_editor_made_connectors_are_a_single_put_each() -> None:
     p = base()
     ops, _ = devices.ops_add_connector(p, "GYRO1", part_id="MY-HD-6-F")
     assert len(ops) == 1 and isinstance(ops[0], Put)
+
+
+# ---- a device with two ports on one connector (D-237) ----------------------------------------------
+
+PORTS = ("RS422_1", "RS422_2")
+RS422 = ("TX+", "TX-", "RX+", "RX-")
+
+
+def _two_port_base() -> Project:
+    p = base()
+    p.units["IOB1"] = Unit(id="IOB1", name="I/O board", subsystem="avionics", side="nominal")
+    p.placements["IOB1"] = Placement(id="IOB1", x=edit.lane_x(1), y=240)
+    return p
+
+
+def two_ports_hand_written() -> Project:
+    """The connector written by hand: two RS-422 ports, the second locked to IF-002."""
+    from harness_design_studio.core.model import Endpoint, InterfaceInstance
+
+    p = _two_port_base()
+    names = [f"{port}_{s}" for port in PORTS for s in RS422]
+    pins = [
+        Pin(id=str(k + 1), signal=name, fixed=True)
+        if k < 4
+        else Pin(id=str(k + 1), signal=name, fixed=True, locked=True, interface_id="IF-002")
+        for k, name in enumerate(names)
+    ]
+    p.connectors["IOB1-J01"] = Connector(
+        id="IOB1-J01", name="J01", role="box", part_id="EX-MICROD-9-F", unit_id="IOB1",
+        gender="female", carries=["rs422"], pins=[*pins, Pin(id="9")],
+    )  # fmt: skip
+    for iid, far in (("IF-001", "OBC1-J01"), ("IF-002", "OBC1-J03")):
+        p.interfaces[iid] = InterfaceInstance(
+            id=iid, name="RS-422 OBC1 to IOB1", type_id="rs422", redundancy="nominal",
+            endpoints=[Endpoint(unit_id="OBC1", connector_id=far),
+                       Endpoint(unit_id="IOB1", connector_id="IOB1-J01")],
+        )  # fmt: skip
+    return p
+
+
+def two_ports_with_editor() -> Project:
+    """The same device from the core API: a connector, its pinout pasted as fixed rows, two
+    interfaces on it (the second because the connector has room), the second locked to its port."""
+    p = _two_port_base()
+    h = History(p)
+    ops, cid = devices.ops_add_connector(p, "IOB1", part_id="EX-MICROD-9-F", carries=["rs422"])
+    h.execute("add connector", ops)
+    rows = [
+        {"pin": str(k + 1), "signal": f"{port}_{s}", "mode": "fixed"}
+        for k, (port, s) in enumerate((port, s) for port in PORTS for s in RS422)
+    ]
+    h.execute("pinout", devices.ops_paste_rows(p, cid, rows))
+    for far in ("OBC1-J01", "OBC1-J03"):
+        ops, _iid = edit.ops_add_interface(p, "rs422", "OBC1", "IOB1", far, cid)
+        h.execute("interface", ops)
+    h.execute("port", devices.ops_assign_port(p, cid, "RS422_2", "IF-002"))
+    return p
+
+
+def test_a_two_port_device_from_the_core_api_is_the_hand_written_one(tmp_path: Path) -> None:
+    a, b = two_ports_hand_written(), two_ports_with_editor()
+    assert a.connectors == b.connectors and a.interfaces == b.interfaces
+    save_project(a, tmp_path / "hand")
+    save_project(b, tmp_path / "editor")
+    assert folder_bytes(tmp_path / "hand") == folder_bytes(tmp_path / "editor")
+    generate_project(a)
+    generate_project(b)
+    owners = [(x.id, x.interface_id) for x in b.connectors["IOB1-J01"].pins[:8]]
+    assert owners == [(str(k), "IF-001" if k < 5 else "IF-002") for k in range(1, 9)]
+    save_project(a, tmp_path / "hand2")
+    save_project(b, tmp_path / "editor2")
+    assert folder_bytes(tmp_path / "hand2") == folder_bytes(tmp_path / "editor2")
+    assert verify_project(b).errors == []

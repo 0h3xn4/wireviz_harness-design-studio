@@ -438,11 +438,14 @@ def test_the_used_connector_index_follows_changes() -> None:
     )
     target = edit.free_connectors(p, a, type_id)[0].id
     assert edit.connector_compat(p, type_id, target).ok
-    ops, _ = edit.ops_add_interface(p, type_id, a, b, target, None)
+    ops, iid = edit.ops_add_interface(p, type_id, a, b, target, None)
     history = History(p)
     history.execute("add", ops)
-    assert not edit.connector_compat(p, type_id, target).ok
+    # a connector can carry several interfaces (D-237): the index names the one it carries now
+    assert [i.id for i in edit.interfaces_using(p, target)] == [iid]
+    assert target not in [c.id for c in edit.free_connectors(p, a, type_id)]
     history.undo()
+    assert edit.interfaces_using(p, target) == ()
     assert edit.connector_compat(p, type_id, target).ok
 
 

@@ -1038,6 +1038,7 @@ def test_assign_pins_with_chosen_signals_and_errors() -> None:
 
 
 def test_assign_pins_refuses_an_interface_that_does_not_end_here_or_another_connector() -> None:
+    """A connector takes a second interface (D-237); a pin another interface holds is refused."""
     p, cid = with_connector()
     obc, iid = can_link(p, cid)
     ops, c2 = devices.ops_add_connector(p, "GYRO1", part_id="MY-HD-6-F")
@@ -1054,7 +1055,7 @@ def test_assign_pins_refuses_an_interface_that_does_not_end_here_or_another_conn
     # the connector of the interface's end is the first one; the second is refused
     run(p, "assign", devices.ops_assign_pins(p, cid, ["1", "2"], iid))
     assert f"ends on {cid}, not on {c2}" in refused(devices.ops_assign_pins, p, c2, ["1", "2"], iid)
-    # a connector that carries another interface is refused with the editor's rule
+    # a connector that carries another interface takes a second one on its free pins
     ops, iid2 = edit.ops_add_interface(p, "can", other, "GYRO1", to_connector=c2)
     run(p, "i2", ops)
     i2 = p.interfaces[iid2]
@@ -1065,12 +1066,20 @@ def test_assign_pins_refuses_an_interface_that_does_not_end_here_or_another_conn
             for e in i2.endpoints
         ],
     )
-    run(p, "c", devices.ops_update_connector(p, cid, carries=["can"]))
-    assert "already carries" in refused(
-        devices.ops_assign_pins, p, cid, ["3", "4"], iid2
-    ) or "not meant" in refused(devices.ops_assign_pins, p, cid, ["3", "4"], iid2)
     run(p, "c", devices.ops_update_connector(p, c2, carries=["rs422"]))
     assert "is not meant for CAN" in refused(devices.ops_assign_pins, p, c2, ["3", "4"], iid2)
+    run(p, "c", devices.ops_update_connector(p, cid, carries=["can"]))
+    assert refused(devices.ops_assign_pins, p, cid, ["2", "3"], iid2) == (
+        f"Pin 2 carries {iid}; unassign it first."
+    )
+    run(p, "assign 2", devices.ops_assign_pins(p, cid, ["3", "4"], iid2))
+    assert [(x.id, x.interface_id) for x in p.connectors[cid].pins[:4]] == [
+        ("1", iid),
+        ("2", iid),
+        ("3", iid2),
+        ("4", iid2),
+    ]
+    assert next(e for e in p.interfaces[iid2].endpoints if e.unit_id == "GYRO1").connector_id == cid
 
 
 def test_unassign_pins_frees_them() -> None:

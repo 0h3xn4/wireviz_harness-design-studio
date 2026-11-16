@@ -57,6 +57,7 @@ Rules: `gui` and `cli` depend on `core`; `core` depends on nothing in `gui` or `
 | `linepos.py`, `device_kinds.py`, `pictograms.py` | the diagram, with no Qt (1.16.0): `linepos` (where a label sits on a line: a fraction `t` of the length of the polyline, the geometry of a drag, the reading of the marks of 1.14.0 and 1.15.0), `device_kinds` (19 kinds of device and the plain `device`, their 10 families and the reading of a kind from the name, ID, subsystem and links, or from `Unit.kind`), `pictograms` (the pictograms and badge outlines as plain path data) |
 | `commands.py` | transactions with undo and redo; all model changes are lists of operations applied atomically |
 | `edit.py` | editing operations for the block diagram (pure functions that build lists of operations) |
+| `clone.py` | `clone_with`: a scratch copy of a project with operations applied (moved out of `edit.py` in 2.1.0 so that `generate/engine.py` and `edit.py` do not import each other; `edit.clone_with` still names it) |
 | `ids.py`, `units.py`, `errors.py` | identifier rules; SI helpers (AWG with mm² alongside); explicit error types |
 | `integrity.py` | referential integrity of a project; runs on every load, save and transaction |
 | `issues.py` | findings reported by loading, integrity checking and `harness-design-studio validate` / `check` |

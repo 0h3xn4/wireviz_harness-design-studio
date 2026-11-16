@@ -183,7 +183,7 @@ def test_j3_expert_mode_exact_connector_rules(win) -> None:  # type: ignore[no-u
     pick_connect_type(win, "power_primary")
     assert (
         not ctl.connector_compat("RW1-J01").ok
-        and "already carries" in ctl.connector_compat("RW1-J01").why
+        and "cannot take another Primary power" in ctl.connector_compat("RW1-J01").why
     )
     assert "does not carry Primary power" in ctl.connector_compat("OBC-J03").why
     click_unit(win, "OBC", port="OBC-J03")
