@@ -1722,7 +1722,9 @@ def ops_assign_port(
     cannot be used (incomplete, doubled, written in two ways), when a release locks one of its
     pins (`pin_lock_reason`), or when another interface holds one of them. The rest is
     `ops_assign_pins`: the interface must end on the device, and an end without a connector gets
-    this one in the same step."""
+    this one in the same step. The pins of the connector that Generate gave the interface before
+    (not locked, not in the port) lose the interface in the same step and keep everything else, so
+    the pin table and the end show one port until the next Generate."""
     _writable(project)
     c = _box(project, connector_id)
     i = project.interfaces.get(interface_id)
@@ -1745,7 +1747,22 @@ def ops_assign_port(
     for pid in pin_ids:
         if why := pin_lock_reason(project, connector_id, pid):
             raise EditError(f"Port {port_name} of {connector_id} cannot change. {why}")
-    return ops_assign_pins(project, connector_id, pin_ids, interface_id, names)
+    ops = ops_assign_pins(project, connector_id, pin_ids, interface_id, names)
+    return [_release_old_pins(op, connector_id, interface_id, set(pin_ids)) for op in ops]
+
+
+def _release_old_pins(op: Op, connector_id: str, interface_id: str, keep: set[str]) -> Op:
+    """The connector of `op` with `interface_id` cleared on the pins that carry the interface, are
+    not locked and are not in `keep`; any other op as it is."""
+    if not (isinstance(op, Put) and isinstance(op.obj, Connector) and op.obj.id == connector_id):
+        return op
+    pins = [
+        evolve(p, interface_id=None)
+        if p.interface_id == interface_id and not p.locked and p.id not in keep
+        else p
+        for p in op.obj.pins
+    ]
+    return Put("connectors", op.obj.model_copy(update={"pins": pins}))
 
 
 # ---- the port at an interface end and in the pin table (derived, never stored; D-237) -----------
@@ -1796,8 +1813,8 @@ def end_port(project: Project, interface_id: str, connector_id: str) -> EndPort 
     if not usable:
         return None
     held = [p for p in c.pins if p.interface_id == interface_id]
-    # the pins a person locked count first: Generate's earlier pins stay on the pins until the next
-    # Generate moves the interface to the locked port
+    # the pins a person locked count first (`ops_assign_port` clears the pins Generate gave the
+    # interface before, but a pin locked by an earlier choice keeps it)
     held = [p for p in held if p.locked] or held
     if held:
         ids = {p.id for p in held}

@@ -185,11 +185,16 @@ def test_inspector_shows_the_port_and_choose_port_locks_it_and_undo_restores(
     assert [(x.id, x.interface_id, x.locked) for x in pins[8:]] == [
         (str(n), b, True) for n in range(9, 13)
     ]
+    # the pins Generate gave b before lose it in the same step (and keep their names)
+    assert [(x.interface_id, x.signal) for x in pins[4:8]] == [
+        (None, f"RS422_2_{s}") for s in ("TX+", "TX-", "RX+", "RX-")
+    ]
     assert win.ctl.history.next_undo_label == f"Assign port RS422_3 to {b}"
     assert form_label(win, f"end-port-line-{k}") == "Port RS422_3 (pins 9-12), locked"
     win.ctl.undo()
     pins = win.ctl.project.connectors["OBC1-J1"].pins
     assert not any(x.locked for x in pins)
+    assert [x.interface_id for x in pins[4:8]] == [b] * 4
     assert form_label(win, f"end-port-line-{k}") == "Port RS422_2 (pins 5-8), chosen by Generate"
 
 

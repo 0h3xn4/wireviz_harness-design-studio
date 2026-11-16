@@ -394,6 +394,52 @@ def test_assign_port_locks_the_pins_of_the_port_and_keeps_their_names() -> None:
         devices.ops_assign_port(p, "OBC1-J1", "RS422_2", b)
 
 
+def test_assign_port_clears_the_pins_generate_gave_the_interface_before() -> None:
+    """The old pins of the interface lose it in the same step: before the fix they kept their
+    `interface_id` until the next Generate, so the pin table and the end showed two ports."""
+    from harness_design_studio.core import devices
+
+    p = obc(("J1", port_pins("RS422_1", "RS422_2", "RS422_3")))
+    a = add(p, "OBC1", "ST1")
+    b = add(p, "OBC1", "ST2")
+    generate_project(p)
+    assert pins_of(p, "OBC1-J1", a) == ["1", "2", "3", "4"]  # Generate's pins, not locked
+    assert pins_of(p, "OBC1-J1", b) == ["5", "6", "7", "8"]
+    before = [x.model_copy() for x in p.connectors["OBC1-J1"].pins]
+    ops = devices.ops_assign_port(p, "OBC1-J1", "RS422_3", a)
+    assert len(ops) == 1  # one connector: one undo step
+    h = History(p)
+    h.execute("port", ops)
+    pins = {x.id: x for x in p.connectors["OBC1-J1"].pins}
+    assert pins_of(p, "OBC1-J1", a) == ["9", "10", "11", "12"]
+    # the old pins keep everything but the interface: their names, `fixed` and no lock
+    for k, sig in enumerate(RS422):
+        old = pins[str(k + 1)]
+        assert (old.signal, old.fixed, old.locked, old.interface_id) == (
+            f"RS422_1_{sig}",
+            True,
+            False,
+            None,
+        )
+    assert pins_of(p, "OBC1-J1", b) == ["5", "6", "7", "8"]  # another interface is not touched
+    end = devices.end_port(p, a, "OBC1-J1")
+    assert end is not None and (end.port, end.how) == ("RS422_3", "locked")
+    h.undo()
+    assert p.connectors["OBC1-J1"].pins == before
+
+
+def test_assign_port_keeps_a_locked_pin_of_the_interface_elsewhere() -> None:
+    from harness_design_studio.core import devices
+
+    p = obc(("J1", port_pins("RS422_1", "RS422_2")))
+    a = add(p, "OBC1", "ST1")
+    History(p).execute("port", devices.ops_assign_port(p, "OBC1-J1", "RS422_1", a))
+    History(p).execute("port", devices.ops_assign_port(p, "OBC1-J1", "RS422_2", a))
+    # a lock is a person's choice: `ops_unassign_pins` takes it away, choosing a port does not
+    assert pins_of(p, "OBC1-J1", a) == [str(k) for k in range(1, 9)]
+    assert all(x.locked for x in p.connectors["OBC1-J1"].pins)
+
+
 def test_assign_port_refusals() -> None:
     from harness_design_studio.core import devices
 
