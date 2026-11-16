@@ -580,6 +580,8 @@ Two people saw a demo on 2026-11-16 and gave feedback ([`../ux/feedback-2026-11-
 
 What changes in the earlier sections: 2.1.0 is no longer M5 (section 3.2 named it so), and M6 starts at 2.3.0 rather than 2.2.0. M3, M3b, M8, M9 and M10 are not placed by this decision.
 
+The design of 2.1.0 is in [`DESIGN_2.1_PORTS.md`](DESIGN_2.1_PORTS.md) (D-237).
+
 ---
 
 ## 4. What I can verify, and what only you can
