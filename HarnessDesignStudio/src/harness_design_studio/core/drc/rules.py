@@ -9,7 +9,7 @@ clean report can never be mistaken for a passed check.
 
 import hashlib
 from collections import Counter, defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.configcheck import validate as validate_config
@@ -23,8 +23,16 @@ from harness_design_studio.core.generate.sizing import (
     wire_current_limit,
 )
 from harness_design_studio.core.integrity import check_integrity
-from harness_design_studio.core.model import Connector, Harness, InterfaceInstance, Project, Wire
+from harness_design_studio.core.model import (
+    Connector,
+    Harness,
+    InterfaceInstance,
+    Pin,
+    Project,
+    Wire,
+)
 from harness_design_studio.core.model.physical import TBD_PART_ID
+from harness_design_studio.core.ports import read_signal
 from harness_design_studio.core.vcs.consistency import release_integrity
 from harness_design_studio.core.verify import direction_judged, passthrough_signals
 
@@ -39,8 +47,21 @@ def _wire_interfaces(project: Project, h: Harness) -> set[str]:
     return {w.interface_id for w in h.wires if w.interface_id} | set(h.interfaces)
 
 
-def _end_signal(project: Project, h: Harness, connector_id: str, pin_id: str) -> str | None:
-    """Signal at a wire end: from the mated box connector's pin, else the pin's own signal."""
+def _type_signal(pin: Pin, signals: Sequence[str]) -> str | None:
+    """The signal of the interface type that a pin carries: a fixed pin named for a port
+    (`RS422_2_TX+`) carries TX+ (`core/ports.py`, D-237); any other pin carries its own name."""
+    if pin.fixed and pin.signal:
+        found = read_signal(pin.signal, signals)
+        if len(found) == 1:
+            return found[0].signal
+    return pin.signal
+
+
+def _end_signal(
+    project: Project, h: Harness, connector_id: str, pin_id: str, signals: Sequence[str] = ()
+) -> str | None:
+    """Signal at a wire end: from the mated box connector's pin, else the pin's own signal. A port
+    name of a fixed pin reads as the signal of the type with the names `signals`."""
     cable = next((c for c in h.connectors if c.id == connector_id), None)
     if cable is None:
         return None
@@ -48,7 +69,7 @@ def _end_signal(project: Project, h: Harness, connector_id: str, pin_id: str) ->
     for conn in (box, cable):
         pin = next((p for p in conn.pins if p.id == pin_id), None) if conn else None
         if pin is not None and pin.signal:
-            return pin.signal
+            return _type_signal(pin, signals)
     return None
 
 
@@ -119,7 +140,8 @@ def _signal_unassigned(project: Project) -> Iterator[Hit]:
             conn = project.connectors.get(e.connector_id or "")
             if conn is None:
                 continue
-            have = {p.signal for p in conn.pins if p.interface_id == i.id}
+            names = [s.name for s in project.interface_types[i.type_id].signals]
+            have = {_type_signal(p, names) for p in conn.pins if p.interface_id == i.id}
             for s in project.interface_types[i.type_id].signals:
                 if s.name not in have:
                     yield Hit(
@@ -262,8 +284,8 @@ def _direction_conflict(project: Project) -> Iterator[Hit]:
             ):
                 continue  # one-directional types (analog, discrete) cannot be judged by direction
             dirs = {s.name: s.direction for s in itype.signals}
-            na = _end_signal(project, h, w.from_connector, w.from_pin) or ""
-            nb = _end_signal(project, h, w.to_connector, w.to_pin) or ""
+            na = _end_signal(project, h, w.from_connector, w.from_pin, list(dirs)) or ""
+            nb = _end_signal(project, h, w.to_connector, w.to_pin, list(dirs)) or ""
             if na == nb and na in passthrough_signals(
                 [(s.name, s.direction) for s in itype.signals]
             ):

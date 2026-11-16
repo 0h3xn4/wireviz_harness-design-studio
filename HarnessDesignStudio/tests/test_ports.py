@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The port parser of 2.1.0 (`core/ports.py`, D-237; `docs/ait/DESIGN_2.1_PORTS.md` section 3):
-which fixed pins of a connector form a port of an interface type, read from the signal names."""
+"""The port parser of 2.1.0 (`core/ports.py`, REQ-PIN-04, D-237; `docs/ait/DESIGN_2.1_PORTS.md`
+section 3): which fixed pins of a connector form a port of an interface type, read from the signal
+names."""
 
 import random
 

@@ -38,6 +38,7 @@ from harness_design_studio.core.model import (
     evolve,
 )
 from harness_design_studio.core.model.base import Name
+from harness_design_studio.core.ports import read_signal
 from harness_design_studio.core.vcs.snapshot import carried_interfaces
 from harness_design_studio.core.wirecolours import signal_colour
 
@@ -419,6 +420,19 @@ def _frozen_provenance(
     }
 
 
+def _held_signal(project: Project, pin: Pin, signal: str) -> str:
+    """The signal of the interface type that a pin carries for its interface: the key of the pins
+    held before. A fixed pin is read through the port parser, so `RS422_2_TX+` is TX+ (D-237); a
+    bare name, a name that reads in no way or in two, and a pin that is not fixed give the name
+    itself, the key of 2.0.1."""
+    i = project.interfaces.get(pin.interface_id or "")
+    itype = project.interface_types.get(i.type_id) if i is not None else None
+    if not pin.fixed or itype is None:
+        return signal
+    found = read_signal(signal, [s.name for s in itype.signals])
+    return found[0].signal if len(found) == 1 else signal
+
+
 def _allocate_pins(
     ctx: _Ctx, groups: list[Group], frozen_ifaces: set[str], tick: Callable[[float, str], None]
 ) -> None:
@@ -447,7 +461,7 @@ def _allocate_pins(
         tick(0.05 + 0.15 * k / max(1, len(requests)), f"Allocating pins of {cid}")
         box = p.connectors[cid]
         previous = {
-            (pin.interface_id, pin.signal): pin.id
+            (pin.interface_id, _held_signal(p, pin, pin.signal)): pin.id
             for pin in box.pins
             if pin.interface_id and pin.signal and not pin.locked
         }
@@ -469,7 +483,7 @@ def _allocate_pins(
         pinned = [keep(pin) for pin in box.pins]
         work = evolve(box, pins=pinned)
         held = {
-            (pin.interface_id, pin.signal): pin.id
+            (pin.interface_id, _held_signal(p, pin, pin.signal)): pin.id
             for pin in box.pins
             if pin.locked
             and pin.interface_id
@@ -492,6 +506,8 @@ def _allocate_pins(
             ctx.finding("error", "pin_allocation", f"{iid}: {msg}.", iid)
         for iid, msg in res.warnings:
             ctx.finding("warning", "pin_adjacency", f"{iid}: {msg}.", iid)
+        for subject, msg in res.port_warnings:
+            ctx.finding("warning", "pin_port_unknown", f"{msg}.", subject)
 
 
 def _connector_ops(ctx: _Ctx, frozen_ifaces: set[str]) -> list[Op]:

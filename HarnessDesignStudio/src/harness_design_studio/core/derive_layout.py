@@ -27,6 +27,7 @@ from harness_design_studio.core.model import (
     Wire,
 )
 from harness_design_studio.core.model.physical import LOOSE_ROLE
+from harness_design_studio.core.ports import read_signal
 
 SHOWN = 8  # how many names a line gives before "and N more": no result depends on it
 
@@ -170,19 +171,31 @@ def pin_allocation_derivation(project: Project, connector_id: str, pin_id: str) 
         )
     ]
     if i is not None and t is not None and pin.signal:
+        read = read_signal(pin.signal, [s.name for s in t.signals]) if pin.fixed else ()
+        signal = read[0].signal if len(read) == 1 else pin.signal  # RS422_2_TX+ carries TX+
         group_why = next(
-            (w for w, names in pinmod.groups_of(t, categories) if pin.signal in names),
+            (w for w, names in pinmod.groups_of(t, categories) if signal in names),
             "single signal",
         )
         steps.append(
             text_step(
                 "Group of the signal",
-                f"{pin.signal} of {i.id}: {group_why}"
+                f"{signal} of {i.id}: {group_why}"
                 + ("; the power group counts as one block" if is_power else ""),
                 group_why,
                 "",
             )
         )
+        if len(read) == 1 and read[0].port:
+            steps.append(
+                text_step(
+                    "Port of the pin",
+                    f"{pin.signal} is the {signal} of port {read[0].port} of {box.id}; the pins of"
+                    f" one port go to one interface ({pinmod.PORT_ORDER_TEXT})",
+                    f"port {read[0].port}",
+                    "",
+                )
+            )
         steps.append(
             text_step(
                 "Place of the category in the order",

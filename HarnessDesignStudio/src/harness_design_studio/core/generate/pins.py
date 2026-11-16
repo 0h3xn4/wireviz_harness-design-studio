@@ -6,14 +6,19 @@
 2. Signals of a twisted pair go on adjacent pins; power and return are grouped.
 3. Power goes first on the connector; other signals follow after the configured gap.
 4. A previous generated allocation is kept when it is still valid (small changes, small diffs).
+5. On a fixed pinout an interface takes one port: the free pins of the exact names when they hold
+   every signal (as at 2.0.1), else one complete named port such as `RS422_2_TX+` (D-237).
 """
 
 from dataclasses import dataclass, field
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.model import Connector, InterfaceType, Project
+from harness_design_studio.core.ports import ConnectorPorts, Port, natural_key, ports_of
 
 DEFAULT_ORDER = ("power", "ground")  # the interface categories allocated first, in this order
+# How a fixed pinout gives ports to interfaces (D-237): the words of the explanation of a pin.
+PORT_ORDER_TEXT = "ports in name order, interfaces in ID order"
 
 # The model that picks the run of pins for a group of signals (`model.pin_fit_strategy`, S3b).
 # `first_fit` is what the tool always did and is the default.
@@ -61,6 +66,8 @@ class Allocation:
     reasons: dict[str, list[str]] = field(default_factory=dict)  # pin id -> lines
     errors: list[tuple[str, str]] = field(default_factory=list)  # (interface_id, message)
     warnings: list[tuple[str, str]] = field(default_factory=list)
+    # (connector ID, message): interfaces of one type on repeated bare names (pin_port_unknown)
+    port_warnings: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _allocate_fixed(
@@ -74,52 +81,243 @@ def _allocate_fixed(
     """The pinout is fixed by the unit's design: every signal goes to the free pin of that name.
     A signal the connector has no pin for is an error; nothing is placed on unnamed pins. A locked
     pin that already carries a signal of an interface keeps it (`held`): that signal is not
-    placed again and the pin is not offered to anyone else."""
+    placed again and the pin is not offered to anyone else.
+
+    Ports (D-237, `core/ports.py`): the pins `RS422_2_TX+`, `RS422_2_TX-` ... form the port RS422_2
+    of a type with the signals TX+, TX- .... The keys of `previous` and `held` are the signals of
+    the type. An interface uses the pins of one port, all or nothing:
+
+    1. an interface whose locked pins are in a named port takes its other signals from that port,
+       or fails; locked pins in two ports are an error;
+    2. an interface gets back the complete named port it held before, while it is still free;
+    3. every other interface, by the order of the categories and then by ID, takes the free pins
+       of the exact names: the code and the result of 2.0.1;
+    4. an interface that step 3 cannot place, and that has no locked pin, takes the first free
+       complete named port in natural order of the names (`RS422_2` before `RS422_10`).
+
+    Step 3 runs for every interface before step 4, so a named port never takes a pin that the
+    exact-name path gives to another interface. Two or more interfaces of one type on repeated bare
+    names (`TX+` on two pins) are placed as at 2.0.1, with a warning in `port_warnings`."""
     result = Allocation()
     by_signal: dict[str, list[str]] = {}
     for p in connector.pins:
         if p.fixed and p.signal and not p.locked:
             by_signal.setdefault(p.signal, []).append(p.id)
+    offered = {pid for ids in by_signal.values() for pid in ids}
     used: set[str] = set(held.values())
-    for req in sorted(
-        requests, key=lambda r: (_rank(categories, r.itype.category), r.interface_id)
-    ):
+    ranked = sorted(requests, key=lambda r: (_rank(categories, r.itype.category), r.interface_id))
+    found: dict[str, ConnectorPorts] = {}
+    port_of: dict[str, dict[str, str]] = {}  # type ID -> pin ID -> port name ("" is the bare port)
+    for req in ranked:
+        if req.itype.id not in found:
+            cp = found[req.itype.id] = ports_of(connector, req.itype)
+            every = (cp.bare, *cp.named) if cp.bare is not None else cp.named
+            port_of[req.itype.id] = {pp.pin_id: port.name for port in every for pp in port.pins}
+    owner = {p.id: p.interface_id for p in connector.pins if p.interface_id}  # released pins
+    owner.update({pid: iid for (iid, _sig), pid in held.items()})
+    placed: dict[int, list[tuple[str, str, str]]] = {}  # place in `ranked` -> (signal, pin, why)
+    errors: dict[int, str] = {}
+    unlocked: list[int] = []  # no locked pin of their own: steps 2 to 4
+    exact_only: set[int] = set()  # a locked pin, none in a named port: step 3 only
+    missing_of: dict[int, list[str]] = {}  # the signals step 3 found no free pin for
+
+    def free(pid: str | None) -> bool:
+        return pid is not None and pid in offered and pid not in used
+
+    def take(k: int, iid: str, port: Port, signals: list[str], why: str) -> None:
+        picks = [(sig, port.pin_of(sig) or "") for sig in signals]
+        used.update(pid for _sig, pid in picks)
+        owner.update({pid: iid for _sig, pid in picks})
+        placed[k] = [
+            (
+                sig,
+                pid,
+                f"pin-allocation: {sig} of {iid} uses pin {pid}, the {sig} of port {port.name} of"
+                f" {connector.id}{why}",
+            )
+            for sig, pid in picks
+        ]
+
+    # 1. locked pins in a named port
+    for k, req in enumerate(ranked):
+        iid, sigs = req.interface_id, _signals(req.itype)
+        on_lock = [held[(iid, sig)] for sig in sigs if (iid, sig) in held]
+        ports_here = port_of[req.itype.id]
+        names = sorted({ports_here[pid] for pid in on_lock if pid in ports_here}, key=natural_key)
+        if not any(names):
+            if on_lock:
+                exact_only.add(k)
+            else:
+                unlocked.append(k)
+            continue
+        if len(names) > 1:
+            shown = ", ".join(n or "the pins named by the signal alone" for n in names)
+            errors[k] = (
+                f"the locked pins of {iid} on {connector.id} are in {len(names)} ports ({shown});"
+                " an interface uses the pins of one port only, so unlock the pins of all ports"
+                " but one"
+            )
+            continue
+        port = found[req.itype.id].port(names[0])
+        rest = [sig for sig in sigs if (iid, sig) not in held]
+        lacking = [sig for sig in rest if port is None or not free(port.pin_of(sig))]
+        if port is None or lacking:
+            errors[k] = (
+                f"the locked pins of {iid} on {connector.id} are in port {names[0]}, which has no"
+                f" free pin for {', '.join(lacking or rest)}; the pins of two ports are never mixed"
+            )
+            continue
+        take(k, iid, port, rest, ", the port its locked pins are in")
+
+    # 2. the complete named port an interface held before
+    for k in unlocked:
+        req = ranked[k]
+        iid, sigs = req.interface_id, _signals(req.itype)
+        before = [previous.get((iid, sig)) for sig in sigs]
+        held_in = {port_of[req.itype.id].get(pid or "") for pid in before}
+        name = held_in.pop() if len(held_in) == 1 else None
+        port = found[req.itype.id].port(name) if name else None
+        if (
+            port is not None
+            and port.usable
+            and all(
+                port.pin_of(sig) == pid and free(pid) for sig, pid in zip(sigs, before, strict=True)
+            )
+        ):
+            take(k, iid, port, sigs, _port_why(req.itype))
+
+    # 3. the exact names, as at 2.0.1
+    for k, req in enumerate(ranked):
+        if k in placed or k in errors:
+            continue
         missing = []
         picked: list[tuple[str, str]] = []
         for sig in (s.name for s in req.itype.signals):
             if (req.interface_id, sig) in held:
                 continue  # already on its locked pin
-            free = [pid for pid in by_signal.get(sig, []) if pid not in used]
-            if not free:
+            free_pins = [pid for pid in by_signal.get(sig, []) if pid not in used]
+            if not free_pins:
                 missing.append(sig)
                 continue
-            before = previous.get((req.interface_id, sig))
+            before_pin = previous.get((req.interface_id, sig))
             # keep the earlier pin: small diffs; else the first free pin of that name (the last, for last_fit)
-            chosen = before if before in free else free[-1 if fit == "last_fit" else 0]
+            chosen = (
+                before_pin if before_pin in free_pins else free_pins[-1 if fit == "last_fit" else 0]
+            )
             picked.append((sig, chosen))
             used.add(chosen)
         if missing:
             for _sig, pid in picked:  # all or nothing per interface
                 used.discard(pid)
-            result.errors.append(
-                (
-                    req.interface_id,
-                    f"{connector.id} has a fixed pinout and no free pin named {', '.join(missing)}",
-                )
-            )
+            missing_of[k] = missing
             continue
-        for sig, pid in picked:
-            result.pins[(req.interface_id, sig)] = pid
-            result.reasons.setdefault(pid, []).append(
-                f"pin-allocation: {sig} of {req.interface_id} uses pin {pid} because the pinout of {connector.id} is fixed by the unit design"
+        owner.update({pid: req.interface_id for _sig, pid in picked})
+        placed[k] = [
+            (
+                sig,
+                pid,
+                f"pin-allocation: {sig} of {req.interface_id} uses pin {pid} because the pinout of {connector.id} is fixed by the unit design",
             )
+            for sig, pid in picked
+        ]
+
+    # 4. the first free complete named port
+    for k in sorted(missing_of):
+        req = ranked[k]
+        iid, sigs = req.interface_id, _signals(req.itype)
+        cp = found[req.itype.id]
+        text = f"{connector.id} has a fixed pinout and no free pin named {', '.join(missing_of[k])}"
+        if k in exact_only or not cp.named:
+            errors[k] = text
+            continue
+        port = next((x for x in cp.usable if all(free(x.pin_of(sig)) for sig in sigs)), None)
+        if port is None:
+            states = "; ".join(_port_state(x, owner) for x in cp.named)
+            errors[k] = f"{text}, and no free complete {req.itype.name} port ({states})"
+            continue
+        take(k, iid, port, sigs, _port_why(req.itype))
+
+    for k, req in enumerate(ranked):
+        if k in errors:
+            result.errors.append((req.interface_id, errors[k]))
+            continue
+        for sig, pid, line in placed[k]:
+            result.pins[(req.interface_id, sig)] = pid
+            result.reasons.setdefault(pid, []).append(line)
         for sig in (s.name for s in req.itype.signals):
             if (locked_pin := held.get((req.interface_id, sig))) is not None:
                 result.pins[(req.interface_id, sig)] = locked_pin
                 result.reasons.setdefault(locked_pin, []).append(
                     f"pin-allocation: {sig} of {req.interface_id} stays on pin {locked_pin} because the pin is locked"
                 )
+    result.port_warnings.extend(_repeated_names(connector, ranked, found, placed, port_of))
     return result
+
+
+def _port_why(itype: InterfaceType) -> str:
+    """The reason of a pin of a named port that no lock chose. Steps 2 and 4 give the same words,
+    so a second Generate that keeps every port records the same lines (REQ-GEN-01)."""
+    return (
+        f"; an interface keeps the port it used before, else takes the first free {itype.name}"
+        f" port ({PORT_ORDER_TEXT})"
+    )
+
+
+def _signals(itype: InterfaceType) -> list[str]:
+    return [s.name for s in itype.signals]
+
+
+def _port_state(port: Port, owner: dict[str, str]) -> str:
+    """Why a named port could not be used, in a few words."""
+    if port.missing:
+        return f"port {port.name} has no pin for {', '.join(port.missing)}"
+    if port.doubled:
+        return f"port {port.name} has more than one pin for {', '.join(port.doubled)}"
+    if port.problems:
+        return f"port {port.name} is written in more than one way"
+    users = sorted({owner[pp.pin_id] for pp in port.pins if pp.pin_id in owner})
+    if users:
+        return f"port {port.name} is used by {', '.join(users)}"
+    return f"port {port.name} has a locked pin"
+
+
+def _repeated_names(
+    connector: Connector,
+    ranked: list[Request],
+    found: dict[str, ConnectorPorts],
+    placed: dict[int, list[tuple[str, str, str]]],
+    port_of: dict[str, dict[str, str]],
+) -> list[tuple[str, str]]:
+    """`pin_port_unknown`: two or more interfaces of one type need pins whose bare names repeat
+    (`TX+` on two pins), so nothing tells which pins form one port. The interfaces that a named
+    port placed are not counted."""
+    out: list[tuple[str, str]] = []
+    for type_id in sorted(found):
+        bare = found[type_id].bare
+        if bare is None or not bare.doubled:
+            continue
+        ids = sorted(
+            {
+                req.interface_id
+                for k, req in enumerate(ranked)
+                if req.itype.id == type_id
+                and not any(port_of[type_id].get(pid) for _s, pid, _w in placed.get(k, []))
+            }
+        )
+        if len(ids) < 2:
+            continue
+        itype = next(r.itype for r in ranked if r.itype.id == type_id)
+        first = _signals(itype)[0]
+        out.append(
+            (
+                connector.id,
+                f"{connector.id} has more than one pin named {', '.join(bare.doubled)} for the"
+                f" {itype.name} interfaces {', '.join(ids)}: the tool cannot tell which pins form"
+                " one port, so each signal takes the first free pin of its name. Name the ports"
+                f" (P1_{first}, P2_{first} ...) or lock the pins of each port",
+            )
+        )
+    return out
 
 
 def groups_of(
