@@ -17,9 +17,9 @@ from pydantic import TypeAdapter, ValidationError
 
 from harness_design_studio import __version__
 from harness_design_studio.core import configcheck, settings
+from harness_design_studio.core.clone import clone_with
 from harness_design_studio.core.commands import Delete, Op, Put, SetGeneration
 from harness_design_studio.core.describe import part_gender
-from harness_design_studio.core.edit import clone_with
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.generation_status import generation_status as generation_status
 from harness_design_studio.core.generation_status import input_hash as input_hash
