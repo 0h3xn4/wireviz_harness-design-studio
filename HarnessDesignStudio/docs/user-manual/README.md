@@ -22,6 +22,7 @@ This manual has one page for each job you do with Harness Design Studio, written
 | understand the pictures and colours of the devices on the diagram, and what makes a device look like a battery or a wheel | [Telling devices apart](telling-devices-apart.md) |
 | add a backup chain, or put devices in other lanes | [Redundancy and zones](redundancy-and-zones.md) |
 | have the tool make connectors, pins and wires | [Generate harnesses](generate-harnesses.md) |
+| know what the tool links and checks by itself, when the checks run, and what I decide | [How auto-linking and the checks work](generate-harnesses.md#how-auto-linking-and-the-checks-work) |
 | understand an error or a warning, or waive one | [Read and fix problems](read-and-fix-problems.md) |
 | enter derating factors, wire current ratings and test limits | [Fill in the engineering values](fill-in-engineering-values.md) |
 | see what the tool assumes, and where every value comes from | [See what the tool assumes](see-what-the-tool-assumes.md) |
@@ -34,7 +35,9 @@ This manual has one page for each job you do with Harness Design Studio, written
 | keep devices and subsystems in a folder my team shares, add them to a project, or say how many of a device there are | [Use the library](use-the-library.md) |
 | take a device's pinout from KiCad | [Import KiCad pinouts](import-kicad-pinouts.md) |
 | write the build workbook to build a harness from, the wire lists and the test tables (and, if you want them, the PDF drawings) | [Export the outputs](export-the-outputs.md) |
+| find every PDF and Excel file the tool writes | [PDF and Excel files at a glance](export-the-outputs.md#pdf-and-excel-files-at-a-glance) |
 | give the wires colours | [Set wire colours](set-wire-colours.md) |
+| understand IDs such as `PCDU1-J01`, `W001-P1`, `L7` and `IF-002`, where they show up, and the text on a label | [Connector IDs and tags](naming-and-title-block.md#connector-ids-and-tags) |
 | change harness, connector and wire IDs, or the title block fields | [Naming and title block](naming-and-title-block.md) |
 | freeze a harness with a name, a comment and a record | [Release a harness](release-a-harness.md) |
 | change a harness that is already released | [Change a released harness](change-a-released-harness.md) |
@@ -44,6 +47,7 @@ This manual has one page for each job you do with Harness Design Studio, written
 | run the tool from a script: results as JSON, the Python interface, a batch or a trade study | [Script the tool](script-the-tool.md) |
 | write down what was really built and measured (serial and lot numbers, cut lengths, test results), read it back, and compare it with the design and the test limits | [Record what was built](record-what-was-built.md) |
 | write every intermediate and final result as JSON and CSV, check a colleague's number from the files, or put the time and the operator of a run on record | [Export the data](export-the-data.md) |
+| decide whether my organisation may use the tool (safety, quality, IT): what is AI-written, what the tool checks, what we must check, the evidence | [Using HDS in your organisation](use-hds-in-your-organisation.md) |
 | fix something that does not work | [`TROUBLESHOOTING.md`](../TROUBLESHOOTING.md), then [`FAQ.md`](../FAQ.md) |
 | look up a command or an option | [`CLI.md`](../CLI.md) |
 | look up a word | [`GLOSSARY.md`](../GLOSSARY.md) |
@@ -57,7 +61,7 @@ The numbers follow the order of the work. The first page is the one the editor s
 2. [Draw the design](draw-the-design.md): start a project; add devices; connect them; move devices anywhere, slide labels along their lines; guided and expert mode; save.
 2a. [Telling devices apart](telling-devices-apart.md): the picture, colour and shape of each kind of device on the diagram, how the tool reads the kind from the name, how to set the kind by hand (the **Kind** list of the Inspector), where the words are (tooltip, Inspector, legend) and that the written block diagram and **Export diagram** draw the same looks. Since 1.16.0.
 3. [Redundancy and zones](redundancy-and-zones.md): the redundant copy of a device; links between the chains; lanes.
-4. [Generate harnesses](generate-harnesses.md): preview, apply and undo; the self-check; the Harness tab and its "Why" pane; how links are grouped.
+4. [Generate harnesses](generate-harnesses.md): preview, apply and undo; the self-check; the Harness tab and its "Why" pane; how links are grouped; how auto-linking and the checks work (what is automatic, what you decide, when the design rules run).
 5. [Read and fix problems](read-and-fix-problems.md): errors, warnings and notes; fixes; waivers; `harness-design-studio drc`.
 6. [Fill in the engineering values](fill-in-engineering-values.md): `harness-design-studio config`; the file shape; the gauge table; demo values; profiles.
 6a. [See what the tool assumes](see-what-the-tool-assumes.md): `harness-design-studio settings`; the settings, the assumptions, the definitions; where each value comes from.
@@ -70,8 +74,8 @@ The numbers follow the order of the work. The first page is the one the editor s
 12. [Set wire colours](set-wire-colours.md): *Edit > Wire colours...* and the file setting. Since 1.0.0 (not in the 0.1.0 packages).
 13. [Build a harness by hand](build-a-harness-by-hand.md): *New harness*, the *Connectors* tab, pin function and termination, wires between the new connectors. Since 1.5.0.
 14. [Enter the build data](enter-the-build-data.md): strip lengths, the contact on each pin and its crimp tool, accessories; in the app and with `harness-design-studio import-build-data`; what the build workbook then shows. Since 1.7.0.
-15. [Export the outputs](export-the-outputs.md): the build workbook sheet by sheet and how to build from it, the optional PDF drawings, what each file is for; checking that it is current.
-16. [Naming and title block](naming-and-title-block.md): name patterns and title block fields.
+15. [Export the outputs](export-the-outputs.md): the build workbook sheet by sheet and how to build from it, the optional PDF drawings, what each file is for; every PDF and Excel file at a glance; checking that it is current.
+16. [Naming and title block](naming-and-title-block.md): connector IDs and tags (how IDs are made, where they show up, what a label prints), name patterns and title block fields.
 17. [Release a harness](release-a-harness.md): review, release, the gates, the change log.
 18. [Change a released harness](change-a-released-harness.md): new revision, `diff`, `log`, `compare`.
 19. [Use Git and CI](use-git-and-ci.md): Git habits, `harness-design-studio check`, a build script, a workflow.
@@ -82,6 +86,7 @@ The numbers follow the order of the work. The first page is the one the editor s
 24. [Follow the workflow](follow-the-workflow.md): the nine steps, what each uses and makes, the intermediates you can look at and change, `harness-design-studio workflow`. New in S9.
 25. [Record what was built](record-what-was-built.md): the as-built sheet, `export-asbuilt`, `import-asbuilt`, `asbuilt`, the as-built report; what is missing and what is out of its limit. New in S9.
 26. [Upgrade a project to format 2](upgrade-a-project.md): the editor's question, `migrate --dry-run` and `migrate`, the backup folder `.migration-backup-v1/`, what changes in the folder, what versions 1.x do with an upgraded project, and how to go back. New in 2.0.0rc1.
+27. [Using HDS in your organisation](use-hds-in-your-organisation.md): for safety, quality and IT: what is AI-written, what the tool checks itself, what you must verify, no claim of compliance, the offline evidence, signatures and the licence. New after 2.0.0.
 
 ## How to read the pages
 
