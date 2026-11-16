@@ -135,6 +135,26 @@ Nothing was changed.
 
 Signals that match no interface type stay as free text; they are listed so that you can add the type or correct the name.
 
+### A connector with several ports (since 2.1.0)
+
+A connector can carry several interfaces of one type, one on each port: for example three RS-422 links on one connector of an on-board computer. Generate gives each interface the pins of one port. A port is part of the signal name: `RS422_2_TX+` is the signal TX+ of the port RS422_2. Write the names that way, or add a *Port* column (also *Port name* or *Port ID*; `--column port=HEADING` for another heading) and keep the bare signal names. The import then writes the port into the signal: port `RS422_2` and signal `TX+` become `RS422_2_TX+`.
+
+```
+Connector,Pin,Port,Signal,Mode
+J1,1,RS422_1,TX+,fixed
+J1,2,RS422_1,TX-,fixed
+J1,3,RS422_1,RX+,fixed
+J1,4,RS422_1,RX-,fixed
+J1,5,RS422_2,TX+,fixed
+J1,6,RS422_2,TX-,fixed
+J1,7,RS422_2,RX+,fixed
+J1,8,RS422_2,RX-,fixed
+```
+
+The preview lists the ports it found on each connector, for example `OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8)`. Ethernet and RS-422 have the same signal names; set *Carries* on the connector to see only the type you mean. A port that misses a signal, a port with two pins for one signal and a pin name that reads in two ways are listed as warnings, because Generate does not use them. Only fixed pins form ports, so give the pins the mode *fixed*.
+
+The import refuses a row, and then imports nothing, when the row has a port but no signal, when the port name cannot be read back (`RX+` as a port of RS-422 gives `RX+_TX+`, which reads two ways), when the signal already names another port, or when the name would be longer than 200 characters. A signal that no interface type of the connector has (`HEATER`) is imported as it is, without the port, and a warning says so. The full rule is in [`IMPORTS.md`](../IMPORTS.md#device-pinouts-and-kicad-netlists). `export-pinout` writes the names with the port in them and no Port column, and they read back as they are.
+
 ## Check the result and write it out
 
 - Under the pin table the **notes** list what is odd about the connector, each with the pin it is about: a pin name that is the same ignoring case, fewer pins than the part has, a signal on two pins, a signal no interface type has, an interface type that is only half there on a fixed pinout (for example `CANH` without `CANL`), a locked pin whose interface does not end on this connector, a gender that nobody states. They are notes, not design rules: nothing here changes the design rules or what Generate does.

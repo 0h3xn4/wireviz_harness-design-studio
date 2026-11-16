@@ -13,7 +13,9 @@ What is not known yet is how your KiCad names relate to the tool's, so nothing i
 - library part of a new connector: the field `HarnessPart`, else `--part REF=PART`, else the part
   of the connector that already exists; otherwise the row is an error;
 - signal names: the net name without its sheet path, translated by a mapping table you give;
-  names that match no signal of any interface type are reported so you can build that table.
+  names that match no signal of any interface type are reported so you can build that table. A
+  net named for a port (`RS422_2_TX+`, 2.1.0, D-237) is the signal TX+ of RS-422 and is not
+  reported: keep such names, Generate reads the port from them.
 
 The pin type of each pin (`input`, `power_in` ...) and the design source of the netlist are not
 lost: they go into the import record (`NetlistPlan.pin_types`, `Netlist.source`, D-193). With
@@ -31,6 +33,7 @@ from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.ids import ID_RE, PIN_RE
 from harness_design_studio.core.model import Connector, Pin, Project, evolve
+from harness_design_studio.core.ports import is_signal_of
 
 MAX_BYTES = 32 * 1024 * 1024
 CONNECTOR_FIELD = "harnessconnector"
@@ -320,6 +323,12 @@ def known_signals(project: Project) -> set[str]:
     return {s.name for t in project.interface_types.values() for s in t.signals}
 
 
+def is_known_signal(project: Project, name: str) -> bool:
+    """A signal of an interface type of the project: its exact name, or the name of that signal in
+    one port (`RS422_2_TX+` is the RS-422 signal TX+, `core/ports.py`, D-237)."""
+    return is_signal_of(name, sorted(project.interface_types.values(), key=lambda t: t.id))
+
+
 def plan_netlist_import(
     project: Project,
     netlist: Netlist,
@@ -355,7 +364,6 @@ def plan_netlist_import(
         for key in sorted(given or {}):
             if key not in netlist.components or (refs and key not in refs):
                 plan.warnings.append(f"{what} {key}=... was ignored: {key} is not among the connectors being imported")  # fmt: skip
-    wanted = known_signals(project)
     mapping = signal_map or {}
     taken: dict[str, str] = {}
     for ref in chosen:
@@ -431,7 +439,7 @@ def plan_netlist_import(
             info = comp.pins[number]
             raw = (info.function if use_pin_function else clean_net(info.net)) or None
             signal = mapping.get(raw, raw) if raw else None
-            if signal is not None and signal not in wanted:
+            if signal is not None and not is_known_signal(project, signal):
                 plan.unmatched_signals.setdefault(signal, []).append(f"{cid} pin {number}")
             if signal is not None and signal in seen_names:
                 plan.warnings.append(

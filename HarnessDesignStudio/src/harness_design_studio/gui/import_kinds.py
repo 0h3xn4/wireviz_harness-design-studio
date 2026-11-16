@@ -635,13 +635,15 @@ def _plan_pinout(
         view.rows.append(
             PlanRow(str(r.row_number), item, "pass" if r.ok else "fail", result, "" if r.ok else r.message)
         )  # fmt: skip
+        # the signal as it is written: with the port of a Port column in it (RS422_2_TX+)
         view.preview.append(
-            [str(r.row_number), cell(row, "connector"), cell(row, "pin"), cell(row, "signal"), cell(row, "mode")]
+            [str(r.row_number), cell(row, "connector"), cell(row, "pin"), r.signal or cell(row, "signal"), cell(row, "mode")]
         )  # fmt: skip
     for w in plan.warnings:
         view.rows.append(PlanRow("", strings.IMP_WARNING, "warning", strings.IMP_WARNING, w))
     for name, where in sorted(plan.unmatched_signals.items()):
         view.pending.append((name, strings.IMP_P_PIN_SIGNAL.format(", ".join(where[:3]))))
+    view.notes.extend(plan.port_lines)  # the ports found on each connector
     if not plan.ops and not view.problem and not any(r.state == "fail" for r in view.rows):
         view.problem = strings.IMP_EMPTY
     return view

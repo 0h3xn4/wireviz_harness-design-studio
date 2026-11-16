@@ -309,3 +309,240 @@ def test_the_plan_never_changes_the_project() -> None:
     before = model_hash(p)
     plan(p)
     assert model_hash(p) == before and edit.unit_connectors(p, "GYRO1") == []
+
+
+# --- the Port column (2.1.0, D-237; docs/ait/DESIGN_2.1_PORTS.md section 5) ----------------------
+
+RS422_SIGNALS = ("TX+", "TX-", "RX+", "RX-")
+
+
+def ported(ports: int = 3, port_heading: str = "Port", mode: str = "fixed") -> str:
+    """J1 = RS-422 x`ports`: a Port column and bare signal names, four pins per port."""
+    lines = [f"Connector,Pin,{port_heading},Signal,Mode"]
+    for k in range(ports):
+        for i, s in enumerate(RS422_SIGNALS):
+            lines.append(f"J1,{4 * k + i + 1},RS422_{k + 1},{s},{mode}")
+    return "\n".join(lines) + "\n"
+
+
+def ported_plan(p: Project, text: str, **kw):  # type: ignore[no-untyped-def]
+    kw.setdefault("default_part", "EX-MICROD-25-F")
+    return plan(p, text, **kw)
+
+
+def signals(p: Project, cid: str = "GYRO1-J01") -> list[tuple[str, str | None]]:
+    return [(x.id, x.signal) for x in p.connectors[cid].pins if x.signal]
+
+
+@pytest.mark.parametrize("heading", ["Port", "Port name", "Port ID", "PORT", "port_id"])
+def test_the_port_column_is_matched_by_its_heading(heading: str) -> None:
+    assert ("port", "Port") in FIELDS
+    t = table(f"Pin,{heading},Signal\n1,RS422_1,TX+\n")
+    assert guess_mapping(t[0]) == {"pin": 0, "signal": 2, "port": 1}
+    assert unstored_columns(t[0], guess_mapping(t[0])) == []
+
+
+def test_a_port_is_written_into_the_signal_name() -> None:
+    p = device()
+    pl = ported_plan(p, ported())
+    assert pl.importable and pl.pins == 12
+    assert [r.signal for r in pl.rows][:5] == [
+        "RS422_1_TX+",
+        "RS422_1_TX-",
+        "RS422_1_RX+",
+        "RS422_1_RX-",
+        "RS422_2_TX+",
+    ]
+    assert pl.unmatched_signals == {}  # RS422_2_TX+ is the RS-422 signal TX+
+    apply(p, pl)
+    got = signals(p)
+    assert got[0] == ("1", "RS422_1_TX+") and got[-1] == ("12", "RS422_3_RX-")
+    assert all(x.fixed for x in p.connectors["GYRO1-J01"].pins if x.signal)
+
+
+def test_a_row_without_a_port_keeps_its_signal_and_a_named_port_is_kept() -> None:
+    p = device()
+    text = (
+        "Pin,Port,Signal,Mode\n"
+        "1,,PWR,fixed\n"  # no port: as before
+        "2,RS422_2,RS422_2_TX+,fixed\n"  # it already names the port
+        "3,RS422_2,TX-.RS422_2,fixed\n"  # ... in the suffix form
+        "4,RS422_2,RX+,fixed\n"
+        "5,RS422_2,RX-,fixed\n"
+    )
+    pl = ported_plan(p, text)
+    assert pl.importable, [r.message for r in pl.rows]
+    apply(p, pl)
+    assert signals(p) == [
+        ("1", "PWR"),
+        ("2", "RS422_2_TX+"),
+        ("3", "TX-.RS422_2"),
+        ("4", "RS422_2_RX+"),
+        ("5", "RS422_2_RX-"),
+    ]
+
+
+def test_rows_with_a_port_that_cannot_be_used_are_refused_one_by_one() -> None:
+    p = device()
+    long_port = "P" * 199
+    text = (
+        "Pin,Port,Signal,Mode\n"
+        "1,RS422_1,,fixed\n"  # a port with no signal
+        "2,RX+,TX+,fixed\n"  # RX+_TX+ reads as TX+ of port RX+ and as RX+ of port TX+
+        "3,RS422_1,RS422_2_TX+,fixed\n"  # the signal names another port
+        f"4,{long_port},TX+,fixed\n"  # 203 characters
+        "5,RS422_1,TX+,fixed\n"  # a good row
+    )
+    pl = ported_plan(p, text)
+    assert not pl.importable and pl.ops == []
+    by_row = {r.row_number: r.message for r in pl.rows if not r.ok}
+    assert set(by_row) == {2, 3, 4, 5}
+    assert by_row[2] == "Port RS422_1 has no signal on this row: give the signal or leave the port empty"  # fmt: skip
+    assert by_row[3].startswith("The port name RX+ cannot be used: RX+_TX+ can be read as")
+    assert by_row[4] == "The signal RS422_2_TX+ names the port RS422_2, not RS422_1"
+    assert by_row[5] == (
+        f"The signal {long_port}_TX+ would have 203 characters; a signal name has at most 200"
+    )
+    assert [r.message for r in pl.rows if r.ok] == ["ok"]
+
+
+def test_a_signal_of_no_type_the_connector_can_carry_is_imported_as_it_is() -> None:
+    p, cid = with_connector()
+    History(p).execute(
+        "carries",
+        [*devices.ops_update_connector(p, cid, name="J1", carries=["can"])],
+    )
+    text = (
+        "Pin,Port,Signal,Mode\n1,BUS_1,CANH,fixed\n2,BUS_1,CANL,fixed\n3,BUS_1,TX+,fixed\n"
+        "4,BUS_1,HEATER,\n"
+    )
+    pl = plan(p, text, connector="J1")
+    assert pl.importable
+    # CANH is a CAN signal: it gets the port. TX+ is no signal of CAN, the only type J1 carries, and
+    # HEATER is no signal of any type: both are imported as they are, with a warning
+    assert [r.signal for r in pl.rows] == ["BUS_1_CANH", "BUS_1_CANL", "TX+", "HEATER"]
+    assert pl.warnings == [
+        f"Row 4: TX+ is no signal of an interface type that {cid} can carry, so the port BUS_1"
+        " is not added to it; the signal is imported as it is.",
+        f"Row 5: HEATER is no signal of an interface type that {cid} can carry, so the port BUS_1"
+        " is not added to it; the signal is imported as it is.",
+    ]
+    assert pl.port_lines == [f"{cid}: CAN port: BUS_1 (pins 1-2)"]
+    assert pl.unmatched_signals == {"HEATER": [f"{cid} pin 4"]}
+
+
+def test_the_plan_lists_the_ports_of_each_connector() -> None:
+    p = device()
+    pl = ported_plan(p, ported())
+    assert pl.port_lines == [
+        "GYRO1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)"
+    ]
+    assert [r.type_id for r in pl.ports] == ["ethernet", "rs422"]
+    first = pl.ports[1].as_dict()
+    assert first["connector"] == "GYRO1-J01" and first["type"] == "rs422"
+    assert first["ports"][0] == {  # type: ignore[index]
+        "name": "RS422_1",
+        "usable": True,
+        "pins": [
+            {"signal": "TX+", "pin": "1"},
+            {"signal": "TX-", "pin": "2"},
+            {"signal": "RX+", "pin": "3"},
+            {"signal": "RX-", "pin": "4"},
+        ],
+        "missing": [],
+        "doubled": [],
+    }
+    assert first["notes"] == []
+
+
+def test_a_connector_that_carries_a_type_lists_the_ports_of_that_type_only() -> None:
+    p, cid = with_connector("EX-MICROD-25-F")
+    History(p).execute("c", devices.ops_update_connector(p, cid, name="J1", carries=["rs422"]))
+    pl = plan(p, ported(2))
+    assert pl.port_lines == [f"{cid}: RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8)"]
+
+
+def test_incomplete_and_doubled_ports_and_ambiguous_pins_are_warnings() -> None:
+    p, cid = with_connector("EX-MICROD-25-F")
+    History(p).execute("c", devices.ops_update_connector(p, cid, name="J1", carries=["rs422"]))
+    text = (
+        "Pin,Port,Signal,Mode\n"
+        "1,P1,TX+,fixed\n2,P1,TX-,fixed\n3,P1,RX+,fixed\n"  # no RX-
+        "5,P2,TX+,fixed\n6,P2,TX-,fixed\n7,P2,RX+,fixed\n8,P2,RX-,fixed\n9,P2,RX-,fixed\n"
+        "10,,TX+_RX-,fixed\n"  # TX+ of port RX- or RX- of port TX+
+        "11,,RS422_9_TX+,fixed\n"
+    )
+    pl = plan(p, text, connector="J1")
+    assert pl.importable
+    assert pl.port_lines == [
+        f"{cid}: RS-422 ports: P1 (pins 1-3; not usable), P2 (5-9; not usable),"
+        " RS422_9 (11; not usable)"
+    ]
+    assert f"Pin 10 of {cid}: TX+_RX- can be read as TX+ of port RX- or as RX- of port TX+, so no port uses it. Rename the pin." in pl.warnings  # fmt: skip
+    assert f"Port P1 of {cid} has no pin for RX-, so it is not offered for RS-422." in pl.warnings
+    assert (
+        f"Port P2 of {cid} has more than one pin for RX- (pins 8, 9), so it is refused."
+        in pl.warnings
+    )
+    assert "TX+_RX-" in pl.unmatched_signals  # no port uses it
+    assert "RS422_9_TX+" not in pl.unmatched_signals
+
+
+def test_pins_that_name_a_port_but_are_not_fixed_get_a_warning() -> None:
+    p = device()
+    pl = ported_plan(p, ported(1, mode=""))
+    assert pl.importable and pl.port_lines == []
+    assert pl.warnings == [
+        "GYRO1-J01: pins 1-4 name a port but are not fixed; only fixed pins form ports, so give"
+        " them the mode fixed."
+    ]
+
+
+def test_unmatched_signals_read_port_names() -> None:
+    p = device()
+    pl = ported_plan(p, "Pin,Signal,Mode\n1,RS422_2_TX+,fixed\n2,TX+.B,fixed\n3,FOO_7,fixed\n")
+    assert pl.unmatched_signals == {"FOO_7": ["GYRO1-J01 pin 3"]}
+
+
+def test_rs422_x3_from_a_port_column_generates_three_interfaces_on_three_ports() -> None:
+    from harness_design_studio.core.generate.engine import generate_project, plan_generation
+    from harness_design_studio.core.model import (
+        Connector,
+        Endpoint,
+        InterfaceInstance,
+        Pin,
+        Unit,
+    )
+    from harness_design_studio.core.samples import new_project
+    from harness_design_studio.core.verify import verify_project
+
+    p = new_project("RS-422 x3")
+    pl = plan(
+        p, ported(), unit_id="OBC1", new_unit_name="On-board computer", subsystem="avionics",
+        default_part="EX-MICROD-25-F", gender="female",
+    )  # fmt: skip
+    assert pl.importable and pl.port_lines[0].endswith("RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)")  # fmt: skip
+    apply(p, pl)
+    box = "OBC1-J01"
+    for k in (1, 2, 3):
+        uid = f"STR{k}"
+        p.units[uid] = Unit(id=uid, name=f"Star tracker {k}", subsystem="aocs")
+        p.connectors[f"{uid}-J1"] = Connector(
+            id=f"{uid}-J1", name="J1", role="box", part_id="EX-MICROD-9-M", unit_id=uid,
+            gender="male", carries=["rs422"], pins=[Pin(id=str(n)) for n in range(1, 10)],
+        )  # fmt: skip
+        p.interfaces[f"IF-00{k}"] = InterfaceInstance(
+            id=f"IF-00{k}", name=f"STR{k} data", type_id="rs422", redundancy="nominal",
+            flow="bidirectional",
+            endpoints=[Endpoint(unit_id="OBC1", connector_id=box),
+                       Endpoint(unit_id=uid, connector_id=f"{uid}-J1")],
+        )  # fmt: skip
+    result = generate_project(p)
+    assert not [f for f in result.report.findings if f.severity == "error"]
+    used: dict[str, set[str]] = {}
+    for x in p.connectors[box].pins:
+        if x.interface_id and x.signal:
+            used.setdefault(x.interface_id, set()).add(x.signal.rsplit("_", 1)[0])
+    assert used == {f"IF-00{k}": {f"RS422_{k}"} for k in (1, 2, 3)}
+    assert verify_project(p).ok
+    assert not plan_generation(p).ops  # a second Generate changes nothing

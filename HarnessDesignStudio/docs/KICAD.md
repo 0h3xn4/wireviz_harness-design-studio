@@ -32,6 +32,7 @@ The result is `2 added, 0 changed, ...` and `2 interfaces and 6 wires checked: 0
 - Which components are connectors: those whose reference starts with `--prefix` (default `J`), or the `--connector` list. A symbol field `HarnessConnector` sets the connector ID, `HarnessPart` the part.
 - Net names are cleaned (`/io/TX+` becomes `TX+`); unnamed nets (`Net-(J1-Pad9)`) and `unconnected-...` give a pin with no signal.
 - `--signal-map` (repeatable) renames net names to signal names of the interface types, either as `NET=SIGNAL` pairs (`--signal-map CAN_H=CANH --signal-map CAN_L=CANL`) or as a CSV or JSON file of pairs. The name is the cleaned net name (`/CAN_H` is `CAN_H`). Names that match no known signal are listed, never guessed.
+- **Port names (since 2.1.0, decision D-237).** A net named for a port, such as `RS422_2_TX+` (also `RS422_2.TX+` or `TX+_RS422_2`), is the signal TX+ of the port RS422_2 of an RS-422 interface. The list of names that match no known signal reads port names, so such a net is not listed. Do not map port names away with `--signal-map` (`RS422_2_TX+=TX+`): the port is what tells Generate which pins form one interface, and three RS-422 ports with the bare names `TX+` cannot be told apart. A name that reads in two ways (`TX+_RX-`) is still listed.
 - `--ref J7` (repeatable) names the connectors to import instead of using `--prefix`. `--pin-function` takes the pin's name in the KiCad symbol (for example `CAN_H`) as the signal instead of the net name.
 - A net named `A/B` that is a global label keeps its whole name; for a net of a sheet (`/sheet/NET`) only `NET` is used, so two sheets with a net of the same name give the same signal name.
 - A connector whose KiCad pin count is larger than the library part's is refused: choose the right part with `--part`. A `--connector` or `--part` key that is not one of the imported connectors is reported as ignored.
@@ -43,7 +44,7 @@ The result is `2 added, 0 changed, ...` and `2 interfaces and 6 wires checked: 0
 
 ## What "fixed" does
 
-Generation connects each interface signal to the fixed pin with the same name and never moves it. A connector with fixed pins is allocated by name only (no automatic placement). If a needed signal has no free fixed pin, generation reports an error for that interface and routes nothing for it.
+Generation connects each interface signal to the fixed pin with the same name and never moves it. Since 2.1.0 it also reads port names: each interface gets the pins of one complete port (`RS422_2_TX+` ... `RS422_2_RX-`). A connector with fixed pins is allocated by name only (no automatic placement). If a needed signal has no free fixed pin, generation reports an error for that interface and routes nothing for it.
 
 ## Open questions (owner)
 

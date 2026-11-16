@@ -66,7 +66,7 @@ SHAPES: dict[str, tuple[str, ...]] = {
     ),
     "import-pinout": (
         "ok", "dry_run", "changed", "connectors", "pins", "rows", "warnings", "unmatched_signals",
-        "import",
+        "ports", "import",
     ),
     "import-devices": ("ok", "dry_run", "changed", "rows", "notes", "import"),
     "import-devices --list": ("ok", "devices"),
