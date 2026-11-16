@@ -238,7 +238,8 @@ class UnitItem(QGraphicsItem):
         return routing.side_toward(self.lane(), other.lane(), within)
 
     def port_side(self, connector_id: str) -> str:
-        """The edge a connector is drawn on: where its link leaves, else the lane's default edge."""
+        """The edge a connector is drawn on: where its link leaves (the first interface on it by
+        ID, when it carries several), else the lane's default edge."""
         iid = self.dscene.connector_link(connector_id)
         return self.link_side(iid) if iid is not None else self.side()
 
@@ -972,7 +973,7 @@ class UnitItem(QGraphicsItem):
         cid = self.port_at(event.pos())  # type: ignore[attr-defined]  # (None unless Expert)
         if cid and self.ctl.tool == "connect" and self.ctl.connect_type:
             c = self.ctl.connector_compat(cid)
-            tip = "" if c.ok else c.why
+            tip = c.note if c.ok else c.why  # a shared connector says what comes with it
         if tip:
             QToolTip.showText(event.screenPos(), tip)  # type: ignore[attr-defined]
         else:
@@ -1817,7 +1818,8 @@ class DiagramScene(QGraphicsScene):
         self._order: dict[str, int] = {}
         self.zone_count = len(edit.effective_zones(ctl.project))
         self._last_sel: set[Selection] = set()
-        self._conn_link: dict[str, str] = {}  # box connector ID -> the interface that uses it
+        # box connector ID -> the interface that decides its side: the first by ID that uses it
+        self._conn_link: dict[str, str] = {}
         self._slots: dict[str, dict[str, tuple[str, int, int]]] = {}
         self._routes: dict[str, list[tuple[float, float]]] | None = None
         self._batch = 0  # while above 0, routes are worked out once at the end
@@ -2383,8 +2385,8 @@ class DiagramScene(QGraphicsScene):
             order[i.id] = k
             for e in i.endpoints:
                 adj.setdefault(e.unit_id, []).append(i.id)
-                if e.connector_id is not None:
-                    conn_link[e.connector_id] = i.id
+                if e.connector_id is not None:  # the first interface by ID (D-237)
+                    conn_link.setdefault(e.connector_id, i.id)
         self._adj = adj
         self._order = order
         self._conn_link = conn_link

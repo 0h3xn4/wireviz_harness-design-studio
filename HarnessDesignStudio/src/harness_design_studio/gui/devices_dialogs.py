@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 """Small dialogs of the Devices tab: a new connector part (with its mating half), a new interface
-type, signals from an interface type on selected pins, and an interface on selected pins.
+type, signals from an interface type on selected pins, an interface on selected pins or on a port,
+and the port of an interface end (the Inspector's *Choose port…*).
 
 Each dialog asks the headless planner (`core.devices`) whether what is typed can be done, shows the
 planner's own sentence under the fields while typing (never a message box) and keeps its OK button
@@ -573,6 +574,15 @@ class AssignDialog(_PlannerDialog):
                 self.interface_box.addItem(label, i.id)
         self.lay.addWidget(QLabel(strings.DVD_ASSIGN_PINS.format(", ".join(self.pin_ids))))
         self.lay.addWidget(self.interface_box)
+        # a fixed pinout with named ports: the interface can take a whole port (D-237)
+        self.port_label = QLabel(strings.DVD_ASSIGN_PORT)
+        self.port_box = QComboBox()
+        self.port_box.setObjectName("assign-port")
+        self.port_box.setAccessibleName(strings.DVD_ASSIGN_PORT)
+        self.port_box.setToolTip(strings.DVD_ASSIGN_PORT_TIP)
+        self.port_label.setBuddy(self.port_box)
+        self.lay.addWidget(self.port_label)
+        self.lay.addWidget(self.port_box)
         self.form_host = QWidget()
         self.form = QFormLayout(self.form_host)
         self.lay.addWidget(self.form_host)
@@ -584,6 +594,7 @@ class AssignDialog(_PlannerDialog):
         self.new_interface.clicked.connect(self._new_interface)
         self.lay.addWidget(self.new_interface, 0, Qt.AlignmentFlag.AlignLeft)
         self.interface_box.currentIndexChanged.connect(self._rebuild)
+        self.port_box.currentIndexChanged.connect(self._port_changed)
         self._finish(strings.DVD_ASSIGN_OK)
         self._rebuild()
 
@@ -594,7 +605,38 @@ class AssignDialog(_PlannerDialog):
     def interface_id(self) -> str:
         return str(self.interface_box.currentData() or "")
 
+    def port(self) -> str:
+        """The named port chosen, or "" for the selected pins."""
+        return "" if self.port_box.isHidden() else str(self.port_box.currentData() or "")
+
+    def _fill_ports(self) -> None:
+        """The complete named ports of the interface's type on the connector; the port the selected
+        pins form is chosen first. Hidden when there is none."""
+        self.port_box.blockSignals(True)
+        self.port_box.clear()
+        choices = devices.port_choices(self.project, self.connector_id, self.interface_id())
+        if choices:
+            self.port_box.addItem(strings.DVD_ASSIGN_PORT_PINS, "")
+        for ch in choices:
+            self.port_box.addItem(
+                strings.PORT_ROW.format(port=ch.port, pins=devices.pin_span(ch.pins)), ch.port
+            )
+            if ch.why_not:
+                self.port_box.setItemData(
+                    self.port_box.count() - 1, ch.why_not, Qt.ItemDataRole.ToolTipRole
+                )
+            if set(ch.pins) == set(self.pin_ids):
+                self.port_box.setCurrentIndex(self.port_box.count() - 1)
+        self.port_box.blockSignals(False)
+        self.port_label.setVisible(bool(choices))
+        self.port_box.setVisible(bool(choices))
+
+    def _port_changed(self, *_: object) -> None:
+        self.form_host.setEnabled(not self.port())
+        self.revalidate()
+
     def _rebuild(self, *_: object) -> None:
+        self._fill_ports()
         while self.form.rowCount():
             self.form.removeRow(0)
         self.signal_boxes = []
@@ -613,6 +655,7 @@ class AssignDialog(_PlannerDialog):
                 box.currentIndexChanged.connect(self.revalidate)
                 self.form.addRow(f"{s.name} ({s.direction})", box)
                 self.signal_boxes.append((s.name, box))
+        self.form_host.setEnabled(not self.port())
         self.revalidate()
 
     def assignment(self) -> tuple[list[str], list[str]]:
@@ -623,8 +666,74 @@ class AssignDialog(_PlannerDialog):
     def check(self) -> str | None:
         if not self.interface_id():
             return strings.DVD_ASSIGN_NONE
+        if self.port():
+            devices.ops_assign_port(
+                self.project, self.connector_id, self.port(), self.interface_id()
+            )
+            return None
         pins, signals = self.assignment()
         devices.ops_assign_pins(self.project, self.connector_id, pins, self.interface_id(), signals)
+        return None
+
+
+# ---- the port of an interface end (Choose port… of the Inspector; D-237) -------------------------
+
+
+class PortDialog(_PlannerDialog):
+    """Choose the named port an interface uses on a connector with a fixed pinout. The pins of the
+    port become locked to the interface (`devices.ops_assign_port`); their names stay. The port in
+    use is chosen first; a port that cannot be taken says why under the list."""
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        theme: ThemeManager,
+        project: Project,
+        connector_id: str,
+        interface_id: str,
+    ) -> None:
+        super().__init__(parent, theme, strings.PORT_TITLE, "port-dialog")
+        self.project, self.connector_id, self.interface_id = project, connector_id, interface_id
+        i = project.interfaces[interface_id]
+        t = project.interface_types.get(i.type_id)
+        type_name = t.name if t is not None else i.type_id
+        c = project.connectors[connector_id]
+        intro = QLabel(
+            strings.PORT_INTRO.format(interface=interface_id, type=type_name, connector=c.name)
+        )
+        intro.setWordWrap(True)
+        self.lay.addWidget(intro)
+        self.port_box = QComboBox()
+        self.port_box.setObjectName("port-choice")
+        self.port_box.setAccessibleName(strings.PORT_FIELD)
+        self.port_box.setToolTip(strings.PORT_FIELD_TIP)
+        label = QLabel(strings.PORT_FIELD)
+        label.setBuddy(self.port_box)
+        self.lay.addWidget(label)
+        self.lay.addWidget(self.port_box)
+        self.none_text = strings.PORT_NONE.format(connector=c.name, type=type_name)
+        at = devices.end_port(project, interface_id, connector_id)
+        first = -1
+        for ch in devices.port_choices(project, connector_id, interface_id):
+            self.port_box.addItem(
+                strings.PORT_ROW.format(port=ch.port, pins=devices.pin_span(ch.pins)), ch.port
+            )
+            k = self.port_box.count() - 1
+            if ch.why_not:
+                self.port_box.setItemData(k, ch.why_not, Qt.ItemDataRole.ToolTipRole)
+            if (at is not None and ch.port == at.port) or (first < 0 and not ch.why_not):
+                first = k
+        self.port_box.setCurrentIndex(max(first, 0) if self.port_box.count() else -1)
+        self.port_box.currentIndexChanged.connect(self.revalidate)
+        self._finish(strings.PORT_OK)
+
+    def port(self) -> str:
+        return str(self.port_box.currentData() or "")
+
+    def check(self) -> str | None:
+        if not self.port():
+            return self.none_text
+        devices.ops_assign_port(self.project, self.connector_id, self.port(), self.interface_id)
         return None
 
 

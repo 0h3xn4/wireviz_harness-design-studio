@@ -73,11 +73,15 @@ function unitCompat(u){ // guided mode: whole unit
  if(UI.cfrom&&UI.cfrom.u===u.id)return{ok:false,why:'A unit cannot be connected to itself.'};
  if(!freeFor(u,UI.ctype).length)return{ok:false,short:'No free '+TYPES[UI.ctype].name+' connector',why:u.id+' has no free '+TYPES[UI.ctype].name+' connector. Switch to Expert mode to add one.'};
  return{ok:true};}
-function portCompat(u,p){ // expert mode: exact connector
+const partPins=p=>{const m=/-(\d+)-/.exec(p.part);return m?+m[1]:0;}; // EX-DSUB-9-F: 9 pins
+function portCompat(u,p){ // expert mode: exact connector; one in use takes another while it has room (D-237)
  if(!UI.ctype)return{ok:false,why:'Pick an interface type first.'};
  if(UI.cfrom&&UI.cfrom.u===u.id)return{ok:false,why:'A unit cannot be connected to itself.'};
- const m=used(u.id,p.id);if(m)return{ok:false,why:p.id+' already carries '+m.id+'. One interface per connector.'};
  if(!p.kinds.includes(UI.ctype))return{ok:false,why:p.id+' does not carry '+TYPES[UI.ctype].name+' (it supports '+p.kinds.map(k=>TYPES[k].name).join(', ')+').'};
+ const t=TYPES[UI.ctype],on=D.ifaces.filter(i=>(i.a.u===u.id&&i.a.p===p.id)||(i.b.u===u.id&&i.b.p===p.id));
+ if(on.length){ // the room, simplified: the pins of the part less the signals of the interfaces on it
+  const free=Math.max(0,partPins(p)-on.reduce((n,i)=>n+TYPES[i.type].sig.length,0)),need=t.sig.length;
+  if(free<need)return{ok:false,short:'Full',why:p.id+' cannot take '+(on.some(i=>i.type===UI.ctype)?'another '+t.name:t.name+' as well')+': too few free pins for '+t.sig.join(', ')+' ('+free+' free, '+need+' needed).'};}
  return{ok:true};}
 
 // ---- problems / DRC (mock rules on the logical layer) ----------------------------------------

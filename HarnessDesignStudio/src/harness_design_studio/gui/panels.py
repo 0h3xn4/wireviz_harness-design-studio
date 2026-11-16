@@ -12,7 +12,16 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QIcon,
+    QPainter,
+    QPen,
+    QPixmap,
+    QStandardItem,
+    QStandardItemModel,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -191,6 +200,7 @@ def _common(values: list[object]) -> object:
 
 class PropertiesPanel(QScrollArea):
     confirmRequested = Signal(str)
+    portRequested = Signal(str, str)  # Choose port… of an end: (interface, connector)
     deleteRequested = Signal()  # the Delete selection button of the several-items form
     rebuilt = Signal()  # the form was built again (the inspector re-applies locks to its fields)
 
@@ -500,11 +510,13 @@ class PropertiesPanel(QScrollArea):
 
     def _connector_rows(self, uid: str) -> None:
         ctl, p = self.ctl, self.ctl.project
-        auto_by_conn: dict[str, str] = {}
-        for i in p.interfaces.values():
+        auto_by_conn: dict[str, list[str]] = {}  # connector -> the interfaces it was chosen for
+        for i in sorted(p.interfaces.values(), key=lambda x: x.id):
             for e in i.endpoints:
                 if e.auto and e.connector_id:
-                    auto_by_conn[e.connector_id] = i.id
+                    on = auto_by_conn.setdefault(e.connector_id, [])
+                    if i.id not in on:
+                        on.append(i.id)
         parts = sorted(part.id for part in devices.connector_parts_to_choose(p))
         for c in edit.unit_connectors(p, uid):
             card = QFrame()
@@ -513,13 +525,18 @@ class PropertiesPanel(QScrollArea):
             lay = QVBoxLayout(card)
             row = QHBoxLayout()
             row.addWidget(QLabel(f"<b>{html.escape(c.name)}</b>"))
-            if c.id in auto_by_conn:
+            chosen = auto_by_conn.get(c.id, [])
+            if chosen:
                 badge = QLabel(strings.AUTO)
                 badge.setToolTip(self._auto_tip(c.id))
                 row.addWidget(badge)
-                confirm = QPushButton(strings.CONFIRM)
-                confirm.setObjectName(f"confirm-{c.id}")
-                iid = auto_by_conn[c.id]
+            for iid in chosen:  # one Confirm per interface the tool chose this connector for
+                text = strings.CONFIRM if len(chosen) == 1 else strings.CONFIRM_ONE.format(iid)
+                confirm = QPushButton(text)
+                confirm.setObjectName(f"confirm-{c.id}-{iid}")
+                confirm.setProperty("interface", iid)  # (the Inspector's locks read it)
+                confirm.setAccessibleName(strings.CONFIRM_ONE.format(iid))
+                confirm.setToolTip(strings.CONFIRM_ONE_TIP.format(interface=iid, connector=c.name))
                 confirm.clicked.connect(lambda _=False, x=iid: ctl.confirm_interface(x))
                 self._editable(confirm)
                 row.addWidget(confirm)
@@ -610,6 +627,9 @@ class PropertiesPanel(QScrollArea):
         self.lay.addWidget(heading(strings.ENDS))
         for k in range(len(i.endpoints)):
             self.lay.addWidget(self._end_row(i, k))
+            port_row = self._port_row(i, k)
+            if port_row is not None:
+                self.lay.addWidget(port_row)
         if any(e.auto for e in i.endpoints):
             b = QPushButton(strings.CONFIRM_AUTO)
             b.setObjectName("if-confirm")
@@ -635,15 +655,41 @@ class PropertiesPanel(QScrollArea):
             combo.setAccessibleName(
                 strings.CONNECTOR_AT_END.format(strings.FROM if k == 0 else strings.TO, e.unit_id)
             )
-            choices = [
-                c
-                for c in edit.unit_connectors(p, e.unit_id)
-                if c.id == e.connector_id or edit.connector_compat(p, i.type_id, c.id).ok
-            ]
-            for c in choices:
-                combo.addItem(c.name, c.id)
-            if e.connector_id in [c.id for c in choices]:
-                combo.setCurrentIndex([c.id for c in choices].index(e.connector_id))
+            far = [x for n, x in enumerate(i.endpoints) if n != k]
+            model = QStandardItemModel(combo)
+            for c in edit.unit_connectors(p, e.unit_id):
+                compat = (
+                    edit.Compat(True)
+                    if c.id == e.connector_id
+                    else edit.connector_compat(
+                        p,
+                        i.type_id,
+                        c.id,
+                        interface_id=i.id,
+                        far_unit=far[0].unit_id if len(far) == 1 else None,
+                        far_connector=far[0].connector_id if len(far) == 1 else None,
+                    )
+                )
+                full = not compat.ok and compat.short == "Full"
+                if not (compat.ok or full):  # a connector of another type is not offered
+                    continue
+                text = (
+                    strings.END_CONNECTOR_FULL.format(name=c.name, short=strings.CONNECTOR_FULL)
+                    if full
+                    else c.name
+                )
+                item = QStandardItem(text)
+                item.setData(c.id, Qt.ItemDataRole.UserRole)
+                if full:  # shown, not offered: the reason is on the row
+                    item.setFlags(Qt.ItemFlag.NoItemFlags)
+                    item.setToolTip(compat.why)
+                elif compat.note:  # a shared connector says what comes with it
+                    item.setToolTip(compat.note)
+                model.appendRow(item)
+            combo.setModel(model)
+            ids = [model.item(n).data(Qt.ItemDataRole.UserRole) for n in range(model.rowCount())]
+            if e.connector_id in ids:
+                combo.setCurrentIndex(ids.index(e.connector_id))
             combo.activated.connect(
                 lambda _i, cb=combo: self._kept(
                     ctl.set_endpoint_connector(i.id, k, cb.currentData())
@@ -656,6 +702,41 @@ class PropertiesPanel(QScrollArea):
             badge.setToolTip(self._auto_tip(e.connector_id))
             lay.addWidget(badge)
         lay.addStretch(1)
+        return box
+
+    def _port_row(self, i: InterfaceInstance, k: int) -> QWidget | None:
+        """The port of an end on a fixed pinout with named ports (D-237): which one, how it was
+        chosen, and *Choose port…*. None when the end's connector has no complete named port of
+        the interface's type."""
+        p = self.ctl.project
+        cid = i.endpoints[k].connector_id
+        if cid is None:
+            return None
+        choices = devices.port_choices(p, cid, i.id)
+        if not choices:
+            return None
+        at = devices.end_port(p, i.id, cid)
+        box = QWidget()
+        box.setObjectName(f"end-port-{k}")
+        lay = QHBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        if at is not None:
+            line = muted(
+                strings.END_PORT.format(
+                    port=at.port, pins=devices.pin_span(at.pins), how=strings.END_PORT_HOW[at.how]
+                )
+            )
+            line.setObjectName(f"end-port-line-{k}")
+            line.setToolTip(strings.END_PORT_TIP)
+            lay.addWidget(line, 1)
+        name = p.connectors[cid].name if cid in p.connectors else cid
+        btn = QPushButton(strings.CHOOSE_PORT)
+        btn.setObjectName(f"end-port-choose-{k}")
+        btn.setAccessibleName(strings.CHOOSE_PORT_NAME.format(interface=i.id, connector=name))
+        btn.setToolTip(strings.CHOOSE_PORT_TIP.format(interface=i.id, connector=name))
+        btn.clicked.connect(lambda _=False, x=i.id, c=cid: self.portRequested.emit(x, c))
+        self._editable(btn)
+        lay.addWidget(btn, 0, Qt.AlignmentFlag.AlignRight)
         return box
 
     def _auto_tip(self, connector_id: str | None) -> str:

@@ -181,10 +181,11 @@ def test_j3_expert_mode_exact_connector_rules(win) -> None:  # type: ignore[no-u
     ctl = win.ctl
     ctl.set_mode("expert")
     pick_connect_type(win, "power_primary")
-    assert (
-        not ctl.connector_compat("RW1-J01").ok
-        and "cannot take another Primary power" in ctl.connector_compat("RW1-J01").why
-    )
+    full = ctl.connector_compat("RW1-J01")  # in use and full (D-237): the screen's word "Full"
+    assert not full.ok and "cannot take another Primary power" in full.why
+    assert full.short == strings.CONNECTOR_FULL
+    click_unit(win, "RW1", port="RW1-J01")
+    assert last_toast(win) == full.why  # the reason, said on the click
     assert "does not carry Primary power" in ctl.connector_compat("OBC-J03").why
     click_unit(win, "OBC", port="OBC-J03")
     assert "does not carry Primary power" in last_toast(win)

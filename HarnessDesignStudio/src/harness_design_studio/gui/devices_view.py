@@ -11,10 +11,11 @@ exported, and the notes the pin checks give. Plugged into the window as the sixt
   and Export pinout. A released device shows the lock banner with Start new revision.
 * Connector list with an inline "add connector" row (a part picker that searches the library, its
   first entry is New part), connector card (part, gender, keying, what it carries, how its pins are
-  allocated) and the pin table (pin, signal, mode, interface, direction, class, wire, state) whose
-  cells are edited in place (`devices_pin_table`). Direction and class are worked out from the
-  interface type of the pin's signal and are empty, with the reason as tooltip, when nothing can
-  be said: nothing is guessed.
+  allocated) and the pin table (pin, signal, mode, interface, port, direction, class, wire, state)
+  whose cells are edited in place (`devices_pin_table`). Direction and class are worked out from
+  the interface type of the pin's signal and are empty, with the reason as tooltip, when nothing
+  can be said: nothing is guessed. Port is the complete named port of a fixed pinout the pin is in
+  and the interface on it (`devices.pin_ports`, D-237): worked out, never stored or exported.
 * Notes under the pin table (`core.devices.pinout_problems`) and "Pinout as exported": exactly
   the rows of `system/box_pinouts.csv` for this unit.
 * Every number and sentence comes from headless code in `core.devices`, and every change goes
@@ -116,14 +117,23 @@ def role_cell(stored: str, effective: str) -> str:
     return ""
 
 
+def port_cell(port: str, interfaces: str) -> str:
+    """The Port cell: the named port of the pin and the interfaces on it (D-237); derived."""
+    if not port:
+        return ""
+    return strings.DV_PORT_CELL.format(port=port, interface=interfaces) if interfaces else port
+
+
 def pin_rows_for_table(
     rows: list[devices.PinRow],
     problems: list[devices.PinProblem],
     frozen: str | None = None,
     roles: Mapping[str, tuple[str, str]] | None = None,
+    ports: Mapping[str, tuple[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
     """The pin table's rows (dicts) for `PIN_COLUMNS`. `roles` maps a pin to (the role a person
-    gave, the role it has: given or taken from the signal name)."""
+    gave, the role it has: given or taken from the signal name); `ports` maps a pin to (its named
+    port, the interfaces on the port) as `devices.pin_ports` gives them."""
     by_pin: dict[str, list[devices.PinProblem]] = {}
     for pr in problems:
         if pr.pin_id is not None:
@@ -141,6 +151,7 @@ def pin_rows_for_table(
                 "mode_key": r.mode,
                 "mode_tip": strings.DV_MODE_TIP[r.mode],
                 "interface": r.interface_id,
+                "port": port_cell(*(ports or {}).get(r.pin, ("", ""))),
                 "direction": r.direction,
                 "class": r.category,
                 "meaning_tip": r.note,
@@ -175,6 +186,7 @@ PIN_COLUMNS = [
     Column("role", strings.DV_COL_ROLE, tooltip=lambda _r: strings.DV_COL_ROLE_TIP, width=96),
     Column("mode", strings.DV_COL_MODE, tooltip=_tip("mode_tip"), width=64),
     Column("interface", strings.DV_COL_INTERFACE, mono=True, width=80),
+    Column("port", strings.DV_COL_PORT, mono=True, tooltip=lambda _r: strings.DV_COL_PORT_TIP, width=120),
     Column("direction", strings.DV_COL_DIRECTION, tooltip=_tip("meaning_tip"), width=76),
     Column("class", strings.DV_COL_CLASS, tooltip=_tip("meaning_tip"), width=76),
     Column("wire", strings.DV_COL_WIRE, mono=True, width=96),
@@ -1204,7 +1216,7 @@ class DevicesView(QWidget):
         self.card.setToolTip(frozen or "")
         rows = devices.pin_rows(p, cid, problems=problems)
         roles = {x.id: (x.role, effective_role(x, p, c)) for x in c.pins}
-        data = pin_rows_for_table(rows, problems, frozen, roles)
+        data = pin_rows_for_table(rows, problems, frozen, roles, devices.pin_ports(p, cid))
         self._pin_index = {r.pin: k for k, r in enumerate(rows)}
         self.pins_caption.setText(strings.DV_PIN_TABLE.format(c.name))
         self.pin_table.setAccessibleName(strings.DV_PIN_TABLE.format(c.id))

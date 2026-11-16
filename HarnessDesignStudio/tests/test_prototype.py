@@ -139,17 +139,22 @@ def test_j3_expert_mode_exact_connector_rules(page: Page) -> None:
     page.click('[data-type="power_primary"]')
     page.click("#t-connect")
     busy = page.get_attribute('.port[data-u="RW1"][data-p="J01"]', "class") or ""
-    assert " no" in busy  # RW1.J01 already carries IF-001
+    assert " no" not in busy  # RW1.J01 carries IF-001 and has room for another (D-237)
     wrong = page.get_attribute('.port[data-u="OBC-A"][data-p="J01"]', "class") or ""
     assert " no" in wrong  # J01 of the computer is data, not power
     page.click('.port[data-u="OBC-A"][data-p="J01"] rect')
-    assert "already carries IF-002" in page.inner_text("#toast")
-    page.click('.port[data-u="OBC-A"][data-p="J03"] rect')
     assert "does not carry Primary power" in page.inner_text("#toast")
     page.click('.port[data-u="PCDU-A"][data-p="J02"] rect')  # valid source
     page.click('.port[data-u="OBC-A"][data-p="J02"] rect')
     assert state(page, "D.ifaces.length") == 3
     assert state(page, "D.ifaces[2].a.auto") is False
+    # a connector in use that is full: refused with the reason (IF-002 holds 4 of its 9 pins)
+    page.click('[data-type="spacewire"]')
+    full = page.get_attribute('.port[data-u="OBC-A"][data-p="J01"]', "class") or ""
+    assert " no" in full
+    page.click('.port[data-u="OBC-A"][data-p="J01"] rect')
+    assert "J01 cannot take SpaceWire as well: too few free pins" in page.inner_text("#toast")
+    assert "(5 free, 8 needed)" in page.inner_text("#toast")
 
 
 def test_undo_redo_roundtrip(page: Page) -> None:

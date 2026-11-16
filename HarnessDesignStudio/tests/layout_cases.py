@@ -160,6 +160,13 @@ def _cases() -> list[Case]:
     add("Contact of pins", contact, "ContactDialog")
     add("Interface on pins", assign, "AssignDialog")
 
+    def port(c: Ctx) -> QWidget:
+        i = next(i for i in c.project.interfaces.values() if i.endpoints[0].connector_id)
+        cid = i.endpoints[0].connector_id
+        return devices_dialogs.PortDialog(None, c.theme, c.project, str(cid), i.id)
+
+    add("Port of an interface end", port, "PortDialog")
+
     def lib_dialog(c: Ctx) -> QWidget:
         return devices_dialogs.LibraryDialog(None, c.theme, c.project, _library_data(c))
 
