@@ -366,6 +366,7 @@ def test_an_interface_id_on_both_branches_is_set_aside_and_merge_fix_undoes(
     assert main(["merge-fix", str(design)]) == 2
     err = capsys.readouterr().err
     assert "duplicate ID 'IF-003'" in err and "merge-fix changed nothing" in err
+    assert "also for the steps printed above" in err  # the plan it printed first is not done
     assert tree(design) == before
     assert not (design / "physical/harnesses/W004.json").exists()
 

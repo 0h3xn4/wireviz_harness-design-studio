@@ -86,7 +86,7 @@ The numbers follow the order of the work. The first page is the one the editor s
 24. [Follow the workflow](follow-the-workflow.md): the nine steps, what each uses and makes, the intermediates you can look at and change, `harness-design-studio workflow`. New in S9.
 25. [Record what was built](record-what-was-built.md): the as-built sheet, `export-asbuilt`, `import-asbuilt`, `asbuilt`, the as-built report; what is missing and what is out of its limit. New in S9.
 26. [Upgrade a project to format 2](upgrade-a-project.md): the editor's question, `migrate --dry-run` and `migrate`, the backup folder `.migration-backup-v1/`, what changes in the folder, what versions 1.x do with an upgraded project, and how to go back. New in 2.0.0rc1.
-27. [Using HDS in your organisation](use-hds-in-your-organisation.md): for safety, quality and IT: what is AI-written, what the tool checks itself, what you must verify, no claim of compliance, the offline evidence, signatures and the licence. New after 2.0.0.
+27. [Using HDS in your organisation](use-hds-in-your-organisation.md): for safety, quality and IT: what is AI-written, what the tool checks itself, what you must verify, no claim of compliance, the offline evidence, signatures and the licence. New in 2.0.1.
 
 ## How to read the pages
 

@@ -92,8 +92,8 @@ def readme(version: str) -> str:
     return f"""Harness Design Studio {version}: release bundle
 {"=" * 60}
 
-This archive holds everything on the release page of version {version} except the four packages
-and SHA256SUMS. You do not need it to install the program. SHA256SUMS on the release page lists
+This archive holds everything on the release page of version {version} except the four packages,
+SHA256SUMS and its signature. You do not need it to install the program. SHA256SUMS on the release page lists
 the SHA-256 of this archive, and SHA256SUMS is signed (SHA256SUMS.sigstore.json, on the release
 page).
 

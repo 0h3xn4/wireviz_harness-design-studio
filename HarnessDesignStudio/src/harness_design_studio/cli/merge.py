@@ -286,7 +286,8 @@ def _undo(
         else:
             atomic_write_bytes(path, data, backup=False, root=folder)
     print(
-        f"error: {why}; merge-fix changed nothing. Run `harness-design-studio check {shown}` "
+        f"error: {why}; merge-fix changed nothing: every file is back as it was, also for the "
+        f"steps printed above. Run `harness-design-studio check {shown}` "
         "to see the problems and fix them first.",
         file=sys.stderr,
     )

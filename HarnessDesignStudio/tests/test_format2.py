@@ -80,8 +80,8 @@ def test_every_fixture_and_every_shipped_example_is_in_format_2() -> None:
 def test_the_step_from_1_to_2_is_a_list_of_parts_that_can_take_one_more_before_2_0_0(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Format 2 is frozen only when 2.0.0 is tagged; a change that is still to come is one more part
-    of the same step, not a format 3. The journal of M7a is the second part (D-228)."""
+    """The step from 1 to 2 is a list of parts: the number and the journal of M7a (D-228). Format 2
+    is frozen since the tag of 2.0.0 (D-230), so no part is added now."""
     assert (migrate._v2_number, migrate._v2_journal_lines) == migrate.V1_TO_V2_PARTS
     files = {"project.json": {"name": "x", "schema_version": 1}, "journal.json": {"journal": []}}
     out = migrate.migrate_raw(files, 1)
