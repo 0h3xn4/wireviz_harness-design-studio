@@ -282,7 +282,7 @@ def test_every_interface_gets_the_pins_of_one_port_whatever_the_pin_order(
     placed = sorted(i for i in iids if got[i])
     assert placed == sorted(iids)[: min(n_ports, n_ifaces)]  # interfaces in ID order
     want = sorted(names, key=natural_key)
-    assert [got[i].pop() for i in placed] == want[: len(placed)]  # ports in name order
+    assert [min(got[i]) for i in placed] == want[: len(placed)]  # ports in name order (one each)
     assert len(res.errors) == max(0, n_ifaces - n_ports)
 
 
