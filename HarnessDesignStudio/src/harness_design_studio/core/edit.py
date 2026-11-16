@@ -677,17 +677,15 @@ def shared_connectors(project: Project, unit_id: str, type_id: str) -> list[Conn
     interfaces already end on, that have a fixed pinout, and on which the dry run places the new
     interface on a free complete named port. A connector whose pins the device leaves free is
     never shared by the tool's choice: only a person shares it (Expert mode)."""
-    used = _used_connectors(project)
     if type_id not in project.interface_types:
         return []
-    return [
-        c
-        for c in unit_connectors(project, unit_id)
-        if c.id in used
-        and carries(c, type_id)
-        and fixed_pinout(c)
-        and connector_room(project, c.id, type_id).port
+    fixed = [
+        c for c in unit_connectors(project, unit_id) if carries(c, type_id) and fixed_pinout(c)
     ]
+    if not fixed:  # the common case: nothing to share, and the interfaces are not read at all
+        return []
+    used = _used_connectors(project)
+    return [c for c in fixed if c.id in used and connector_room(project, c.id, type_id).port]
 
 
 def _guided_fits(project: Project, type_id: str, connector_id: str) -> bool:
