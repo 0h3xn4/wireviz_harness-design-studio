@@ -294,3 +294,110 @@ def test_what_export_pinout_writes_import_pinout_reads(tmp_path: Path) -> None:
     assert cli_main(["import-pinout", str(third), str(book), "--unit", "GYRO1"]) == 0
     c = load_project(third).project.connectors["GYRO1-J01"]
     assert [(x.id, x.signal) for x in c.pins] == [(x.id, x.signal) for x in a.pins]
+
+
+# --- the Port column (2.1.0, D-237) --------------------------------------------------------------
+
+
+def ported_csv(heading: str = "Port") -> str:
+    """J1 = RS-422 x3 with a Port column and bare signal names."""
+    rows = [f"Connector,Pin,{heading},Signal,Mode"]
+    for k in range(3):
+        for i, s in enumerate(("TX+", "TX-", "RX+", "RX-")):
+            rows.append(f"J1,{4 * k + i + 1},RS422_{k + 1},{s},fixed")
+    return "\n".join(rows) + "\n"
+
+
+def test_the_preview_lists_the_ports_and_json_has_them(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import json
+
+    p = folder(tmp_path)
+    f = tmp_path / "obc.csv"
+    f.write_text(ported_csv())
+    base = ["import-pinout", str(p), str(f), "--unit", "GYRO1", "--default-part", "EX-MICROD-25-F"]
+    assert cli_main([*base, "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        "GYRO1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)"
+        in out
+    )
+    assert "Signals that match no interface type" not in out
+    assert cli_main([*base, "--dry-run", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert [(e["connector"], e["type"]) for e in data["ports"]] == [
+        ("GYRO1-J01", "ethernet"),
+        ("GYRO1-J01", "rs422"),
+    ]
+    assert [x["name"] for x in data["ports"][1]["ports"]] == ["RS422_1", "RS422_2", "RS422_3"]
+    assert data["ports"][1]["ports"][1]["pins"][0] == {"signal": "TX+", "pin": "5"}
+    assert data["unmatched_signals"] == {}
+    assert cli_main(base) == 0
+    capsys.readouterr()
+    pins = load_project(p).project.connectors["GYRO1-J01"].pins
+    assert [x.signal for x in pins if x.signal][4:8] == [
+        "RS422_2_TX+",
+        "RS422_2_TX-",
+        "RS422_2_RX+",
+        "RS422_2_RX-",
+    ]
+
+
+def test_the_port_column_can_be_named_with_column(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = folder(tmp_path)
+    f = tmp_path / "obc.csv"
+    f.write_text(ported_csv("Kanal"))
+    base = ["import-pinout", str(p), str(f), "--unit", "GYRO1", "--default-part", "EX-MICROD-25-F"]
+    assert cli_main([*base, "--column", "port=kanal"]) == 0
+    capsys.readouterr()
+    pins = load_project(p).project.connectors["GYRO1-J01"].pins
+    assert pins[0].signal == "RS422_1_TX+" and pins[11].signal == "RS422_3_RX-"
+
+
+def test_a_refused_port_row_stops_the_import(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = folder(tmp_path)
+    f = tmp_path / "bad.csv"
+    f.write_text("Pin,Port,Signal\n1,RS422_1,RS422_2_TX+\n2,RS422_1,\n")
+    before = model_hash(load_project(p).project)
+    args = ["import-pinout", str(p), str(f), "--unit", "GYRO1", "--default-part", "EX-MICROD-25-F"]
+    assert cli_main(args) == 1
+    out = capsys.readouterr().out
+    assert "row 2: ERROR The signal RS422_2_TX+ names the port RS422_2, not RS422_1" in out
+    assert "row 3: ERROR Port RS422_1 has no signal on this row" in out
+    assert "Nothing was changed." in out
+    assert model_hash(load_project(p).project) == before
+
+
+def test_a_port_column_survives_export_and_import_without_it(tmp_path: Path) -> None:
+    """The round trip: import with a Port column, export-pinout, import the export (it has no
+    Port column) into another project: the same pins with the same signals."""
+    (tmp_path / "a").mkdir()
+    src = folder(tmp_path / "a")
+    f = tmp_path / "obc.csv"
+    f.write_text(ported_csv())
+    args = [
+        "import-pinout",
+        str(src),
+        str(f),
+        "--unit",
+        "GYRO1",
+        "--default-part",
+        "EX-MICROD-25-F",
+    ]
+    assert cli_main(args) == 0
+    out = tmp_path / "export.csv"
+    assert cli_main(["export-pinout", str(src), "--unit", "GYRO1", "-o", str(out)]) == 0
+    header = next(x for x in out.read_text().splitlines() if x.startswith("Connector,"))
+    assert header == "Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare"  # unchanged
+    (tmp_path / "b").mkdir()
+    dst = folder(tmp_path / "b")
+    assert cli_main(["import-pinout", str(dst), str(out), "--unit", "GYRO1"]) == 0
+    a = load_project(src).project.connectors["GYRO1-J01"]
+    b = load_project(dst).project.connectors["GYRO1-J01"]
+    assert [(x.id, x.signal) for x in b.pins] == [(x.id, x.signal) for x in a.pins]
+    assert [x.signal for x in a.pins][:2] == ["RS422_1_TX+", "RS422_1_TX-"]
