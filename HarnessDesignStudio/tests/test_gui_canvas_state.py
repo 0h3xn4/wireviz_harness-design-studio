@@ -72,6 +72,9 @@ def released(qtbot, tmp_path: Path):
 def plain(qtbot, tmp_path: Path):
     w = make_window(tmp_path)
     qtbot.addWidget(w)
+    # Hold the design-rule check that the sample project armed (DRC_DELAY_MS): the tests here
+    # look at the state before the first check, and a slow runner could finish it first.
+    w.ctl._drc_timer.setInterval(600_000)
     QApplication.processEvents()
     return w
 

@@ -87,6 +87,7 @@ def test_an_out_of_date_result_says_so_at_once_and_a_new_check_is_on_its_way(win
     QApplication.processEvents()
     panel = win.checks_panel
     assert not panel.stale.isVisibleTo(panel)
+    c._drc_timer.setInterval(600_000)  # the new check stays on its way (a slow runner could end it)
     c.update_unit("PDU2", name="Changed after the check")
     QApplication.processEvents()
     assert c.drc_scheduled and not c.drc_current
