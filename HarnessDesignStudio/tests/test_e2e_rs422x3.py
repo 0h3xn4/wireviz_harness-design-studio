@@ -136,7 +136,6 @@ def ports_used(proj: Path) -> dict[str, set[str]]:
 # ---- the case of section 6 ------------------------------------------------------------------
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize(
     "obc_csv", [with_port_column(), with_port_names()], ids=["column", "names"]
 )
@@ -192,7 +191,6 @@ def test_rs422x3_end_to_end(
 # ---- variants -------------------------------------------------------------------------------
 
 
-@pytest.mark.slow
 def test_per_zone_pair_makes_one_harness_with_one_plug_on_j1(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -233,7 +231,6 @@ def test_per_zone_pair_makes_one_harness_with_one_plug_on_j1(
     assert "cable plugs on it" not in out
 
 
-@pytest.mark.slow
 def test_a_port_locked_by_a_person_is_kept_by_generate(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -262,7 +259,6 @@ def test_a_port_locked_by_a_person_is_kept_by_generate(
     assert code == 0 and "0 error(s)" in out, out
 
 
-@pytest.mark.slow
 def test_repeated_bare_names_keep_201_and_warn_pin_port_unknown(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
