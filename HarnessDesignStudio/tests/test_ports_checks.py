@@ -116,12 +116,11 @@ def test_port_mixed_is_found() -> None:
         )
     errors = verify_project(p).errors
     assert {e.code for e in errors} == {"port_mixed"}
-    assert [e.message for e in errors] == [
-        "Interface IF-001 uses the pins of 2 ports on OBC1-J1 (RS422_1, RS422_2); an interface"
-        " uses the pins of one port. Regenerate, or lock the pins of one port.",
-        "Interface IF-002 uses the pins of 2 ports on OBC1-J1 (RS422_1, RS422_2); an interface"
-        " uses the pins of one port. Regenerate, or lock the pins of one port.",
-    ]
+    mixed = (
+        "Interface {} uses the pins of 2 ports on OBC1-J1 (RS422_1, RS422_2); an interface"
+        " uses the pins of one port. Regenerate, or lock the pins of one port."
+    )
+    assert [e.message for e in errors] == [mixed.format("IF-001"), mixed.format("IF-002")]
     assert hits(p, "verify-mismatch")  # the design rule check reports it too
 
 
