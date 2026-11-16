@@ -10,3 +10,10 @@
 | [`screens/`](screens/) | Pictures of the clickable HTML prototype that came before the editor ([`screens/README.md`](screens/README.md)). History. | `python -m tools.ux_screenshots` (needs Playwright) |
 
 The design rules behind the pictures are in [`../DESIGN.md`](../DESIGN.md).
+
+## Feedback records
+
+| Record | What is in it |
+| --- | --- |
+| [`feedback-2026-11-16.md`](feedback-2026-11-16.md) | The feedback of two demo participants on 2.0.0 (a systems engineer, and an electrical engineer and AIT), without names, with a table of each point: covered today, gap, planned release. |
+

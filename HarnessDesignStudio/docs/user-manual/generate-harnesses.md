@@ -9,6 +9,7 @@ This page shows how to turn your devices and links into harnesses (connectors, p
 - [2. Check the result on its own](#2-check-the-result-on-its-own)
 - [3. Read why a wire is the way it is](#3-read-why-a-wire-is-the-way-it-is)
 - [How links become harnesses](#how-links-become-harnesses)
+- [How auto-linking and the checks work](#how-auto-linking-and-the-checks-work)
 - [Keep a choice of your own](#keep-a-choice-of-your-own)
 - [Common mistakes](#common-mistakes)
 
@@ -123,6 +124,113 @@ Whatever the mode:
 - A link between **more than two devices** (a bus) is not generated yet (D-116). It is skipped with the note "multi-drop interfaces (more than two devices) are not generated yet".
 
 The file has a wrapper: the setting is under `values`. A key at the top level is refused. See [fill in the engineering values](fill-in-engineering-values.md#the-shape-of-a-config-file).
+
+## How auto-linking and the checks work
+
+This section follows one design from the devices to a checked harness. At each step it says what the tool does by itself and what you decide. Three words matter here: an **interface** (`IF-002`) is a connection of a type, for example RS-422, that you ask for between two devices; a **connection** (`L7`) joins two connectors pin by pin; a **harness** (`W001`) is the cable the tool makes. How these IDs are made and where you see them: [connector IDs and tags](naming-and-title-block.md#connector-ids-and-tags).
+
+| Step | What the tool does by itself | What you decide |
+| --- | --- | --- |
+| 1. Devices | Gives each device an ID, and each of its connectors an ID made from the device ID (`PCDU1`, `PCDU1-J01`). A KiCad import puts the signal names on the pins and marks those pins *fixed*. | Which devices there are, their connectors and parts, and their pinouts ([define a device](define-a-device.md), [import KiCad pinouts](import-kicad-pinouts.md)). |
+| 2. Interfaces | When you connect two devices with an interface type, it picks at each device the first free connector that carries the type, and marks the choice *auto-filled*. | The type and the two devices. You confirm the connectors, or choose others in Expert mode. |
+| 2a. Connections, pin by pin | In the window *Link connectors* it proposes pairs of pins from the signal names (`TX+` with `RX+`, `PWR` with `PWR`), never from the pin numbers. | You read the pairs, change them, and press **Apply**. A harness is made from a connection only when you press **Create harness**. |
+| 3. Generate | Groups the interfaces into harnesses (one for each pair of device connectors by default), and makes the cable connectors, the pins and the wires. | You press **Generate**, read the preview and press **Apply**. The grouping is a setting ([above](#how-links-become-harnesses)). |
+| 4. Pins | Fills a fixed pin by its name. Gives free pins to signals with the pin allocator: power first, then the other signals, each group on the first free pins. | You can lock a pin, fix a pinout, or change the order and the gaps in the settings. |
+| 5. Checks | Runs the quick checks on every edit, the design rules a moment after you stop editing, and the self-check on the harnesses. | You fix a finding, waive a warning with a reason, or enter the missing values. The tool does not waive or approve anything. |
+
+### 1 and 2: devices, interfaces and auto-filled connectors
+
+Each new device gets an ID from its kind (`PCDU1`, `OBC1`) and connectors named `<device>-J01`, `<device>-J02`, and so on. When you connect two devices with an interface type, the tool looks at the connectors of each device in ID order and takes the first free one that carries the type. It writes `"auto": true` on that end of the interface, the diagram marks it *auto-filled*, and the design rules list it until a person confirms it:
+
+```
+harness-design-studio drc wheel-link
+```
+
+```
+- **IF-001 uses connectors the tool chose for you** (`unconfirmed.IF-001`)  
+- **IF-002 uses connectors the tool chose for you** (`unconfirmed.IF-002`)  
+```
+
+Confirm them with **Confirm auto-filled connectors** in the Inspector of the link, or with the fix button of the card ([read and fix problems](read-and-fix-problems.md#2-in-the-app)). `harness-design-studio explain wheel-link RW1-J02` prints why a connector was taken: *Connectors of RW1 that carry rs422: in ID order: RW1-J02; the tool takes the first one that is free*. The order can be changed with the setting `model.connector_choice` ([pin allocation](../models/pin-allocation.md#the-choice-of-a-connector)).
+
+**Several interfaces on one connector.** The generator can place several interfaces on one device connector, but the editor refuses a second one today: *RW1-J02 already carries IF-002. One interface per connector.* The owner decided on 2026-11-16 to allow it in the editor in version 2.1.0, together with the automatic pin assignment of several interfaces of one type (for example four RS-422) from imported pinouts (decision D-233 in [`DECISIONS.md`](../DECISIONS.md)).
+
+**A bus** (one interface between more than two devices) is not generated yet (D-116).
+
+### 2a: connections made pin by pin
+
+A connection does not need an interface type. In the window *Link connectors* the tool proposes pairs from the signal names: equal names (`PWR` with `PWR`, `CANH` with `CANH`) and the two ends of one line (`TX+` with `RX+`, words set in `naming.signal_counterparts`). It never pairs by position, unless you press **Pair by pin number**. Nothing is saved until you press **Apply**, and a harness is made only when you press **Create harness**. **Design > Check my connections** reviews the pairs and changes nothing ([connect two connectors](connect-two-connectors.md)).
+
+### 3: from interfaces to harnesses
+
+**Generate** reads every interface and makes one harness for each pair of device connectors (the setting `segmentation.mode`). For each device connector it makes a cable connector of the mating part, and for each signal of the interface a wire between the two cable connectors. A harness made by hand, a released harness and a locked wire are left as they are ([keep a choice of your own](#keep-a-choice-of-your-own)). The preview says what would be added, changed and removed before anything changes.
+
+### 4: pins, fixed by name or given by the allocator
+
+On each device connector the tool decides which pin carries which signal:
+
+- **A fixed pin** (a pinout from KiCad, or a pin you marked *fixed*) is filled **by its name**. The signal `RX+` of an interface goes to the free pin whose signal name is `RX+` (pin 3 of `RW1-J02` with the practice netlist). If no such pin is free, generation stops with an error for that interface and does not use another pin ([what "fixed" means](import-kicad-pinouts.md#what-fixed-means)).
+- **A free pin** is given by the **pin allocator**. Power and ground come first, as one block, then the other interfaces in the order of their IDs. Each group (a pair, a power block, a single signal) takes the first free run of pins. A locked pin stays where it is, and an earlier choice is kept while it is still valid ([pin allocation](../models/pin-allocation.md)).
+
+You can see which of the two applied to a pin. After the KiCad import of [import KiCad pinouts](import-kicad-pinouts.md) and a new `generate`:
+
+```
+harness-design-studio explain wheel-link RW1-J02.3
+```
+
+```
+Pin 3 of RW1-J02. Pin allocation: RX+ of IF-002 on pin 3
+...
+    Pin is locked = no   [pin 3: Locked (a locked pin is never moved)]
+    Pinout is fixed by the device design = yes   [pin 3: Fixed (a fixed pinout gives the signal the free pin of its name)]
+...
+```
+
+Without the import the same line says `Pinout is fixed by the device design = no`, and the pin was chosen by the allocator. The **Why** tab of a pin shows the same text.
+
+**Not automatic yet.** A fixed pin is matched by the signal name of the interface type only. When one connector has several ports of one type (four RS-422 ports, say), its pins must carry the bare names (`TX+` four times, and so on), and the interfaces then take them in the order of their IDs, each the first free pin of the name. The tool does not know which pins form one port. Net names such as `RS422_2_TX+` from KiCad match nothing until a signal map renames them. An assignment that knows the ports is planned for 2.1.0 (D-233).
+
+### 5: when the checks run
+
+| Check | When it runs | Where you see it |
+| --- | --- | --- |
+| **Quick checks** (a link without a connector, a device with no link, auto-filled connectors, a link across the chains) | On every edit, at once. | The **Problems** tab and the marks on the diagram. |
+| **Design rules** (all 39, [`RULES.md`](../RULES.md)) | In the editor, by themselves, after every change, once you have paused for **1.2 seconds**, and when a project is opened. They run in a separate helper process, so the editor does not wait. A run that does not end within three minutes is stopped and run again inside the editor. **Check** in the top bar (F5) runs them now. | The status line (*Design rules: checking…*, then the counts), the **Checks** tab and the **Problems** panel ([read and fix problems](read-and-fix-problems.md)). |
+| **Self-check** (a second program path that shares no code with the generator) | In the editor, in the background, when the **Harness** tab is open and the design changed, and again after an export. On the command line at the end of every `generate`. | The chip in the header of the **Harness** tab: *Self-check passed*, *Self-check passed; n design checks failed* or *Self-check found n problem(s)*. |
+| **Output check** | Before `export` writes any file. | If it fails, nothing is written and the reason is shown ([export the outputs](export-the-outputs.md#1-export)). |
+
+On the command line you choose which check runs:
+
+| Command | What it checks | Exit code 1 when |
+| --- | --- | --- |
+| `harness-design-studio validate DIR` | That the folder is sound: errors and inconsistencies in its files. No design rules. | an error is found |
+| `harness-design-studio check DIR` | The same as `validate`, plus what a Git merge can leave behind ([use Git and CI](use-git-and-ci.md)). | an error is found |
+| `harness-design-studio drc DIR` | The 39 design rules, with the report. | an error is not waived |
+| `harness-design-studio verify DIR` | The self-check of the harnesses against the design; `--outputs` also checks the written files. | an error is found |
+
+With the practice project after `generate`:
+
+```
+harness-design-studio check wheel-link
+```
+
+```
+INFO    placeholder_config: Placeholder rule configuration still in use: derating, emc, generation, segmentation, segregation, titleblock. An engineer must review these before results are trusted.
+3 devices, 2 interfaces, 13 connectors, 2 harnesses: 0 error(s), 0 warning(s).
+```
+
+```
+harness-design-studio drc wheel-link
+```
+
+```
+# Design rule check: First steps: reaction wheel link
+
+Model hash: `<hash>`. Rules run: 39.
+Open: 0 error(s), 10 warning(s), 8 note(s). Waived: 0.
+```
+
+**What the checks do not decide.** A rule that needs a value nobody has entered says *not checked*, never *passed*. A clean report means that the tool found nothing it can check; it does not mean that the harness is right. The person who builds and flies it checks it ([using HDS in your organisation](use-hds-in-your-organisation.md#what-you-must-verify)).
 
 ## Keep a choice of your own
 
