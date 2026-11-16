@@ -176,20 +176,6 @@ Import record: pinout:obc1.csv written to imports/records.json.
 
 **After the import.** Connect OBC1 to three other devices with RS-422 in Guided mode: J1 is OBC1's only connector, so the tool puts all three interfaces on it, one per port, and Generate gives IF-001 the port RS422_1, IF-002 RS422_2 and IF-003 RS422_3 (ports in name order, interfaces in ID order). To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface, or **Assign…** with its **Port** list in this tab. When every port is used, the connector is full: in Expert mode a fourth interface is refused with the reason, and in Guided mode with *OBC1 has no free RS-422 connector…*. Each interface to another far connector gets its own harness with its own plug on J1, and Generate warns (`box_connector_shared`) until a harness can branch (planned for 2.3.0). The whole case, step by step: [three RS-422 links on one connector](generate-harnesses.md#worked-example-three-rs-422-links-on-one-connector-since-210).
 
-On the command line, with the table above saved as `obc1.csv` (twelve rows, three ports):
-
-```
-harness-design-studio import-pinout obc-demo obc1.csv --device OBC1 --new-device "On-board computer" --default-part EX-MICROD-25-F
-```
-
-```
-OBC1-J01: OK added (12 pin(s))
-OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)
-Imported 1 connector(s), 12 pin(s).
-```
-
-**After the import.** Connect OBC1 to three other devices with RS-422 in Guided mode: J1 is OBC1's only connector, so the tool puts all three interfaces on it, one per port, and Generate gives IF-001 the port RS422_1, IF-002 RS422_2 and IF-003 RS422_3 (ports in name order, interfaces in ID order). To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface, or **Assign…** with its **Port** list in this tab. When every port is used, the connector is *Full*: a fourth interface is refused with the reason. Each interface to another far connector gets its own harness with its own plug on J1, and Generate warns (`box_connector_shared`) until a harness can branch (planned for 2.3.0). The whole case, step by step: [three RS-422 links on one connector](generate-harnesses.md#worked-example-three-rs-422-links-on-one-connector-since-210).
-
 ## Check the result and write it out
 
 - Under the pin table the **notes** list what is odd about the connector, each with the pin it is about: a pin name that is the same ignoring case, fewer pins than the part has, a signal on two pins, a signal no interface type has, an interface type that is only half there on a fixed pinout (for example `CANH` without `CANL`), a locked pin whose interface does not end on this connector, a gender that nobody states. They are notes, not design rules: nothing here changes the design rules or what Generate does.
