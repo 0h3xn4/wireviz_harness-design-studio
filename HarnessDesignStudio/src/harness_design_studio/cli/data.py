@@ -1196,10 +1196,16 @@ def _imports(project, args: argparse.Namespace, rep: Report) -> int:  # type: ig
         rep.say("  ".join(cell.ljust(w) for cell, w in zip(r, widths, strict=True)).rstrip())
     for c in checks:
         if c.status == CHANGED:
+            # a device library file is taken with update-device, never imported again (D-240)
+            advice = (
+                f"`update-device {args.project}` shows what the library changed, and `--apply` "
+                "takes it."
+                if c.record.kind == "devices" and c.record.id in located
+                else "Import it again to take the new content."
+            )
             rep.say(
                 f"{c.record.id}: the file now has SHA-256 {str(c.current_sha256)[:12]}, "
-                f"it was {c.record.sha256[:12]} when it was imported. Import it again to take "
-                "the new content."
+                f"it was {c.record.sha256[:12]} when it was imported. {advice}"
             )
     if changed:
         rep.say(f"{changed} source(s) changed since they were imported.")
