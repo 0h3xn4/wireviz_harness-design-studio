@@ -27,7 +27,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from harness_design_studio.core.branching import PlugFix, plug_fix
 from harness_design_studio.core.checks import Finding
+from harness_design_studio.core.model import Project
 from harness_design_studio.core.model.physical import TBD_PART_ID
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.controller import EditorController
@@ -65,6 +67,23 @@ def finding_why(f: Finding) -> str:
     return f.why
 
 
+def mated_twice(f: Finding) -> bool:
+    """True for the finding of a device connector with plugs of several harnesses
+    (`box_connector_mated_twice`, reported through the rule model-inconsistent)."""
+    return f.rule == "model-inconsistent" and f.title.startswith(
+        f"The device connector {f.object_id} has "
+    )
+
+
+def branch_fix(project: Project, f: Finding) -> PlugFix | None:
+    """The fix the editor offers for such a finding (2.3.0, D-243): *Join into one harness* when
+    the plugs belong to harnesses drawn by hand, *Use per_connector_group* when they are
+    Generate's (`core.branching.plug_fix`); None for any other finding."""
+    if f.waiver is not None or not mated_twice(f):
+        return None
+    return plug_fix(project, f.object_id)
+
+
 def problem_row(f: Finding) -> dict[str, Any]:
     word = strings.CHECKS_SEVERITY.get(f.severity, f.severity)
     order = _ORDER.get(f.severity, 3)
@@ -83,6 +102,8 @@ def problem_row(f: Finding) -> dict[str, Any]:
 class ProblemsList(QWidget):
     showRequested = Signal(str)  # the ID of the object a row names
     detailsRequested = Signal(str)  # the same, for its problems as cards in the inspector
+    joinRequested = Signal(str)  # a device connector: join the harnesses that plug into it
+    segmentationRequested = Signal()  # open Settings at the segmentation choice
 
     def __init__(
         self, ctl: EditorController, theme: ThemeManager, parent: QWidget | None = None
@@ -159,7 +180,13 @@ class ProblemsList(QWidget):
             self.ctl.open_findings(),
             key=lambda f: (_ORDER.get(f.severity, 3), f.rule, f.object_id),
         )
-        self.model.update_rows([problem_row(f) for f in found])
+        project = self.ctl.project
+        rows = []
+        for f in found:
+            row = problem_row(f)
+            row["fix"] = branch_fix(project, f)
+            rows.append(row)
+        self.model.update_rows(rows)
         self.filters["links"].setVisible(bool(self.ctl.project.links) or self._level == "links")
         self.empty.setVisible(not found)
         self.table.setVisible(bool(found))
@@ -232,6 +259,16 @@ class ProblemsList(QWidget):
         menu.setAccessibleName(strings.PROBLEMS_MENU)
         menu.addAction(strings.PROBLEMS_GO_TO.format(target), lambda: self._clicked(index))
         menu.addAction(strings.PROBLEMS_DETAILS, lambda: self._details(index))
+        row = self.model.row(self.table.proxy.mapToSource(index).row())
+        fix = row.get("fix") if isinstance(row, Mapping) else None
+        if isinstance(fix, PlugFix):
+            menu.addSeparator()
+            if fix.kind == "join":
+                act = menu.addAction(strings.FIX_JOIN, lambda: self.joinRequested.emit(fix.box_id))
+            else:
+                act = menu.addAction(strings.FIX_MODE, self.segmentationRequested.emit)
+            act.setObjectName(f"problems-fix-{fix.kind}")
+            act.setEnabled(not self.ctl.read_only)
         menu.popup(self.table.viewport().mapToGlobal(pos))
         self.menu = menu  # (kept for tests)
 

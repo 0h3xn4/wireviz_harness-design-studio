@@ -1625,6 +1625,7 @@ INS_FACT_KIND = {
     "part": "Part",
     "interface_type": "Interface type",
     "config": "Configuration",
+    "branch_point": "Branch point",
 }
 INS_FACT_LABELS = {
     "name": "Name",
@@ -3787,3 +3788,88 @@ SETTINGS_SEGMENTATION_TIP = (
 SETTINGS_SEGMENTATION_UNKNOWN = "The project names {} here, which this version does not know."
 STEP_SET_SEGMENTATION = "Group interfaces {}"
 SEGMENTATION_SET = "Interfaces are grouped {} from the next Generate on."
+# the Routing of the Harness tab: segments and branch points
+RT_TITLE = "Routing"
+RT_TABLE = "Segments of the harness"
+RT_BRANCH_TABLE = "Branch points of the harness"
+RT_COL_SEGMENT = "Segment"
+RT_COL_FROM = "From"
+RT_COL_TO = "To"
+RT_COL_LENGTH = "Length"
+RT_COL_WIRES = "Wires"
+RT_COL_BRANCH = "Branch point"
+RT_COL_NAME = "Name"
+RT_COL_SEGMENTS = "Segments and lengths"
+RT_NO_LENGTH = "to fill in"
+RT_NO_LENGTH_TIP = "No length yet: double-click the cell to enter it in metres"
+RT_LENGTH_TIP = "{m:g} m; double-click the cell to change it (empty clears it)"
+RT_WIRES_TIP = "{n} wires run through {segment}: {ids}"
+RT_NODE_TIP = "{id}: {name}"
+RT_SEGMENT_LENGTH = "{segment} {length}"
+RT_SEGMENT_NO_LENGTH = "{segment} (no length)"
+RT_KEPT_BY_GENERATE = (
+    "Generate made this routing. A length you enter here is kept by Generate, by the two ends of "
+    "its segment."
+)
+RT_DRAWN_HINT = (
+    "Double-click a length to enter it in metres. Add branch points and segments to draw the tree "
+    "the bundle follows."
+)
+RT_EMPTY = "No routing yet: add a branch point or a segment."
+RT_ADD_BRANCH = "Add branch point"
+RT_ADD_BRANCH_TIP = "Add a branch point to this harness; join it with segments"
+RT_ADD_SEGMENT = "Add segment…"
+RT_ADD_SEGMENT_TIP = "Add a segment between two connectors or branch points, with a length or none"
+RT_RENAME = "Rename…"
+RT_RENAME_TIP = "Give the chosen branch point another name"
+RT_RENAME_WHY = "Choose a branch point in the list of branch points first."
+RT_DELETE = "Delete"
+RT_DELETE_TIP = "Delete the chosen segment, or the chosen branch point with its segments"
+RT_DELETE_WHY = "Choose a segment or a branch point first."
+RT_RENAME_TITLE = "Rename {}"
+RT_RENAME_LABEL = "Name of the branch point"
+STEP_RT_LENGTH = "Length of {}"
+STEP_RT_ADD_BRANCH = "Add branch point {}"
+STEP_RT_ADD_SEGMENT = "Add segment {}"
+STEP_RT_RENAME = "Rename {}"
+STEP_RT_DELETE = "Delete {}"
+SEG_DIALOG_TITLE = "Add a segment to {}"
+SEG_DIALOG_INTRO = (
+    "A segment is the bundle between two nodes: a connector or a branch point of this harness. "
+    "Its length runs from the rear of a connector to the centre of a branch point. The segments "
+    "form a tree, so a segment that would close a loop is refused."
+)
+SEG_FROM = "From"
+SEG_FROM_TIP = "The connector or branch point where the segment starts"
+SEG_TO = "To"
+SEG_TO_TIP = "The connector or branch point where the segment ends"
+SEG_LENGTH = "Length (m), optional"
+SEG_LENGTH_TIP = "The length in metres, for example 0.75; leave it empty to enter it later"
+SEG_OK = "Add segment"
+SEG_OK_TIP = "Add the segment as one undo step"
+SEG_NODE = "{id} ({name})"
+# the inspector of a branch point
+INS_BP_SEGMENTS = "Segments"
+INS_BP_SEGMENT_TIP = "{segment} runs from {a} to {b}"
+INS_BP_NO_SEGMENT = "A branch point needs two segments or more; add them in the Routing table."
+# the fix of a device connector with plugs of several harnesses (box_connector_mated_twice)
+FIX_JOIN = "Join into one harness"
+FIX_JOIN_TIP = (
+    "Join the harnesses {harnesses}, which plug into {box}, into {keep}: one plug on {box} and a "
+    "branch point (one undo step)"
+)
+FIX_MODE = "Use per_connector_group"
+FIX_MODE_TIP = (
+    "Open Settings at how interfaces are grouped into harnesses: with per connector group the next "
+    "Generate makes one harness with one plug on {box}"
+)
+JOIN_NO_OTHER = "No other harness drawn by hand plugs into {box}."
+JOIN_TITLE = "Join into one harness"
+JOIN_QUESTION = (
+    "Join a harness that plugs into {box} into {keep}? Its wires move onto the plug of {keep}, "
+    "a branch point joins the legs, and the other harness is deleted (one undo step)."
+)
+JOIN_INTO = "Join {other} into {keep}"
+JOIN_DONE = "{other} joined into {keep}: one plug on {box}."
+JOIN_MORE_LEFT = " {box} still has plugs of {n} harnesses: join again."
+STEP_JOIN = "Join {other} into {keep}"

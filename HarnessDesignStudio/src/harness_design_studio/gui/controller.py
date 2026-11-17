@@ -2142,6 +2142,25 @@ class EditorController(QObject):
             message=strings.LOOSE_RESOLVED.format(end=loose_id, part=part_id),
         )
 
+    def join_harnesses(self, keep_id: str, other_id: str, box_id: str) -> bool:
+        """Join the harness `other_id` into `keep_id` where both plug into the device connector
+        `box_id` (`branching.plan_join_harnesses`, one undo step); the reason is a message when it
+        is refused."""
+        from harness_design_studio.core import branching
+        from harness_design_studio.core.integrity import mating_plugs
+
+        if not self.attempt(
+            strings.STEP_JOIN.format(other=other_id, keep=keep_id),
+            lambda: branching.plan_join_harnesses(self.project, keep_id, other_id),
+        ):
+            return False
+        left = {hid for hid, _c in mating_plugs(self.project.harnesses.values()).get(box_id, [])}
+        text = strings.JOIN_DONE.format(other=other_id, keep=keep_id, box=box_id)
+        if len(left) > 1:
+            text += strings.JOIN_MORE_LEFT.format(box=box_id, n=len(left))
+        self.message.emit(text, True)
+        return True
+
     def rename_cable_end(self, connector_id: str, name: str) -> bool:
         """Give a cable connector of a harness made by hand a name (one undo step)."""
         from harness_design_studio.core.connector_edit import plan_edit_connector

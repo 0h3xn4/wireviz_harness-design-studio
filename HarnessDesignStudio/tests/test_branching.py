@@ -619,3 +619,22 @@ def test_put_ops_only_replace_the_one_harness():
     hid = straight(p)
     ops, _bid = plan_add_branch_point(p, hid)
     assert [type(o) for o in ops] == [Put] and ops[0].obj.id == hid
+
+
+def test_the_fix_of_a_connector_with_two_plugs_is_the_join_or_the_mode():
+    from harness_design_studio.core.branching import PlugFix, plug_fix
+
+    p = labelled()
+    history = History(p)
+    keep, other = two_cables(p, history)
+    assert plug_fix(p, "OBC-J01") == PlugFix("join", "OBC-J01", (keep, other))
+    assert plug_fix(p, "RW1-J02") is None  # one plug
+    assert plug_fix(p, "NOPE") is None
+    p.harnesses[other] = evolve(p.harnesses[other], generated=True)
+    assert plug_fix(p, "OBC-J01") is None  # one of each: neither fix
+    p.harnesses[keep] = evolve(p.harnesses[keep], generated=True)
+    assert plug_fix(p, "OBC-J01") == PlugFix("mode", "OBC-J01", (keep, other))
+    p.config["segmentation"] = evolve(
+        p.config["segmentation"], values={"mode": "per_connector_group"}
+    )
+    assert plug_fix(p, "OBC-J01") is None  # the next Generate joins them

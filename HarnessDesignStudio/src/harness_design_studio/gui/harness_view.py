@@ -81,6 +81,7 @@ from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.dialog_base import HeightScrollArea
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.preview import DrawingPreview, Key
+from harness_design_studio.gui.routing_panel import RoutingPanel
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, Row, TableView, natural_key
 from harness_design_studio.gui.theme import ThemeManager
@@ -329,6 +330,19 @@ class _FixedWidthTable(TableView):
             if helper is not None:
                 helper.busy = False
         self._sized = True
+
+
+class _ShortScroll(QScrollArea):
+    """A scroll area that asks for little height: the splitter it sits in gives the wire table
+    above it the larger share at first (the person can move the line)."""
+
+    def __init__(self, height: int) -> None:
+        super().__init__()
+        self._height = height
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        hint = super().sizeHint()
+        return QSize(hint.width(), min(hint.height(), self._height))
 
 
 class _LinkedModel(DictTableModel):
@@ -823,7 +837,26 @@ class HarnessView(QWidget):
         self.wire_count.setObjectName("wire-count")
         self.wire_count.setProperty("muted", True)
         wl.addWidget(self.wire_count)
-        left.addWidget(wires)
+        # the routing tree under the wires (2.3.0): only for a harness with one, or one drawn; in
+        # a splitter of its own, so the wire table keeps its room and the line between them moves
+        self.routing = RoutingPanel(self.ctl, theme, self.settings)
+        column = QSplitter(Qt.Orientation.Vertical)
+        column.setObjectName("harness-wires-splitter")
+        column.setChildrenCollapsible(False)
+        column.addWidget(wires)
+        rscroll = _ShortScroll(theme.px(96))  # the panel scrolls: it never squeezes the wires
+        rscroll.setObjectName("routing-scroll")
+        rscroll.setWidgetResizable(True)
+        rscroll.setFrameShape(QFrame.Shape.NoFrame)
+        rscroll.setWidget(self.routing)
+        rscroll.setMinimumHeight(theme.px(36))  # (a short window: the title and a line)
+        rscroll.hide()
+        self.routing_scroll = rscroll
+        column.addWidget(rscroll)
+        column.setStretchFactor(0, 3)
+        column.setStretchFactor(1, 1)
+        self.wires_splitter = column
+        left.addWidget(column)
         left.addWidget(self._why_box)
         left.setStretchFactor(0, 4)
         left.setStretchFactor(1, 4)
@@ -912,6 +945,7 @@ class HarnessView(QWidget):
         for name, sp in (  # (new keys: the layout changed from columns to rows in M6)
             ("harness-view/rows", self.splitter),
             ("harness-view/tables", self.left_splitter),
+            ("harness-view/routing", self.wires_splitter),
         ):
             state = self.settings.value(name)
             if state is not None:
@@ -970,6 +1004,7 @@ class HarnessView(QWidget):
         self._hid = h.id
         self._header(h)
         self._rows(h)
+        self._show_routing(h)
         self._status_now()
         self._ensure_sheets()
         self._buttons(h)
@@ -1000,7 +1035,9 @@ class HarnessView(QWidget):
 
     def _read_only_changed(self) -> None:
         if self._hid and self._hid in self.ctl.project.harnesses:
-            self._buttons(self.ctl.project.harnesses[self._hid])
+            h = self.ctl.project.harnesses[self._hid]
+            self._buttons(h)
+            self._show_routing(h)
 
     def _retitle(self) -> None:
         self.pin_model.beginResetModel()
@@ -1035,6 +1072,10 @@ class HarnessView(QWidget):
             self.selector.blockSignals(True)
             self.selector.setCurrentIndex(i)
             self.selector.blockSignals(False)
+
+    def _show_routing(self, h: Harness) -> None:
+        self.routing.show_harness(h)
+        self.routing_scroll.setVisible(not self.routing.isHidden())
 
     def _wire_added(self, wire_id: str) -> None:
         """A wire was added in the form: show its row and its values."""

@@ -64,6 +64,7 @@ from PySide6.QtWidgets import (
 from harness_design_studio import __version__
 from harness_design_studio.core import (
     asbuilt,
+    branching,
     cable_ends,
     checks,
     configcheck,
@@ -957,6 +958,8 @@ class MainWindow(QMainWindow):
         self.dock_problems.hide()
         self.problems_list.showRequested.connect(self.show_object)
         self.problems_list.detailsRequested.connect(self._problem_details)
+        self.problems_list.joinRequested.connect(lambda box: self.join_flow(box))
+        self.problems_list.segmentationRequested.connect(self.segmentation_flow)
 
     def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea, name: str) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -1167,6 +1170,8 @@ class MainWindow(QMainWindow):
         Problems tabs; the Problems tab holds the problems list with the to-do items)."""
         self.harness_view = HarnessView(self.ctl, self.theme, self.settings)
         self.harness_view.wire_editor.run_dialog = lambda dlg: self.run_dialog(dlg)
+        self.harness_view.routing.run_dialog = lambda dlg: self.run_dialog(dlg)
+        self.harness_view.routing.ask_text = lambda t, label, d: self.ask_text(t, label, d)
         self.lists_panel = ListsPanel(self.ctl, self.theme, self.settings)
         self.lists_panel.files.ask_folder = lambda title: self.ask_folder(title)
         self.project_tree = ProjectTree(self.ctl, self.theme, self.settings)
@@ -1176,8 +1181,13 @@ class MainWindow(QMainWindow):
         self.problems.showRequested.connect(self.show_object)
         self.problems.waiveRequested.connect(self.waive_flow)
         self.problems.deviateRequested.connect(self.deviate_flow)
+        self.problems.joinRequested.connect(lambda box: self.join_flow(box))
+        self.problems.segmentationRequested.connect(self.segmentation_flow)
         self.inspector = Inspector(self.ctl, self.theme, props=self.props, problems=self.problems)
         self.inspector.plugRequested.connect(self.plug_loose_flow)
+        self.harness_view.routing.branchPicked.connect(
+            lambda _hid, bid: self.inspector.show_object("branch_point", bid)
+        )
         self.install_view("harness", self.harness_view)
         self.install_view("lists", self.lists_panel)
         self.devices_view = DevicesView(self.ctl, self.theme, self.settings)
@@ -4919,6 +4929,34 @@ class MainWindow(QMainWindow):
             self.main_tabs.show_slot("diagram")
             if self.ctl.selected_end is not None:
                 self.view.focus_end(self.ctl.selected_end)
+
+    def join_flow(self, box_id: str, keep_id: str = "") -> bool:
+        """Join two harnesses drawn by hand that plug into the device connector `box_id` (one
+        undo step). Without `keep_id` (the fix of the Problems panel) the harness with the lowest
+        ID keeps the next one; with it (the diagram's *Join into one harness…*) the person chooses
+        which of the others joins it. The reason is a message when it is refused."""
+        if self.ctl.read_only:
+            self.ctl.refuse_read_only()
+            return False
+        fix = branching.plug_fix(self.ctl.project, box_id)
+        if fix is None or fix.kind != "join":
+            self.ctl.message.emit(strings.JOIN_NO_OTHER.format(box=box_id), False)
+            return False
+        ids = fix.harness_ids
+        keep = keep_id if keep_id in ids else ids[0]
+        others = [h for h in ids if h != keep]
+        other = others[0]
+        if keep_id:
+            buttons = [strings.JOIN_INTO.format(other=o, keep=keep) for o in others]
+            pick = self.ask_choice(
+                strings.JOIN_TITLE,
+                strings.JOIN_QUESTION.format(box=box_id, keep=keep),
+                [*buttons, strings.CANCEL],
+            )
+            if not 0 <= pick < len(others):
+                return False
+            other = others[pick]
+        return self.ctl.join_harnesses(keep, other, box_id)
 
     def plug_loose_flow(self, end_id: str = "") -> None:
         """Edit > Cable ends > Plug loose end into… (and the inspector's button): the loose end
