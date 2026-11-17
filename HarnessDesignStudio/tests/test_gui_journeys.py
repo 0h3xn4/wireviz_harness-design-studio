@@ -51,15 +51,32 @@ def last_toast(win) -> str:  # type: ignore[no-untyped-def]
 # ---- J1 first run ----------------------------------------------------------------------------
 
 
-def test_j1_the_first_run_has_no_tour(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
-    """The tour was removed (the owner's feedback of 2026-11-17): no card shows at the first run
-    and the Help menu has no entry that starts one."""
+def test_j1_the_first_run_starts_on_home_asks_the_role_there_and_has_no_tour(  # type: ignore[no-untyped-def]
+    qtbot, tmp_path, monkeypatch
+) -> None:
+    """The first start since the owner's feedback of 2026-11-17: Home with nothing open, the
+    question *Who are you working as?* on the page itself (no window of its own), no tour, and the
+    ways to start one click away."""
+    from harness_design_studio.gui import roles
+
+    monkeypatch.setattr(roles, "FIRST_RUN_ROLE", None)  # (the program as it ships)
+    opened: list[object] = []
     w = make_window(tmp_path, first_run=True)
     qtbot.addWidget(w)
-    qtbot.wait(400)  # (the tour started 200 ms after the window showed)
+    w.run_dialog = lambda dlg: opened.append(dlg) or 0  # type: ignore[method-assign,func-returns-value]
+    w.show_landing()  # (what `app.main` does before the window shows)
+    qtbot.wait(400)  # (the tour started 200 ms after the window showed, the question at once)
+    assert w.landing() and w.area() == "home" and w.ctl.root is None
+    page = w.home_page
+    assert page.role_card.isVisible() and opened == []
     assert w.findChild(QPushButton, "tour-next") is None and not hasattr(w, "tour")
     help_menu = next(m for m in w.menuBar().actions() if m.text() == strings.M_HELP).menu()
-    assert all("tour" not in a.text().lower() for a in help_menu.actions())
+    assert all("tour" not in a.text().lower() for a in help_menu.actions())  # type: ignore[attr-defined]
+    button(w, "home-role-electrical").click()
+    assert w.settings.value("ui/role") == "electrical" and not page.role_card.isVisible()
+    assert w.landing() and w.area() == "home" and opened == []  # still Home, nothing opened
+    for key in ("home-new", "home-open", "home-example"):
+        assert button(w, key).isVisible()
 
 
 def test_sample_project_opens_with_banner(win) -> None:  # type: ignore[no-untyped-def]

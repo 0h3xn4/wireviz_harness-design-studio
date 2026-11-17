@@ -3125,22 +3125,21 @@ SETTINGS_ROLE_HINT = (
     "build data, the outputs, the as-built records and the workflow. It only changes what is "
     "shown: nothing is locked and nothing is stored in the project."
 )
-ROLE_DIALOG_TITLE = "Who are you working as?"
-ROLE_DIALOG_TEXT = "Pick the one that fits your work. It decides what the screen shows first."
-ROLE_DIALOG_SYSTEMS = "Systems engineer"
-ROLE_DIALOG_SYSTEMS_TEXT = (
+# the question of the first start, a section of Home (since the owner's feedback of 2026-11-17;
+# before, a window of its own): the three roles as big buttons, each with one sentence
+HOME_ROLE_TITLE = "Who are you working as?"
+HOME_ROLE_TEXT = "Pick the one that fits your work. It decides what the screen shows first."
+HOME_ROLE_SYSTEMS_TEXT = (
     "I think in devices, the connections between them, subsystems and the library."
 )
-ROLE_DIALOG_ELECTRICAL = "Electrical engineer"
-ROLE_DIALOG_ELECTRICAL_TEXT = (
+HOME_ROLE_ELECTRICAL_TEXT = (
     "I work with connectors, pinouts, harnesses, wires, the engineering values and the models."
 )
-ROLE_DIALOG_AIT = "AIT engineer"
-ROLE_DIALOG_AIT_TEXT = (
+HOME_ROLE_AIT_TEXT = (
     "I build and test the harnesses: build data, build sheets, as-built records and the workflow."
 )
-ROLE_DIALOG_LATER = "You can change this later in View > Role."
-ROLE_DIALOG_NAME = "Choose your role"
+HOME_ROLE_LATER = "You can change this later in View > Role."
+HOME_ROLE_NAME = "Choose your role"
 
 # ---- 1.8.1: the library never replaces a different device without asking (D4, D18) ----
 LIB_DAMAGED_ONE = "1 file in the folder could not be used and is not listed."

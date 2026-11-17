@@ -54,6 +54,11 @@ def main() -> int:
         return a
 
     app.processEvents()
+    win.show_landing()  # the start of the program: Home, with the question of the first start
+    win.home_page.show_role_question(True)
+    shot("01-first-start-home")
+    win.home_page.show_role_question(False)
+    win.go_to("diagram")
     win.view.fit()
     shot("02-guided-main")
     action("menu-add-sensor").trigger()  # Edit > Add unit (was the Palette's button)

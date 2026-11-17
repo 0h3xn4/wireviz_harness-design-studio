@@ -13,8 +13,11 @@ second click that a step now needs shows here. It runs offscreen with the rest o
 the real platform of the lane `harness-real-platform.yml` (REQ-GUI-26), where each window it opens
 is also held to the layout audit.
 
+It starts where the program starts (since the owner's feedback of 2026-11-17): on Home, with
+nothing open, where the first start asks *Who are you working as?* on the page itself.
+
 What it does not count: typing (the name of the project, of two devices, the folder) and the set-up
-that comes before the four actions (the role, Quick mode). What the counts are for: a path that is
+that comes before the four actions (the answer to the role question on Home, Quick mode). What the counts are for: a path that is
 quick today stays quick when someone adds a question to it.
 """
 
@@ -57,10 +60,11 @@ class Budget:
 # makes the path cost more fails the test. If a change makes it cheaper, lower the numbers in the
 # same change, so that the gain cannot be given back unnoticed; if a step really has to get a click
 # or a dialog more, say why in the pull request and raise it here, in this one place.
-# Clicks: Home, New project..., Browse..., Create (4); Add device and OK, twice (4); the drag from
-# port to port (1); Export diagram and Save in the chooser (2). Dialogs: New project, the folder
-# chooser, the two Add device windows, the file chooser of Export diagram.
-FOUR_ACTIONS_BUDGET = Budget(clicks=11, dialogs=5)
+# Clicks: New project..., Browse..., Create (3); Add device and OK, twice (4); the drag from port
+# to port (1); Export diagram and Save in the chooser (2). Dialogs: New project, the folder chooser,
+# the two Add device windows, the file chooser of Export diagram. (11 clicks until 2026-11-17: the
+# path started on the diagram of the sample and went to Home first; the program now starts there.)
+FOUR_ACTIONS_BUDGET = Budget(clicks=10, dialogs=5)
 
 
 @dataclass
@@ -200,17 +204,21 @@ def centre(win: MainWindow, port) -> QPoint:
 
 
 def play(tmp_path: Path, other: list[str]) -> tuple[Trail, MainWindow, Path]:
-    win = make_window(tmp_path)
-    win.set_role("systems")
-    win.act_quick.trigger()  # (the set-up before the four actions: a role and Quick mode)
-    assert win.quick_on() and win.ctl.root is None
+    win = make_window(tmp_path, first_run=True)
+    win.show_landing()  # the start of the program (`app.main`): Home, nothing open
+    QApplication.processEvents()
+    # the set-up before the four actions: the role question on Home, then Quick mode
+    assert win.home_page.role_card.isVisible()
+    QTest.mouseClick(win.home_page.role_buttons["systems"], LEFT)
+    win.act_quick.trigger()
+    assert win.quick_on() and win.ctl.root is None and win.role == "systems"
+    assert win.landing() and win.area() == "home"
     folder, target = tmp_path / "project", tmp_path / "diagram" / "demo.svg"
     target.parent.mkdir()
     trail = Trail()
     me = Person(win, trail, folder, target)
 
-    # 1. New project
-    me.click(win.findChild(QAbstractButton, "rail-home"), "Home")
+    # 1. New project (Home is where the program starts)
     me.click(win.findChild(QAbstractButton, "home-new"), "New project...")
     assert win.ctl.root == folder, str(trail)
 
@@ -236,7 +244,12 @@ def play(tmp_path: Path, other: list[str]) -> tuple[Trail, MainWindow, Path]:
     return trail, win, target
 
 
-def test_four_actions_cost_no_more_than_the_budget(qtbot, tmp_path, no_other_dialogs) -> None:
+def test_four_actions_cost_no_more_than_the_budget(
+    qtbot, tmp_path, no_other_dialogs, monkeypatch
+) -> None:
+    from harness_design_studio.gui import roles
+
+    monkeypatch.setattr(roles, "FIRST_RUN_ROLE", None)  # (the first start of the program)
     trail, win, target = play(tmp_path, no_other_dialogs)
     qtbot.addWidget(win)
     budget = FOUR_ACTIONS_BUDGET

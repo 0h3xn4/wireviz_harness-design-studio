@@ -12,7 +12,6 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-import shiboken6
 from pydantic import ValidationError
 from PySide6.QtCore import (
     QByteArray,
@@ -191,7 +190,6 @@ from harness_design_studio.gui.project_tree import ProjectTree
 from harness_design_studio.gui.rail import NavRail
 from harness_design_studio.gui.release_text import plain_blocker
 from harness_design_studio.gui.releases_panel import ReleasesPanel
-from harness_design_studio.gui.role_dialog import RoleDialog
 from harness_design_studio.gui.roles import (
     AIT,
     ELECTRICAL,
@@ -539,7 +537,7 @@ class MainWindow(QMainWindow):
         self._settings_were_empty = not settings.allKeys()  # a first run (see `_restore_role`)
         # `first_run=False` says this is not a first start: no question about the role
         self._first_start = first_run is not False
-        self._role_to_ask = False  # a first start with no role set by the hook: ask once
+        self._role_to_ask = False  # a first start with no role set by the hook: Home asks once
         self._quick_left_next = False  # Quick mode was turned on from the Next step page
         # "systems" | "electrical", set from the settings in `_restore_settings`
         self.role = ELECTRICAL
@@ -813,6 +811,7 @@ class MainWindow(QMainWindow):
             forget_recent=lambda path: self.forget_recent(path),
             open_example=lambda name: self.open_example_flow(name),
             clear_recent=self.clear_recent_flow,
+            choose_role=self.choose_role_flow,
         )
         self.next_page = NextStepPage(
             self.theme,
@@ -4026,8 +4025,9 @@ class MainWindow(QMainWindow):
         """The role of this settings file. A stored role stands. Without one: a file that has values
         is an existing user (the choice of 1.7.0 carries over, anybody else is an Electrical / AIT
         engineer) and gets its role silently; a file with nothing stored gets the role the hook
-        `roles.FIRST_RUN_ROLE` names, and with no hook the window asks once, when it shows
-        (`ask_role_flow`) and starts as an Electrical / AIT engineer until the person answers."""
+        `roles.FIRST_RUN_ROLE` names, and with no hook Home asks once, on the page itself
+        (`choose_role_flow`), and the window is an Electrical / AIT engineer until the person
+        answers (or picks a role in View > Role, which answers it too)."""
         stored = clean_role(self.settings.value("ui/role", ""), "")
         if stored:
             self._apply_role(stored)
@@ -4035,6 +4035,7 @@ class MainWindow(QMainWindow):
         value = default_role(not self._settings_were_empty, self.settings.value("ui/workspace"))
         if value is None:
             self._role_to_ask = self._first_start and not self.quick_on()  # (no question in Quick)
+            self.home_page.show_role_question(self._role_to_ask)
             self._apply_role(ELECTRICAL)  # (not stored: the answer is)
             return
         self.settings.setValue("ui/role", value)
@@ -4117,6 +4118,9 @@ class MainWindow(QMainWindow):
         own keys (`save_left` False: nothing was set up yet, as at the first start). The open page
         stays; the next project that is opened shows the first page of the role."""
         value = clean_role(value, self.role)
+        if self._role_to_ask:  # any choice of a role answers the question of the first start
+            self._role_to_ask = False
+            self.home_page.show_role_question(False)
         if value != self.role:
             self._leave_landing()  # (the layout of the role brings its panels and bars)
             if save_left:
@@ -4130,26 +4134,16 @@ class MainWindow(QMainWindow):
             self._apply_role(value)
         self._sync_settings_page()
 
-    def ask_role_flow(self) -> str:
-        """The question of the first start: *Who are you working as?* (a small modal window with
-        two big buttons). The answer is stored and its layout applied at once; closing the window
-        without choosing means Electrical / AIT engineer, which shows everything. A person who
-        picks Systems engineer lands on the Next step page."""
-        dlg = RoleDialog(self, self.theme)
-        self.run_dialog(dlg)
-        value = dlg.choice or ELECTRICAL
-        self._role_to_ask = False
+    def choose_role_flow(self, value: str) -> None:
+        """The answer to the question of the first start, *Who are you working as?*, a section of
+        Home (the owner's feedback of 2026-11-17; it was a window of its own that a window manager
+        attached to the main window and opened taller than it). The answer is stored and its layout
+        applied at once; the section goes, and the window stays where it is: on the landing page,
+        Home stays, with nothing opened, and the role's layout is there when the person goes on."""
+        landing = self._landing
         self.set_role(value, save_left=False)
-        if value in STARTS_ON_NEXT:
-            self._show_area(self._start_area())
-        return value
-
-    def _first_start_flow(self) -> None:
-        """The first time the window shows: the question about the role."""
-        if not shiboken6.isValid(self):
-            return
-        if self._role_to_ask:
-            self.ask_role_flow()
+        if landing:
+            self.show_landing()  # (`set_role` brought the role's panels back: put them away again)
 
     def _wkey(self, key: str) -> str:
         """A settings key of the layout, for the role that is open: the Electrical / AIT engineer
@@ -5740,8 +5734,6 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self._shown:
             self._shown = True
-            if self._role_to_ask:  # the first start: the question
-                QTimer.singleShot(0, self._first_start_flow)
             if self._have_saved_state:  # the person's own layout stands
                 self._layout_class = self._layout_class_now()
             else:
