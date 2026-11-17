@@ -3660,7 +3660,6 @@ LINK_STATE_TIPS = {
     ),
 }
 LIB_COLUMN_STATUS = "Status"
-LIB_COLUMN_STATUS_TIP = "How the device of this project stands to the library"
 LIB_SOURCE_LINE = "Source: {}"
 # the project's own libraries in the library window (device-libraries.json; D-240, pull request 5)
 LIB_PROJECT_LABEL = "Libraries of this project"
@@ -3696,7 +3695,7 @@ NOTICE_NEWER_ONE = "1 device has a newer version in the library: {devices}."
 NOTICE_NEWER_MANY = "{n} devices have a newer version in the library: {devices}."
 NOTICE_NEWER_DETAIL = "Nothing changes until you review a device and take the library's version."
 NOTICE_REVIEW = "Review…"
-REVIEW_TITLE = "Review library changes"
+LIB_REVIEW_TITLE = "Review library changes"
 REVIEW_HEADING = "{device}: this project and the library"
 REVIEW_SOURCE = "Library: {}"
 REVIEW_STATE = "State: {}"
@@ -3772,7 +3771,6 @@ FROM_LIBRARY_ENTRY = "{id} ({name})"
 FROM_LIBRARY_TIP = "Add {id} from the library {library} ({file}), with the record of its file"
 FROM_LIBRARY_PALETTE = "Add from library:"
 QD_FROM_LIBRARY_ITEM = "From library: {id} ({name})"
-QD_FROM_LIBRARY_NOTE = "{id} comes from the library {library} with its connectors and pins."
 SETTINGS_PROJECT_LIBRARIES = "Device libraries of this project"
 SETTINGS_PROJECT_LIBRARIES_TEXT = (
     "The project names these library folders in device-libraries.json, next to project.json, "
