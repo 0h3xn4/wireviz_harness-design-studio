@@ -236,6 +236,36 @@ def test_a_dialog_of_the_program_gives_the_height_back(qtbot, cls) -> None:
     assert audit(dlg) == []
 
 
+# ---- the first start on Home (also on the real platforms of REQ-GUI-26, at scale 1 and 1.25) ------
+
+
+@pytest.mark.parametrize("size", [(1100, 700), (1440, 900)])
+def test_home_with_the_role_question_fits_without_gaps(qtbot, tmp_path, monkeypatch, size) -> None:
+    """The question of the first start is on Home (2026-11-17), not in a window that a window
+    manager can open taller than the main window: the section has room for its text, nothing in
+    it lies over anything else, each big button is as high as its text needs and no higher (no
+    gaps), and it is no wider than the page."""
+    from harness_design_studio.gui import roles
+    from tests.gui_helpers import make_window
+
+    monkeypatch.setattr(roles, "FIRST_RUN_ROLE", None)
+    win = make_window(tmp_path, first_run=True)
+    qtbot.addWidget(win)
+    win.show_landing()
+    win.resize(*size)
+    settle()
+    page = win.home_page
+    assert win.landing() and page.role_card.isVisible()
+    assert audit(page.role_card) == []
+    for button in page.role_buttons.values():
+        need = button.heightForWidth(button.width())
+        floor = button.minimumHeight()  # (the style's height of a big button, 72 px at 100 %)
+        top = max(need, floor) + MARGIN
+        assert need <= button.height() <= top, (button.objectName(), button.height(), need, floor)
+    assert page.role_card.geometry().right() <= page.viewport().width()
+    assert page.role_card.height() < win.height()
+
+
 def test_a_wrapped_label_in_a_split_pane_counts_all_its_lines(qtbot) -> None:
     """A splitter does not ask for height for width: the label's minimum height has to follow."""
     from PySide6.QtWidgets import QSplitter
