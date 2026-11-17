@@ -16,7 +16,7 @@ from harness_design_studio.core import checks
 from harness_design_studio.core.commands import History, apply_ops
 from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.generate.engine import plan_generation
-from harness_design_studio.core.integrity import check_integrity
+from harness_design_studio.core.integrity import check_integrity, one_plug_advice
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.links import (
@@ -46,6 +46,7 @@ from harness_design_studio.core.verify import link_issues, verify_project
 from harness_design_studio.core.wires import plan_add_wire
 from harness_design_studio.resources import examples_path
 from tests.helpers import pinout_project
+from tests.reference import integrity_181 as old_integrity
 
 EXAMPLES = examples_path()
 assert EXAMPLES is not None
@@ -326,6 +327,54 @@ def test_generate_reports_a_second_plug_on_one_connector_and_builds_the_same():
         assert len(found) == 1 and found[0].severity == "warning" and found[0].object_id == "A-J01"
         assert "A-J01" in found[0].message and "one plug" in found[0].message
         assert len(plan.harnesses) == 2  # what is built is not changed, only reported
+
+
+def test_the_advice_on_a_second_plug_says_what_can_be_done_today():
+    """Regression (end-to-end test of 2.1.0): the advice named a harness with a branch, which
+    Generate does not make before 2.3.0. It now names `per_zone_pair` with the far devices in one
+    zone, or accepting the second plug until then; following it removes the warning."""
+    today = "put the far devices in one zone and set segmentation.mode to per_zone_pair"
+    later = "Or accept the second plug until a harness can branch (planned for 2.3.0)."
+    p = shared_project()
+    plan = plan_generation(p)
+    (found,) = [f for f in plan.report.findings if f.code == "box_connector_shared"]
+    assert today in found.message and found.message.endswith(later)
+    assert "branch into" not in found.message and "with a branch" not in found.message
+    apply_ops(p, plan.ops)
+    (mated,) = [i for i in check_integrity(p) if i.code == "box_connector_mated_twice"]
+    assert today in mated.message and mated.message.endswith(later)
+    assert "with a branch" not in mated.message and "unit" not in mated.message.lower()
+    # the advice works: C in the zone of B and per_zone_pair give one harness with one plug on A-J01
+    p = shared_project("per_zone_pair")
+    p.units["C"] = evolve(p.units["C"], zone="z1")
+    plan = plan_generation(p)
+    assert len(plan.harnesses) == 1
+    assert not [f for f in plan.report.findings if f.code == "box_connector_shared"]
+
+
+def test_the_advice_on_plugs_of_harnesses_drawn_by_hand_stays_as_it_was():
+    """The segmentation does not join harnesses drawn by hand, and such a harness can branch
+    today, so their advice stays the one of 2.1.0 (the finding ID, and so a waiver, and the written
+    DRC outputs of projects with such harnesses do not change). Three plugs that Generate makes say
+    *the extra plugs*."""
+    p = pinout_project()
+    hand_harness(p, "OBC-J01", "RW1-J02", ("1", "3"), name="one")
+    hand_harness(p, "OBC-J01", "PCDU-J03", ("2", "1"), name="two")
+    (mated,) = [i for i in check_integrity(p) if i.code == "box_connector_mated_twice"]
+    assert mated.message.endswith(
+        "A connector takes one plug. Keep one harness for it, or join the wires into one harness"
+        " with a branch."
+    )
+    assert [as_181_text(i) for i in check_integrity(p)] == [
+        as_181_text(i) for i in old_integrity.check_integrity(p)
+    ]
+    assert one_plug_advice(3).endswith(
+        "Or accept the extra plugs until a harness can branch (planned for 2.3.0)."
+    )
+
+
+def as_181_text(issue):
+    return (issue.code, issue.object_id, issue.message)
 
 
 def test_one_plug_per_connector_makes_no_finding():

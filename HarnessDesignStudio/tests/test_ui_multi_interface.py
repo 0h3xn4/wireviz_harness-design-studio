@@ -13,8 +13,8 @@ import pytest
 pytest.importorskip("PySide6")
 pytestmark = pytest.mark.gui
 
-from PySide6.QtCore import Qt  # noqa: E402
-from PySide6.QtWidgets import QComboBox, QLabel, QPushButton  # noqa: E402
+from PySide6.QtCore import QPoint, Qt  # noqa: E402
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QPushButton  # noqa: E402
 
 from harness_design_studio.core import devices, edit  # noqa: E402
 from harness_design_studio.core.generate.engine import generate_project  # noqa: E402
@@ -282,6 +282,36 @@ def test_devices_tab_shows_the_port_of_each_pin_and_the_interface_on_it(qtbot, t
     assert cells == [f"RS422_1 ({a})"] * 4 + [f"RS422_2 ({b})"] * 4 + ["RS422_3"] * 4
     # derived: the project and the exported pinout do not have it
     assert "RS422_1 (" not in dv.table_bytes("csv").decode("utf-8")
+
+
+def test_the_port_column_is_in_view_at_1440_by_900_without_scrolling(qtbot, tmp_path) -> None:
+    """Regression (end-to-end test of 2.1.0): at 1440 x 900 the Devices tab is wider than the room
+    it gets and scrolls sideways, and the Port column, after Interface, lay to the right of what
+    shows. It now follows Signal, is in view with both scroll bars at the start, and is wide
+    enough for its text (*RS422_1 (IF-001)*)."""
+    p = obc(("J1", port_pins(*[f"RS422_{k}" for k in range(1, 7)])))  # 24 pins: a scroll bar
+    add(p, "OBC1", "ST1")
+    add(p, "OBC1", "ST2", "OBC1-J1", "ST2-J02")
+    generate_project(p)
+    win = window(qtbot, tmp_path, p)
+    win.go_actions["devices"].trigger()
+    win.ctl.select("unit", "OBC1")
+    dv = win.devices_view
+    dv.refresh()
+    QApplication.processEvents()
+    m, table = dv.pin_model, dv.pin_table
+    col = m.column_index("port")
+    assert col == m.column_index("signal") + 1
+    assert table.horizontalScrollBar().value() == 0
+    assert dv.scroller.horizontalScrollBar().value() == 0
+    head = table.horizontalHeader()
+    left = head.sectionViewportPosition(col)
+    right = left + head.sectionSize(col)
+    assert left >= 0 and right <= table.viewport().width()
+    shown = dv.scroller.viewport()
+    assert table.viewport().mapTo(shown, QPoint(left, 0)).x() >= 0
+    assert table.viewport().mapTo(shown, QPoint(right, 0)).x() <= shown.width()
+    assert head.sectionSize(col) >= table.sizeHintForColumn(col)  # not cut short
 
 
 def test_devices_tab_shows_the_port_notes_under_the_pin_table(qtbot, tmp_path) -> None:

@@ -183,10 +183,12 @@ def _field(row: Row, key: str) -> Any:
 PIN_COLUMNS = [
     Column("pin", strings.DV_COL_PIN, mono=True, width=56),
     Column("signal", strings.DV_COL_SIGNAL, mono=True, width=104),
+    # the port next to the signal it is read from: at 1440 x 900 the tab scrolls sideways, and a
+    # column further right was out of view (2.1.1); wide enough for "RS422_1 (IF-001)"
+    Column("port", strings.DV_COL_PORT, mono=True, tooltip=lambda _r: strings.DV_COL_PORT_TIP, width=136),
     Column("role", strings.DV_COL_ROLE, tooltip=lambda _r: strings.DV_COL_ROLE_TIP, width=96),
     Column("mode", strings.DV_COL_MODE, tooltip=_tip("mode_tip"), width=64),
     Column("interface", strings.DV_COL_INTERFACE, mono=True, width=80),
-    Column("port", strings.DV_COL_PORT, mono=True, tooltip=lambda _r: strings.DV_COL_PORT_TIP, width=120),
     Column("direction", strings.DV_COL_DIRECTION, tooltip=_tip("meaning_tip"), width=76),
     Column("class", strings.DV_COL_CLASS, tooltip=_tip("meaning_tip"), width=76),
     Column("wire", strings.DV_COL_WIRE, mono=True, width=96),
@@ -686,7 +688,7 @@ class DevicesView(QWidget):
         self.pin_model = PinModel(PIN_COLUMNS, (), self.theme)
         self.pin_table = PinTable(
             self.pin_model, self.theme, name=strings.DV_PINS, settings=self.settings,
-            key="devices-pins",
+            key="devices-pins-2",  # the columns moved in 2.1.1: widths saved before do not fit
         )  # fmt: skip
         self.pin_table.setObjectName("devices-pin-table")
         self.pin_table.setItemDelegate(

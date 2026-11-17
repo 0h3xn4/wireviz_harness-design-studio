@@ -175,6 +175,12 @@ def test_rs422x3_end_to_end(
     assert code == 0, out
     assert f"Port of the pin: RS422_2_TX+ is the TX+ of port RS422_2 of {J1}" in out
     assert f"TX+ of IF-002 uses pin 5, the TX+ of port RS422_2 of {J1}" in out
+    # the connector: one step names the three interfaces, and the equation both tiers (2.1.1)
+    code, out = run(capsys, "explain", str(proj), J1)
+    assert code == 0, out
+    assert out.count("Connectors of OBC1 that carry rs422") == 1
+    assert "Connectors of OBC1 that carry rs422, for IF-001, IF-002, IF-003: in ID order" in out
+    assert "when none is free, the first connector of the device with a fixed pinout" in out
 
     # a second Generate changes no file of the project
     before = files(proj)

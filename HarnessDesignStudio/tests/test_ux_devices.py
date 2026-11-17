@@ -140,10 +140,11 @@ def test_pin_table_columns_and_derived_meaning(qtbot, theme) -> None:
     assert [c.header for c in m.columns][:9] == [
         "Pin",
         "Signal",
+        "Port",  # derived from the pin names of a fixed pinout (D-237); empty here; since 2.1.1
+        # next to the signal it is read from
         "Role",
         "Mode",
         "Interface",
-        "Port",  # derived from the pin names of a fixed pinout (D-237); empty here
         "Direction",
         "Class",
         "Wire",

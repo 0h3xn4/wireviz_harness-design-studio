@@ -346,7 +346,8 @@ def test_tracker_follows_changes_made_behind_its_back(seed: int) -> None:
 
 def test_the_whole_check_still_reports_every_issue_of_release_181() -> None:
     """The refactoring of `check_integrity` (shared pieces, a harness check that no longer copies
-    every device connector) changed no finding, no wording and no order."""
+    every device connector) changed no finding, no wording and no order; only the advice of the
+    warnings in `ADVICE_SINCE_181` was changed on purpose."""
     for seed in range(30):
         rng = random.Random(seed)
         p = starting_project(seed)
@@ -356,9 +357,24 @@ def test_the_whole_check_still_reports_every_issue_of_release_181() -> None:
                 apply_if_possible(p, ops)
         old._CACHE.clear()
         integrity._CACHE.clear()
-        assert [dataclasses.astuple(i) for i in check_integrity(p)] == [
-            dataclasses.astuple(i) for i in old.check_integrity(p)
+        assert [as_181(i) for i in check_integrity(p)] == [
+            as_181(i) for i in old.check_integrity(p)
         ], seed
+
+
+# Warnings whose advice changed after 1.8.1: the text up to the advice is compared, the advice is
+# not (2.1.1: the advice on more than one cable plug names `per_zone_pair`, not a branch).
+ADVICE_SINCE_181 = {"box_connector_mated_twice": "A connector takes one plug."}
+
+
+def as_181(issue) -> tuple:
+    fields = dataclasses.astuple(issue)
+    cut = ADVICE_SINCE_181.get(issue.code)
+    if cut is None:
+        return fields
+    message = issue.message
+    assert cut in message, message
+    return tuple(message[: message.index(cut) + len(cut)] if f == message else f for f in fields)
 
 
 def test_the_checks_the_tracker_leaves_out_can_only_warn() -> None:
