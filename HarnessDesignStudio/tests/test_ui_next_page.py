@@ -9,7 +9,8 @@ pytest.importorskip("PySide6")
 pytestmark = pytest.mark.gui
 
 from PySide6.QtCore import QSettings, Qt  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtGui import QAction  # noqa: E402
+from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 from harness_design_studio.gui import areas, roles, strings  # noqa: E402
 from harness_design_studio.gui.main_window import MainWindow  # noqa: E402
@@ -281,7 +282,9 @@ def test_show_everything_switches_to_the_diagram(qtbot, tmp_path, first_run_defa
     )
 
 
-def test_the_first_run_tour_still_runs_over_the_next_step_page(qtbot, tmp_path, first_run_default):
+def test_the_first_start_shows_no_tour_over_the_next_step_page(qtbot, tmp_path, first_run_default):
+    """The tour was removed (the owner's feedback of 2026-11-17): a first start of the Systems
+    engineer shows no card over the page and has no way to start one."""
     w = MainWindow(
         QSettings(str(tmp_path / "ui.ini"), QSettings.Format.IniFormat),
         ThemeManager(),
@@ -290,14 +293,11 @@ def test_the_first_run_tour_still_runs_over_the_next_step_page(qtbot, tmp_path, 
     qtbot.addWidget(w)
     w.resize(1440, 900)
     w.show()
-    qtbot.waitUntil(lambda: w.tour.active, timeout=3000)
+    for _ in range(5):
+        QApplication.processEvents()
     assert w.area() == "next"
-    assert w.tour.card.isVisible()
-    # the steps that point at the diagram are skipped while it is hidden; the others are shown
-    shown = w.tour._shown_steps()
-    assert shown and w.tour.index in shown
-    w.tour.stop()
-    assert w.settings.value("tour/done", False, bool) is True
+    assert not hasattr(w, "tour") and w.findChild(QWidget, "tour-card") is None
+    assert not any(a.objectName() == "act-tour" for a in w.findChildren(QAction))
 
 
 # ---- the page follows the project --------------------------------------------------------------

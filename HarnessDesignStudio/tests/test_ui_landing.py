@@ -30,7 +30,6 @@ from harness_design_studio.gui.main_window import LEGACY_LAST_PROJECT, MainWindo
 
 def settings_at(tmp_path: Path, name: str = "ui.ini", **values: object) -> QSettings:
     s = QSettings(str(tmp_path / name), QSettings.Format.IniFormat)
-    s.setValue("tour/done", True)
     s.setValue("legal/notice_done", True)
     for key, value in values.items():
         s.setValue(key.replace("__", "/"), value)
@@ -141,11 +140,14 @@ def test_an_edit_on_the_landing_page_ends_it(qtbot, monkeypatch, tmp_path) -> No
     assert not win.landing() and win.top_toolbar.isVisibleTo(win)
 
 
-def test_the_tour_from_the_landing_page_goes_to_the_work(qtbot, monkeypatch, tmp_path) -> None:
-    win = start(qtbot, monkeypatch, settings_at(tmp_path))
-    win._start_tour()
-    assert not win.landing() and win.area() == "model" and win.tour.active
-    win.tour.stop()
+def test_the_first_start_shows_no_tour_and_stays_on_home(qtbot, monkeypatch, tmp_path) -> None:
+    """The tour of the sample project left Home for the diagram at the first start, so the program
+    seemed to start with a project loaded; it was removed (the owner's feedback of 2026-11-17)."""
+    settings = QSettings(str(tmp_path / "new.ini"), QSettings.Format.IniFormat)  # nothing stored
+    win = start(qtbot, monkeypatch, settings)
+    qtbot.wait(400)  # (the tour started 200 ms after the window showed)
+    assert on_landing(win) and win.ctl.root is None
+    assert not hasattr(win, "tour") and not hasattr(win, "act_tour")
 
 
 def test_clear_list_asks_first_and_empties_only_the_list(qtbot, monkeypatch, tmp_path) -> None:

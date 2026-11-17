@@ -208,7 +208,7 @@ def _main_part(theme: str, shots: Shots, tmp: Path) -> None:
     a("rail-collapsed", lambda: shots.grab("17-rail-collapsed", win))
     win.rail.toggle.click()
 
-    # --- menus, command palette, tour ------------------------------------------------------
+    # --- menus, command palette ------------------------------------------------------
     a("menus", lambda: _menus(win, shots))
 
     def palette() -> None:
@@ -219,13 +219,6 @@ def _main_part(theme: str, shots: Shots, tmp: Path) -> None:
         win.command_palette.dismiss()
 
     a("palette", palette)
-
-    def tour() -> None:
-        win.tour.start()
-        shots.grab("13-first-run-tour", win)
-        win.tour.stop()
-
-    a("tour", tour)
 
     # --- dialogs ---------------------------------------------------------------------------
     a(

@@ -50,32 +50,6 @@ GLOSSARY: list[tuple[str, str]] = [
     ),
 ]
 
-TOUR_STEPS: list[tuple[str, str]] = [
-    (
-        "add",
-        "Start here: press Add in the project panel and pick Device. Each device is a box in your system, like a computer or a wheel.",
-    ),
-    (
-        "canvas",
-        "This is your block diagram. Drag devices to move them. The lane a device sits in is its zone.",
-    ),
-    (
-        "types",
-        "To connect two devices, press Connect and click the two devices. The Link connectors window opens and proposes the pairs of pins by name; you can also pair by pin number or paste a pairing, and nothing is paired until you accept it. To connect by interface type instead, use the arrow next to Connect, or Edit > Connect with an interface type.",
-    ),
-    (
-        "problems",
-        "Problems and a to-do list appear in the Problems tab here and update as you work. Click any line to jump to the item.",
-    ),
-    (
-        "generate",
-        "Generate harnesses builds the harness plans from this diagram. You see a preview first, and one Undo takes it back.",
-    ),
-    (
-        "role",
-        "The bar on the left lists the areas of the program. What it lists depends on your role: change the role any time in View > Role.",
-    ),
-]
 
 PROPERTIES = "Properties"
 NOTHING_SELECTED = (
@@ -184,11 +158,6 @@ ISSUES_RECOVERED = "Some parts could not be loaded. Everything else was loaded. 
 SAVE_SALVAGED = "Save salvaged copy…"
 COMMANDS_TITLE = "Commands"
 COMMANDS_PLACEHOLDER = "Type a command or an ID…"
-TOUR_SKIP = "Skip tour"
-TOUR_BACK = "Back"
-TOUR_NEXT = "Next"
-TOUR_FINISH = "Finish"
-TOUR_STEP = "Step {} of {}"
 UNDO = "Undo"
 REDO = "Redo"
 DELETE = "Delete"
@@ -281,7 +250,6 @@ A_DARK = "Dark theme"
 A_LABELS = "Show all link labels"
 A_SCALE = "Interface size"
 A_COMMANDS = "Search and commands"
-A_TOUR = "Replay the tour"
 A_GLOSSARY = "Glossary"
 A_SAMPLE = "Open the sample project"
 A_ABOUT = "About"
@@ -3157,22 +3125,21 @@ SETTINGS_ROLE_HINT = (
     "build data, the outputs, the as-built records and the workflow. It only changes what is "
     "shown: nothing is locked and nothing is stored in the project."
 )
-ROLE_DIALOG_TITLE = "Who are you working as?"
-ROLE_DIALOG_TEXT = "Pick the one that fits your work. It decides what the screen shows first."
-ROLE_DIALOG_SYSTEMS = "Systems engineer"
-ROLE_DIALOG_SYSTEMS_TEXT = (
+# the question of the first start, a section of Home (since the owner's feedback of 2026-11-17;
+# before, a window of its own): the three roles as big buttons, each with one sentence
+HOME_ROLE_TITLE = "Who are you working as?"
+HOME_ROLE_TEXT = "Pick the one that fits your work. It decides what the screen shows first."
+HOME_ROLE_SYSTEMS_TEXT = (
     "I think in devices, the connections between them, subsystems and the library."
 )
-ROLE_DIALOG_ELECTRICAL = "Electrical engineer"
-ROLE_DIALOG_ELECTRICAL_TEXT = (
+HOME_ROLE_ELECTRICAL_TEXT = (
     "I work with connectors, pinouts, harnesses, wires, the engineering values and the models."
 )
-ROLE_DIALOG_AIT = "AIT engineer"
-ROLE_DIALOG_AIT_TEXT = (
+HOME_ROLE_AIT_TEXT = (
     "I build and test the harnesses: build data, build sheets, as-built records and the workflow."
 )
-ROLE_DIALOG_LATER = "You can change this later in View > Role."
-ROLE_DIALOG_NAME = "Choose your role"
+HOME_ROLE_LATER = "You can change this later in View > Role."
+HOME_ROLE_NAME = "Choose your role"
 
 # ---- 1.8.1: the library never replaces a different device without asking (D4, D18) ----
 LIB_DAMAGED_ONE = "1 file in the folder could not be used and is not listed."
@@ -3295,25 +3262,6 @@ PART_APPROVED = "Part {0} is approved."
 RELEASE_TEXT_GAUGE = "Fill in the engineering values (Engineering values, in the Checks area) or set the gauge by hand."
 RELEASE_TEXT_LENGTHS = "Enter the routing segment lengths in the Harness tab, or load them from a table with File > Import > Segment lengths."
 
-# the tour of the Systems engineer role: the Next step page, the first button, Connect, the rail
-TOUR_STEPS_SYSTEMS: list[tuple[str, str]] = [
-    (
-        "next",
-        "This is the Next step page. It says what to do now, in one sentence, and it stays here after each step. The steps of the work are listed below it.",
-    ),
-    (
-        "next_button",
-        "This button does the next step. At the start it is Add a device: give the device a name and, if you like, its first connector. Later it connects two devices, generates, checks and exports.",
-    ),
-    (
-        "connect",
-        "To connect two devices, press Connect and click both. A window proposes the pairs of pins, by name or by pin number, or you paste a pairing. Nothing is paired until you accept it.",
-    ),
-    (
-        "role",
-        "The bar on the left lists the areas of the program. What it lists depends on your role: change the role any time in View > Role. Every command is still in the search (Ctrl+K).",
-    ),
-]
 PROBLEMS_BUTTON_OF = "Problems ({0} of {1})"
 INS_TAB_PROBLEMS_TIP = "{0} errors and warnings of the {1} open items. The Problems list at the bottom of the window shows all of them, notes included."
 DV_COL_ROLE = "Role"

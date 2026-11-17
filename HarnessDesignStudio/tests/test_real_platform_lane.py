@@ -29,6 +29,7 @@ LAYOUT_TESTS = (
     "tests/test_ui_layout_sweep.py",
     "tests/test_ui_dialog_layout.py",
     "tests/test_ui_four_actions.py",
+    "tests/test_ui_dialog_windows.py",  # (REQ-GUI-30, the owner's feedback of 2026-11-17)
 )
 
 

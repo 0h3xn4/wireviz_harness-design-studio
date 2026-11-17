@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""Regression tests for the canvas, legend, tour and panel findings of the October audit (F2-*)."""
+"""Regression tests for the canvas, legend and panel findings of the October audit (F2-*). The
+tests of the tour (F2-7) went with the tour (the owner's feedback of 2026-11-17)."""
 
 import pytest
 
@@ -118,49 +119,6 @@ def test_nudging_a_unit_with_the_keyboard_does_not_stop_at_the_old_edge(win) -> 
     item.keyPressEvent(event)
     assert edit.position_of(win.ctl.project, "RW1")[0] < 0
     assert win.view.scene().sceneRect().contains(_rect(win, "RW1"))
-
-
-# ---- F2-7 ---------------------------------------------------------------------------------------
-
-
-def test_the_tour_skips_steps_whose_target_is_not_on_screen(win) -> None:  # type: ignore[no-untyped-def]
-    win.dock_left.hide()  # what a high UI scale does to the left dock
-    win.tour.start()
-    seen: list[str] = []
-    for _ in range(10):
-        if not win.tour.active:
-            break
-        key = strings.TOUR_STEPS[win.tour.index][0]
-        target = win.tour.targets[key]
-        assert target.isVisibleTo(win), key
-        seen.append(key)
-        win.tour.next.click()
-    assert seen == ["canvas", "types", "problems", "generate", "role"]  # ("add" points at the dock)
-    assert not win.tour.active
-
-
-def test_the_tour_counts_only_the_steps_it_shows(win) -> None:  # type: ignore[no-untyped-def]
-    win.dock_left.hide()
-    win.tour.start()
-    assert "Step 1 of 5" in win.tour.title.text()
-    win.tour.skip.click()
-
-
-def test_starting_the_tour_on_a_window_that_is_gone_does_nothing(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    w = make_window(tmp_path)
-    QApplication.processEvents()  # (let the start-up timers run first)
-    tour = w.tour
-    w.close()
-    w.deleteLater()
-    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    tour.start()  # (the 200 ms timer of the first run can fire after the window is deleted)
-    assert not tour.active
-
-
-def test_starting_the_tour_on_a_closed_window_does_nothing(win) -> None:  # type: ignore[no-untyped-def]
-    win.close()
-    win.tour.start()
-    assert not win.tour.active
 
 
 # ---- F2-12 --------------------------------------------------------------------------------------

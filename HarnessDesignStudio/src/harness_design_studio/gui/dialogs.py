@@ -481,6 +481,8 @@ class ImportDialog(Dialog):
 
 
 class GlossaryDialog(Dialog):
+    blocks = False  # it only shows something: `run_dialog` shows it beside the window
+
     def __init__(self, parent: QWidget | None) -> None:
         super().__init__(parent)
         self.setWindowTitle(strings.GLOSSARY_TITLE)
@@ -968,6 +970,8 @@ class DiffDialog(Dialog):
 
 class HistoryDialog(Dialog):
     """The change log of one harness (or all)."""
+
+    blocks = False  # it only shows something: `run_dialog` shows it beside the window
 
     def __init__(self, parent: QWidget | None, title: str, rows: list[list[str]]) -> None:
         super().__init__(parent)

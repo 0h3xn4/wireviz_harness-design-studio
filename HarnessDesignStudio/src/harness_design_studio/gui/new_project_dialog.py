@@ -5,7 +5,7 @@ to the field. It replaces the chain "choose folder", "type the name" and (for an
 the example" of three separate pop-ups.
 
     dlg = NewProjectDialog(theme, parent)
-    if dlg.exec() == QDialog.DialogCode.Accepted:
+    if run_dialog(dlg) == QDialog.DialogCode.Accepted:   # (dialog_base.run_dialog)
         request = dlg.request()        # NewProjectRequest(folder, name, template)
 
 The dialog only collects and checks the three answers; the window creates the project (for the

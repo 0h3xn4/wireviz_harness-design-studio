@@ -9,23 +9,31 @@ It only shows and calls back; the window does the work. Home is the first screen
 (the landing page, `set_landing`: nothing is open yet, so the card of the open project is left out)
 and of a project: what is open and how to start another. The recent projects are listed newest
 first; *Clear list* empties the list (the window asks first) and touches no project folder.
+
+At the first start Home also asks *Who are you working as?* (`show_role_question`): a short heading
+and the three roles as big buttons on the page itself, with the line that the role can be changed
+later in View > Role. A button calls back `choose_role(role)`; the window stores the answer and
+puts the section away. (Until the owner's feedback of 2026-11-17 this was a window of its own,
+`RoleDialog`, which a window manager could open taller than the main window.)
 """
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.recent import RecentEntry
+from harness_design_studio.gui.roles import AIT, ELECTRICAL, SYSTEMS
 from harness_design_studio.gui.shell import ElidedLabel
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
@@ -82,6 +90,53 @@ def _card(
     return card, lay
 
 
+class RoleChoice(QPushButton):
+    """A big button: the name of the role, and under it one sentence that wraps. Its height follows
+    the width it gets, so the sentence is never cut, whatever the width of the page."""
+
+    def __init__(self, theme: ThemeManager, role: str, title: str, sentence: str, tip: str) -> None:
+        super().__init__()
+        self.role = role
+        self.setObjectName(f"home-role-{role}")
+        self.setAccessibleName(title)
+        self.setAccessibleDescription(sentence)
+        self.setToolTip(tip)
+        self.setProperty("choice", True)  # the style sheet frees the height of a control
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(theme.space(16), theme.space(12), theme.space(16), theme.space(12))
+        lay.setSpacing(theme.space(4))
+        self.head = QLabel(title)
+        self.head.setProperty("heading", True)
+        self.body = QLabel(sentence)
+        self.body.setWordWrap(True)
+        for label in (self.head, self.body):
+            label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            lay.addWidget(label)
+
+    # (a QPushButton measures its own text; this one is measured by the labels in its layout)
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        lay = self.layout()
+        return lay.totalHeightForWidth(width) if lay is not None else super().heightForWidth(width)
+
+    def sizeHint(self) -> QSize:
+        lay = self.layout()
+        if lay is None:
+            return super().sizeHint()
+        hint = lay.totalSizeHint()
+        return QSize(hint.width(), max(hint.height(), self.heightForWidth(hint.width())))
+
+    def minimumSizeHint(self) -> QSize:
+        lay = self.layout()
+        if lay is None:
+            return super().minimumSizeHint()
+        least = lay.totalMinimumSize()
+        return QSize(least.width(), max(least.height(), self.heightForWidth(self.width())))
+
+
 class HomePage(QScrollArea):
     def __init__(
         self,
@@ -96,6 +151,7 @@ class HomePage(QScrollArea):
         forget_recent: Callable[[str], None] | None = None,
         open_example: Callable[[str], None] | None = None,
         clear_recent: Callable[[], object] | None = None,
+        choose_role: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__()
         self.theme = theme
@@ -116,6 +172,41 @@ class HomePage(QScrollArea):
         self.landing_note.setAccessibleName(strings.HOME_LANDING)
         self.landing_note.hide()
         column.addWidget(self.landing_note)
+        # the question of the first start: shown by `show_role_question` until it is answered
+        self._choose_role = choose_role or (lambda _r: None)
+        self.role_card, role_lay = _card(theme, strings.HOME_ROLE_TITLE)
+        self.role_card.setObjectName("home-role")
+        self.role_card.setAccessibleName(strings.HOME_ROLE_NAME)
+        role_text = QLabel(strings.HOME_ROLE_TEXT)
+        role_text.setWordWrap(True)
+        role_lay.addWidget(role_text)
+        self.role_buttons: dict[str, RoleChoice] = {}
+        for role, role_title, sentence, tip in (
+            (
+                SYSTEMS,
+                strings.ROLE_SYSTEMS,
+                strings.HOME_ROLE_SYSTEMS_TEXT,
+                strings.ROLE_SYSTEMS_TIP,
+            ),
+            (
+                ELECTRICAL,
+                strings.ROLE_ELECTRICAL,
+                strings.HOME_ROLE_ELECTRICAL_TEXT,
+                strings.ROLE_ELECTRICAL_TIP,
+            ),  # fmt: skip
+            (AIT, strings.ROLE_AIT, strings.HOME_ROLE_AIT_TEXT, strings.ROLE_AIT_TIP),
+        ):
+            choice = RoleChoice(theme, role, role_title, sentence, tip)
+            choice.clicked.connect(lambda _c=False, r=role: self._choose_role(r))
+            role_lay.addWidget(choice)
+            self.role_buttons[role] = choice
+        later = QLabel(strings.HOME_ROLE_LATER)
+        later.setObjectName("home-role-later")
+        later.setProperty("muted", True)
+        later.setWordWrap(True)
+        role_lay.addWidget(later)
+        self.role_card.hide()
+        column.addWidget(self.role_card)
         card, lay = _card(theme, strings.HOME_PROJECT)
         self.project_card = card
         self.name = ElidedLabel()
@@ -256,6 +347,10 @@ class HomePage(QScrollArea):
             lay.addWidget(drop, 0, Qt.AlignmentFlag.AlignTop)
             self.recent_lay.addWidget(card)
             self.recent_rows.append(card)
+
+    def show_role_question(self, on: bool) -> None:
+        """Show or put away the question of the first start, *Who are you working as?*."""
+        self.role_card.setVisible(on)
 
     def set_landing(self, on: bool) -> None:
         """The landing page of the program's start (`on`): no project of the person's is open, so

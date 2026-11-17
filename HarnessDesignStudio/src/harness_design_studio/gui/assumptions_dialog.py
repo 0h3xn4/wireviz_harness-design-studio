@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The Assumptions window (D-191, S2): what the tool assumes for this project.
 
-    AssumptionsDialog(parent, theme, project).exec()
+    run_dialog(AssumptionsDialog(parent, theme, project))   # dialog_base: shown beside, no wait
 
 Read-only, selectable text in a fixed-width font: the page that `harness-design-studio settings`
 prints (`core.settings.render`): every setting with the value in force and where it comes from (the
@@ -21,6 +21,8 @@ from harness_design_studio.gui.theme import ThemeManager, mark_mono
 
 
 class AssumptionsDialog(Dialog):
+    blocks = False  # read-only: `run_dialog` shows it beside the window and does not wait
+
     def __init__(self, parent: QWidget | None, theme: ThemeManager, project: Project) -> None:
         super().__init__(parent)
         self.setObjectName("assumptions-dialog")

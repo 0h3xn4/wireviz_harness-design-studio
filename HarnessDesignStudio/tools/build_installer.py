@@ -359,6 +359,9 @@ def main() -> int:
     ).iterdir():  # install scripts, desktop file, icon, readme
         if item.is_file():
             shutil.copy2(item, app / item.name)
+    from tools import appstream
+
+    appstream.write(app / appstream.FILE_NAME)  # the App Center data; install.sh installs it
     system = platform.system().lower()
     base = ROOT / "dist" / f"{PACKAGE_NAME}-{__version__}-{system}-{platform.machine().lower()}"
     from tools.build_deb import epoch
