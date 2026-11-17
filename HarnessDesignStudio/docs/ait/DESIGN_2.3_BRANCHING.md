@@ -7,6 +7,7 @@ Written on 2026-11-17 from a reading of the code at `ba1d2b2` (master, with pull
 - **Branching fits format 2.** A harness with several connectors, branch points and segments with lengths are all in the model already (`Harness.connectors`, `BranchPoint`, `Segment`). Generate already makes such harnesses. What 2.3.0 adds is a new segmentation choice, edits of the routing tree, and new outputs. None of it needs a new field or a new value of a list in a project file.
 - **A splice does not fit format 2 cleanly.** The clean form is a connector of the harness with a new role `splice`. A new value of `Role` is a format change: a 2.x tool sets the whole harness aside (tried, section 4). A format 2 form exists (an `inline` connector named by the existing `Splice` entry), but every 2.x tool then reads the project as editable and writes a test table that cannot be done on the built harness (tried, section 4).
 - **Recommendation (owner question B1):** 2.3.0 is a minor release in format 2 with **branching only** (M6b without the breakout kind). **Splices** (M6a) go into **format 3**, so by the owner's answer to Q10 of the 3.0 design they ship with **3.0.0**, together with the versions and the fields of the harness plan. Backshells (M6c) come later. The alternatives are in B1.
+- **The owner's answers (2026-11-17):** B1 to B9 as recommended (section 12). 2.3.0 is branching in format 2 (M6b); splices come with format 3 in 3.0.0 (M6a); Generate joins harnesses that share a device connector only in the new opt-in mode `per_connector_group`; existing two-plug harnesses stay as they are; harnesses with a branch point get the *Routing* and *Segments* sheets and `segments.csv`. The decision is recorded as D-243.
 
 ## 1. What the program does at 2.2 (master)
 
@@ -330,17 +331,26 @@ Order: 2, then 3 and 4 in either order, then 5, then 6, then 7. The splice work 
 - **3.0.0 grows** by the splice core (section 4.3).
 - **A ring of three connectors** is not joined; a person draws it.
 
-## 12. Owner questions
+## 12. Owner questions and the owner's answers
 
 - **B1. The format change and the release number.** Recommended: **A**: 2.3.0 is branching in format 2, a minor release; splices go into format 3 and ship with 3.0.0, with everything that reads a splice in that release (section 4.3). Alternatives: **B**, splices in 2.3.0 in the format 2 form (an `inline` body and a `Splice` entry), with older 2.x tools writing wrong test tables for them; **C**, no 2.3.0: branching, splices and the 3.0 design together in 3.0.0, so branching waits for the versions change.
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B2. Does Generate make branching harnesses by itself?** Recommended: yes, by the new choice `per_connector_group`, opt-in; the default stays `per_connector_pair`, and a person can also draw one. Alternatives: make it the default of new projects only (the templates' `config/segmentation.json`), which changes nothing for existing projects but gives new users the join without asking; or no Generate change at all (only drawn harnesses branch).
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B3. Splice kinds and the library.** Recommended: a splice is a library part of a new category `splice` (in format 3), with `pin_count` the number of nodes; its kind is the part (its description) and the `termination` of its pins (`crimp` for a crimp splice, `solder` for a solder sleeve); the tool ships no splice part (D-12), only an example part in the templates, marked as an example. Alternative: category `connector`, no new value, with splices and connectors mixed in the parts pickers and the BOM.
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B4. How a branch's length is measured and imported.** Recommended: a segment from the rear of a connector to the centre of a branch point, and between branch point centres; a wire is the sum of its path, plus the service loops of Generate for a generated wire; `import-lengths` unchanged (harness, segment, length); a drawn harness's wires get no loops unless a person sets the length. Alternative: measured to the mating face of a connector, which needs a connector depth on the part (a field).
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B5. Shields across a branch.** Recommended: a shield group runs between two connectors; a group whose wires end on different far connectors is refused in the editor and warned in a file (`shield_across_branch`); a shield or cable jacket that ends at a branch point waits for a field (the segments it covers) in a later format, not 3.0.0 unless the owner wants it there. Alternative: allow such a group and treat its end B as every far end, which the drawing and the shield rules would have to guess.
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B6. Existing two-plug harnesses after the upgrade.** Recommended: left as they are. Nothing joins on open or on Generate. Generated drafts join when a person chooses `per_connector_group` (the Generate preview shows what is removed and added); drawn ones by *Join into one harness*, an explicit step that is one undo step and journalled; released ones never, until a new revision. Alternative: the editor offers the join when it opens a project with such plugs.
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B7. The outputs of harnesses that already branch.** Recommended: approve that the *Routing* sheet, the *Segments* sheet and `segments.csv` appear for every harness with a branch point, which changes the `flatsat` example's files once (D-191 (4)). Alternative: write them only when an export option asks, as `--drawings` does, so no existing export changes.
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B8. Does Generate make splices?** Recommended: not with the first splices; a person places them in a drawn harness, and multi-drop interfaces stay skipped. Later, when people have used splices, a design of multi-drop generation (bus or star, terminations).
+  - **Owner's answer (2026-11-17):** as recommended.
 - **B9. The milestone names.** Recommended: keep the plan's names: 2.3.0 is M6b, the splices M6a, the backshells M6c; *M5* stays the drawn-first harness of the plan (section 3.6 of the plan left this to the owner).
+  - **Owner's answer (2026-11-17):** as recommended.
 
 ## 13. What this design does not check
 
