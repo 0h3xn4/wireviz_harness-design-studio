@@ -23,7 +23,7 @@ from harness_design_studio.core.describe import part_gender
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.generation_status import generation_status as generation_status
 from harness_design_studio.core.generation_status import input_hash as input_hash
-from harness_design_studio.core.integrity import mating_plugs
+from harness_design_studio.core.integrity import mating_plugs, one_plug_advice
 from harness_design_studio.core.model import (
     BranchPoint,
     Connector,
@@ -385,12 +385,12 @@ def _warn_shared_connectors(ctx: _Ctx, new_harnesses: dict[str, Harness], frozen
         if len(found) < 2 or not any(hid in new_harnesses for hid, _ in found):
             continue
         names = ", ".join(f"{cid} ({hid})" for hid, cid in found)
+        made = all(hid in new_harnesses for hid, _ in found)  # none drawn by hand or released
         ctx.finding(
             "warning",
             "box_connector_shared",
-            f"{box_id} has more than one cable plug on it: {names}. A connector takes one plug; "
-            "two harnesses cannot both plug into it. Give the interfaces that share it one "
-            "harness, or use different connectors.",
+            f"{box_id} has more than one cable plug on it: {names}. A connector takes one plug. "
+            + one_plug_advice(made, len(found)),
             box_id,
         )
 

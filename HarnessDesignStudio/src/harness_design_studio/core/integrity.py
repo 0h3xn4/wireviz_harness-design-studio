@@ -223,6 +223,27 @@ def _words_list(items: list[str]) -> str:
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
 
 
+def one_plug_advice(generated: bool, plugs: int) -> str:
+    """What a person can do today about more than one cable plug on a device connector, until a
+    harness can branch (planned for 2.3.0, D-235): for harnesses that Generate makes, the
+    segmentation `per_zone_pair` with the far devices in one zone gives one harness with one plug
+    on the connector (D-238); the segmentation does not join harnesses drawn by hand or released.
+    The generation warning `box_connector_shared` gives the same advice."""
+    first = (
+        "For one harness with one plug on it, put the far devices in one zone and set "
+        "segmentation.mode to per_zone_pair, or use different connectors."
+        if generated
+        else "Keep one harness for it, or use different connectors."
+    )
+    extra = "the second plug" if plugs <= 2 else "the extra plugs"
+    return f"{first} Or accept {extra} until a harness can branch (planned for 2.3.0)."
+
+
+def _made_by_generate(h: Harness | None) -> bool:
+    """A draft that Generate made, and makes again on the next Generate."""
+    return h is not None and h.generated and h.status != "released"
+
+
 def _check_mating(project: Project) -> list[Issue]:
     """A connector of a device takes one cable plug, and a pin of it is wired by one harness
     (warnings: the project still loads, nothing is blocked; they are about what would be built)."""
@@ -231,7 +252,8 @@ def _check_mating(project: Project) -> list[Issue]:
         if len(plugs) < 2 or box_id not in project.connectors:
             continue
         names = [f"{cid} (harness {hid})" for hid, cid in plugs]
-        out.append(_warn("box_connector_mated_twice", f"The device connector {box_id} has {len(plugs)} cable plugs on it: {_words_list(names)}. A connector takes one plug. Keep one harness for it, or join the wires into one harness with a branch.", box_id))  # fmt: skip
+        made = all(_made_by_generate(project.harnesses.get(hid)) for hid, _cid in plugs)
+        out.append(_warn("box_connector_mated_twice", f"The device connector {box_id} has {len(plugs)} cable plugs on it: {_words_list(names)}. A connector takes one plug. {one_plug_advice(made, len(plugs))}", box_id))  # fmt: skip
         by_cable = {cid: hid for hid, cid in plugs}
         users: dict[str, set[str]] = {}
         for h in project.harnesses.values():
