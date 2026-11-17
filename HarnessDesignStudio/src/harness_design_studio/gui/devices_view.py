@@ -66,6 +66,7 @@ from harness_design_studio.gui.devices_pin_table import (
 from harness_design_studio.gui.dialog_base import HeightScrollArea
 from harness_design_studio.gui.harness_view import REFRESH_DELAY_MS
 from harness_design_studio.gui.icons import icon_button, tooltip_text
+from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
 from harness_design_studio.gui.lists_panel import table_columns
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, Row, TableView, natural_key
@@ -249,6 +250,7 @@ class DevicesView(QWidget):
     newTypeRequested = Signal()
     deviceChanged = Signal(str)
     connectorChanged = Signal(str)
+    libraryReviewRequested = Signal(str)  # *Review…* of the library chip (D-240)
 
     def __init__(
         self, ctl: EditorController, theme: ThemeManager, settings: QSettings | None = None
@@ -445,6 +447,12 @@ class DevicesView(QWidget):
         row3.addWidget(self.copies_btn)
         row3.addStretch(1)
         box.addLayout(row3)
+        # where the device comes from in the library and how it stands (D-240)
+        self.library_state: LinkLookup = lambda _uid: (None, None)
+        self.library_chip = LibraryChip(theme)
+        self.library_chip.setObjectName("devices-library-chip")
+        self.library_chip.reviewRequested.connect(self.libraryReviewRequested)
+        box.addWidget(self.library_chip)
         return box
 
     def _build_banner(self, theme: ThemeManager) -> None:
@@ -1010,6 +1018,7 @@ class DevicesView(QWidget):
         )
         self.duplicate_btn.setEnabled(not ro)
         self._show_number(p, uid, ro)
+        self.refresh_library()
         self._banner_for(state)
         self._fill_parts()
         self.part_picker.setEnabled(not ro)
@@ -1054,6 +1063,15 @@ class DevicesView(QWidget):
         self.preview_model.set_rows([tuple(r) for r in body])
         self.export_btn.setEnabled(bool(body))
         self._show_connector(problems.get(self._cid or "", []))
+
+    def refresh_library(self) -> None:
+        """The library chip of the device shown."""
+        uid = self._unit
+        if not uid or uid not in self.ctl.project.units:
+            self.library_chip.show_state("", None, None)
+            return
+        state, info = self.library_state(uid)
+        self.library_chip.show_state(uid, state, info)
 
     def _show_number(self, p: Project, uid: str, ro: bool) -> None:
         """The number of these devices the project has; a copy has none of its own."""

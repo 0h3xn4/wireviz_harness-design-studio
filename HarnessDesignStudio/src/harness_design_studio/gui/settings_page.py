@@ -123,6 +123,8 @@ class SettingsPage(QWidget):
         choose_library_folder: Callable[[], None] = lambda: None,
         clear_library_folder: Callable[[], None] = lambda: None,
         open_library: Callable[[], None] = lambda: None,
+        add_project_library: Callable[[], None] = lambda: None,
+        remove_project_library: Callable[[str], None] = lambda _path: None,
         shortcut_rows: Callable[[], list[tuple[str, str]]],
         settings_file: str = "",
     ) -> None:
@@ -274,6 +276,46 @@ class SettingsPage(QWidget):
             library_row.addWidget(b)
         library_row.addStretch(1)
         col.addLayout(library_row)
+        # the device libraries of the open project: device-libraries.json, outside undo (D-240)
+        project_title = QLabel(strings.SETTINGS_PROJECT_LIBRARIES)
+        project_title.setObjectName("settings-project-libraries-title")
+        project_title.setProperty("heading", True)
+        col.addWidget(project_title)
+        self.project_libraries_text = _muted(strings.SETTINGS_PROJECT_LIBRARIES_TEXT)
+        self.project_libraries_text.setObjectName("settings-project-libraries-text")
+        col.addWidget(self.project_libraries_text)
+        self.project_libraries = QListWidget()
+        self.project_libraries.setObjectName("settings-project-libraries")
+        self.project_libraries.setAccessibleName(strings.SETTINGS_PROJECT_LIBRARIES_LIST)
+        self.project_libraries.setToolTip(strings.SETTINGS_PROJECT_LIBRARIES_LIST_TIP)
+        self.project_libraries.setMaximumHeight(theme.px(140))
+        mark_mono(self.project_libraries)
+        col.addWidget(self.project_libraries)
+        self.project_libraries_note = _muted("")
+        self.project_libraries_note.setObjectName("settings-project-libraries-note")
+        col.addWidget(self.project_libraries_note)
+        project_row = QHBoxLayout()
+        self.project_library_add = QPushButton(strings.SETTINGS_PROJECT_LIBRARIES_ADD)
+        self.project_library_add.setObjectName("settings-project-library-add")
+        self.project_library_add.setAccessibleName(
+            strings.SETTINGS_PROJECT_LIBRARIES_ADD.rstrip("…")
+        )
+        self.project_library_add.setToolTip(strings.SETTINGS_PROJECT_LIBRARIES_ADD_TIP)
+        self.project_library_add.clicked.connect(lambda _c=False: add_project_library())
+        self.project_library_remove = QPushButton(strings.SETTINGS_PROJECT_LIBRARIES_REMOVE)
+        self.project_library_remove.setObjectName("settings-project-library-remove")
+        self.project_library_remove.setAccessibleName(strings.SETTINGS_PROJECT_LIBRARIES_REMOVE)
+        self.project_library_remove.setToolTip(strings.SETTINGS_PROJECT_LIBRARIES_REMOVE_TIP)
+        self.project_library_remove.clicked.connect(
+            lambda _c=False: self._remove_project_library(remove_project_library)
+        )
+        self.project_libraries.currentRowChanged.connect(lambda _r: self._project_buttons())
+        project_row.addWidget(self.project_library_add)
+        project_row.addWidget(self.project_library_remove)
+        project_row.addStretch(1)
+        col.addLayout(project_row)
+        self._project_why_not = ""
+        self.show_project_libraries([], "", strings.SETTINGS_PROJECT_LIBRARIES_NO_FOLDER)
         col.addStretch(1)
 
         # ---- shortcuts
@@ -412,6 +454,40 @@ class SettingsPage(QWidget):
         self.licence_text.setPlainText(licences.text_of(key))
 
     # ---- follow the window ----------------------------------------------------------------------
+    def show_project_libraries(self, paths: list[str], note: str, why_not: str = "") -> None:
+        """Show the library paths of the open project's `device-libraries.json`; `note` is a
+        sentence under the list (what was written, or why the file cannot be used); `why_not`
+        says why the list cannot change now ("" when it can)."""
+        current = self.project_libraries.currentItem()
+        keep = current.text() if current is not None else ""
+        self.project_libraries.clear()
+        self.project_libraries.addItems(paths)
+        if keep in paths:
+            self.project_libraries.setCurrentRow(paths.index(keep))
+        elif paths:
+            self.project_libraries.setCurrentRow(0)
+        lines = [] if paths else [strings.SETTINGS_PROJECT_LIBRARIES_NONE]
+        if note:
+            lines.append(note)
+        if why_not:
+            lines.append(why_not)
+        self.project_libraries_note.setText(" ".join(lines))
+        self._project_why_not = why_not
+        self._project_buttons()
+
+    def _project_buttons(self) -> None:
+        why = self._project_why_not
+        self.project_library_add.setEnabled(not why)
+        self.project_library_add.setToolTip(why or strings.SETTINGS_PROJECT_LIBRARIES_ADD_TIP)
+        chosen = self.project_libraries.currentItem() is not None
+        self.project_library_remove.setEnabled(not why and chosen)
+        self.project_library_remove.setToolTip(why or strings.SETTINGS_PROJECT_LIBRARIES_REMOVE_TIP)
+
+    def _remove_project_library(self, remove: Callable[[str], None]) -> None:
+        item = self.project_libraries.currentItem()
+        if item is not None:
+            remove(item.text())
+
     def show_library_folder(self, folder: str) -> None:
         """Show the library folder the window uses ('' for none)."""
         if self.library_path.text() != folder:

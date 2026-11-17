@@ -72,6 +72,7 @@ from harness_design_studio.core import (
     drc,
     edit,
     library_link,
+    library_pointer,
     manual_harness,
     part_approval,
 )
@@ -163,6 +164,15 @@ from harness_design_studio.gui.inspector import Inspector
 from harness_design_studio.gui.interface_table import InterfaceTable
 from harness_design_studio.gui.jobs import JobStatus
 from harness_design_studio.gui.journal_dialog import JournalDialog
+from harness_design_studio.gui.library_review import (
+    Host,
+    LibraryLinks,
+    LinkInfo,
+    notice_text,
+    placed_at,
+    plan_library_add,
+    review_flow,
+)
 from harness_design_studio.gui.library_window import SETTINGS_FOLDER as LIBRARY_FOLDER_KEY
 from harness_design_studio.gui.library_window import LibraryWindow, save_devices_asking
 from harness_design_studio.gui.link_dialog import CreateHarnessDialog, LinkDialog, harness_preview
@@ -581,6 +591,7 @@ class MainWindow(QMainWindow):
         self._switching_area = False
         self.examples_folder: Callable[[], Path] = self._examples_folder  # (tests replace it)
         self.library_window: LibraryWindow | None = None  # made when first opened
+        self._library_menu_actions: list[QAction] = []  # *From library* of Edit > Add device
         self._recent_shown: list[recent.RecentEntry] | None = None
         # the landing page of the program's start (`show_landing`): Home with no panels, top bar or
         # status bar around it; the docks' visibility to give back when it is left
@@ -597,6 +608,7 @@ class MainWindow(QMainWindow):
         self.toasts = ToastHost(self.view)
         self._register_slots()
         self._install_default_views()
+        self._build_library_links()
         self._show_area(areas.DEFAULT)
         self.tour = Tour(
             self,
@@ -867,6 +879,8 @@ class MainWindow(QMainWindow):
             choose_library_folder=lambda: self.choose_library_folder_flow(),
             clear_library_folder=lambda: self.set_library_folder(""),
             open_library=lambda: self.open_library_flow(),
+            add_project_library=lambda: self.add_project_library_flow(),
+            remove_project_library=lambda path: self.remove_project_library(path),
             shortcut_rows=self.shortcut_rows,
             settings_file=self.settings.fileName(),
         )
@@ -1579,8 +1593,12 @@ class MainWindow(QMainWindow):
     def _add_device_quick(self) -> None:
         """Add device in Quick mode: the window asks for a name (and a kind when wanted) only, the
         device gets a connector, and the diagram stays in front with the new device selected."""
-        dlg = QuickDeviceDialog(self, self.theme, self.ctl.project)
+        found = [(d.unit_id, d.name) for d in self.library_devices()]
+        dlg = QuickDeviceDialog(self, self.theme, self.ctl.project, found)
         if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
+            return
+        if dlg.library_id():  # a device of the project's libraries (D-240)
+            self.add_library_device_flow(dlg.library_id())
             return
         uid = self.ctl.add_device_quick(dlg.values()["name"], dlg.template_id())
         if uid is None:
@@ -1744,6 +1762,7 @@ class MainWindow(QMainWindow):
         self.settings_page.show_library_folder(folder)
         if self.library_window is not None:
             self.library_window.set_folder(folder)
+        self.library_links.refresh()  # the person's folder is a library of the editor (D-240)
 
     def choose_library_folder_flow(self) -> None:
         """File > Library folder…: ask for the folder and use it."""
@@ -1757,7 +1776,9 @@ class MainWindow(QMainWindow):
         if win is None:
             win = LibraryWindow(self.ctl, self.theme, self.settings, self)
             win.run_dialog = lambda dlg: self.run_dialog(dlg)
+            win.ask_choice = lambda title, text, buttons: self.ask_choice(title, text, buttons)
             win.folderChangeRequested.connect(self.choose_library_folder_flow)
+            win.libraryWritten.connect(lambda: self.library_links.refresh())
             self.library_window = win
         win.show()
         win.raise_()
@@ -1780,23 +1801,239 @@ class MainWindow(QMainWindow):
         dlg = LibraryDialog(self, self.theme, self.ctl.project, data)
         if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
             return
-        # one core function adds the devices with the import record of the file (D-240); a taken
-        # ID still gets the next free one, as before 2.2 (an unlinked copy, no record)
+        # one core function adds the devices with the import record of the file; a taken ID asks
+        # what to do: add copies, adopt, or add under another ID (D-240)
         try:
             libs = library_link.file_library(Path(path), self.ctl.root)
-            add = library_link.plan_add_devices(
-                self.ctl.project, libs, dlg.selected(), rename_taken=True, root=self.ctl.root
-            )
+            add = plan_library_add(self.library_host(), libs, dlg.selected())
         except (HarnessError, OSError) as exc:
             self._error(self._explain(exc, Path(path).parent))
             return
-        if not add.ops or not self.ctl.run(strings.STEP_ADD_DEVICES, add.ops):
+        if add is None or not add.ops:
             return
-        added = list(add.unit_ids)
+        if not self.ctl.run(add.label or strings.STEP_ADD_DEVICES, add.ops):
+            return
+        added = add.ids or add.adopted
         if not self._stays_on_the_path():
             self.go_to("devices")
         self.devices_view.show_unit(added[0])
-        self.toasts.show_message(strings.DV_LIB_ADDED.format(len(added), Path(path).name), None)
+        words = [strings.DV_LIB_ADDED.format(len(add.ids), Path(path).name)] if add.ids else []
+        words += [strings.TAKEN_ADOPTED.format(u) for u in add.adopted]
+        self.toasts.show_message(" ".join(words), None)
+
+    # ---- the project's device libraries in the editor (D-240, pull request 4) -----------------------
+    def _build_library_links(self) -> None:
+        """The project's libraries and the states of its devices (read in a helper thread), the
+        chips of the Inspector and the Devices tab, and the *From library* section of the diagram's
+        *Add here*."""
+        self.library_links = LibraryLinks(self.ctl, self.library_folder)
+        self.library_links.ready.connect(self._library_ready)
+        self.library_links.newer.connect(self._library_newer)
+        for view in (self.inspector, self.devices_view):
+            view.library_state = self._library_state
+            view.libraryReviewRequested.connect(self.review_library_flow)
+        self.view.library_devices = lambda: [
+            (
+                d.unit_id,
+                strings.FROM_LIBRARY_ENTRY.format(id=d.unit_id, name=d.name),
+                strings.FROM_LIBRARY_TIP.format(id=d.unit_id, library=d.library.name, file=d.file),
+            )
+            for d in self.library_devices()
+        ]
+        self.view.add_from_library = lambda uid, x, y: self.add_library_device_flow(uid, (x, y))
+        self.library_links.refresh()
+
+    def library_host(self) -> Host:
+        return Host(self, self.theme, self.ctl, self.run_dialog, self.ask_choice)
+
+    def _library_state(self, unit_id: str) -> tuple[library_link.LinkState | None, LinkInfo | None]:
+        info = self.library_links.info
+        return (info.state(unit_id) if info is not None else None), info
+
+    def library_devices(self) -> list[library_link.LibraryDevice]:
+        """The devices of the project's libraries that can be added, by ID (none while the
+        libraries are not read yet)."""
+        info = self.library_links.info
+        return info.devices() if info is not None else []
+
+    def _library_ready(self) -> None:
+        """The states arrived: the chips, the notice and the Settings list follow."""
+        self.inspector.refresh_library()
+        self.devices_view.refresh_library()
+        self._show_project_libraries()
+        if self.alerts.is_showing("library"):
+            info = self.library_links.info
+            found = info.newer() if info is not None else []
+            if found:
+                self._library_newer(found)
+            else:
+                self.alerts.clear("library")
+
+    def _library_newer(self, found: list[str]) -> None:
+        """The notice of a project that opens: a library has a newer version of a device. It
+        never applies anything; *Review…* shows the first one."""
+        first = found[0]
+        self.alerts.show_banner(
+            "library",
+            "info",
+            notice_text(found),
+            details=[strings.NOTICE_NEWER_DETAIL],
+            actions=[(strings.NOTICE_REVIEW, lambda: self.review_library_flow(first))],
+        )
+
+    def _fill_library_menu(self) -> None:
+        """Edit > Add device: the section *From library* with the devices of the project's
+        libraries (made each time the menu opens, so it follows the libraries)."""
+        for act in self._library_menu_actions:
+            self.menu_add.removeAction(act)
+            act.deleteLater()
+        self._library_menu_actions = []
+        found = self.library_devices()
+        if not found:
+            return
+        self._library_menu_actions.append(self.menu_add.addSection(strings.FROM_LIBRARY))
+        for d in found:
+            act = QAction(
+                strings.FROM_LIBRARY_ENTRY.format(id=d.unit_id, name=d.name), self.menu_add
+            )
+            act.setObjectName(f"menu-add-library-{d.unit_id}")
+            act.setToolTip(
+                strings.FROM_LIBRARY_TIP.format(id=d.unit_id, library=d.library.name, file=d.file)
+            )
+            act.setEnabled(not self.ctl.read_only)
+            act.triggered.connect(partial(self.add_library_device_flow, d.unit_id))
+            self.menu_add.addAction(act)
+            self._library_menu_actions.append(act)
+
+    def add_library_device_flow(self, unit_id: str, at: tuple[float, float] | None = None) -> None:
+        """*From library* in a picker: add the library device with the record of its file, as one
+        undo step; a taken ID asks what to do. `at` is a place on the diagram."""
+        if self.ctl.read_only:
+            self.ctl.refuse_read_only()
+            return
+        try:
+            add = plan_library_add(self.library_host(), self.library_links.libraries(), [unit_id])
+        except HarnessError as exc:
+            self._error(str(exc))
+            return
+        if add is None or not add.ops:
+            return
+        ops = add.ops
+        if at is not None and add.ids:
+            ops = placed_at(self.ctl.project, ops, add.ids[0], *at)
+        if not self.ctl.run(add.label, ops, message=add.message()):
+            return
+        first = (add.ids or add.adopted)[0]
+        self.ctl.select("unit", first)
+        if add.notes:
+            self.toasts.show_message(" ".join([add.message(), *add.notes]), None, 8000)
+
+    def review_library_flow(self, unit_id: str) -> None:
+        """Review the library's version of a project device (the chip, the notice): take it, keep
+        this project's, or save this project's to the library."""
+        try:
+            message, wrote = review_flow(
+                self.library_host(),
+                self.library_links.libraries(),
+                unit_id,
+                self.library_links.info,
+            )
+        except (HarnessError, OSError) as exc:
+            self._error(self._explain(exc, None))
+            return
+        if wrote:
+            self.library_links.refresh()
+            if self.library_window is not None:
+                self.library_window.refresh()
+        if message:
+            self.toasts.show_message(message, None)
+
+    # ---- Settings > Project > Device libraries of this project (device-libraries.json) ------------
+    def libraries_changed(self, *, notice: bool = False) -> None:
+        """The project's libraries may be others now (a project opened, device-libraries.json
+        written or copied): read them again, and the library window with them."""
+        self.library_links.refresh(notice=notice)
+        if self.library_window is not None:
+            self.library_window.refresh()
+
+    def project_libraries_flow(self) -> None:
+        """File > Device libraries of this project…: the list on the Settings page."""
+        self.set_area("settings")
+        self.settings_page.show_section("project")
+        self.settings_page.project_libraries.setFocus()
+
+    def _project_paths(self) -> tuple[list[str], str]:
+        root = self.ctl.root
+        if root is None:
+            return [], ""
+        try:
+            return library_pointer.read_pointer(root), ""
+        except library_pointer.PointerError as exc:
+            return [], f"{library_pointer.FILE}: {exc}"
+
+    def _show_project_libraries(self, note: str = "") -> None:
+        paths, problem = self._project_paths()
+        why = (
+            strings.SETTINGS_PROJECT_LIBRARIES_NO_FOLDER
+            if self.ctl.root is None
+            else strings.SETTINGS_PROJECT_LIBRARIES_READ_ONLY
+            if self.ctl.read_only
+            else problem
+        )
+        self.settings_page.show_project_libraries(paths, note, why)
+
+    def _write_project_libraries(self, paths: list[str]) -> None:
+        root = self.ctl.root
+        if root is None:
+            return
+        try:
+            library_pointer.write_pointer(root, paths)
+        except (HarnessError, OSError) as exc:
+            self._show_project_libraries(self._explain(exc, root))
+            return
+        n = len(paths)
+        note = (
+            strings.SETTINGS_PROJECT_LIBRARIES_WRITTEN_ONE
+            if n == 1
+            else strings.SETTINGS_PROJECT_LIBRARIES_WRITTEN.format(n)
+        )
+        self._show_project_libraries(note)
+        self.toasts.show_message(note, None)
+        self.libraries_changed()
+
+    def add_project_library_flow(self) -> None:
+        """*Add library…*: ask for a folder and name it in device-libraries.json, at once and
+        outside undo."""
+        root = self.ctl.root
+        if root is None or self.ctl.read_only:
+            return
+        folder = self.ask_folder(strings.SETTINGS_PROJECT_LIBRARIES_TITLE)
+        if not folder:
+            return
+        paths, problem = self._project_paths()
+        if problem:
+            self._show_project_libraries(problem)
+            return
+        try:
+            path = library_pointer.relative_path(folder, root)
+            library_pointer.pointer_document([*paths, path] if path not in paths else paths)
+        except library_pointer.PointerError as exc:
+            self._show_project_libraries(str(exc))
+            return
+        if path in paths:
+            self._show_project_libraries()
+            return
+        self._write_project_libraries([*paths, path])
+
+    def remove_project_library(self, path: str) -> None:
+        """*Remove*: take the folder out of device-libraries.json, at once and outside undo."""
+        if self.ctl.root is None or self.ctl.read_only:
+            return
+        paths, problem = self._project_paths()
+        if problem or path not in paths:
+            self._show_project_libraries(problem)
+            return
+        self._write_project_libraries([p for p in paths if p != path])
 
     def export_table_flow(self, name: str, fmt: str) -> None:
         """ "Export table" of the Lists tab: ask where, then write the rows as they are shown."""
@@ -1870,6 +2107,10 @@ class MainWindow(QMainWindow):
             strings.A_LIBRARY_FOLDER, self.choose_library_folder_flow, name="act-library-folder"
         )
         self.act_library_folder.setToolTip(strings.A_LIBRARY_FOLDER_TIP)
+        self.act_project_libraries = a(
+            strings.A_PROJECT_LIBRARIES, self.project_libraries_flow, name="act-project-libraries"
+        )
+        self.act_project_libraries.setToolTip(strings.A_PROJECT_LIBRARIES_TIP)
         self.act_quit = a(strings.A_QUIT, self._quit, "Ctrl+Q", name="act-quit")
         self.act_undo = a(strings.UNDO, self.ctl.undo, "Ctrl+Z", name="act-undo")
         self.act_redo = a(strings.REDO, self.ctl.redo, "Ctrl+Y", name="act-redo")
@@ -2292,6 +2533,7 @@ class MainWindow(QMainWindow):
         f.addSeparator()
         f.addAction(self.act_library)
         f.addAction(self.act_library_folder)
+        f.addAction(self.act_project_libraries)
         f.addSeparator()
         f.addAction(self.act_quit)
         e = mb.addMenu(strings.M_EDIT)
@@ -2326,6 +2568,9 @@ class MainWindow(QMainWindow):
         for tid, tpl in edit.TEMPLATES.items():
             act = self._act(tpl.label, partial(self._add_unit, tid), name=f"menu-add-{tid}")
             self.menu_add.addAction(act)
+        self.menu_add.setToolTipsVisible(True)
+        self._library_menu_actions = []
+        self.menu_add.aboutToShow.connect(self._fill_library_menu)
         self.menu_connect = e.addMenu(strings.M_CONNECT_WITH_TYPE)  # the older, interface-first way
         self._role_menus["connect-with-type"] = self.menu_connect
         self.menu_connection = e.addMenu(strings.M_CONNECTION)
@@ -4798,6 +5043,15 @@ class MainWindow(QMainWindow):
             e.append(
                 PaletteEntry(f"{strings.ADD_UNIT_PREFIX} {tpl.label}", partial(self._add_unit, tid))
             )
+        if not self.ctl.read_only:  # the devices of the project's libraries (D-240)
+            for dev in self.library_devices():
+                text = strings.FROM_LIBRARY_ENTRY.format(id=dev.unit_id, name=dev.name)
+                e.append(
+                    PaletteEntry(
+                        f"{strings.FROM_LIBRARY_PALETTE} {text}",
+                        partial(self.add_library_device_flow, dev.unit_id),
+                    )
+                )
         for tid, t in sorted(self.ctl.project.interface_types.items()):
             e.append(
                 PaletteEntry(
@@ -5058,6 +5312,10 @@ class MainWindow(QMainWindow):
         # a Python plug-in the project enables but this computer does not trust yet: name the code
         if ask_to_trust_enabled(self, self.theme, self.ctl, self.run_dialog):
             self.toasts.show_message(strings.EXT_TRUSTED_NOW, None, 4000)
+        # the project's device libraries, read in a helper thread: a notice when one has a newer
+        # version of a device of the project (it never applies anything; D-240)
+        self.alerts.clear("library")
+        self.libraries_changed(notice=True)
         return True
 
     def save_flow(self) -> bool:
@@ -5076,11 +5334,12 @@ class MainWindow(QMainWindow):
         if not folder:
             return False
         try:
-            self.ctl.save_as(Path(folder))
+            notes = self.ctl.save_as(Path(folder))
         except (HarnessError, OSError, ValueError) as exc:
             self._error(self._explain(exc, folder))
             return False
-        self.toasts.show_message(strings.SAVED, None, 2500)
+        self.toasts.show_message(" ".join([strings.SAVED, *notes]), None, 8000 if notes else 2500)
+        self.libraries_changed()  # device-libraries.json came along, its paths rewritten
         return True
 
     def _on_save_error(self, exc: Exception) -> None:
@@ -5133,6 +5392,7 @@ class MainWindow(QMainWindow):
             return
         if self.library_window is not None:
             self.library_window.close()  # keeps its own size and place, ends its helper thread
+        self.library_links.wait(500)  # (a thread must not outlive the window that started it)
         self.ctl.release()
         self._save_settings()
         event.accept()
@@ -5468,6 +5728,7 @@ class MainWindow(QMainWindow):
             quick=self.quick_on(),
         )
         self.settings_page.show_library_folder(self.library_folder())
+        self._show_project_libraries()
 
     def shortcut_rows(self) -> list[tuple[str, str]]:
         """Every action of the window that has a key: (name, key), by name."""
