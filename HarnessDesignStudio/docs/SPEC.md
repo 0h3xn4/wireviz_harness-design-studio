@@ -125,7 +125,7 @@ The tool succeeds only if a systems engineer who has never seen it can produce a
 - Unlimited undo/redo, autosave, crash recovery, automatic local snapshots.
 
 **Helpful: guide the user**
-- First run opens a sample project and offers a skippable, replayable interactive tour.
+- The program starts on Home with nothing open, and Home offers the ways to start: a new project, an existing one, the examples and the built-in sample. (A first-run tour was removed on the owner's request of 2026-11-17.)
 - Empty states explain the next step.
 - Project status panel works as a clickable to-do list.
 - Every DRC message states what is wrong, why it matters, how to fix it, with one-click fix where possible.

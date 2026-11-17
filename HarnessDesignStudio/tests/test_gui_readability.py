@@ -210,14 +210,6 @@ def test_tab_walks_the_units_and_links_and_then_leaves_the_diagram(win) -> None:
     assert view.dscene.focusItem() is order[-2]
 
 
-def test_the_first_run_tour_is_not_shown_again_after_skipping_it(win) -> None:
-    win.settings.setValue("tour/done", False)
-    win.tour.start()
-    assert win.tour.active
-    win.tour.skip.click()
-    assert not win.tour.active and win.settings.value("tour/done", False, bool) is True
-
-
 def test_clicking_the_active_mode_button_keeps_it_checked(win) -> None:
     win.mode_guided.click()
     assert win.mode_guided.isChecked() and not win.mode_expert.isChecked()

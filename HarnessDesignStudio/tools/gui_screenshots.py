@@ -55,9 +55,6 @@ def main() -> int:
 
     app.processEvents()
     win.view.fit()
-    win.tour.start()
-    shot("01-first-run-tour")
-    win.tour.stop()
     shot("02-guided-main")
     action("menu-add-sensor").trigger()  # Edit > Add unit (was the Palette's button)
     action("menu-connect-power_primary").trigger()  # Edit > Connect with

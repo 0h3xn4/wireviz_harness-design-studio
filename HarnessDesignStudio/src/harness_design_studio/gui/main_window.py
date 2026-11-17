@@ -214,7 +214,6 @@ from harness_design_studio.gui.shell import (
 from harness_design_studio.gui.theme import MODES, ThemeManager, mark_mono
 from harness_design_studio.gui.theme.tokens import CATEGORIES
 from harness_design_studio.gui.topbar import ShellStatus, TopBar
-from harness_design_studio.gui.tour import Tour
 from harness_design_studio.gui.unit_table import UnitTable
 from harness_design_studio.resources import guide_path
 
@@ -538,7 +537,7 @@ class MainWindow(QMainWindow):
         self.settings = settings
         self.theme = theme
         self._settings_were_empty = not settings.allKeys()  # a first run (see `_restore_role`)
-        # `first_run=False` says this is not a first start: no tour and no question about the role
+        # `first_run=False` says this is not a first start: no question about the role
         self._first_start = first_run is not False
         self._role_to_ask = False  # a first start with no role set by the hook: ask once
         self._quick_left_next = False  # Quick mode was turned on from the Next step page
@@ -610,15 +609,6 @@ class MainWindow(QMainWindow):
         self._install_default_views()
         self._build_library_links()
         self._show_area(areas.DEFAULT)
-        self.tour = Tour(
-            self,
-            theme,
-            self._tour_targets(),
-            self._tour_reveals(),
-            steps=self._tour_steps,
-            brought=frozenset({"next", "next_button", "connect"}),
-        )
-        self.tour.on_stop = lambda: self.settings.setValue("tour/done", True)
 
         self.ctl.message.connect(self._on_message)
         self.ctl.drcStateChanged.connect(self._on_check_state)
@@ -665,18 +655,9 @@ class MainWindow(QMainWindow):
         self._on_selection()
         if self._first_start and not self.settings.value("legal/notice_done", False, bool):
             self._show_legal_notice()
-        if first_run is None:
-            first_run = not self.settings.value("tour/done", False, bool)
-        if self.quick_on():
-            first_run = False  # Quick mode has no tour (Help > Take the tour still runs it)
         self.ctl.open_sample()
         self._open_for_role()
         self._update_hash()
-        if self._role_to_ask:
-            pass  # the question comes first, when the window shows (`showEvent`); the tour after it
-        elif first_run:
-            QTimer.singleShot(200, self._start_tour)
-        self._tour_wanted = bool(first_run)
 
     # ---- construction ------------------------------------------------------------------------
     def _build_center(self) -> None:
@@ -2268,11 +2249,6 @@ class MainWindow(QMainWindow):
         )
         self.act_commands = a(strings.A_COMMANDS, self.open_commands, "Ctrl+K", name="act-commands")
         self.act_guide = a(strings.A_GUIDE, self.guide_flow, "F1", name="act-guide")
-        self.act_tour = a(
-            strings.A_TOUR,
-            self._start_tour,
-            name="act-tour",
-        )
         self.act_glossary = a(strings.A_GLOSSARY, self.glossary_flow, name="act-glossary")
         self.act_assumptions = a(
             strings.A_ASSUMPTIONS, self.assumptions_flow, name="act-assumptions"
@@ -2506,14 +2482,6 @@ class MainWindow(QMainWindow):
             return
         self.open_url(QUrl.fromLocalFile(str(path)))
 
-    def _start_tour(self) -> None:
-        """The tour walks through the sample project: from the landing page it goes to where the
-        role starts work (the diagram, or the Next step page) first."""
-        if self._landing and shiboken6.isValid(self):
-            self._leave_landing()
-            self._show_area(self._start_area() if self.role in STARTS_ON_NEXT else areas.DEFAULT)
-        self.tour.start()
-
     def _build_menus_and_toolbar(self) -> None:
         mb = self.menuBar()
         f = mb.addMenu(strings.M_FILE)
@@ -2664,7 +2632,6 @@ class MainWindow(QMainWindow):
         for act in (
             self.act_guide,
             self.act_commands,
-            self.act_tour,
             self.act_glossary,
             self.act_assumptions,
             self.act_journal,
@@ -2967,47 +2934,6 @@ class MainWindow(QMainWindow):
             self.menu_connect.addAction(act)
         self._sync_connect_menu()
 
-    def _tour_reveals(self) -> dict[str, Callable[[], None]]:
-        """The step about adding units needs the project tree in front, the one about problems
-        the Problems tab of the inspector."""
-
-        def tree() -> None:
-            self.left_tabs.setCurrentIndex(self.left_tabs.index_of("tree"))
-
-        def problems() -> None:
-            self.inspector.show_tab("problems")
-
-        def next_page() -> None:
-            self._show_area("next")
-
-        def diagram() -> None:
-            self._show_area("model", tab="diagram")
-
-        return {
-            "add": tree,
-            "problems": problems,
-            "next": next_page,
-            "next_button": next_page,
-            "connect": diagram,
-        }
-
-    def _tour_steps(self) -> list[tuple[str, str]]:
-        """The Systems engineer role has a tour of its own: the Next step page, not the panels."""
-        return strings.TOUR_STEPS_SYSTEMS if self.role == SYSTEMS else strings.TOUR_STEPS
-
-    def _tour_targets(self) -> dict[str, QWidget]:
-        return {
-            "add": self.left_tabs,
-            "canvas": self.view,
-            "types": self.tool_connect,
-            "problems": self.side_tabs,
-            "generate": self.generate_btn,
-            "role": self.rail,
-            "next": self.next_page,
-            "next_button": self.next_page.button,
-            "connect": self.tool_connect,
-        }
-
     # ---- state reactions ---------------------------------------------------------------------
     def _on_message(self, text: str, undoable: bool) -> None:
         undo_that_change = self._undo_of_last_change()  # (for the change it reports only)
@@ -3309,8 +3235,8 @@ class MainWindow(QMainWindow):
         person's is opened (the last one is not opened again): Home shows New project, Open
         project, the examples and the recent projects, and nothing of a project around it (the
         panels, the top bar, the status bar and the sample's notice wait). The window keeps the
-        built-in sample in memory, as before, for the tour and for a person who goes to the Model
-        without opening anything. Opening or making a project, the tour, a change of role, an edit
+        built-in sample in memory, as before, for a person who goes to the Model without opening
+        anything. Opening or making a project, a change of role, an edit
         or going to another area ends the landing page and puts all of it back as it was."""
         if self._landing:
             return
@@ -4219,13 +4145,11 @@ class MainWindow(QMainWindow):
         return value
 
     def _first_start_flow(self) -> None:
-        """The first time the window shows: the question about the role, then the tour."""
+        """The first time the window shows: the question about the role."""
         if not shiboken6.isValid(self):
             return
         if self._role_to_ask:
             self.ask_role_flow()
-        if self._tour_wanted:
-            QTimer.singleShot(200, self._start_tour)
 
     def _wkey(self, key: str) -> str:
         """A settings key of the layout, for the role that is open: the Electrical / AIT engineer
@@ -5637,7 +5561,6 @@ class MainWindow(QMainWindow):
         on = self.quick_on()
         self.settings.setValue("ui/quick", on)
         if on:
-            self.settings.setValue("tour/done", True)  # no tour from then on
             if self._area == "next":  # (a page Quick mode does not list: to the diagram, and back)
                 self._quick_left_next = True
                 self._show_area("model")
@@ -5817,7 +5740,7 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self._shown:
             self._shown = True
-            if self._role_to_ask:  # the first start: the question, then the tour
+            if self._role_to_ask:  # the first start: the question
                 QTimer.singleShot(0, self._first_start_flow)
             if self._have_saved_state:  # the person's own layout stands
                 self._layout_class = self._layout_class_now()
@@ -5835,9 +5758,3 @@ class MainWindow(QMainWindow):
             if self._have_saved_state:  # (a saved layout is kept; only a crossing is acted on)
                 self._have_saved_state = False
             self.auto_layout()
-        if self.tour.active:
-            self.tour.show_step(self.tour.index)
-
-    def finish_tour(self) -> None:
-        self.settings.setValue("tour/done", True)
-        self.tour.stop()

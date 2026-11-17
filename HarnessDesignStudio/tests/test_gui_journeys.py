@@ -48,26 +48,18 @@ def last_toast(win) -> str:  # type: ignore[no-untyped-def]
     return win.toasts.messages[-1] if win.toasts.messages else ""
 
 
-# ---- J1 first run and tour ------------------------------------------------------------------
+# ---- J1 first run ----------------------------------------------------------------------------
 
 
-def test_j1_tour_starts_on_first_run_and_can_be_skipped_and_replayed(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+def test_j1_the_first_run_has_no_tour(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The tour was removed (the owner's feedback of 2026-11-17): no card shows at the first run
+    and the Help menu has no entry that starts one."""
     w = make_window(tmp_path, first_run=True)
     qtbot.addWidget(w)
-    qtbot.waitUntil(lambda: w.tour.card.isVisible(), timeout=2000)
-    assert "Step 1 of 6" in w.tour.title.text()
-    # the card never covers the area it explains
-    card, target = w.tour.card.geometry(), w.tour.highlight.target
-    assert not card.intersects(target)
-    button(w, "tour-next").click()
-    assert "Step 2 of 6" in w.tour.title.text()
-    button(w, "tour-skip").click()
-    assert not w.tour.card.isVisible()
-    w.act_tour.trigger()
-    assert w.tour.card.isVisible() and "Step 1 of 6" in w.tour.title.text()
-    for _ in range(6):
-        button(w, "tour-next").click()
-    assert not w.tour.card.isVisible()
+    qtbot.wait(400)  # (the tour started 200 ms after the window showed)
+    assert w.findChild(QPushButton, "tour-next") is None and not hasattr(w, "tour")
+    help_menu = next(m for m in w.menuBar().actions() if m.text() == strings.M_HELP).menu()
+    assert all("tour" not in a.text().lower() for a in help_menu.actions())
 
 
 def test_sample_project_opens_with_banner(win) -> None:  # type: ignore[no-untyped-def]

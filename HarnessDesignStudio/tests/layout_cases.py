@@ -562,7 +562,6 @@ def make_window(ctx: Ctx, role: str = "electrical", quick: bool = False):  # typ
     settings.setValue("ui/quick", quick)
     settings.setValue("ui/scale", round(ctx.theme.scale * 100))  # (the window applies its own)
     settings.setValue("ui/theme", ctx.theme.name)
-    settings.setValue("tour/done", True)
     settings.sync()
     win = MainWindow(settings, ctx.theme, first_run=False)
     win.ask_choice = lambda title, text, buttons: 1  # type: ignore[method-assign]

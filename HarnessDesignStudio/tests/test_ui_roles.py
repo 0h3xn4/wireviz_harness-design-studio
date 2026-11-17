@@ -113,13 +113,6 @@ def test_closing_the_question_without_choosing_means_electrical(qtbot, tmp_path,
     assert w.role == "electrical" and w.settings.value("ui/role") == "electrical"
 
 
-def test_the_tour_comes_after_the_question(qtbot, tmp_path, no_hook) -> None:
-    w = show(qtbot, make(qtbot, tmp_path, first_run=True), Asked("systems"))
-    qtbot.waitUntil(lambda: w.tour.active, timeout=3000)
-    assert w.tour.card.isVisible()
-    w.tour.stop()
-
-
 def test_no_question_for_an_existing_user_a_hook_or_a_window_that_is_not_a_first_start(
     qtbot, tmp_path, no_hook, monkeypatch
 ) -> None:
@@ -367,7 +360,5 @@ def test_names_and_tooltips(qtbot, tmp_path) -> None:
     assert combo.objectName() == "settings-role"
     for button in (w.next_page.library, w.next_page.everything):
         assert button.accessibleName() and button.toolTip()
-    last = strings.TOUR_STEPS[-1]
-    assert last[0] == "role" and "View > Role" in last[1] and w.tour.targets["role"] is w.rail
     for text in (strings.NEXT_SHOW_EVERYTHING_TIP, strings.SETTINGS_ROLE_HINT):
         assert "workspace" not in text.lower() and "Simple" not in text and "Full" not in text
