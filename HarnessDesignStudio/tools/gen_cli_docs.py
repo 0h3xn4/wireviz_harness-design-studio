@@ -36,6 +36,7 @@ GROUPS = (
         ),
     ),
     ("Write data out", ("export-pinout", "export-devices", "export-subsystem")),
+    ("Device library", ("libraries", "add-device", "update-device", "save-device")),
     ("Record what was built", ("export-asbuilt", "import-asbuilt", "asbuilt")),
     ("Review, release and change", ("review", "release", "revise", "diff", "log", "compare")),
     ("Extend the tool", ("extensions", "trust", "import-plugin")),
@@ -56,6 +57,7 @@ EXAMPLES: dict[str, list[str]] = {
         "harness-design-studio explain wheel-link --all --out wheel-link-derivations",
         "harness-design-studio explain wheel-link IF-001.GPSU1-J01",
         "harness-design-studio explain wheel-link W001-001 --json",
+        "harness-design-studio explain wheel-link PCDU1",
         "harness-design-studio explain wheel-link --all --out wheel-link-derivations --json",
     ],
     "workflow": [
@@ -172,6 +174,7 @@ EXAMPLES: dict[str, list[str]] = {
         "harness-design-studio imports my-design",
         "harness-design-studio imports my-design --check",
         "harness-design-studio imports my-design --json --source cad/lengths.csv",
+        "harness-design-studio imports my-design --check --library ../acme-device-library",
     ],
     "import-build-data": [
         "harness-design-studio import-build-data my-design strip-lengths.csv --dry-run",
@@ -205,6 +208,31 @@ EXAMPLES: dict[str, list[str]] = {
         "harness-design-studio import-devices my-design device-library.json --list",
         "harness-design-studio import-devices my-design device-library.json --dry-run --json",
         "harness-design-studio import-devices my-design device-library.json --device GYRO1 --dry-run",
+    ],
+    "libraries": [
+        "harness-design-studio libraries my-design",
+        "harness-design-studio libraries my-design --add ../acme-device-library",
+        "harness-design-studio libraries my-design --devices --json",
+        "harness-design-studio libraries my-design --remove ../acme-device-library",
+    ],
+    "add-device": [
+        "harness-design-studio add-device my-design PCDU00 --dry-run",
+        "harness-design-studio add-device my-design PCDU00 --count 2",
+        "harness-design-studio add-device my-design GYRO1 RW1 --json",
+        "harness-design-studio add-device my-design PCDU00 --as PCDU01",
+        "harness-design-studio add-device my-design PCDU00 --library ../acme-device-library",
+    ],
+    "update-device": [
+        "harness-design-studio update-device my-design",
+        "harness-design-studio update-device my-design --check",
+        "harness-design-studio update-device my-design PCDU00 --apply",
+        "harness-design-studio update-device my-design --all --apply --json",
+        "harness-design-studio update-device my-design PCDU00 --apply --adopt",
+    ],
+    "save-device": [
+        "harness-design-studio save-device my-design PCDU00",
+        "harness-design-studio save-device my-design PCDU00 --library ../acme-device-library",
+        "harness-design-studio save-device my-design PCDU00 --replace --json",
     ],
     "export-subsystem": [
         'harness-design-studio export-subsystem my-design wheel-drive.json --device OBC1 --device RW1 --name "Wheel drive"',
@@ -340,7 +368,9 @@ def _json_section() -> list[str]:
         "of derivation, and a derivation whose result is a text also has `text` after `missing`) "
         "and `settings --json` the document of "
         "settings, definitions and assumptions, both without an `ok`; "
-        "`explain --all --out FOLDER --json` prints the document below. "
+        "`explain --all --out FOLDER --json` prints the document below, and `explain DEVICE "
+        "--json` for a device the document `explain DEVICE` (the library device it follows, its "
+        "state and the import record that links it; null where there is none). "
         "`export --out FOLDER` writes the outputs to FOLDER instead of `<project>/outputs`. "
         "`export` and `generate` take `--run-record [--author NAME]`: the record of the run "
         "(`run_record.json`) is then written into the outputs folder, outside every hash, and "
@@ -393,7 +423,7 @@ def render() -> str:
         "`Already up to date.` and ends with 0, so it can run again on every build. "
         "Every command that changes a project takes the same lock as the app, so the two never write "
         "at once. The commands that import data (`import-parts`, `import-lengths`, `import-build-data`, `import-netlist`, `import-pinout`, `import-devices`) "
-        "accept `--dry-run`: they show what they would do and change nothing; "
+        "and `add-device` accept `--dry-run`: they show what they would do and change nothing; "
         "`config --ampacity-csv` does not. "
         "The option `--author NAME` (given before the command) names who is making the changes "
         "of a run in the change journal of a project that has one; the environment variable "
@@ -420,6 +450,17 @@ def render() -> str:
         "`import-build-data`), and `imports --json` prints `records_file`, `count`, "
         "`sources_changed` and the `imports` with their `status` and `current_sha256`.",
         "",
+        "The device library (`libraries`, `add-device`, `update-device`, `save-device`): the "
+        "libraries are the folders of `--library FOLDER` (repeatable; they replace the rest for "
+        "the run), else those of the project's `device-libraries.json`; the command line never "
+        "reads the editor's library folder. These commands end with 1 when a change is refused "
+        "and nothing was changed (an ID the project has already, a device in two libraries, a "
+        "change a released harness locks, a part conflict, a device file that differs without "
+        "`--replace`) and when `update-device --check` finds a device that follows a library and "
+        "differs from it; with 2 when a device or a library cannot be found or read. "
+        "`update-device` without `--apply` changes nothing. `libraries --add` and `--remove` "
+        "change `device-libraries.json` at once, outside undo and the change journal.",
+        "",
         "The examples show the form of each command with example names. They do not all work "
         "on any project: `release` is blocked until its conditions are met (placeholder "
         "configuration, unapproved parts, missing gauges and lengths; see "
@@ -441,7 +482,7 @@ def render() -> str:
             positional = [a for a in actions if not a.option_strings]
             usage = " ".join(
                 [f"{PROG} {cmd}"]
-                + [f"[{_name(a)}]" if a.nargs == "?" else _name(a) for a in positional]
+                + [f"[{_name(a)}]" if a.nargs in ("?", "*") else _name(a) for a in positional]
                 + (["[options]"] if len(positional) != len(actions) else [])
             )
             lines += [

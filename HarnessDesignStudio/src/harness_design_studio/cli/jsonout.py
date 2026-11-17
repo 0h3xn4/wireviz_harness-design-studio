@@ -35,6 +35,10 @@ SHAPES: dict[str, tuple[str, ...]] = {
     "settings": ("settings", "definitions", "assumptions"),  # no "ok": printed as before
     "settings --annotate": ("ok", "action", "files", "unchanged", "changed"),
     "explain --all": ("ok", "count", "without_value", "files"),  # with OBJECT: a list
+    # a device: its library device, the state and the import record (D-240)
+    "explain DEVICE": (
+        "ok", "device", "name", "follows", "state", "library", "file", "record", "message",
+    ),
     # each derivation of the list (no "ok"); one whose result is a text has `text` after `missing`
     "explain OBJECT": (
         "id", "subject", "quantity", "value", "unit", "equation", "inputs", "steps", "check",
@@ -74,6 +78,12 @@ SHAPES: dict[str, tuple[str, ...]] = {
         "ok", "dry_run", "changed", "name", "connections", "rows", "notes", "import",
     ),
     "imports": ("ok", "records_file", "count", "sources_changed", "imports"),
+    "libraries": ("ok", "source", "changed", "libraries", "problems", "devices"),
+    "add-device": (
+        "ok", "dry_run", "changed", "devices", "sources", "records", "notes", "skipped", "taken",
+    ),
+    "update-device": ("ok", "apply", "check", "differ", "changed", "devices"),
+    "save-device": ("ok", "device", "library", "file", "changed", "record", "notes"),
     "import-subsystem --show": (
         "ok", "name", "description", "devices", "connectors", "connections", "device_list",
     ),

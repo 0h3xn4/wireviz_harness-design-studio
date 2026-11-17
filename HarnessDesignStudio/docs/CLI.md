@@ -13,9 +13,11 @@ Generated from the program by `python -m tools.gen_cli_docs`; do not edit by han
 
 A project with damaged files (a file that is not valid, a link, over 64 MB or unreadable) is refused with exit 2 and the damaged file named by every command that reports on it or changes it: `drc`, `verify`, `export`, `generate`, `config`, `library`, `log`, `diff`, `compare`, `review`, `release`, `revise`, `migrate` and the imports. Only `validate` and `check` read it and list the damage (exit 1), so you can see what to repair. With Ctrl-C a command prints `interrupted` and ends with 130 (if it was saving, run `harness-design-studio validate`). A reader that closes the pipe (`harness-design-studio generate | head -1`) does not stop the command: it still finishes and saves.
 
-An import whose file says what the project already holds changes nothing, prints `Already up to date.` and ends with 0, so it can run again on every build. Every command that changes a project takes the same lock as the app, so the two never write at once. The commands that import data (`import-parts`, `import-lengths`, `import-build-data`, `import-netlist`, `import-pinout`, `import-devices`) accept `--dry-run`: they show what they would do and change nothing; `config --ampacity-csv` does not. The option `--author NAME` (given before the command) names who is making the changes of a run in the change journal of a project that has one; the environment variable `HARNESS_AUTHOR` does the same, and without either the journal records `unknown`: no name is looked up (not Git's `user.name`, not the user of the computer).
+An import whose file says what the project already holds changes nothing, prints `Already up to date.` and ends with 0, so it can run again on every build. Every command that changes a project takes the same lock as the app, so the two never write at once. The commands that import data (`import-parts`, `import-lengths`, `import-build-data`, `import-netlist`, `import-pinout`, `import-devices`) and `add-device` accept `--dry-run`: they show what they would do and change nothing; `config --ampacity-csv` does not. The option `--author NAME` (given before the command) names who is making the changes of a run in the change journal of a project that has one; the environment variable `HARNESS_AUTHOR` does the same, and without either the journal records `unknown`: no name is looked up (not Git's `user.name`, not the user of the computer).
 
 What an import prints. Every import that reads a file says what it read before it lists the rows: `Read 12 row(s) of segment lengths from lengths.csv (sha256 117043908312).`, `Columns read: harness -> harness, segment -> segment, length -> length`, a line `warning: the column 'Notes' is not read; its values are not imported.` for every column that is left out, and the unit: `Unit: length in mm (assumed; --unit says another).` or `Unit: length in in (given with --unit).`. A value that is converted is shown with the value as written, its unit and the value stored: `Converted, row 2 (ZZ-1): 0.25 kg = 250 g`; `import-lengths` shows it on the line of its row, `row 2: OK W001 / W001-L1: 850 mm = 0.85 m`. A row that is dropped says why: `row 3: ERROR Harness 'W009' does not exist`. An import that is applied (not with `--dry-run`) records the file in the project, in `imports/records.json` (kind, file name, SHA-256, rows read, rows dropped with the reason, values converted, columns read and left out, unit, tool version; no time and no absolute path), and ends with `Import record: lengths:lengths.csv written to imports/records.json.`; importing the same file again replaces its record, and an unchanged file changes nothing. `harness-design-studio imports` lists the records and shows whether a source file has changed since. With `--json` every import prints the same facts as the last key, `import` (the record, with `record_written` true when this run wrote it, and the `warnings` of `import-build-data`), and `imports --json` prints `records_file`, `count`, `sources_changed` and the `imports` with their `status` and `current_sha256`.
+
+The device library (`libraries`, `add-device`, `update-device`, `save-device`): the libraries are the folders of `--library FOLDER` (repeatable; they replace the rest for the run), else those of the project's `device-libraries.json`; the command line never reads the editor's library folder. These commands end with 1 when a change is refused and nothing was changed (an ID the project has already, a device in two libraries, a change a released harness locks, a part conflict, a device file that differs without `--replace`) and when `update-device --check` finds a device that follows a library and differs from it; with 2 when a device or a library cannot be found or read. `update-device` without `--apply` changes nothing. `libraries --add` and `--remove` change `device-libraries.json` at once, outside undo and the change journal.
 
 The examples show the form of each command with example names. They do not all work on any project: `release` is blocked until its conditions are met (placeholder configuration, unapproved parts, missing gauges and lengths; see [`GETTING_STARTED.md`](GETTING_STARTED.md)), and `revise` works only on a released harness.
 
@@ -30,6 +32,7 @@ The examples show the form of each command with example names. They do not all w
 - Team use with Git: [`merge-fix`](#harness-design-studio-merge-fix)
 - Bring in data: [`config`](#harness-design-studio-config), [`library`](#harness-design-studio-library), [`import-parts`](#harness-design-studio-import-parts), [`import-lengths`](#harness-design-studio-import-lengths), [`import-netlist`](#harness-design-studio-import-netlist), [`import-pinout`](#harness-design-studio-import-pinout), [`import-devices`](#harness-design-studio-import-devices), [`import-subsystem`](#harness-design-studio-import-subsystem), [`import-build-data`](#harness-design-studio-import-build-data), [`imports`](#harness-design-studio-imports)
 - Write data out: [`export-pinout`](#harness-design-studio-export-pinout), [`export-devices`](#harness-design-studio-export-devices), [`export-subsystem`](#harness-design-studio-export-subsystem)
+- Device library: [`libraries`](#harness-design-studio-libraries), [`add-device`](#harness-design-studio-add-device), [`update-device`](#harness-design-studio-update-device), [`save-device`](#harness-design-studio-save-device)
 - Record what was built: [`export-asbuilt`](#harness-design-studio-export-asbuilt), [`import-asbuilt`](#harness-design-studio-import-asbuilt), [`asbuilt`](#harness-design-studio-asbuilt)
 - Review, release and change: [`review`](#harness-design-studio-review), [`release`](#harness-design-studio-release), [`revise`](#harness-design-studio-revise), [`diff`](#harness-design-studio-diff), [`log`](#harness-design-studio-log), [`compare`](#harness-design-studio-compare)
 - Extend the tool: [`extensions`](#harness-design-studio-extensions), [`trust`](#harness-design-studio-trust), [`import-plugin`](#harness-design-studio-import-plugin)
@@ -39,7 +42,7 @@ The examples show the form of each command with example names. They do not all w
 
 Every command that has a result in data form takes `--json`. The usual text lines are then not printed; one JSON document is, and the exit code is the one the command has without the option (the table above). It has no time, no user name and no absolute path, its lists are in a fixed order (by ID, as the text shows them) and the same design gives the same bytes, so it can be compared and kept in Git. `ok` comes first and is true when the exit code is 0. A command that cannot run at all (a project that cannot be read, a wrong option) writes its message to the standard error as before and prints nothing to the standard output; a command that ran and was refused (`generate` with errors, `export` that failed its check, `release` that is blocked) still prints its document, with `ok` false and the reasons in it. The same documents are what the Python interface gives ([`user-manual/script-the-tool.md`](user-manual/script-the-tool.md)).
 
-`explain OBJECT --json` prints a list of derivations (each with the keys of the row `explain OBJECT` below; `model_page` is the page of `docs/models/` that explains the kind of derivation, and a derivation whose result is a text also has `text` after `missing`) and `settings --json` the document of settings, definitions and assumptions, both without an `ok`; `explain --all --out FOLDER --json` prints the document below. `export --out FOLDER` writes the outputs to FOLDER instead of `<project>/outputs`. `export` and `generate` take `--run-record [--author NAME]`: the record of the run (`run_record.json`) is then written into the outputs folder, outside every hash, and their document gains the key `run_record` (the name of the file); without the option no record is written and the document is as listed. `config` prints every engineering value with its unit, its use, whether it is set and where it came from, and the values it refused, in the order of the hand-over list; `comment_warnings` lists the comments `_about` of the config files that are out of date. `settings --annotate` and `--no-annotate` print the document `settings --annotate`.
+`explain OBJECT --json` prints a list of derivations (each with the keys of the row `explain OBJECT` below; `model_page` is the page of `docs/models/` that explains the kind of derivation, and a derivation whose result is a text also has `text` after `missing`) and `settings --json` the document of settings, definitions and assumptions, both without an `ok`; `explain --all --out FOLDER --json` prints the document below, and `explain DEVICE --json` for a device the document `explain DEVICE` (the library device it follows, its state and the import record that links it; null where there is none). `export --out FOLDER` writes the outputs to FOLDER instead of `<project>/outputs`. `export` and `generate` take `--run-record [--author NAME]`: the record of the run (`run_record.json`) is then written into the outputs folder, outside every hash, and their document gains the key `run_record` (the name of the file); without the option no record is written and the document is as listed. `config` prints every engineering value with its unit, its use, whether it is set and where it came from, and the values it refused, in the order of the hand-over list; `comment_warnings` lists the comments `_about` of the config files that are out of date. `settings --annotate` and `--no-annotate` print the document `settings --annotate`.
 
 | Command | Keys of the document |
 | --- | --- |
@@ -52,6 +55,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `settings` | `settings`, `definitions`, `assumptions` |
 | `settings --annotate` | `ok`, `action`, `files`, `unchanged`, `changed` |
 | `explain --all` | `ok`, `count`, `without_value`, `files` |
+| `explain DEVICE` | `ok`, `device`, `name`, `follows`, `state`, `library`, `file`, `record`, `message` |
 | `explain OBJECT` | `id`, `subject`, `quantity`, `value`, `unit`, `equation`, `inputs`, `steps`, `check`, `assumptions`, `reference`, `missing`, `model_page` |
 | `export-data` | `ok`, `count`, `model_hash`, `files`, `run_record` |
 | `generate` | `ok`, `saved`, `added`, `changed`, `unchanged`, `removed`, `frozen`, `kept_locks`, `findings`, `interfaces_checked`, `wires_checked`, `verify_issues` |
@@ -68,6 +72,10 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `import-devices --list` | `ok`, `devices` |
 | `import-subsystem` | `ok`, `dry_run`, `changed`, `name`, `connections`, `rows`, `notes`, `import` |
 | `imports` | `ok`, `records_file`, `count`, `sources_changed`, `imports` |
+| `libraries` | `ok`, `source`, `changed`, `libraries`, `problems`, `devices` |
+| `add-device` | `ok`, `dry_run`, `changed`, `devices`, `sources`, `records`, `notes`, `skipped`, `taken` |
+| `update-device` | `ok`, `apply`, `check`, `differ`, `changed`, `devices` |
+| `save-device` | `ok`, `device`, `library`, `file`, `changed`, `record`, `notes` |
 | `import-subsystem --show` | `ok`, `name`, `description`, `devices`, `connectors`, `connections`, `device_list` |
 | `export-pinout` | `ok`, `device`, `pin_rows`, `columns`, `rows`, `written` |
 | `export-devices` | `ok`, `devices`, `connectors`, `notes` |
@@ -245,6 +253,7 @@ Show how the numbers and decisions of one object were made. For a wire: its leng
 | `--json` | print the derivations as JSON |
 | `--all` | every derivation of the project (instead of OBJECT) |
 | `--out OUT` | with --all: the folder for derivations.json and derivations.csv |
+| `--library FOLDER` | for a device: a device library folder to use instead of the project's device-libraries.json (repeat for more) (repeatable) |
 
 Examples:
 
@@ -255,6 +264,7 @@ harness-design-studio explain wheel-link EX-WIRE-SINGLE
 harness-design-studio explain wheel-link --all --out wheel-link-derivations
 harness-design-studio explain wheel-link IF-001.GPSU1-J01
 harness-design-studio explain wheel-link W001-001 --json
+harness-design-studio explain wheel-link PCDU1
 harness-design-studio explain wheel-link --all --out wheel-link-derivations --json
 ```
 
@@ -698,7 +708,7 @@ harness-design-studio import-build-data my-design strip-lengths-in-inches.csv --
 
 ### harness-design-studio imports
 
-List the import records of a project (imports/records.json): for every import the kind, the source file name, the number of rows read, dropped and converted, the unit, and a short SHA-256. A source that can be reached (its path inside the project folder, or a file you name with --source) is compared with the recorded SHA-256 and marked `source changed` when it differs; the other sources are marked `not checked (no path)` or `source not found`. The record holds no time and no absolute path. With --json the records and their status are printed as one JSON document. With --check the command ends with 1 when a source has changed, so a build can stop on it.
+List the import records of a project (imports/records.json): for every import the kind, the source file name, the number of rows read, dropped and converted, the unit, and a short SHA-256. A source that can be reached (its path inside the project folder, or a file you name with --source; the file of a device record is looked for in the project's device libraries, those of its device-libraries.json or of --library) is compared with the recorded SHA-256 and marked `source changed` when it differs; the other sources are marked `not checked (no path)` or `source not found`. The record holds no time and no absolute path. With --json the records and their status are printed as one JSON document. With --check the command ends with 1 when a source has changed, so a build can stop on it.
 
 `harness-design-studio imports project [options]`
 
@@ -706,6 +716,7 @@ List the import records of a project (imports/records.json): for every import th
 | --- | --- |
 | `project` | the project folder |
 | `--source FILE` | a file to compare with the record of the same file name, for a source outside the project folder (repeatable) |
+| `--library FOLDER` | a device library folder to use instead of the project's device-libraries.json (repeat for more) (repeatable) |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
 | `--check` | end with exit code 1 when a source has changed |
 
@@ -715,6 +726,7 @@ Examples:
 harness-design-studio imports my-design
 harness-design-studio imports my-design --check
 harness-design-studio imports my-design --json --source cad/lengths.csv
+harness-design-studio imports my-design --check --library ../acme-device-library
 ```
 
 ## Write data out
@@ -784,6 +796,107 @@ Examples:
 ```
 harness-design-studio export-subsystem my-design wheel-drive.json --device OBC1 --device RW1 --name "Wheel drive"
 harness-design-studio export-subsystem my-design wheel-drive.json --device OBC1 --name "Wheel drive" --json
+```
+
+## Device library
+
+### harness-design-studio libraries
+
+List the device libraries of a project: the folders of its device-libraries.json (or of --library), each with its name, its number of devices and its Git commit and branch (read from the folder; `git` is never run), and every file that could not be used. --add and --remove change device-libraries.json at once: it is not part of the design, so the change is outside undo and the change journal. With --devices every device of the libraries and of the project that has to do with them is listed with its state: not in project, up to date, library changed, changed here, same ID, not from the library, source not found, in more than one library.
+
+`harness-design-studio libraries project [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `--add FOLDER` | name a library folder in device-libraries.json: relative to the project folder, written with / (an absolute path is turned into one relative to the project folder) (repeatable) |
+| `--remove FOLDER` | take a library folder out of device-libraries.json (as the file names it) (repeatable) |
+| `--devices` | also list every device with its state |
+| `--library FOLDER` | a device library folder to use instead of the project's device-libraries.json (repeat for more; the folders given replace the project's list for this run) (repeatable) |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio libraries my-design
+harness-design-studio libraries my-design --add ../acme-device-library
+harness-design-studio libraries my-design --devices --json
+harness-design-studio libraries my-design --remove ../acme-device-library
+```
+
+### harness-design-studio add-device
+
+Add a device of the project's device libraries with its connectors, pins, the parts and interface types the project lacks, and the import record of its file (`devices:<file>`), which links the device to the library: `update-device` then shows what the library changes. NAME is the device ID or a device name that only one device has. It is one undo step. An ID the project has already is refused: when that device follows the library, ask for copies with --count; when it does not, add the library's device under another ID with --as (an unlinked copy, no record), or link the project's device with `update-device DIR ID --apply --adopt`.
+
+`harness-design-studio add-device project NAME [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `NAME` | a device of the library: its ID or its name |
+| `--count N` | how many of this device the project has: the device and its copies (ID-R, ID-3 ...; at most 10; one NAME only) (default 1) |
+| `--as ID` | add the device under another ID: a copy that does not follow the library (no import record; one NAME only) |
+| `--dry-run` | show what would be added and change nothing |
+| `--library FOLDER` | a device library folder to use instead of the project's device-libraries.json (repeat for more; the folders given replace the project's list for this run) (repeatable) |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio add-device my-design PCDU00 --dry-run
+harness-design-studio add-device my-design PCDU00 --count 2
+harness-design-studio add-device my-design GYRO1 RW1 --json
+harness-design-studio add-device my-design PCDU00 --as PCDU01
+harness-design-studio add-device my-design PCDU00 --library ../acme-device-library
+```
+
+### harness-design-studio update-device
+
+Compare the devices that follow a device library with the library: one row per changed field (device, connector, pin, field, in this project, in the library, and the released harness that locks it), what the change would touch (interfaces, wires and links on pins that go, drafts to generate again) and the notes. Without --apply nothing is changed. With --apply the library's version is taken, all or nothing per device and its copies, as one undo step each: the library-owned fields change (the connectors and pins, kind, mass relevance, notes), the project's own stay (name, subsystem, zone, side, the place, and on each pin the interface, the lock and an allocated signal), missing parts and interface types are added, and the import record is replaced. A change that a released harness locks, a pin that a link pairs, or a part of another category or pin count refuses that device; the message names it, and nothing of it is changed. Without NAME every device that follows a library is compared.
+
+`harness-design-studio update-device project [NAME] [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `NAME` | a device of the project (a copy names its library device); default: all |
+| `--all` | every device that follows a library (with --apply) |
+| `--apply` | take the library's version (needs NAME or --all) |
+| `--check` | end with exit code 1 while a device that follows a library differs from it |
+| `--adopt` | with --apply and NAME: link a device of the same ID that was not added from the library, and take the library's version |
+| `--library FOLDER` | a device library folder to use instead of the project's device-libraries.json (repeat for more; the folders given replace the project's list for this run) (repeatable) |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio update-device my-design
+harness-design-studio update-device my-design --check
+harness-design-studio update-device my-design PCDU00 --apply
+harness-design-studio update-device my-design --all --apply --json
+harness-design-studio update-device my-design PCDU00 --apply --adopt
+```
+
+### harness-design-studio save-device
+
+Write a device of the project into a device library folder: into the device file that holds it already, else `<ID>.device.json` at the root of the folder. A different device of the same ID there is refused unless --replace. The project then gets the import record of the written file, so the device follows the library. The library is the folder of --library, else the library of the project that holds the device, else the project's only library. The tool never commits: commit the library to share it.
+
+`harness-design-studio save-device project DEVICE [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `DEVICE` | the device to save, for example PCDU1 |
+| `--library FOLDER` | the library folder to write into |
+| `--replace` | replace a different device of the same ID in the library |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio save-device my-design PCDU00
+harness-design-studio save-device my-design PCDU00 --library ../acme-device-library
+harness-design-studio save-device my-design PCDU00 --replace --json
 ```
 
 ## Record what was built

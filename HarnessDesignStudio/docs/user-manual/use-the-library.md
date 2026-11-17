@@ -14,6 +14,7 @@ This page shows how a team keeps its devices and subsystems in one **library fol
 - [4. A number of the same device](#4-a-number-of-the-same-device)
 - [Share the library: a drive or a Git repository](#share-the-library-a-drive-or-a-git-repository)
 - [On the command line](#on-the-command-line)
+- [A device library on the command line (2.2.0)](#a-device-library-on-the-command-line-220)
 - [What the program never does](#what-the-program-never-does)
 - [Common mistakes](#common-mistakes)
 
@@ -131,7 +132,66 @@ RW1: OK as RW1 (2 connector(s), 30 pin(s))
 Added subsystem 'Wheel drive': 2 device(s), 0 connection(s).
 ```
 
-Run the last command again and the devices come in as `PCDU1-2` and `RW1-2`, with a `note:` line for each. Devices alone are added with `import-devices` ([define a device](define-a-device.md#use-a-device-in-another-project)). There is no command line for the number of devices yet.
+Run the last command again and the devices come in as `PCDU1-2` and `RW1-2`, with a `note:` line for each. Devices alone are added with `import-devices` ([define a device](define-a-device.md#use-a-device-in-another-project)), or from a device library with `add-device`, which also takes the number of devices (`--count`, next section).
+
+## A device library on the command line (2.2.0)
+
+> **New in 2.2.0** (decision D-240, not released yet). A project can name its device libraries, and a device added from one keeps a record of the file it came from, so the program can say when the library has a newer version and take it when you ask. The command lines below were run, and their output is real; the change in the library was made by editing the file, as a colleague's save would.
+
+A device library is a folder of `NAME.device.json` files, one device each. `save-device` writes one and links the project's device to it:
+
+```
+mkdir acme-devices
+harness-design-studio save-device wheel-link RW1 --library acme-devices
+```
+
+```
+Saved RW1 to the library acme-devices: RW1.device.json.
+Import record: devices:RW1.device.json (SHA-256 353f5e32255d) written to imports/records.json.
+  Library: acme-devices
+  Library file: RW1.device.json
+  Library: not a Git repository
+Commit the library to share it.
+```
+
+The program never commits. In a Git checkout the record also names the commit, and *Library file: not committed* until you commit. Another project names the library in its `device-libraries.json` (a path relative to the project folder) and adds the device from it:
+
+```
+harness-design-studio libraries second --add ../acme-devices
+harness-design-studio add-device second RW1 --dry-run
+harness-design-studio add-device second RW1
+```
+
+```
+device-libraries.json written: 1 device library.
+This change is outside undo and the change journal: device-libraries.json is not part of the design. Commit it with the project.
+Device libraries of this project (from device-libraries.json):
+  ../acme-devices: acme-devices, 1 device, not a Git repository
+Would add RW1 from the library acme-devices (RW1.device.json).
+...
+Dry run: nothing was changed.
+Added RW1 from the library acme-devices (RW1.device.json).
+Import record: devices:RW1.device.json (SHA-256 353f5e32255d) written to imports/records.json.
+...
+```
+
+`add-device second RW1 --count 2` adds `RW1` and `RW1-R`, which both follow the library. Adding a device whose ID the project has already is refused (exit code 1) and changes nothing: when that device follows the library, ask for copies with `--count`; when it does not, add the library's device as a copy that does not follow the library (`--as RW9`), or link the project's device with `update-device second RW1 --apply --adopt`.
+
+When the library has a newer version of the device, `update-device` shows what it changes, one row per field, and changes nothing:
+
+```
+harness-design-studio update-device second
+```
+
+```
+RW1: library changed. Library acme-devices, RW1.device.json.
+  Device  Connector  Pin  Field     In this project  In the library  Locked by
+  RW1     -          -    notes     -                Flight model    -
+  RW1     RW1-J01    1    function  -                Motor supply    -
+1 device differs from the library. Nothing was changed; add --apply to take the library's version.
+```
+
+`update-device second --check` ends with exit code 1 while a device differs, so a build can stop on it. `update-device second RW1 --apply` takes the library's version (*Took the library's version of RW1: 2 changes.*) and the new record. What stays the project's own: the name, subsystem, zone, side and place of the device, and on each pin its interface, its lock and an allocated signal. It is all or nothing for a device and its copies: a change that a released harness locks is refused, the message names the harness (start a new revision with `revise`), and nothing of that device changes. `libraries second --devices` lists every device with its state, `explain second RW1` names the library file and the record, and `imports second --check` notices a library file that changed.
 
 ## What the program never does
 
