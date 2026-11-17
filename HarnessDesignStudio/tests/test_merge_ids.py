@@ -401,6 +401,35 @@ def test_b_a_hand_drawn_harness_and_the_place_of_its_loose_end(tmp_path, clock, 
     validate_clean(design, capsys)
 
 
+def branch_point(harness_id: str):
+    def step(design: Path) -> None:
+        from harness_design_studio.core.branching import plan_add_branch_point
+
+        edit(design, lambda p: plan_add_branch_point(p, harness_id)[0])
+
+    return step
+
+
+def test_b_the_place_of_a_branch_point_follows_its_renamed_harness(tmp_path, clock, capsys):
+    """2.3.0 (D-243): the mark `branch:<branch point>` is renamed with its harness, as `pos:`."""
+    start(tmp_path)
+    branch(
+        tmp_path, "ann", [cable("PCDU1-J02"), branch_point("W003"), mark("branch:W003-B1", 30.0)]
+    )
+    branch(tmp_path, "bob", [cable("OBC1-J02"), branch_point("W003"), mark("branch:W003-B1", -5.0)])
+    design = merge(tmp_path)
+    assert conflict_files(design) == ["diagram/marks.json", "physical/harnesses/W003.json"]
+    capsys.readouterr()
+    assert main(["merge-fix", str(design)]) == 0
+    out = capsys.readouterr().out
+    assert "diagram/marks.json: diagram mark branch:W003-B1 -> branch:W004-B1" in out
+    marks = {m["id"]: m for m in files(design, "diagram/marks.json")["marks"]}
+    assert marks["branch:W004-B1"]["dx"] == 30.0  # Ann's branch point keeps its place
+    assert marks["branch:W003-B1"]["dx"] == -5.0
+    p = load_project(design).project
+    assert [b.id for b in p.harnesses["W004"].branch_points] == ["W004-B1"]
+
+
 # ---- (c) links -------------------------------------------------------------------------------------------
 
 

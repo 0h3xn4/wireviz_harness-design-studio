@@ -3,13 +3,13 @@
 """Referential integrity of a project. Runs on every load, save and transaction."""
 
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from typing import NamedTuple
 
 from .issues import Issue
-from .model import Connector, Harness, Project
+from .model import Connector, Harness, Project, Wire
 
 
 def _warn(code: str, message: str, object_id: str | None = None) -> Issue:
@@ -205,6 +205,85 @@ def _check_harness(project: Project, h: Harness, all_wires: Counter[str]) -> lis
         for dup, n in sorted(Counter(ids).items()):
             if n > 1:
                 out.append(_err("duplicate_id", f"Harness '{h.id}' has {n} {kind} with ID '{dup}'.", dup))  # fmt: skip
+    out.extend(_check_routing(h))
+    return out
+
+
+# ---- the routing tree of a harness (2.3.0, D-243): warnings only ------------------------------
+
+
+def ends_apart(h: Harness, members: Sequence[Wire]) -> str | None:
+    """Why wires cannot share one shield group: two of them end on different connectors (2.3.0,
+    section 5.4 of the design of branching). A group has one end A and one end B, so its wires run
+    between the same two connectors; a group whose wires go to different far connectors across a
+    branch has more ends than the model can say. None when they all share their two connectors.
+    A connector is named by the device connector it plugs into, else by its own ID. Shared by
+    `plan_group_wires` and the integrity warning `shield_across_branch`."""
+    ordered = sorted(members, key=lambda w: w.id)
+    if len(ordered) < 2:
+        return None
+    first = ordered[0]
+    a = {first.from_connector, first.to_connector}
+    other = next((w for w in ordered[1:] if {w.from_connector, w.to_connector} != a), None)
+    if other is None:
+        return None
+    b = {other.from_connector, other.to_connector}
+    mates = {c.id: c.mates_with or c.id for c in h.connectors}
+    x = (sorted(a - b) or sorted(a))[0]
+    y = (sorted(b - a) or sorted(b))[0]
+    return (
+        f"{first.id} and {other.id} end on different connectors ({mates.get(x, x)}, "
+        f"{mates.get(y, y)}); a shield group runs between two connectors."
+    )
+
+
+def _check_routing(h: Harness) -> list[Issue]:
+    """The three warnings of a routing tree (section 5.5 of the design of branching). They read
+    the harness alone (its connectors, wires, shields, branch points and segments), so the
+    tracker's memo of the harness covers them (`_Reads.harness`); they can only warn.
+
+    - `segment_tree_split`: a harness with branch points whose segments do not join every
+      connector and branch point into one tree; the wires to the parts left out have no length.
+    - `branch_point_unused`: a branch point with fewer than two segments.
+    - `shield_across_branch`: a shield group whose wires end on different connectors."""
+    out: list[Issue] = []
+    if h.branch_points:
+        touching: Counter[str] = Counter()
+        for s in h.segments:
+            touching[s.from_node] += 1
+            touching[s.to_node] += 1
+        for b in sorted(h.branch_points, key=lambda x: x.id):
+            n = touching[b.id]
+            if n < 2:
+                out.append(_warn("branch_point_unused", f"Branch point '{b.id}' ({b.name}) in harness '{h.id}' has {n} segment{'' if n == 1 else 's'}. A branch point joins two or more segments; add segments to it or delete it.", b.id))  # fmt: skip
+        nodes = [c.id for c in h.connectors] + [b.id for b in h.branch_points]
+        known = set(nodes)
+        parent = {x: x for x in nodes}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        for s in h.segments:
+            if s.from_node in known and s.to_node in known:
+                parent[find(s.from_node)] = find(s.to_node)
+        parts: dict[str, list[str]] = {}
+        for x in nodes:
+            parts.setdefault(find(x), []).append(x)
+        if len(parts) > 1:
+            # the tree is the largest part (the first by its smallest ID when two are as large)
+            main = min(parts.values(), key=lambda xs: (-len(xs), min(xs)))
+            left = sorted(x for x in nodes if x not in set(main))
+            shown = ", ".join(left[:6]) + (" ..." if len(left) > 6 else "")
+            out.append(_warn("segment_tree_split", f"The segments of harness '{h.id}' do not reach {shown} from its routing tree, so the wires to {'them' if len(left) > 1 else 'it'} have no length. Add a segment that joins {'them' if len(left) > 1 else 'it'} to the tree.", h.id))  # fmt: skip
+    if h.shields:
+        by_id = {w.id: w for w in h.wires}
+        for g in sorted(h.shields, key=lambda x: x.id):
+            apart = ends_apart(h, [by_id[i] for i in g.wire_ids if i in by_id])
+            if apart is not None:
+                out.append(_warn("shield_across_branch", f"Shield group '{g.id}' in harness '{h.id}': {apart} Split it into one group per pair of connectors.", g.id))  # fmt: skip
     return out
 
 
@@ -534,7 +613,10 @@ class _Reads:
         self.exists["interfaces"] |= {p.interface_id for p in c.pins if p.interface_id is not None}
 
     def harness(self, h: Harness) -> None:
-        """What `_check_harness` looks at (the checks of its connectors are added separately)."""
+        """What `_check_harness` looks at (the checks of its connectors are added separately). The
+        warnings of the routing tree (`_check_routing`: `segment_tree_split`, `branch_point_unused`,
+        `shield_across_branch`, 2.3.0) read the harness alone, which is recorded here: a harness
+        is checked again whenever it is replaced."""
         self.reads["parts"] |= {w.part_id for w in h.wires if w.part_id is not None}
         self.reads["parts"] |= {a.part_id for a in h.accessories if a.part_id is not None}
         self.reads["connectors"] |= {w.from_connector for w in h.wires}
