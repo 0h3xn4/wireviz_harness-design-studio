@@ -16,7 +16,7 @@ from harness_design_studio.core import checks
 from harness_design_studio.core.commands import History, apply_ops
 from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.generate.engine import plan_generation
-from harness_design_studio.core.integrity import check_integrity
+from harness_design_studio.core.integrity import check_integrity, one_plug_advice
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.links import (
@@ -46,6 +46,7 @@ from harness_design_studio.core.verify import link_issues, verify_project
 from harness_design_studio.core.wires import plan_add_wire
 from harness_design_studio.resources import examples_path
 from tests.helpers import pinout_project
+from tests.reference import integrity_181 as old_integrity
 
 EXAMPLES = examples_path()
 assert EXAMPLES is not None
@@ -351,25 +352,29 @@ def test_the_advice_on_a_second_plug_says_what_can_be_done_today():
     assert not [f for f in plan.report.findings if f.code == "box_connector_shared"]
 
 
-def test_the_advice_on_plugs_of_harnesses_drawn_by_hand_does_not_name_the_segmentation():
-    """The segmentation does not join harnesses drawn by hand, so the advice for them does not
-    name it; three plugs say *the extra plugs*."""
+def test_the_advice_on_plugs_of_harnesses_drawn_by_hand_stays_as_it_was():
+    """The segmentation does not join harnesses drawn by hand, and such a harness can branch
+    today, so their advice stays the one of 2.1.0 (the finding ID, and so a waiver, and the written
+    DRC outputs of projects with such harnesses do not change). Three plugs that Generate makes say
+    *the extra plugs*."""
     p = pinout_project()
     hand_harness(p, "OBC-J01", "RW1-J02", ("1", "3"), name="one")
     hand_harness(p, "OBC-J01", "PCDU-J03", ("2", "1"), name="two")
     (mated,) = [i for i in check_integrity(p) if i.code == "box_connector_mated_twice"]
-    assert "per_zone_pair" not in mated.message and "with a branch" not in mated.message
     assert mated.message.endswith(
-        "Keep one harness for it, or use different connectors. Or accept the second plug until a"
-        " harness can branch (planned for 2.3.0)."
+        "A connector takes one plug. Keep one harness for it, or join the wires into one harness"
+        " with a branch."
     )
-    hand_harness(p, "OBC-J01", "PCDU-J03", ("3", "2"), name="three")
-    (mated,) = [
-        i
-        for i in check_integrity(p)
-        if i.code == "box_connector_mated_twice" and i.object_id == "OBC-J01"
+    assert [as_181_text(i) for i in check_integrity(p)] == [
+        as_181_text(i) for i in old_integrity.check_integrity(p)
     ]
-    assert "3 cable plugs" in mated.message and "accept the extra plugs until" in mated.message
+    assert one_plug_advice(3).endswith(
+        "Or accept the extra plugs until a harness can branch (planned for 2.3.0)."
+    )
+
+
+def as_181_text(issue):
+    return (issue.code, issue.object_id, issue.message)
 
 
 def test_one_plug_per_connector_makes_no_finding():

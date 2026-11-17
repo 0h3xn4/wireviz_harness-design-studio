@@ -389,8 +389,13 @@ def _warn_shared_connectors(ctx: _Ctx, new_harnesses: dict[str, Harness], frozen
         ctx.finding(
             "warning",
             "box_connector_shared",
-            f"{box_id} has more than one cable plug on it: {names}. A connector takes one plug. "
-            + one_plug_advice(made, len(found)),
+            f"{box_id} has more than one cable plug on it: {names}. A connector takes one plug"
+            + (
+                ". " + one_plug_advice(len(found))
+                if made
+                else "; two harnesses cannot both plug into it. Give the interfaces that share it "
+                "one harness, or use different connectors."  # (the text of 2.1.0)
+            ),
             box_id,
         )
 

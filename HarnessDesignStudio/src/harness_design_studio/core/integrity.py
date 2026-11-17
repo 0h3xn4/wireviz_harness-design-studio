@@ -223,20 +223,24 @@ def _words_list(items: list[str]) -> str:
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
 
 
-def one_plug_advice(generated: bool, plugs: int) -> str:
-    """What a person can do today about more than one cable plug on a device connector, until a
-    harness can branch (planned for 2.3.0, D-235): for harnesses that Generate makes, the
-    segmentation `per_zone_pair` with the far devices in one zone gives one harness with one plug
-    on the connector (D-238); the segmentation does not join harnesses drawn by hand or released.
-    The generation warning `box_connector_shared` gives the same advice."""
-    first = (
-        "For one harness with one plug on it, put the far devices in one zone and set "
-        "segmentation.mode to per_zone_pair, or use different connectors."
-        if generated
-        else "Keep one harness for it, or use different connectors."
-    )
+# the advice when a plug belongs to a harness drawn by hand or released: as in 1.8.1 to 2.1.0 (a
+# harness drawn by hand can branch today); the text is part of the ID of the design rule finding
+HAND_PLUG_ADVICE = "Keep one harness for it, or join the wires into one harness with a branch."
+
+
+def one_plug_advice(plugs: int) -> str:
+    """What a person can do today about more than one cable plug on a device connector when every
+    plug belongs to a harness that Generate makes: the segmentation `per_zone_pair` with the far
+    devices in one zone gives one harness with one plug on the connector (D-238), or the plugs stay
+    until Generate can make a harness that branches (planned for 2.3.0, D-235). The generation
+    warning `box_connector_shared` gives the same advice. The segmentation does not join harnesses
+    drawn by hand or released: those keep `HAND_PLUG_ADVICE`."""
     extra = "the second plug" if plugs <= 2 else "the extra plugs"
-    return f"{first} Or accept {extra} until a harness can branch (planned for 2.3.0)."
+    return (
+        "For one harness with one plug on it, put the far devices in one zone and set "
+        "segmentation.mode to per_zone_pair, or use different connectors. "
+        f"Or accept {extra} until a harness can branch (planned for 2.3.0)."
+    )
 
 
 def _made_by_generate(h: Harness | None) -> bool:
@@ -253,7 +257,7 @@ def _check_mating(project: Project) -> list[Issue]:
             continue
         names = [f"{cid} (harness {hid})" for hid, cid in plugs]
         made = all(_made_by_generate(project.harnesses.get(hid)) for hid, _cid in plugs)
-        out.append(_warn("box_connector_mated_twice", f"The device connector {box_id} has {len(plugs)} cable plugs on it: {_words_list(names)}. A connector takes one plug. {one_plug_advice(made, len(plugs))}", box_id))  # fmt: skip
+        out.append(_warn("box_connector_mated_twice", f"The device connector {box_id} has {len(plugs)} cable plugs on it: {_words_list(names)}. A connector takes one plug. {one_plug_advice(len(plugs)) if made else HAND_PLUG_ADVICE}", box_id))  # fmt: skip
         by_cable = {cid: hid for hid, cid in plugs}
         users: dict[str, set[str]] = {}
         for h in project.harnesses.values():
