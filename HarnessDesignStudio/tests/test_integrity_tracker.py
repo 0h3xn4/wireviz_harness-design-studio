@@ -27,6 +27,7 @@ from harness_design_studio.core.issues import errors
 from harness_design_studio.core.links import plan_create_harness
 from harness_design_studio.core.model import (
     Accessory,
+    BranchPoint,
     Endpoint,
     Harness,
     Part,
@@ -357,9 +358,14 @@ def test_the_whole_check_still_reports_every_issue_of_release_181() -> None:
                 apply_if_possible(p, ops)
         old._CACHE.clear()
         integrity._CACHE.clear()
-        assert [as_181(i) for i in check_integrity(p)] == [
+        assert [as_181(i) for i in check_integrity(p) if i.code not in ROUTING_SINCE_220] == [
             as_181(i) for i in old.check_integrity(p)
         ], seed
+
+
+# Warnings that 1.8.1 did not have: the routing tree of a harness (2.3.0, D-243). They read the
+# harness alone and only warn; `test_the_warnings_of_the_routing_tree_follow_each_edit` covers them.
+ROUTING_SINCE_220 = frozenset({"segment_tree_split", "branch_point_unused", "shield_across_branch"})
 
 
 # Warnings whose advice changed after 1.8.1: the text up to the advice is compared, the advice is
@@ -556,3 +562,46 @@ def test_every_thing_a_check_reads_makes_it_run_again(name: str) -> None:
     assert expected != Counter(), "the scenario must break something, or it proves nothing"
     assert tracker.errors() == expected
     assert whole_check_new(p) == expected
+
+
+ROUTING_SCENARIOS = {
+    "segment_tree_split": lambda h: evolve(
+        h,
+        branch_points=[BranchPoint(id=f"{h.id}-B9", name="B9")],
+        segments=[
+            Segment(id=f"{h.id}-L8", from_node=h.connectors[0].id, to_node=f"{h.id}-B9"),
+        ],
+    ),
+    "branch_point_unused": lambda h: evolve(
+        h, branch_points=[*h.branch_points, BranchPoint(id=f"{h.id}-B9", name="B9")]
+    ),
+    "shield_across_branch": lambda h: evolve(
+        h,
+        connectors=[*h.connectors, evolve(h.connectors[-1], id=f"{h.id}-P9", name="P9", mates_with=None)],
+        wires=[*h.wires, evolve(h.wires[0], id=f"{h.id}-999", to_connector=f"{h.id}-P9", interface_id=None)],
+        shields=[*h.shields, ShieldGroup(id=f"{h.id}-S9", kind="overall_shield", wire_ids=[h.wires[0].id, f"{h.id}-999"])],
+    ),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("code", sorted(ROUTING_SCENARIOS))
+def test_the_warnings_of_the_routing_tree_follow_each_edit(code: str) -> None:
+    """A routing warning reads the harness alone, so an edit of the harness (one `Put`) checks it
+    again, and the errors the tracker gives stay those of the whole check."""
+    p = hand_made()
+    h = max(p.harnesses.values(), key=lambda x: len(x.wires))
+    history = History(p)
+    tracker = history._tracker()
+    tracker.errors()
+
+    def found() -> list:
+        return [i for i in check_integrity(p) if i.code == code]
+
+    before = found()  # (hand_made moved a wire of a group onto a device connector: one is there)
+    history.execute(code, [Put("harnesses", ROUTING_SCENARIOS[code](h))])
+    assert tracker.checked == 1  # the one harness
+    issues = found()
+    assert len(issues) > len(before) and all(i.severity == "warning" for i in issues)
+    assert tracker.errors() == whole_check_new(p)
+    history.undo()
+    assert found() == before

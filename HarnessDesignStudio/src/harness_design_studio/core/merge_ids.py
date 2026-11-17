@@ -20,9 +20,9 @@ works out the way out, and writes nothing:
   An entry that both branches changed in different ways is a real conflict, not an ID collision:
   refused.
 * every entry of the other branch that names a renamed ID (a link that made the harness, the place
-  of a loose end `pos:<connector>`, the label marks of a link, a waiver or a deviation) is changed
-  to the new ID. Which branch an entry comes from is read from Git: it is this branch's when the
-  commit of `HEAD` holds it as it is.
+  of a loose end `pos:<connector>`, the place of a branch point `branch:<branch point>`, the label
+  marks of a link, a waiver or a deviation) is changed to the new ID. Which branch an entry comes
+  from is read from Git: it is this branch's when the commit of `HEAD` holds it as it is.
 
 It refuses (`IdFix.problem`) and nothing is written when a harness that would be renamed has a
 release history (not a draft on either branch, a baseline, a change-log entry or an as-built record
@@ -465,7 +465,7 @@ class _Plan:
         elif rel == MARKS_FILE:
             kind, sep, rest = out["id"].partition(":")
             ident, sep2, tail = rest.partition(":")
-            if kind == "pos":
+            if kind in ("pos", "branch"):  # a loose end's place, a branch point's place
                 ident = self.part_map.get(ident, ident)
             elif kind in ("link", "end", "bend"):
                 ident = self.link_map.get(ident, ident)

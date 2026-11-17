@@ -138,6 +138,24 @@ def test_a_mark_is_an_orphan_when_its_connection_or_interface_is_gone() -> None:
     assert not layout.mark_is_orphan(p, "later:kind:of-mark")  # (not ours to drop)
 
 
+def test_the_mark_of_a_branch_point_is_an_orphan_when_the_branch_point_is_gone() -> None:
+    """2.3.0 (D-243): `branch:<branch point ID>` is where the diagram draws a branch point."""
+    from harness_design_studio.core.generate.engine import generate_project
+    from harness_design_studio.core.model import BranchPoint, evolve
+
+    p = mini3()
+    generate_project(p)
+    h = p.harnesses["W002"]
+    p.harnesses["W002"] = evolve(h, branch_points=[BranchPoint(id="W002-B1", name="Branch 1")])
+    p.diagram_marks["branch:W002-B1"] = DiagramMark(id="branch:W002-B1", dx=3.0, dy=-2.0)
+    assert not layout.mark_is_orphan(p, "branch:W002-B1")
+    assert layout.mark_is_orphan(p, "branch:W002-B2")
+    assert layout.mark_is_orphan(p, "branch:W002-P1")  # a connector is not a branch point
+    p.harnesses["W002"] = h
+    assert layout.mark_is_orphan(p, "branch:W002-B1")
+    assert layout.prune_orphan_marks(p) == ["branch:W002-B1"]
+
+
 def test_the_file_is_written_without_the_marks_of_a_deleted_thing_and_not_at_all_when_none_is_left(
     tmp_path,
 ) -> None:
