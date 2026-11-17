@@ -3759,3 +3759,31 @@ A_PROJECT_LIBRARIES_TIP = (
 )
 SAVE_AS_POINTER_FAILED = "{file} was not copied to the new folder: {why}"
 DV_LIB_ROW_TAKEN = "{0} is in this project already: you choose what to do after you press Add."
+
+# ---- 2.3.0: branching harnesses in the editor (D-243, pull request 6) ---------------------------
+SETTINGS_SEGMENTATION = "How interfaces are grouped into harnesses"
+SETTINGS_SEGMENTATION_TEXT = (
+    "Generate reads this choice of the project (config/segmentation.json, mode). A change is one "
+    "undo step and takes effect at the next Generate."
+)
+SETTINGS_SEGMENTATION_CHOICES = {
+    "per_connector_pair": "Per connector pair (the default)",
+    "per_unit_pair": "Per device pair",
+    "per_zone_pair": "Per zone pair",
+    "per_connector_group": "Per connector group",
+}
+SETTINGS_SEGMENTATION_ABOUT = {
+    "per_connector_pair": "Interfaces between the same two device connectors share a harness.",
+    "per_unit_pair": "Interfaces between the same two devices share a harness.",
+    "per_zone_pair": "Interfaces between the same two zones share a harness.",
+    "per_connector_group": (
+        "Interfaces whose device connectors are joined by interfaces share a harness: one plug on "
+        "each device connector, branching where needed."
+    ),
+}
+SETTINGS_SEGMENTATION_TIP = (
+    "segmentation.mode of the project: which interfaces Generate puts into one harness"
+)
+SETTINGS_SEGMENTATION_UNKNOWN = "The project names {} here, which this version does not know."
+STEP_SET_SEGMENTATION = "Group interfaces {}"
+SEGMENTATION_SET = "Interfaces are grouped {} from the next Generate on."

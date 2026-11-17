@@ -80,6 +80,7 @@ from harness_design_studio.core import workflow as core_workflow
 from harness_design_studio.core.commands import Op
 from harness_design_studio.core.drc import by_rule
 from harness_design_studio.core.errors import HarnessError, ProjectLockedError
+from harness_design_studio.core.generate import segmentation
 from harness_design_studio.core.generate.engine import (
     GenerationCancelled,
     GenerationPlan,
@@ -100,6 +101,7 @@ from harness_design_studio.core.outputs.build import (
     write_outputs,
 )
 from harness_design_studio.core.outputs.verify import verify_outputs
+from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.core.vcs.release import (
     loose_ends_of,
     plan_new_revision,
@@ -864,6 +866,7 @@ class MainWindow(QMainWindow):
             open_library=lambda: self.open_library_flow(),
             add_project_library=lambda: self.add_project_library_flow(),
             remove_project_library=lambda path: self.remove_project_library(path),
+            set_segmentation=lambda mode: self.set_segmentation(mode),
             shortcut_rows=self.shortcut_rows,
             settings_file=self.settings.fileName(),
         )
@@ -3444,6 +3447,8 @@ class MainWindow(QMainWindow):
         )
         self.status_hash.setText("…")
         self.topbar.hash_label.setText("…")
+        if self.area_stack.currentWidget() is self.settings_page:
+            self._show_segmentation()  # (an undo can change it)
 
     def _on_selection(self) -> None:
         c = self.ctl
@@ -3989,6 +3994,41 @@ class MainWindow(QMainWindow):
         """Open the engineering values (the window of the Checks tab)."""
         self.checks_panel.open_config()
 
+    def set_segmentation(self, mode: str) -> None:
+        """Settings > Project: how Generate groups interfaces into harnesses
+        (`segmentation.mode`, one undo step; `configcheck.plan_set_choice` says why not)."""
+        plan = configcheck.plan_set_choice(self.ctl.project, "segmentation", "mode", mode)
+        if not plan.ok:
+            self.ctl.message.emit(plan.error or "", False)
+        elif plan.ops:
+            words = mode.replace("_", " ")
+            self.ctl.run(
+                strings.STEP_SET_SEGMENTATION.format(words),
+                plan.ops,
+                message=strings.SEGMENTATION_SET.format(words),
+            )
+        self._show_segmentation()
+
+    def _show_segmentation(self) -> None:
+        p = self.ctl.project
+        cfg = p.config.get("segmentation")
+        raw = cfg.values.get("mode") if cfg is not None else None
+        mode = raw if isinstance(raw, str) and raw else segmentation.MODES[0]
+        why = (
+            strings.WHY_READ_ONLY
+            if self.ctl.read_only
+            else field_lock_reason(p, "config", "segmentation", "mode") or ""
+        )
+        self.settings_page.show_segmentation(mode, why)
+
+    def segmentation_flow(self) -> None:
+        """Open Settings at the choice of how interfaces are grouped into harnesses (the fix
+        *Use per_connector_group* of a device connector with plugs of several harnesses)."""
+        self.set_area("settings")
+        self.settings_page.show_section("project")
+        self._show_segmentation()
+        self.settings_page.segmentation_combo.setFocus()
+
     def check_flow(self) -> None:
         """Run the design rule check now; a toast says how it went when it has finished."""
         self._check_asked = True
@@ -4472,6 +4512,8 @@ class MainWindow(QMainWindow):
                 "asbuilt": self.asbuilt_page,
             }
             self.area_stack.setCurrentWidget(pages.get(key, self.settings_page))
+            if key == "settings":
+                self._show_segmentation()
             if key == "asbuilt":
                 self._update_asbuilt()
         else:
@@ -5664,6 +5706,7 @@ class MainWindow(QMainWindow):
         )
         self.settings_page.show_library_folder(self.library_folder())
         self._show_project_libraries()
+        self._show_segmentation()
 
     def shortcut_rows(self) -> list[tuple[str, str]]:
         """Every action of the window that has a key: (name, key), by name."""

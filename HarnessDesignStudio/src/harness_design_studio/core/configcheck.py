@@ -848,3 +848,30 @@ def plan_placeholder(project: Project, file: str, placeholder: bool) -> ValuePla
             )
         ]
     )
+
+
+def plan_set_choice(project: Project, file: str, key: str, value: str) -> ValuePlan:
+    """The ops that set a setting of kind `choice` of the registry (`core.settings`), such as
+    `segmentation.mode`, to one of its choices (nothing else changes), or why not: a value that is
+    not one of the choices, a read-only project, a release that froze the value. The editor's
+    Settings page uses it (2.3.0, D-243); the command line has `settings --set`."""
+    from harness_design_studio.core.errors import TransactionError
+    from harness_design_studio.core.vcs.locks import check_locks
+
+    s = settings.setting(file, key)
+    if s is None or s.kind != "choice":
+        return _fail(f"config/{file}.json has no choice called {key}.")
+    if value not in s.choices:
+        return _fail(f"{s.label} must be one of {', '.join(s.choices)}.")
+    if project.read_only:
+        return _fail("This project is read-only (saved by a newer tool version). Use Save as.")
+    old = project.config.get(file)
+    if old is not None and old.values.get(key) == value:
+        return ValuePlan([], None, value)
+    base = old if old is not None else ConfigFile(name=file, placeholder=False, values={})
+    ops: list[Op] = [SetConfig(with_value(base, key, value))]
+    try:
+        check_locks(project, ops)
+    except TransactionError as exc:
+        return _fail(exc.problems[0] if exc.problems else str(exc))
+    return ValuePlan(ops, None, value)
