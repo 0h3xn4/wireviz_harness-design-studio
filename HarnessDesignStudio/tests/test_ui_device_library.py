@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 # mypy: disable-error-code="no-untyped-def,no-untyped-call"
-"""1.4.0 M5: the Devices tab saves a device to a library file and adds devices from one."""
+"""1.4.0 M5: the Devices tab saves a device to a library file and adds devices from one (since 2.2.0,
+REQ-LIB-07, with the import record of the file)."""
 
 from pathlib import Path
 
@@ -13,6 +14,7 @@ pytestmark = pytest.mark.gui
 from PySide6.QtWidgets import QDialog  # noqa: E402
 
 from harness_design_studio.core.device_library import read_library  # noqa: E402
+from harness_design_studio.core.import_record import file_sha256  # noqa: E402
 from harness_design_studio.core.samples import new_project  # noqa: E402
 from harness_design_studio.gui import strings  # noqa: E402
 from harness_design_studio.gui.devices_dialogs import LibraryDialog  # noqa: E402
@@ -79,6 +81,27 @@ def test_add_from_library_is_one_undo_step_and_shows_the_new_device(qtbot, tmp_p
     win.ctl.redo()
     win.devices_view.lib_add_btn.click()  # the device exists now: the next free ID
     assert "GYRO1-2" in win.ctl.project.units
+
+
+def test_add_from_a_library_file_writes_the_import_record(qtbot, tmp_path: Path):
+    """REQ-LIB-07: *Add from library…* adds through `library_link`, so the devices get the record
+    of the file in the same undo step (D-240)."""
+    win = window(qtbot, tmp_path)
+    lib = tmp_path / "shelf" / "GYRO1.device.json"
+    lib.parent.mkdir()
+    win.ask_save_path = lambda *_: str(lib)
+    win.devices_view.lib_save_btn.click()
+    win.ctl._install(new_project(), None, None)
+    win.go_actions["devices"].trigger()
+    win.ask_open_path = lambda *_: str(lib)
+    win.run_dialog = lambda dlg: QDialog.DialogCode.Accepted
+    win.devices_view.lib_add_btn.click()
+    p = win.ctl.project
+    rec = p.import_records["devices:GYRO1.device.json"]
+    assert rec.sha256 == file_sha256(lib) and rec.notes[:2] == ["Library: shelf", "Library file: GYRO1.device.json"]  # fmt: skip
+    assert p.placements["GYRO1"]
+    win.ctl.undo()
+    assert "GYRO1" not in p.units and not p.import_records
 
 
 def test_the_dialog_keeps_ok_off_until_a_device_is_ticked(qtbot, tmp_path: Path):

@@ -314,12 +314,15 @@ def check_sources(
     given: Sequence[Path | str] = (),
     *,
     hasher: Hasher = file_sha256,
+    located: Mapping[str, Path] | None = None,
 ) -> list[SourceCheck]:
     """Compare the current SHA-256 of every recorded source with the recorded one.
 
     A source is reachable by its path inside the project folder, or by a file the person names in
-    `given` (matched to the records with the same file name). A record with neither is `unchecked`,
-    a reachable path with no file is `missing`. Records are listed in the order of their IDs."""
+    `given` (matched to the records with the same file name), or by `located` (record ID -> the
+    file; `library_link.located_sources` finds the files of the `devices` records in the project's
+    device libraries). A record with none of them is `unchecked`, a reachable path with no file is
+    `missing`. Records are listed in the order of their IDs."""
     named: dict[str, Path] = {}
     for g in given:
         named.setdefault(Path(g).name, Path(g))
@@ -327,7 +330,7 @@ def check_sources(
     out: list[SourceCheck] = []
     for rid in sorted(project.import_records):
         rec = project.import_records[rid]
-        target: Path | None = named.get(rec.source_name)
+        target: Path | None = (located or {}).get(rid) or named.get(rec.source_name)
         if target is None and rec.source_path and base is not None:
             candidate = (base / rec.source_path).resolve()
             if candidate.is_relative_to(
