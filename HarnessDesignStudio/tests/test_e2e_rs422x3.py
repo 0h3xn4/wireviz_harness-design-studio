@@ -12,7 +12,7 @@ What it shows: each interface gets the pins of one port, port k for IF-k; the ve
 error; the box pinouts list `RS422_k_TX+` with its interface; `explain` of a pin gives the port;
 a second Generate changes no file; two exports are byte-identical. With the default segmentation
 `per_connector_pair` each interface is its own harness with a plug on J1 (the warning
-`box_connector_shared`, until the branching harness of 2.3.0); with `per_zone_pair` and the star
+`box_connector_shared`; `per_connector_group`, 2.3.0, joins them: `tests/test_branch_segmentation.py`); with `per_zone_pair` and the star
 trackers in one zone Generate makes one harness with one plug on J1 and three on the star trackers,
 and no such warning. A port locked by a person (`devices.ops_assign_port`) is kept by Generate.
 Repeated bare names (`TX+` three times) keep the assignment of 2.0.1 and give `pin_port_unknown`.
@@ -150,7 +150,7 @@ def test_rs422x3_end_to_end(
     code, out = run(capsys, "generate", str(proj))
     assert code == 0, out
     assert "3 added" in out
-    # per_connector_pair (the default): three harnesses, each with a plug on J1, until 2.3.0
+    # per_connector_pair (the default): three harnesses, each with a plug on J1 (opt-in per_connector_group joins them)
     assert "[box_connector_shared] OBC1-J01 has more than one cable plug on it" in out
     assert ports_used(proj) == {f"IF-00{k}": {f"RS422_{k}"} for k in (1, 2, 3)}
 
