@@ -1,9 +1,9 @@
-<!-- harness-design-studio 2.1.0 model e3b4b2ec210b -->
-> harness-design-studio 2.1.0. Provided as is, without warranty. Verify before use.
+<!-- harness-design-studio 2.1.1 model f33212f0c6a5 -->
+> harness-design-studio 2.1.1. Provided as is, without warranty. Verify before use.
 
 # Design rule check: mini3 (example data)
 
-Model hash: `e3b4b2ec210b`. Rules run: 39.
+Model hash: `f33212f0c6a5`. Rules run: 39.
 Open: 0 error(s), 7 warning(s), 4 note(s). Waived: 0.
 
 Placeholder configuration in use: derating, emc, generation, segmentation, segregation, titleblock. Results that depend on it are marked as not checked.
