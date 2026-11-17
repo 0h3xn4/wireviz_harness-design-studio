@@ -10,6 +10,7 @@ This page explains the length the tool gives a wire: the number in the wire list
 - [The assumptions it rests on](#the-assumptions-it-rests-on)
 - [A worked example](#a-worked-example)
 - [Three ways a length can be there](#three-ways-a-length-can-be-there)
+- [Segments and branch points](#segments-and-branch-points)
 - [What happens when a value is missing](#what-happens-when-a-value-is-missing)
 - [What the model does not do](#what-the-model-does-not-do)
 
@@ -29,7 +30,7 @@ The path is the one path through the tree of segments from the connector at one 
 
 | Input | Unit | Source |
 | --- | --- | --- |
-| Length of each segment on the path | m | The segment of the harness: generated from the zones and chain, or entered or imported by you (**Import lengths**, or the segment table). The project records no source for a segment length. |
+| Length of each segment on the path | m | The segment of the harness: generated from the zones and chain, or entered or imported by you (**Import lengths**, or the segment table). The segment has no field for the source of its length; `routing` and `explain` of a segment work it out (see [Segments and branch points](#segments-and-branch-points)). |
 | Service loop | m | `config/generation.json`: `service_loop_m`. When it is not set, nothing is added and generation says so in a note. |
 | Length stored on the wire | m | Only when a length was typed on the wire (**Edit wire**), imported, or kept from an earlier generation. |
 
@@ -56,6 +57,20 @@ The derivation says which one applies, so a number in the cut list is never of u
 
 A wire with no length of its own is measured from the segments alone, without service loops, until Generate gives it one.
 
+## Segments and branch points
+
+A segment is the bundle between two nodes: a cable connector or a branch point. Its length is measured from the rear of a connector (where the wires leave the connector body or its backshell) to the centre of a branch point, and between the centres of two branch points. `harness-design-studio routing DIR HARNESS` prints the tree of one harness: every segment with its two nodes, its length, where the length came from and the wires through it, then every branch point with the connectors beyond it on each segment that meets it. These are the rows of `segments.csv` and of the sheet *Routing* that `export` writes for a harness with a branch point. `explain DIR SEGMENT` gives the derivation of kind `segment`, and `explain DIR BRANCH-POINT` the derivation of kind `branch-point`; both are computed when asked and are not in `explain --all`.
+
+Where a segment length came from is worked out, because a segment has no field for it (format 2 does not change):
+
+- **Not set.** The segment has no length. The wires through it have no length from the segments.
+- **Imported.** An import record of kind `lengths` (`imports/records.json`, written by `import-lengths`) lists the segment with the same value; the file and the row are named.
+- **Entered.** Any other length: typed in the editor, or written in the file. When the same length was typed after an import, it is shown as imported.
+
+On a harness Generate made, Generate keeps an entered or imported length by the two nodes of its segment, so the length is also *kept by Generate*. The wires through a segment are those whose one path between their connectors takes it (A-PATH-UNIQUE); a wire without a single path runs through none and is listed apart.
+
+On the `flatsat` example, `harness-design-studio explain DIR W005-L3` prints *Segment W005-L3 of harness W005. Length: 1 m*, from `W005-P2 (PCDU1-J01)` to `W005-B1 (Branch X)`, *entered, kept by Generate*, and the two wires `W005-001` and `W005-002`. `explain DIR W005-B1` prints the four segments that meet *Branch X* and the connectors beyond each: `W005-P4`, `W005-P5` and `W005-P6` beyond `W005-L1`, and one connector beyond each of `W005-L2`, `W005-L3` and `W005-L4`.
+
 ## What happens when a value is missing
 
 A length is never made up. The derivation names what is missing: that the harness has no routing segments, that the segments do not give one path between the connectors (a loop, see `segment-loop`), or which segments have no length. Mass, the cut list and the voltage drop then say the same, because they use the same function.
@@ -64,6 +79,7 @@ A length is never made up. The derivation names what is missing: that the harnes
 
 - It does not add a bend radius, a tolerance, the length inside a connector or backshell, or a strip length; a cut allowance and the take-up of twisting only with the length model `path_loops_allowance_twist` (both 0 by default). Strip lengths are typed, per end, on the wire.
 - It does not measure the harness: the segment lengths are yours, or from your CAD export.
+- It does not record who entered a segment length or when: the change journal does, when the project has one, and `explain` prints its history of the segment.
 - It does not give a service loop per wire or per end: one value for every wire, counted `service_loops_per_wire` times (twice by default).
 
 Next: [mass](mass.md), [wire sizing](wire-sizing.md), [the models](README.md), [changes to results](../changes.md)

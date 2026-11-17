@@ -1033,9 +1033,11 @@ def explain_harness_all(project: Project, harness_id: str) -> list[Derivation]:
 
 def explain_object(project: Project, object_id: str) -> list[Derivation]:
     """A harness, a wire, an interface, a test (HARNESS.T001), a connector, a pin (CONNECTOR.PIN), a
-    part used in a harness, or the contacts of an interface at a connector (INTERFACE.CONNECTOR, the
-    object of a `current-over-contact` finding), by its ID."""
+    shield group, a segment (W001-L3), a branch point (W001-B2), a part used in a harness, or the
+    contacts of an interface at a connector (INTERFACE.CONNECTOR, the object of a
+    `current-over-contact` finding), by its ID."""
     from harness_design_studio.core import derive_build, derive_layout
+    from harness_design_studio.core.derive_routing import explain_routing_object
 
     if object_id in project.harnesses:
         return explain_harness_all(project, object_id)
@@ -1050,6 +1052,9 @@ def explain_object(project: Project, object_id: str) -> list[Derivation]:
     if found:
         return found
     found = derive_layout.explain_connector_or_pin(project, object_id)
+    if found:
+        return found
+    found = explain_routing_object(project, object_id)  # a segment or a branch point (2.3.0)
     if found:
         return found
     return explain_part(project, object_id)

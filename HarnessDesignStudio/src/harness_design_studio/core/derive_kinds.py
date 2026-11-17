@@ -31,6 +31,14 @@ KINDS: dict[str, tuple[str, str]] = {
     "pin-allocation": ("pin-allocation.md", "why a signal is on a pin"),
     "connector-choice": ("pin-allocation.md", "why a connector is the connector of an interface"),
     "segmentation": ("segmentation.md", "why the interfaces of a harness share it"),
+    "segment": (
+        "wire-length.md",
+        "a segment of the routing: its nodes, its length and where it came from, its wires",
+    ),
+    "branch-point": (
+        "wire-length.md",
+        "a branch point of the routing: its segments and the connectors beyond each",
+    ),
     "wire-label": ("labels-and-colours.md", "the labels of a wire"),
     "connector-label": ("labels-and-colours.md", "the label of a cable connector"),
     "wire-colour": ("labels-and-colours.md", "the colour of a wire"),
@@ -44,8 +52,8 @@ KINDS: dict[str, tuple[str, str]] = {
 }
 
 # the kinds that `explain OBJECT` computes on demand and `explain --all` (derivations.json) does not
-# contain, so that file stays as it was
-ON_DEMAND = frozenset({"gauge"})
+# contain, so that file stays as it was (a segment and a branch point since 2.3.0)
+ON_DEMAND = frozenset({"gauge", "segment", "branch-point"})
 
 
 def page_of(kind: str) -> str:
