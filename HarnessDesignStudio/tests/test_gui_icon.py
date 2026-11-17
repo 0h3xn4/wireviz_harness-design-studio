@@ -13,7 +13,7 @@ def test_the_window_and_the_application_use_the_logo(qtbot, tmp_path: Path) -> N
     from PySide6.QtWidgets import QApplication
 
     from harness_design_studio.gui.app import create_window
-    from harness_design_studio.gui.appicon import PURPLE, SIZES
+    from harness_design_studio.gui.appicon import AMBER, PURPLE, SIZES
 
     win = create_window(QSettings(str(tmp_path / "ui.ini"), QSettings.Format.IniFormat))
     qtbot.addWidget(win)
@@ -23,4 +23,7 @@ def test_the_window_and_the_application_use_the_logo(qtbot, tmp_path: Path) -> N
     img = win.windowIcon().pixmap(64, 64).toImage()
     assert img.pixelColor(32, 4).name() == PURPLE  # the purple tile
     assert img.pixelColor(0, 0).alpha() == 0  # rounded corner
-    assert img.pixelColor(16, 18).name() == "#ffffff"  # connector A
+    assert img.pixelColor(16, 18).name() == "#ffffff"  # the device connector
+    assert img.pixelColor(11, 22).name() == PURPLE  # a pin in that connector
+    assert img.pixelColor(53, 46).name() == "#ffffff"  # a branch connector
+    assert img.pixelColor(13, 47).name() == AMBER  # the check badge
