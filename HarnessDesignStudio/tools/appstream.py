@@ -7,7 +7,10 @@ Usage: python -m tools.appstream write FILE
 `write` fills the template `packaging/appstream/metainfo.xml.in` with a `<releases>` block made from
 the newest full releases of `CHANGELOG.md` (version and date of each `## X.Y.Z (YYYY-MM-DD; ...)`
 heading) and the first two sentences of `docs/releases/X.Y.Z.md` (else of the changelog section),
-so nobody edits XML at a release. The output depends on the files only (no clock, no build time).
+so nobody edits XML at a release. A release's date is the date of its tag `vX.Y.Z` when the
+repository has it (the day it was published: the tag workflow makes the tag at publication), else
+the date of its changelog heading (the day it was prepared); the release workflow checks out with
+all tags, a shallow checkout has none. The output depends on the files only (no clock, no build time).
 `check` reads a finished file and fails unless it is well-formed and has what the packages need
 (the component ID, the licences, the launchable, the screenshots, a newest release that is the
 program's version); when `appstreamcli` is installed it also runs `appstreamcli validate --no-net`.
@@ -67,12 +70,53 @@ def first_sentences(markdown: str, count: int = 2) -> str:
     return " ".join(sentences[:count])
 
 
+def tag_dates(root: Path = ROOT) -> dict[str, str]:
+    """The date of each tag `vX.Y.Z` of the repository that holds `root` (version -> YYYY-MM-DD), or
+    nothing when git or the tags are not there. The date of an annotated tag is the day the tag
+    workflow made it, which is the day the release was published."""
+    git = shutil.which("git")
+    if git is None:
+        return {}
+    try:
+        run = subprocess.run(  # noqa: S603 (a fixed tool, no input from outside)
+            [
+                git,
+                "-C",
+                str(root),
+                "for-each-ref",
+                "refs/tags",
+                "--format=%(refname:short) %(creatordate:short)",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except OSError, subprocess.SubprocessError:
+        return {}
+    if run.returncode != 0:
+        return {}
+    dates: dict[str, str] = {}
+    for line in run.stdout.splitlines():
+        name, _, date = line.partition(" ")
+        if re.fullmatch(r"v\d+\.\d+\.\d+(?:rc\d+)?", name) and re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}", date
+        ):
+            dates[name[1:]] = date
+    return dates
+
+
 def releases(
-    root: Path = ROOT, version: str = __version__, shown: int = RELEASES_SHOWN
+    root: Path = ROOT,
+    version: str = __version__,
+    shown: int = RELEASES_SHOWN,
+    dates: dict[str, str] | None = None,
 ) -> list[Release]:
     """The newest `shown` releases of CHANGELOG.md, newest first. Release candidates are left out,
-    unless the program itself is one."""
+    unless the program itself is one. `dates` (version -> date, by default the tag dates) replaces
+    the date of a changelog heading."""
     changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    published = tag_dates(root) if dates is None else dates
     found: list[Release] = []
     for match in HEADING.finditer(changelog):
         number, date = match.groups()
@@ -84,7 +128,7 @@ def releases(
         else:
             body = changelog[match.end() :].split("\n## ", 1)[0].split("\n", 1)[-1]
             text = first_sentences(body)
-        found.append(Release(number, date, text))
+        found.append(Release(number, published.get(number, date), text))
         if len(found) == shown:
             break
     return found

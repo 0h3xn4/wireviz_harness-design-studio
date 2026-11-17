@@ -65,7 +65,10 @@ def test_the_newest_release_is_the_program_version(text: str) -> None:
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     for rel in rels:
         version, date = rel.get("version"), rel.get("date")
-        assert f"## {version} ({date}" in changelog, version  # the changelog's own date
+        # the tag's date (the day it was published) where the checkout has the tag, else the
+        # changelog's own date
+        tagged = appstream.tag_dates().get(str(version))
+        assert date == tagged if tagged else f"## {version} ({date}" in changelog, version
         assert "rc" not in str(version) or version == __version__
         assert (rel.findtext("description/p") or "").startswith(("This is", "Version")), version
         assert rel.findtext("url[@type='details']") == (
@@ -119,7 +122,8 @@ def test_the_output_does_not_depend_on_the_time(text: str) -> None:
     assert appstream.render() == text
     dates = set(re.findall(r"\d{4}-\d{2}-\d{2}", text))
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert all(f"({d}" in changelog for d in dates)
+    known = set(appstream.tag_dates().values())  # dates of tags, made at publication
+    assert all(f"({d}" in changelog or d in known for d in dates)  # never the clock
 
 
 def _png_size(path: Path) -> tuple[int, int]:
@@ -210,3 +214,31 @@ def test_desktop_file_validate_accepts_the_desktop_entries(tmp_path: Path) -> No
             ["desktop-file-validate", str(entry)], capture_output=True, text=True, check=False
         )
         assert run.returncode == 0 and not run.stdout.strip(), run.stdout + run.stderr
+
+
+def test_a_tag_date_replaces_the_date_of_the_changelog_heading(tmp_path: Path) -> None:
+    """App Center shows the day a release was published: the date of its tag, when the repository
+    has it; a version without a tag (the next one, in a pull request) keeps its changelog date."""
+    (tmp_path / "docs" / "releases").mkdir(parents=True)
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## Unreleased\n\n"
+        "## 9.1.0 (2030-01-02; not a statement of compliance)\n\nNew.\n\n"
+        "## 9.0.0 (2029-12-31; not a statement of compliance)\n\nOld.\n",
+        encoding="utf-8",
+    )
+    found = appstream.releases(tmp_path, "9.1.0", dates={"9.0.0": "2030-01-01"})
+    assert [(r.version, r.date) for r in found] == [
+        ("9.1.0", "2030-01-02"),
+        ("9.0.0", "2030-01-01"),
+    ]
+    assert appstream.tag_dates(tmp_path) == {}  # not a Git repository: the changelog dates stay
+
+
+def test_the_tag_dates_of_this_repository() -> None:
+    """The release workflow checks out with all tags; a shallow checkout (pull request CI) has none."""
+    dates = appstream.tag_dates()
+    if not dates:
+        pytest.skip("this checkout has no release tags")
+    assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) for d in dates.values())
+    if "2.1.1" in dates:
+        assert dates["2.1.1"] == "2026-11-17"  # published 2026-11-17, tag v2.1.1 on 5e99d3d
