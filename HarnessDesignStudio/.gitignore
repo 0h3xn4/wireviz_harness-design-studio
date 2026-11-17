@@ -14,3 +14,6 @@ wheelhouse/
 compliance/requirements/ECSS-*.csv
 compliance/requirements/ESCC-*.csv
 compliance/compliance_matrix.csv
+
+# The notes of a backlog run (root CLAUDE.md, "Backlog and release procedure"); never committed.
+PROGRESS.md
