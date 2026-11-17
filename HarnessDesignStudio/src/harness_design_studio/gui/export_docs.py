@@ -45,8 +45,12 @@ HARNESS_DOCS: Final[tuple[DocType, ...]] = (
     DocType("drawing_a3", "Drawing, A3", "PDF"),
     DocType("drawing_svg", "Drawing sheets, A3", "SVG"),
 )
-# Written only for a harness that has accessories (D-170), so not in the list every harness shows.
-OPTIONAL_HARNESS_DOCS: Final[tuple[DocType, ...]] = (DocType("accessories", "Accessories", "CSV"),)
+# Written only for a harness that has accessories (D-170) or a branch point (2.3.0, D-243 B7), so not
+# in the list every harness shows.
+OPTIONAL_HARNESS_DOCS: Final[tuple[DocType, ...]] = (
+    DocType("accessories", "Accessories", "CSV"),
+    DocType("segments", "Segments", "CSV"),
+)
 DRAWING_KEYS: Final = frozenset({"drawing_a4", "drawing_a3", "drawing_svg"})  # only with drawings
 SYSTEM_DOCS: Final[tuple[DocType, ...]] = (
     DocType("sys_bom", "Bill of materials, all harnesses", "CSV"),
@@ -93,6 +97,7 @@ _HARNESS_FILES: Final = {
     "tests.csv": "tests",
     "labels.csv": "labels",
     "accessories.csv": "accessories",
+    "segments.csv": "segments",
     "wireviz.yaml": "wireviz",
     "drawing_A4.pdf": "drawing_a4",
     "drawing_A3.pdf": "drawing_a3",

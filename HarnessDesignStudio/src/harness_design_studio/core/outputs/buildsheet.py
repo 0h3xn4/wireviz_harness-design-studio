@@ -42,12 +42,17 @@ SHEETS = (
     "Start here", "Cut list", "Connectors", "Parts", "Accessories", "Labels", "Tests", "About"
 )  # fmt: skip
 ASBUILT_SHEET = "As-built"  # between Tests and About, only for a harness that has as-built records
+ROUTING_SHEET = "Routing"  # after Cut list, only for a harness with a branch point (D-243 B7)
+ROUTING_TEXT = "the segments of the bundle with their lengths and wires, and the branch points"
 
 
 def sheet_names(project: Project, h: Harness) -> list[str]:
-    """The sheets of the workbook of `h`: `SHEETS`, with *As-built* before *About* when the project
-    holds as-built records of this harness (S9); every other harness has the sheets it always had."""
+    """The sheets of the workbook of `h`: `SHEETS`, with *Routing* after *Cut list* when the harness
+    has a branch point (2.3.0) and *As-built* before *About* when the project holds as-built records
+    of this harness (S9); every other harness has the sheets it always had."""
     names = list(SHEETS)
+    if tables.has_branches(h):
+        names.insert(names.index("Cut list") + 1, ROUTING_SHEET)
     if has_asbuilt(project, h):
         names.insert(names.index("About"), ASBUILT_SHEET)
     return names
@@ -465,6 +470,7 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     body.append([_cell(ws, "How to use this workbook", bold=True, box=False, wrap=False)])
     for name, what in (
         ("Cut list", "cut the wires in this order; tick each when done"),
+        *([(ROUTING_SHEET, ROUTING_TEXT)] if tables.has_branches(h) else []),
         ("Connectors", "one block per connector: the pins, the wire for each and the steps"),
         ("Parts", "what to take from stock and whether each part is approved"),
         ("Accessories", "sleeving, heat shrink, labels and backshells to fit; tick each when done"),
@@ -594,6 +600,56 @@ def _pin_rows(
         ):  # fmt: skip
             lay.see(n, v)
     return rows
+
+
+def _routing_blocks(h: Harness) -> tuple[list[list[object]], list[list[object]]]:
+    """The rows under the two headers of *Routing*: the segments and the branch points."""
+    through = tables.segment_wires(h)
+    segs: list[list[object]] = []
+    for s in sorted(h.segments, key=lambda x: tables.natural_key(x.id)):
+        ids = through[s.id]
+        length: object = round(s.length_m, 9) + 0.0 if s.length_m is not None else TO_FILL
+        segs.append([s.id, s.from_node, s.to_node, length, len(ids), "; ".join(ids)])
+    points: list[list[object]] = [
+        [bid, name, tables.side_text(sides)] for bid, name, sides in tables.branch_sides(h)
+    ]
+    return segs, points
+
+
+def routing_rows(h: Harness) -> list[list[object]]:
+    """The *Routing* sheet as plain values, in its order: the header of the segments, one row per
+    segment (the rows of `segments.csv` with the length a number or *to fill in*, the number of
+    wires a number and the wires joined by `; `), an empty row, the header of the branch points and
+    one row per branch point (its ID, its name and the connectors beyond it on each side, one line
+    per segment that meets it)."""
+    segs, points = _routing_blocks(h)
+    return [list(tables.SEGMENT_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points]
+
+
+def _routing_sheet(wb: Any, h: Harness, stamp: Stamp) -> None:
+    """The routing of a harness that branches (2.3.0, D-243 B7): the segments with their lengths
+    and wires, then the branch points with the connectors beyond each side. A segment without a
+    length reads *to fill in* on an amber cell; its wires are already counted under *Wires without
+    a length* of *Start here*, so the sheet adds no check."""
+    ws = wb.create_sheet(ROUTING_SHEET)
+    lay = _Layout({})
+    segs, points = _routing_blocks(h)
+    body: list[list[Any]] = [_header(ws, lay, tables.SEGMENT_HEADER)]
+    for values in segs:
+        body.append([
+            _cell(ws, values[0], bold=True), _cell(ws, values[1]), _cell(ws, values[2]),
+            _cell(ws, values[3], fill=_AMBER if values[3] == TO_FILL else None, centre=True),
+            _cell(ws, values[4], centre=True), _cell(ws, values[5]),
+        ])  # fmt: skip
+        for n, v in enumerate(values, start=1):
+            lay.see(n, str(v))
+    body.append([])
+    body.append(_header(ws, lay, tables.BRANCH_HEADER))
+    for values in points:
+        body.append([_cell(ws, values[0], bold=True), _cell(ws, values[1]), _cell(ws, values[2])])
+        for n, v in enumerate(values, start=1):
+            lay.see(n, str(v))
+    _finish(ws, lay, stamp, body, tab="5D6D7E", freeze="B2")
 
 
 def _connector_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
@@ -805,6 +861,8 @@ def build_workbook(project: Project, h: Harness, stamp: Stamp) -> bytes:
     wb.properties.created = wb.properties.modified = _FIXED
     _start_sheet(wb, project, h, stamp)
     _cut_sheet(wb, project, h, stamp)
+    if tables.has_branches(h):
+        _routing_sheet(wb, h, stamp)
     _connector_sheet(wb, project, h, stamp)
     _parts_sheet(wb, project, h, stamp)
     _accessories_sheet(wb, project, h, stamp)
@@ -837,6 +895,6 @@ def cut_rows(project: Project, h: Harness) -> Table:
 
 
 __all__ = [
-    "ASBUILT_SHEET", "FILE_SUFFIX", "SHEETS", "Check", "build_workbook", "cut_rows", "has_asbuilt",
-    "readiness", "ready_text", "sheet_names",
+    "ASBUILT_SHEET", "FILE_SUFFIX", "ROUTING_SHEET", "SHEETS", "Check", "build_workbook", "cut_rows",
+    "has_asbuilt", "readiness", "ready_text", "routing_rows", "sheet_names",
 ]  # fmt: skip

@@ -22,7 +22,12 @@ from harness_design_studio.core.outputs.build import (
     outputs_status,
     write_outputs,
 )
-from harness_design_studio.core.outputs.buildsheet import ASBUILT_SHEET, SHEETS, sheet_names
+from harness_design_studio.core.outputs.buildsheet import (
+    ASBUILT_SHEET,
+    ROUTING_SHEET,
+    SHEETS,
+    sheet_names,
+)
 from harness_design_studio.core.outputs.stamp import parse_csv
 from harness_design_studio.core.outputs.verify import read_folder, verify_outputs
 from harness_design_studio.core.outputs.xlsx_env import load_workbook
@@ -68,7 +73,8 @@ def test_a_project_without_records_writes_no_asbuilt_file_and_no_extra_key(sets,
     import json
 
     assert "asbuilt_hash" not in json.loads(before.manifest(plain))
-    assert sheet_names(plain, plain.harnesses["W001"]) == list(SHEETS)
+    assert sheet_names(plain, plain.harnesses["W003"]) == list(SHEETS)  # a straight harness
+    assert sheet_names(plain, plain.harnesses["W001"]) == [*SHEETS[:2], ROUTING_SHEET, *SHEETS[2:]]
 
 
 def test_with_records_only_the_files_that_carry_them_differ(sets) -> None:
@@ -120,13 +126,14 @@ def test_the_csv_has_one_row_for_each_value_with_the_margin(sets, with_records) 
 
 def test_the_build_workbook_of_a_harness_with_records_has_an_asbuilt_sheet_before_about(sets, with_records) -> None:  # fmt: skip
     wb = load_workbook(io.BytesIO(sets[1].files["harnesses/W001/W001_build.xlsx"]), data_only=True)
-    assert wb.sheetnames == [*SHEETS[:-1], ASBUILT_SHEET, "About"]
+    assert wb.sheetnames == [*SHEETS[:2], ROUTING_SHEET, *SHEETS[2:-1], ASBUILT_SHEET, "About"]
     rows = [[("" if v is None else str(v)) for v in r] for r in wb[ASBUILT_SHEET].iter_rows(values_only=True)]  # fmt: skip
     assert rows == asbuilt.report_rows(with_records, "W001")
     other = load_workbook(
         io.BytesIO(sets[1].files["harnesses/W002/W002_build.xlsx"]), data_only=True
     )
-    assert other.sheetnames == list(SHEETS)  # a harness with no record keeps the sheets it had
+    assert other.sheetnames == sheet_names(with_records, with_records.harnesses["W002"])
+    assert ASBUILT_SHEET not in other.sheetnames  # a harness with no record keeps the sheets it had
 
 
 def test_the_verifier_reads_the_report_and_the_sheet_and_can_fail(

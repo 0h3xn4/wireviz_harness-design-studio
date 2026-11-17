@@ -33,6 +33,7 @@ from pydantic import ValidationError
 
 from .commands import Op, Put
 from .edit import EditError
+from .integrity import ends_apart
 from .model import Harness, Project, ShieldGroup, Wire
 from .model.base import evolve
 from .model.physical import COAX_SHIELD_END, OVERRIDABLE
@@ -571,7 +572,8 @@ def _check_count(kind: str, n: int) -> None:
 
 def plan_group_wires(project: Project, wire_ids: Iterable[str], kind: str) -> list[Op]:
     """Ops that twist or shield wires together as one group (`kind` is a key of `GROUP_KINDS`). The
-    wires must be in one harness and in no group yet. The shield ends are those of the
+    wires must be in one harness, in no group yet, and run between the same two connectors
+    (`ends_apart`: a group has two ends, 2.3.0). The shield ends are those of the
     generation settings (floating while they are a placeholder; the rule `shield-unterminated`
     says so), except for a coax, whose outer conductor is bonded at both ends
     (`COAX_SHIELD_END`). Generation keeps the group while its wires exist."""
@@ -595,6 +597,9 @@ def plan_group_wires(project: Project, wire_ids: Iterable[str], kind: str) -> li
                 f"Wire {wid} is already in {_KIND_WORDS.get(other.kind, other.kind)} {other.id}. "
                 "Take it out of that group first."
             )
+    apart = ends_apart(h, [w for _h, w in found])
+    if apart is not None:
+        raise EditError(apart)
     group = ShieldGroup(
         id=new_group_id(project, h.id),
         kind=kind,  # type: ignore[arg-type]
@@ -709,6 +714,11 @@ def plan_regroup(
                 "Take it out of that group first."
             )
     _check_count(new_kind, len(ids))
+    if wire_ids is not None:  # new wires must share their two connectors (`ends_apart`)
+        by_id = {w.id: w for w in h.wires}
+        apart = ends_apart(h, [by_id[wid] for wid in ids])
+        if apart is not None:
+            raise EditError(apart)
     new = evolve(
         s,
         kind=new_kind,
