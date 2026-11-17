@@ -584,6 +584,8 @@ The design of 2.1.0 is in [`DESIGN_2.1_PORTS.md`](DESIGN_2.1_PORTS.md) (D-237). 
 
 The design of 2.2.0, the device library, is in [`DESIGN_2.2_DEVICE_LIBRARY.md`](DESIGN_2.2_DEVICE_LIBRARY.md) (D-240); its first pull request builds the rules of the library folder, `library.json`, the Git state of a library, the project's `device-libraries.json` and two schemas.
 
+*Added 2026-11-17:* the owner decided that a harness plan in the users' layout (an `.ods` file with formulas) comes after 2.2.0 and 2.3.0, as 3.0.0 with format 3. Its design is in [`DESIGN_3.0_HARNESS_PLAN.md`](DESIGN_3.0_HARNESS_PLAN.md) (D-242, to be recorded); nothing of it is built.
+
 ---
 
 ## 4. What I can verify, and what only you can
