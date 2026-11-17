@@ -102,8 +102,8 @@ def test_the_build_workbook_has_the_routing_sheet_after_the_cut_list(project: Pr
         ["W001-L5", "W001-P4", "W001-B2", "to fill in", 8, "; ".join(P4)],
         [],
         ["Branch point", "Name", "Connectors beyond it, by segment"],
-        ["W001-B1", "Branch X", "W001-L1: W001-P3, W001-P4\nW001-L2: W001-P1\nW001-L3: W001-P2"],
-        ["W001-B2", "Branch Y", "W001-L1: W001-P1, W001-P2\nW001-L4: W001-P3\nW001-L5: W001-P4"],
+        ["W001-B1", "Branch X", "W001-L1: W001-P3, W001-P4; W001-L2: W001-P1; W001-L3: W001-P2"],
+        ["W001-B2", "Branch Y", "W001-L1: W001-P1, W001-P2; W001-L4: W001-P3; W001-L5: W001-P4"],
     ]
     assert routing == [list(r) for r in buildsheet.routing_rows(project.harnesses[H])]
     ws = load_workbook(io.BytesIO(data))["Routing"]
@@ -171,3 +171,35 @@ def test_a_loop_gives_its_wires_no_route_in_the_builder_and_in_the_check() -> No
     assert all(ids == [] for ids in through.values())
     found = verify_outputs(p, build_outputs(p, drawings=False).files).issues
     assert [i.message for i in found if i.code == "out_routing"] == []
+
+
+def test_no_cell_of_a_written_workbook_holds_a_line_break() -> None:
+    """The workbooks are written by openpyxl's plain writer (`xlsx_env`), which stores each sheet
+    through a text-mode file: on Windows a line break in a cell becomes CR LF, so the workbook
+    differs by platform (Windows CI found it in the first *Routing* sheet). Every example's
+    workbooks, with the routing of flatsat, must hold no raw line break in a cell value."""
+    import re
+    import tempfile
+    import zipfile
+    from pathlib import Path
+
+    from harness_design_studio.core import templates
+
+    found = []
+    for name in ("flatsat", "small-satellite"):
+        with tempfile.TemporaryDirectory(prefix="nl-") as tmp:
+            p = templates.create_project(Path(tmp) / name, name)
+            if not p.harnesses:
+                generate_project(p)
+            files = build_outputs(p).files
+        for rel, data in files.items():
+            if not rel.endswith(".xlsx"):
+                continue
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                for member in z.namelist():
+                    if member.startswith("xl/") and member.endswith(".xml"):
+                        text = z.read(member)
+                        for value in re.findall(rb"<t(?: [^>]*)?>(.*?)</t>", text, re.S):
+                            if b"\n" in value or b"\r" in value:
+                                found.append(f"{name}/{rel} {member}: {value[:60]!r}")
+    assert found == [], found

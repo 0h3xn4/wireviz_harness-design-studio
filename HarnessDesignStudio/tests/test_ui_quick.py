@@ -264,8 +264,8 @@ def test_every_hidden_thing_is_still_reachable(qtbot, tmp_path) -> None:
     assert w.go_to("checks")
 
 
-# ---- the tour, the first-start question, the page a project opens on, the sample banner ---------
-def test_no_tour_and_no_role_question_in_quick(qtbot, tmp_path, monkeypatch) -> None:
+# ---- the first-start question, the page a project opens on, the sample banner ---------
+def test_no_role_question_in_quick(qtbot, tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(roles, "FIRST_RUN_ROLE", None)
     asked: list[object] = []
 
@@ -277,17 +277,8 @@ def test_no_tour_and_no_role_question_in_quick(qtbot, tmp_path, monkeypatch) -> 
     w.run_dialog = run
     QApplication.processEvents()
     qtbot.wait(400)
-    assert asked == [] and not w.tour.active and w._role_to_ask is False
+    assert asked == [] and w._role_to_ask is False
     assert w.role == roles.ELECTRICAL
-
-
-def test_turning_it_on_ends_the_tour_for_good(qtbot, tmp_path) -> None:
-    w = make(qtbot, tmp_path, ui__role=roles.ELECTRICAL)
-    assert not w.settings.value("tour/done", False, bool)
-    w.act_quick.trigger()
-    assert w.settings.value("tour/done", False, bool)
-    w.act_quick.trigger()  # (and it stays done after leaving Quick mode)
-    assert w.settings.value("tour/done", False, bool)
 
 
 @pytest.mark.parametrize("role", [roles.SYSTEMS, roles.AIT, roles.ELECTRICAL])

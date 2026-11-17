@@ -2041,8 +2041,9 @@ def _through(h: Harness) -> dict[str, list[str]]:
 
 
 def _beyond(h: Harness, bid: str) -> str:
-    """The sides of branch point `bid` as the sheet words them: one line per segment that meets it,
-    with the connectors reached through it without passing the branch point again."""
+    """The sides of branch point `bid` as the sheet words them: one part per segment that meets it,
+    `; ` between them, with the connectors reached through it without passing the branch point
+    again."""
     near: dict[str, set[str]] = defaultdict(set)
     for s in h.segments:
         near[s.from_node].add(s.to_node)
@@ -2063,7 +2064,7 @@ def _beyond(h: Harness, bid: str) -> str:
             frontier.extend(n for n in near[node] if n != bid and n not in reached)
         names = sorted(reached & conns, key=_natural)
         lines.append(f"{s.id}: {', '.join(names) if names else '(none)'}")
-    return "\n".join(lines)
+    return "; ".join(lines)
 
 
 def _segment_rows(h: Harness, joiner: str, unknown: Cell) -> list[list[Cell]]:

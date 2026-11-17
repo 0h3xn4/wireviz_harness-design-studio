@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 # mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,union-attr,arg-type"
-"""REQ-GUI-18, REQ-GUI-19. Release 1.9 W1, the smaller items: the tour of the Systems engineer role, release
-blockers without command-line words, Generate as the primary button only when there is something
+"""REQ-GUI-18, REQ-GUI-19. Release 1.9 W1, the smaller items (the tour of the Systems engineer role
+was removed with the tour, 2026-11-17): release blockers without command-line words, Generate as the primary button only when there is something
 to generate, "Made by hand" in the status bar, the problem counts that agree, the chip of the
 self-check that never says "passed" next to a failed rule, and the pin role column."""
 
@@ -34,47 +34,6 @@ def window(qtbot, tmp_path: Path, project=None, role: str | None = None):
         win.set_role(role)
     QApplication.processEvents()
     return win
-
-
-# ---- the tour of the Systems engineer role -----------------------------------------------------
-
-
-def test_the_systems_tour_walks_the_next_step_page_and_connect(qtbot, tmp_path: Path) -> None:
-    win = window(qtbot, tmp_path, role="systems")
-    win.set_area("next")
-    keys = [k for k, _t in strings.TOUR_STEPS_SYSTEMS]
-    assert keys == ["next", "next_button", "connect", "role"]
-    seen = []
-    win.tour.start()
-    while win.tour.active:
-        seen.append(strings.TOUR_STEPS_SYSTEMS[win.tour.index][0])
-        win.tour.next.click()
-    assert seen == keys  # all four steps are shown, none is skipped for a hidden target
-    text = " ".join(t for _k, t in strings.TOUR_STEPS_SYSTEMS)
-    for word in ("Next step", "Add a device", "Connect", "pin number", "accept"):
-        assert word in text
-    assert "panel" not in text.lower()
-
-
-def test_the_electrical_tour_is_the_old_one_with_pin_number_words(qtbot, tmp_path: Path) -> None:
-    win = window(qtbot, tmp_path, role="electrical")
-    assert win.tour.steps() is strings.TOUR_STEPS
-    assert "pin number" in strings.TOUR_STEPS[2][1] and "accept" in strings.TOUR_STEPS[2][1]
-    win.set_role("systems")
-    assert win.tour.steps() is strings.TOUR_STEPS_SYSTEMS
-
-
-def test_each_tour_step_of_the_systems_role_points_at_something_that_exists(
-    qtbot, tmp_path: Path
-) -> None:
-    win = window(qtbot, tmp_path, role="systems")
-    assert win.tour.targets["next"] is win.next_page
-    assert win.tour.targets["next_button"] is win.next_page.button
-    assert win.tour.targets["connect"] is win.tool_connect
-    win.tour.start()
-    win.tour.show_step(2)
-    assert win.area() == "model" and win.tool_connect.isVisibleTo(win)
-    win.tour.skip.click()
 
 
 # ---- release blockers without command-line words -----------------------------------------------

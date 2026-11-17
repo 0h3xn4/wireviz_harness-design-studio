@@ -21,17 +21,6 @@ from harness_design_studio.gui.project_tree import empty_text  # noqa: E402
 from harness_design_studio.gui.topbar import ShellStatus, chip_for  # noqa: E402
 from tests.test_ui_links import link_up, window  # noqa: E402
 
-# ---- the tour -------------------------------------------------------------------------------------
-
-
-def test_tour_step_three_describes_the_link_window_not_the_interface_type_menu_first() -> None:
-    key, text = strings.TOUR_STEPS[2]
-    assert key == "types"
-    assert "Link connectors" in text and "press Connect" in text
-    assert "Edit > Connect with an interface type" in text  # the older way is named, second
-    assert text.index("Link connectors") < text.index("interface type")
-
-
 # ---- the three empty states ---------------------------------------------------------------------
 
 

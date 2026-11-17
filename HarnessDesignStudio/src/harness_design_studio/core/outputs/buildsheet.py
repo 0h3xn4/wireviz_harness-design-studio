@@ -620,8 +620,8 @@ def routing_rows(h: Harness) -> list[list[object]]:
     """The *Routing* sheet as plain values, in its order: the header of the segments, one row per
     segment (the rows of `segments.csv` with the length a number or *to fill in*, the number of
     wires a number and the wires joined by `; `), an empty row, the header of the branch points and
-    one row per branch point (its ID, its name and the connectors beyond it on each side, one line
-    per segment that meets it)."""
+    one row per branch point (its ID, its name and the connectors beyond it on each side,
+    one part per segment that meets it, all on one line: `tables.side_text`)."""
     segs, points = _routing_blocks(h)
     return [list(tables.SEGMENT_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points]
 

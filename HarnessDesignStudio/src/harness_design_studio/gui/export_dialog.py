@@ -4,7 +4,7 @@
 
     dlg = ExportDialog(ctl, theme, parent, settings=settings)
     dlg.exported.connect(window.after_export)      # ExportResult: files are on disk
-    dlg.exec()                                     # or: result = dlg.run()  (blocking, no window)
+    run_dialog(dlg)                                # (dialog_base) or: result = dlg.run()  (blocking, no window)
 
 What it shows, left to right and top to bottom: the output folder (read-only: the project's
 `outputs` folder), what the export writes as a tree of harnesses x document types, and on the right
