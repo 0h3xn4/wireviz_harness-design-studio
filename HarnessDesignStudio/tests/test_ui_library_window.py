@@ -655,7 +655,7 @@ def test_the_window_lists_the_libraries_the_project_names_without_a_folder_of_th
     assert (
         rec.sha256 == file_sha256(acme / "RW1.device.json") and "Library: ACME devices" in rec.notes
     )
-    assert dict(cells(lib, "id", "status"))["RW1"] == "Up to date"
+    assert {r["id"]: r["status"] for r in lib.list_model.rows()}["RW1"] == "Up to date"
     assert lib.source_label.text() == "Source: ACME devices, RW1.device.json"
     assert not lib.save_btn.isEnabled()  # Save writes into the person's folder, which is not set
 
