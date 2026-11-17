@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The end-to-end case of 2.2.0, the device library (D-240, section 5 of
 `docs/ait/DESIGN_2.2_DEVICE_LIBRARY.md`, pull request 5), through the command line wherever a
-command exists. A source project saves two devices, OBC1 and STR1, into a library folder `LIB`
-(`save-device`), which is then made a Git repository and committed. A blank project `B` names the
-library (`libraries --add ../LIB`), adds both devices (`add-device`), gets an interface between them
-through the core (no command adds an interface), and is generated, exported and verified. The
+command exists. A source project saves two devices, OBC1 and STR1, into a library folder
+`acme-devices` (`save-device`), which is then made a Git repository and committed. A blank project
+`orbiter` names the library (`libraries --add ../acme-devices`), adds both devices
+(`add-device`), gets an interface between them through the core (no command adds an interface),
+and is generated, exported and verified. The
 library changes a pin function and adds a fixed pin of OBC1, and the change is committed:
 `libraries --devices` says *library changed*, `imports --check` and `update-device --check` end
 with 1, `update-device` shows the rows and changes no byte, `--apply` takes the library's version
@@ -126,13 +127,14 @@ def edit_device(path: Path, change: Any) -> None:
 
 def make_library(base: Path, capsys: pytest.CaptureFixture[str]) -> tuple[Path, str]:
     """A source project with OBC1 (J1: RS-422 and a ground) and STR1 (RS-422), both saved into
-    the library LIB by `save-device`; LIB gets `library.json` and a `.gitignore` with `*.bak`,
-    and is committed. The library folder and its commit."""
-    lib = base / "LIB"
+    the library `acme-devices` by `save-device`; the library gets `library.json` and a
+    `.gitignore` with `*.bak`, and is committed. The worked example of
+    `docs/user-manual/use-the-library.md` runs the same commands. The library folder and its commit."""
+    lib = base / "acme-devices"
     lib.mkdir()
     (lib / "library.json").write_text(json.dumps(LIBRARY_JSON, indent=2) + "\n", encoding="utf-8")
     (lib / ".gitignore").write_text("*.bak\n", encoding="utf-8")
-    src = base / "SRC"
+    src = base / "source"
     ok(capsys, "new", src, "--template", "blank")
     obc = pinout(base / "obc1.csv", [(str(n + 1), s) for n, s in enumerate((*RS422, "GND"))])
     star = pinout(base / "str1.csv", [(str(n + 1), s) for n, s in enumerate(RS422)])
@@ -187,14 +189,14 @@ def sequence(base: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
     way; what the release step needs."""
     base.mkdir()
     lib, first = make_library(base, capsys)
-    proj = base / "B"
+    proj = base / "orbiter"
     ok(capsys, "new", proj, "--template", "blank")
 
     # B names the library, relative to its own folder
-    out = ok(capsys, "libraries", proj, "--add", "../LIB")
+    out = ok(capsys, "libraries", proj, "--add", "../acme-devices")
     assert "device-libraries.json written: 1 device library." in out and "outside undo" in out
     out = ok(capsys, "libraries", proj)
-    assert f"../LIB: ACME devices, 2 devices, Git commit {first[:7]} on main" in out
+    assert f"../acme-devices: ACME devices, 2 devices, Git commit {first[:7]} on main" in out
     found = json.loads(ok(capsys, "libraries", proj, "--devices", "--json"))
     assert [(d["device"], d["state"], d["library"], d["file"]) for d in found["devices"]] == [
         ("OBC1", "not in project", "ACME devices", "OBC1.device.json"),
@@ -305,7 +307,7 @@ def test_the_device_library_end_to_end(tmp_path: Path, capsys: pytest.CaptureFix
     two = sequence(tmp_path / "two", capsys)
     assert comparable(two["proj"]) == comparable(one["proj"])
     for base in (tmp_path / "one", tmp_path / "two"):
-        for name, data in files(base / "B").items():
+        for name, data in files(base / "orbiter").items():
             assert str(base).encode() not in data, name
 
     # after a release, a library change of a pin that W001 uses is refused, naming W001
