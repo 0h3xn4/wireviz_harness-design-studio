@@ -16,10 +16,27 @@ the root `.gitignore` included.
   commit, `git push -u origin <branch>`, open a pull request with the GitHub tools (never the `gh`
   CLI), wait until all its check runs are complete and green, then squash-merge it with the GitHub
   tools. A failing check is fixed on the branch, never skipped or disabled.
-- **One item at a time:** fix, add a test, commit, push, merge as above, then move the item to
-  `## Done` in `BACKLOG.md` with the merge commit hash (in the next item's pull request, or in the
-  release preparation).
+  - If the session names one branch to push to (a scheduled run does), use that branch for every
+    pull request: after its squash-merge, start it again from the default branch under the same
+    name.
+  - A pull request that was opened as a draft is marked ready before the merge (a draft cannot be
+    merged).
+  - Before each push: `python -m tools.check_commits origin/<default branch> HEAD --owner-pr` must
+    report 0 problems (the CI check `commits`: a `Signed-off-by` line from `git commit -s`, a
+    noreply author address).
+  - To wait for CI, poll in the background (a monitor or a background loop) or schedule a
+    check-in; never a long `sleep` in the foreground.
+- **One item at a time:** fix, add a test, add an entry under `## Unreleased` in
+  `HarnessDesignStudio/CHANGELOG.md`, commit, push, merge as above, then move the item to `## Done`
+  in `BACKLOG.md` with the merge commit hash (in the next item's pull request, or in the release
+  preparation).
+- **First, finish what an earlier run left.** At the start, look for an open pull request of an
+  earlier backlog run and for items in `## Done` that are not in a release yet (newer than the last
+  tag). Finish those before new items.
 - **Unclear or blocked items** move to `## Needs human` with a short reason. Skip them and go on.
+- **Not for a backlog run:** a change of the project format (format 2 is frozen, D-230; format 3
+  is planned for 3.0.0) and anything a design page in `docs/ait/` already plans for a release.
+  Such items move to `## Needs human`.
 - **Never ask questions during a backlog run.** Make reasonable choices and write them in the
   commit message.
 - **Version numbers (semver).** A breaking change is a major release (a change of the project
@@ -37,6 +54,12 @@ the root `.gitignore` included.
   - Output files must not change unless the item is about them:
     `python -m tools.output_hashes --check docs/ui/OUTPUT_HASHES_BASELINE.json`.
 - **Release.** When `## Next release` is empty and at least one item was done since the last tag:
+  0. **Only backlog work may be released.** Before the preparation, read `## Unreleased` in
+     `HarnessDesignStudio/CHANGELOG.md`. If it holds entries that are not backlog items (for
+     example the parts of a planned release that is still in progress, such as 2.3.0), do not
+     release: the items stay in `## Done`, and `## Needs human` gets one line: "Release held:
+     `## Unreleased` also holds unfinished work of <release>". The next run after that release
+     is published releases the items.
   1. Prepare the release in one pull request, as the last preparation did (`git log --oneline
      --grep "Prepare version"`, and `docs/RELEASE.md`): `HarnessDesignStudio/CHANGELOG.md` turns
      `## Unreleased` into `## X.Y.Z (date; not a statement of compliance)` and lists every item;
