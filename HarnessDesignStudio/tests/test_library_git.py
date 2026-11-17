@@ -7,7 +7,9 @@ sections 2 and 5): the commit and branch, *not committed*, and a damaged `.git` 
 is not installed), as in `tests/test_gitinfo.py`."""
 
 import json
+import os
 import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -32,6 +34,17 @@ ENV = {
     "HOME": "/nonexistent",
     "PATH": "/usr/bin:/bin:/usr/local/bin",
 }
+
+
+def remove_tree(path: Path) -> None:
+    """Delete a folder that Git wrote. Git makes its object files read-only, and on Windows a
+    read-only file cannot be deleted until it is made writable."""
+
+    def writable_then_retry(func, name, _exc):  # type: ignore[no-untyped-def]
+        os.chmod(name, stat.S_IWRITE)
+        func(name)
+
+    shutil.rmtree(path, onexc=writable_then_retry)
 
 
 def git(folder: Path, *args: str) -> str:
@@ -92,7 +105,7 @@ def test_a_file_equal_to_head_is_committed_and_a_changed_or_new_one_is_not(tmp_p
 @needs_git
 def test_a_library_folder_inside_a_bigger_repository(tmp_path: Path):
     lib = library(tmp_path / "repo" / "libs" / "acme", commit=False)
-    shutil.rmtree(lib / ".git")
+    remove_tree(lib / ".git")
     git(tmp_path / "repo", "init", "-q", "-b", "trunk")
     git(tmp_path / "repo", "add", "-A")
     git(tmp_path / "repo", "commit", "-q", "-m", "Libraries")
@@ -117,7 +130,7 @@ def test_a_damaged_git_folder_is_not_readable_never_an_error(tmp_path: Path, dam
     if damage == "head":
         (dot / "HEAD").write_bytes(b"\xff\x00 not a ref")
     elif damage == "objects":
-        shutil.rmtree(dot / "objects")
+        remove_tree(dot / "objects")
     elif damage == "ref":
         (dot / "refs" / "heads" / "main").write_text("0" * 40 + "\n")
     else:
