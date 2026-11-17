@@ -131,6 +131,90 @@ def test_a_window_that_gets_more_text_than_it_was_built_for_grows(qtbot) -> None
     assert audit(dlg) == [] and dlg.height() >= needed_height(dlg)
 
 
+# ---- the window shrinks back (the owner's feedback of 2026-11-17) -----------------------------------
+# On a real display (Ubuntu, scaling 1.25) the first-start window was taller than the main window,
+# with big gaps between its parts: the base had grown it while it was narrow (a wrapped text has
+# many lines then) and never gave the height back once the window was wide again.
+
+MARGIN = 8  # what "content plus a small margin" allows (rounding of a scaled display)
+
+
+class _Wrapped(Dialog):
+    """A window of wrapped texts and a button, nothing that wants extra height."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        lay = QVBoxLayout(self)
+        for _ in range(3):
+            label = QLabel("Pick the one that fits your work, it decides what shows first. " * 2)
+            label.setWordWrap(True)
+            lay.addWidget(label)
+        lay.addWidget(QPushButton("OK"))
+
+
+def test_a_window_made_tall_by_a_narrow_width_shrinks_back_when_it_is_wide_again(qtbot) -> None:
+    dlg = _Wrapped()
+    qtbot.addWidget(dlg)
+    dlg.resize(520, 10)
+    dlg.show()
+    settle()
+    normal = dlg.height()
+    assert normal <= needed_height(dlg) + MARGIN
+    dlg.resize(160, dlg.height())  # narrow: the texts wrap into many lines and the window grows
+    settle()
+    tall = dlg.height()
+    assert tall > normal + 40 and audit(dlg) == []
+    dlg.resize(520, dlg.height())  # wide again (what a window manager or the person does)
+    settle()
+    assert dlg.width() >= 520
+    assert dlg.height() < tall
+    assert dlg.height() <= needed_height(dlg) + MARGIN, (dlg.height(), needed_height(dlg))
+    assert audit(dlg) == []
+
+
+def test_a_window_never_shrinks_below_its_content_or_the_authors_floor(qtbot) -> None:
+    dlg = _Wrapped()
+    dlg.setMinimumHeight(400)  # the author's floor
+    qtbot.addWidget(dlg)
+    dlg.resize(520, 10)
+    dlg.show()
+    settle()
+    dlg.resize(160, dlg.height())
+    settle()
+    dlg.resize(520, dlg.height())
+    settle()
+    assert dlg.height() >= 400 and dlg.height() >= needed_height(dlg)
+    assert audit(dlg) == []
+
+
+def test_a_height_the_person_chose_is_kept(qtbot) -> None:
+    """Only the height the base added goes again: a window the person made taller stays so."""
+    dlg = _Wrapped()
+    qtbot.addWidget(dlg)
+    dlg.resize(520, 10)
+    dlg.show()
+    settle()
+    dlg.resize(520, dlg.height() + 150)  # the person drags the lower edge
+    settle()
+    chosen = dlg.height()
+    dlg.resize(560, chosen)
+    settle()
+    assert dlg.height() == chosen
+
+
+@pytest.mark.parametrize("cls", [NewDeviceDialog, QuickDeviceDialog])
+def test_a_dialog_of_the_program_gives_the_height_back(qtbot, cls) -> None:
+    dlg = open_dialog(cls)
+    qtbot.addWidget(dlg)
+    width, normal = dlg.width(), dlg.height()
+    dlg.resize(dlg.minimumWidth(), normal)
+    settle()
+    dlg.resize(width + 200, dlg.height())
+    settle()
+    assert dlg.height() <= max(normal, needed_height(dlg)) + MARGIN
+    assert audit(dlg) == []
+
+
 def test_a_wrapped_label_in_a_split_pane_counts_all_its_lines(qtbot) -> None:
     """A splitter does not ask for height for width: the label's minimum height has to follow."""
     from PySide6.QtWidgets import QSplitter

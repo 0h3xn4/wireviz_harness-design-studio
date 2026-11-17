@@ -53,11 +53,21 @@ def needed_height(window: QWidget) -> int:
     return _page_height_needed(window)
 
 
+_SLACK = 2  # px a window system may round a height by (a scaled display) and still be "ours"
+
+
 def fit_height_for_width(window: QWidget) -> None:
     """Make the window at least as high as its layout needs at its width (and keep it so when the
     width changes), and at least as wide as the layout's minimum. Setting a minimum also grows a
     window that is smaller. A minimum that the dialog set itself (`setMinimumSize`) stays as the
-    floor, which also means that a size set in the code never hides what the layout needs."""
+    floor, which also means that a size set in the code never hides what the layout needs.
+
+    It fits both ways: the height it added (a narrow window wraps its text into more lines) is
+    given back when the width grows again, down to the height the window had before it was grown
+    and never below what the layout needs or the author's floor. A height that somebody else set
+    after the growth (the person dragging the edge, the code) is left alone. Without this, a window
+    that was narrow for a moment while it was being placed stayed tall, with gaps between its
+    parts (the first-start window on a real display, 2026-11-17)."""
     if window.isMaximized() or window.isFullScreen():
         return
     need = needed_height(window)
@@ -76,10 +86,23 @@ def fit_height_for_width(window: QWidget) -> None:
         window._author_min = floors  # type: ignore[attr-defined]
     need = max(need, floors[1])
     wide = max(wide, floors[0])
+    grown: tuple[int, int] | None = getattr(window, "_fit_grown", None)  # (before, after)
+    if grown is not None and abs(window.height() - grown[1]) > _SLACK:
+        grown = None  # somebody else set the height since: theirs stands
+    # (a window that is not shown yet has no height of its own: what it gives back goes to the need)
+    start = window.height() if window.isVisible() else need
     if window.minimumHeight() != need or (wide and window.minimumWidth() != wide):
-        window.setMinimumSize(wide or window.minimumWidth(), need)
+        window.setMinimumSize(wide or window.minimumWidth(), need)  # (this grows a smaller window)
     if window.height() < need or (wide and window.width() < wide):
         window.resize(max(window.width(), wide), max(window.height(), need))
+    height = window.height()
+    if height > start + _SLACK:  # grown here: remember from what, to give it back later
+        grown = (grown[0] if grown is not None else start, height)
+    elif grown is not None and height > max(need, grown[0]) + _SLACK:
+        target = max(need, grown[0])  # the width grew: give back the height that was added
+        window.resize(window.width(), target)
+        grown = (grown[0], window.height()) if window.height() > grown[0] + _SLACK else None
+    window._fit_grown = grown  # type: ignore[attr-defined]
 
 
 def refit_on(window: QWidget, e: QEvent) -> None:
