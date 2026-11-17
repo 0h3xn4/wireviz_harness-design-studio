@@ -520,8 +520,11 @@ def branch_sides(h: Harness) -> list[tuple[str, str, list[tuple[str, list[str]]]
 
 
 def side_text(sides: list[tuple[str, list[str]]]) -> str:
-    """The sides of a branch point for a cell, one line each: `W001-L1: W001-P3, W001-P4`."""
-    return "\n".join(f"{sid}: {', '.join(ids) or '(none)'}" for sid, ids in sides)
+    """The sides of a branch point for a cell, on one line, `; ` between them:
+    `W001-L1: W001-P3, W001-P4; W001-L2: W001-P1`. Never a line break: the plain workbook writer
+    stores a sheet through a text-mode file, so a line break in a cell becomes CR LF on Windows
+    and the workbook differs by platform (a footer is not affected: openpyxl escapes it)."""
+    return "; ".join(f"{sid}: {', '.join(ids) or '(none)'}" for sid, ids in sides)
 
 
 MASS_HEADER = [

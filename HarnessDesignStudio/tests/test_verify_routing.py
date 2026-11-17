@@ -163,7 +163,7 @@ def _unlist(wb: Any) -> None:
                 c.value = None
 
 
-WRONG_SIDES = "W001-L1: W001-P3\nW001-L2: W001-P1, W001-P4\nW001-L3: W001-P2"
+WRONG_SIDES = "W001-L1: W001-P3; W001-L2: W001-P1, W001-P4; W001-L3: W001-P2"
 
 
 @pytest.mark.parametrize(
