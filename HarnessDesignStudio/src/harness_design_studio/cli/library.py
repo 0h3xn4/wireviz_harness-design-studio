@@ -554,17 +554,20 @@ def _add_device(project: Project, args: argparse.Namespace, rep: Report) -> int:
     _say_problems(rep, problems)
     if not libs.libraries:
         raise _Usage(NO_LIBRARY)
-    found = list({d.unit_id: d for d in (_resolve(libs, n) for n in names)}.values())
-    names = [d.unit_id for d in found]
     rep.put(
         dry_run=args.dry_run,
         changed=False,
         devices=[],
-        sources=[{"device": d.unit_id, "library": d.library.name, "file": d.file} for d in found],
+        sources=[],
         records=[],
         notes=[],
         skipped=[],
         taken=None,
+    )
+    found = list({d.unit_id: d for d in (_resolve(libs, n) for n in names)}.values())
+    names = [d.unit_id for d in found]
+    rep.put(
+        sources=[{"device": d.unit_id, "library": d.library.name, "file": d.file} for d in found]
     )
     try:
         if len(names) == 1:

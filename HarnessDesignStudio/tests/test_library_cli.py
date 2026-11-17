@@ -262,6 +262,8 @@ def test_an_unknown_name_and_an_ambiguous_device(tmp_path: Path, lib: Path, caps
     assert rc == 2 and "No library of this project holds a device 'XYZ'" in err
     rc, _out, err = cli(capsys, "add-device", proj, "OBC")
     assert rc == 1 and "lib (OBC.device.json)" in err and "lib2 (OBC.device.json)" in err
+    found = doc(capsys, "add-device", "add-device", proj, "OBC", rc=1)  # refused, still a document
+    assert not found["changed"] and found["devices"] == [] and found["taken"] is None
     assert files(proj) == before
     rc, out, _ = cli(capsys, "libraries", proj, "--devices")
     assert rc == 0 and "in more than one library" in out
