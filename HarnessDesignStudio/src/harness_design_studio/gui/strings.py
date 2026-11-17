@@ -3662,6 +3662,20 @@ LINK_STATE_TIPS = {
 LIB_COLUMN_STATUS = "Status"
 LIB_COLUMN_STATUS_TIP = "How the device of this project stands to the library"
 LIB_SOURCE_LINE = "Source: {}"
+# the project's own libraries in the library window (device-libraries.json; D-240, pull request 5)
+LIB_PROJECT_LABEL = "Libraries of this project"
+LIB_PROJECT_NONE = "None named"
+LIB_PROJECT_NO_PROJECT = "No project folder yet"
+LIB_PROJECT_ITEM = "{name} ({path})"
+LIB_PROJECT_TIP = (
+    "The device libraries this project names in device-libraries.json (Settings > Project > "
+    "Device libraries of this project). The window lists their devices and those of your "
+    "library folder."
+)
+LIB_COLUMN_LIBRARY = "Library"
+LIB_FROM_PROJECT = "{name}: named by this project as {path}"
+LIB_FROM_PERSON = "{name}: your library folder, {path}"
+LIB_EMPTY_LIBRARIES = "The libraries have no devices or subsystems yet"
 LIB_REVIEW = "Review changes…"
 LIB_REVIEW_TIP = (
     "Compare the chosen device of this project with the library's version, and choose which to keep"

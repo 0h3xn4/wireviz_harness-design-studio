@@ -14,7 +14,12 @@ a preview: the connectors and pins of a device, or the devices and connections o
 has a *Status* (how the device of the project with its ID stands to the library, worked out in a
 helper thread), the preview names its source (library, Git commit, file, *not committed*), *Review
 changes…* opens the review of a device that differs, and a taken ID asks what to do (add copies,
-adopt, or add under another ID; `gui/library_review.py`). The window shares the editor's
+adopt, or add under another ID; `gui/library_review.py`). The window lists the libraries the
+project names in its `device-libraries.json` (`library_link.project_libraries`, with a line that
+names each and its path, and a *Library* column) and the person's library folder; a device of a
+project library is added and compared with the project's libraries, a device of the person's
+folder with that folder (`read_libraries`). Save writes into the person's folder. The window
+shares the editor's
 controller, so an addition is an ordinary edit with undo; it is not modal, follows the theme, and
 keeps its own size and place (`library/geometry`), apart from the editor's layout. The folder is
 read in a helper thread (it may be on a slow drive); nothing is written unless the person saves.
@@ -22,7 +27,7 @@ The headless logic is in `core.library_folder`, `core.subsystem_library` and `co
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +50,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import copies, library_folder, library_link
+from harness_design_studio.core import copies, library_folder, library_link, library_pointer
 from harness_design_studio.core import subsystem_library as sl
 from harness_design_studio.core.commands import Op
 from harness_design_studio.core.edit import EditError, clone_with
@@ -87,6 +92,76 @@ _COUNT = {
 def _n(kind: str, n: int) -> str:
     one, many = _COUNT[kind]
     return (one if n == 1 else many).format(n)
+
+
+PROJECT, PERSON = "project", "person"  # where a library of the window comes from
+
+
+@dataclass(frozen=True)
+class WindowLibrary:
+    """A library folder the window lists: its name, where it comes from (`project`: named in the
+    project's `device-libraries.json`; `person`: the person's library folder), the path as that
+    source writes it, and what the folder holds."""
+
+    folder: Path
+    name: str
+    origin: str
+    path: str
+    scan: LibraryScan
+
+
+@dataclass
+class WindowLibraries:
+    """What the window reads in its helper thread: the libraries to list (the project's first, in
+    their order, then the person's folder unless the project names it already), the project's
+    libraries as the link sees them (`library_link.project_libraries`), and the sentences of what
+    the project's list could not use (the file itself, a folder that cannot be read)."""
+
+    libraries: list[WindowLibrary] = field(default_factory=list)
+    project: library_link.ProjectLibraries = field(default_factory=library_link.ProjectLibraries)
+    problems: list[str] = field(default_factory=list)
+
+    def person(self) -> WindowLibrary | None:
+        return next((lib for lib in self.libraries if lib.origin == PERSON), None)
+
+
+def _same_folder(a: Path, b: Path) -> bool:
+    try:
+        return a.resolve() == b.resolve()
+    except OSError:
+        return a == b
+
+
+def read_libraries(root: Path | None, person_folder: str) -> WindowLibraries:
+    """The libraries of the window (no Qt; runs in a helper thread and reads only)."""
+    project = library_link.project_libraries(root)
+    paths: list[str] = []
+    if root is not None:
+        try:
+            paths = library_pointer.read_pointer(root)
+        except library_pointer.PointerError:
+            paths = []  # project_libraries says why in its problems
+    named = (
+        dict(zip(library_pointer.library_folders(root, paths), paths, strict=True)) if root else {}
+    )
+    out = WindowLibraries(project=project)
+    file_problems: set[str] = set()
+    for lib in project.libraries:
+        scan = library_folder.scan_folder(lib.folder)
+        file_problems |= {f"{lib.folder.name}: {p}" for p in scan.problems}
+        out.libraries.append(
+            WindowLibrary(
+                lib.folder, lib.name, PROJECT, named.get(lib.folder, str(lib.folder)), scan
+            )
+        )
+    out.problems = [p for p in project.problems if p not in file_problems]
+    if person_folder:
+        folder = Path(person_folder)
+        if not any(_same_folder(folder, lib.folder) for lib in out.libraries):
+            scan = library_folder.scan_folder(folder)
+            name = scan.name or folder.name or person_folder
+            out.libraries.append(WindowLibrary(folder, name, PERSON, person_folder, scan))
+    return out
 
 
 def contents_of(entry: LibraryEntry) -> str:
@@ -318,12 +393,17 @@ class LibraryWindow(QWidget):
         self.setAccessibleName(strings.LIB_TITLE)
         self.run_dialog: Callable[[QDialog], int] = lambda dlg: dlg.exec()
         self.ask_choice: Callable[[str, str, list[str]], int] = self._ask_choice
-        self.links: LinkInfo | None = None  # the states of the devices of the folder (D-240)
-        self._links_for = 0  # the scan the states belong to
+        # the states of the devices by where their library comes from (D-240): the project's
+        # libraries, and the person's folder on its own
+        self.links: dict[str, LinkInfo] = {}
+        self._generation = 0  # the reading of the libraries that is shown
+        self._installs = ctl.state_token[0]  # the project the libraries were read for
         self.jobs = JobRunner(ctl)
         self.jobs.done.connect(self._job_done)
         self.folder = str(settings.value(SETTINGS_FOLDER, "") or "")
-        self.scan: LibraryScan | None = None
+        self.read: WindowLibraries | None = None  # None until the first reading is in
+        self._origin: dict[str, WindowLibrary] = {}  # the library of each entry, by its key
+        self._entries: list[LibraryEntry] = []
         self.entry: LibraryEntry | None = None
         self.entry_data: dict[str, Any] | None = None
         self._shown_once = False
@@ -332,7 +412,7 @@ class LibraryWindow(QWidget):
         ctl.selectionChanged.connect(self._update_buttons)
         ctl.stateChanged.connect(self._update_buttons)
         ctl.changed.connect(lambda _d: self._update_buttons())
-        ctl.changed.connect(lambda _d: self._start_states())
+        ctl.changed.connect(lambda _d: self._project_changed())
         self.refresh()
 
     # ---- building -----------------------------------------------------------------------------
@@ -370,6 +450,17 @@ class LibraryWindow(QWidget):
         head.addWidget(self.change_btn)
         head.addWidget(self.refresh_btn)
         outer.addLayout(head)
+        # the libraries the project names in device-libraries.json, each with its source (D-240)
+        named = QHBoxLayout()
+        named.addWidget(QLabel(strings.LIB_PROJECT_LABEL))
+        self.project_label = QLabel()
+        self.project_label.setObjectName("library-project-libraries")
+        self.project_label.setAccessibleName(strings.LIB_PROJECT_LABEL)
+        self.project_label.setToolTip(strings.LIB_PROJECT_TIP)
+        self.project_label.setWordWrap(True)
+        self.project_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        named.addWidget(self.project_label, 1)
+        outer.addLayout(named)
         self.folder_notice = InlineNotice(theme)
         self.folder_notice.setObjectName("library-folder-notice")
         outer.addWidget(self.folder_notice)
@@ -408,6 +499,7 @@ class LibraryWindow(QWidget):
                 Column("id", strings.LIB_COLUMNS[1], mono=True, width=70),
                 Column("name", strings.LIB_COLUMNS[2], width=160),
                 Column("status", strings.LIB_COLUMN_STATUS, width=120, tooltip="status_tip"),
+                Column("library", strings.LIB_COLUMN_LIBRARY, width=120, tooltip="library_tip"),
                 Column("contents", strings.LIB_COLUMNS[3], width=190),
                 Column("file", strings.LIB_COLUMN_FILE, mono=True),
             ],
@@ -568,117 +660,205 @@ class LibraryWindow(QWidget):
         self.search.setFocus()
         self.search.selectAll()
 
-    # ---- the folder -----------------------------------------------------------------------------
+    # ---- the libraries ----------------------------------------------------------------------------
     def set_folder(self, folder: str) -> None:
-        """Use another library folder ('' for none) and read it."""
+        """Use another library folder of the person ('' for none) and read the libraries again."""
         self.folder = folder
         self.refresh()
 
+    @property
+    def scan(self) -> LibraryScan | None:
+        """What the person's library folder holds (None while it is not read, or none is set)."""
+        lib = self.read.person() if self.read is not None else None
+        return lib.scan if lib is not None else None
+
     def refresh(self) -> None:
-        """Read the folder again (in a helper thread)."""
+        """Read the project's libraries and the person's folder again (in a helper thread)."""
         self.folder_label.setText(self.folder or strings.LIB_FOLDER_NONE)
         self.folder_label.setProperty("muted", not self.folder)
         self.result_notice.clear()
-        self.entry_data = None  # read again with the folder
-        self.refresh_btn.setEnabled(bool(self.folder))
-        if not self.folder:
-            self.scan = None
-            self.links = None
+        self.entry_data = None  # read again with the libraries
+        self._generation += 1
+        self._installs = self.ctl.state_token[0]
+        root = self.ctl.root
+        self.refresh_btn.setEnabled(bool(self.folder) or root is not None)
+        self.links = {}
+        if not self.folder and root is None:
+            self.read = None
+            self._origin, self._entries = {}, []
+            self._show_project_libraries()
             self._fill_list()
             return
         folder = self.folder
-        self.jobs.start("library-scan", folder, lambda: library_folder.scan_folder(folder))
+        self.jobs.start("library-scan", self._generation, lambda: read_libraries(root, folder))
+
+    def _project_changed(self) -> None:
+        """An edit works the states out again; another project reads its own libraries."""
+        if self.ctl.state_token[0] != self._installs:
+            self.refresh()
+        else:
+            self._start_states()
 
     def _job_done(self, job: Job) -> None:
         if job.kind == "library-scan":
-            if job.key != self.folder:
-                return  # an answer for a folder that is not chosen any more
+            if job.key != self._generation:
+                return  # an answer for libraries that were read again since
             if job.error is not None:
-                self.scan = LibraryScan(Path(self.folder), error=job.error)
+                scan = LibraryScan(Path(self.folder), error=job.error)
+                person = WindowLibrary(Path(self.folder), "", PERSON, self.folder, scan)
+                self.read = WindowLibraries([person] if self.folder else [])
+                if not self.folder:
+                    self.read.problems.append(job.error)
             else:
-                self.scan = job.value
+                self.read = job.value
             self._scan_ready()
         elif job.kind == "library-entry":
             if self.entry is None or job.key != self.entry.key:
                 return
             self._entry_ready(job)
         elif job.kind == "library-states":
-            if job.key != self._links_for or job.error is not None:
+            if job.key != self._generation or job.error is not None:
                 return
             self.links = job.value
             self._fill_list(states_only=True)
             self._show_source()
 
     # ---- the states of the devices (D-240) ------------------------------------------------------
-    def libraries(self) -> library_link.ProjectLibraries | None:
-        """The folder as the one library of an add or a review (None while it is not read)."""
-        scan = self.scan
-        if scan is None or scan.error:
+    def library_of(self, entry: LibraryEntry | None) -> WindowLibrary | None:
+        """The library an entry of the list comes from."""
+        return self._origin.get(entry.key) if entry is not None else None
+
+    def _group(self, origin: str) -> library_link.ProjectLibraries | None:
+        """The libraries a device is added from, compared with and reviewed against: the project's
+        libraries for a device of one of them; the person's folder on its own for a device of it
+        (when the project names no library, that is the editor's library too)."""
+        read = self.read
+        if read is None:
             return None
-        return library_link.libraries_from_scan(scan, self.ctl.root)
+        if origin == PROJECT:
+            return read.project if read.project.libraries else None
+        person = read.person()
+        if person is None or person.scan.error:
+            return None
+        return library_link.libraries_from_scan(person.scan, self.ctl.root)
+
+    def libraries(self, entry: LibraryEntry | None = None) -> library_link.ProjectLibraries | None:
+        """The libraries of an add or a review of `entry` (the chosen one by default); None while
+        they are not read."""
+        lib = self.library_of(entry if entry is not None else self.entry)
+        return self._group(lib.origin) if lib is not None else None
 
     def _start_states(self) -> None:
-        """Work out how the project's devices stand to the folder's (in the helper thread)."""
-        libs = self.libraries()
-        if libs is None or not libs.libraries:
+        """Work out how the project's devices stand to each group of libraries (in the helper
+        thread)."""
+        groups = {o: g for o in (PROJECT, PERSON) if (g := self._group(o)) is not None}
+        if not groups:
             return
-        self._links_for = id(self.scan)
         project, root = clone_with(self.ctl.project, []), self.ctl.root
-        self.jobs.start(
-            "library-states", self._links_for, lambda: resolve_links(project, root, "", libs)
-        )
+
+        def work() -> dict[str, LinkInfo]:
+            return {o: resolve_links(project, root, "", libs) for o, libs in groups.items()}
+
+        self.jobs.start("library-states", self._generation, work)
 
     def state_of(self, entry: LibraryEntry | None) -> library_link.LinkState | None:
-        if entry is None or entry.kind != "device" or self.links is None:
+        lib = self.library_of(entry)
+        if entry is None or lib is None or entry.kind != "device":
             return None
-        return self.links.state(entry.id)
+        info = self.links.get(lib.origin)
+        return info.state(entry.id) if info is not None else None
 
     def _show_source(self) -> None:
-        entry, info = self.entry, self.links
+        entry = self.entry
+        lib = self.library_of(entry)
+        info = self.links.get(lib.origin) if lib is not None else None
         dev = None
-        if entry is not None and entry.kind == "device" and info is not None:
-            dev = next((d for d in info.libraries.holders(entry.id) if d.file == entry.file), None)
+        if entry is not None and lib is not None and entry.kind == "device" and info is not None:
+            dev = next(
+                (
+                    d
+                    for d in info.libraries.holders(entry.id)
+                    if d.file == entry.file and _same_folder(d.library.folder, lib.folder)
+                ),
+                None,
+            )
         self.source_label.setText(
             strings.LIB_SOURCE_LINE.format(info.source(dev)) if dev is not None and info else ""
         )
         self.source_label.setVisible(dev is not None)
         self._update_buttons()
 
+    def _show_project_libraries(self) -> None:
+        """The line of the project's libraries: each with its name and its path."""
+        read = self.read
+        named = [lib for lib in read.libraries if lib.origin == PROJECT] if read else []
+        if named:
+            text = "; ".join(
+                strings.LIB_PROJECT_ITEM.format(name=x.name, path=x.path) for x in named
+            )
+        elif self.ctl.root is None:
+            text = strings.LIB_PROJECT_NO_PROJECT
+        else:
+            text = strings.LIB_PROJECT_NONE
+        self.project_label.setText(text)
+        self.project_label.setProperty("muted", not named)
+
     def _scan_ready(self) -> None:
-        scan = self.scan
-        if scan is None:
+        read = self.read
+        if read is None:
             return
-        if scan.error:
-            self.folder_notice.show_notice("error", scan.error)
-        elif scan.problems:
-            n = len(scan.problems)
+        self._show_project_libraries()
+        many = len(read.libraries) > 1
+        errors = [lib.scan.error for lib in read.libraries if lib.scan.error] + read.problems
+        damaged = [
+            f"{lib.name}: {p}" if many else str(p)
+            for lib in read.libraries
+            if not lib.scan.error
+            for p in lib.scan.problems
+        ]
+        if errors:
+            details = errors[1:] + damaged
+            self.folder_notice.show_notice("error", errors[0], details=details[:8] or None)
+        elif damaged:
+            n = len(damaged)
             self.folder_notice.show_notice(
                 "warning",
                 strings.LIB_DAMAGED_ONE if n == 1 else strings.LIB_DAMAGED.format(n),
-                details=[str(p) for p in scan.problems[:8]]
-                + ([f"… +{len(scan.problems) - 8}"] if len(scan.problems) > 8 else []),
+                details=damaged[:8] + ([f"… +{n - 8}"] if n > 8 else []),
             )
         else:
             self.folder_notice.clear()
-        self.links = None
+        self._origin, self._entries = {}, []
+        for k, lib in enumerate(read.libraries):
+            if lib.scan.error:
+                continue
+            for e in lib.scan.entries:
+                # the person's folder keeps the keys of its scan; a project library's are its own
+                entry = e if lib.origin == PERSON else replace(e, key=f"library-{k}:{e.key}")
+                self._origin[entry.key] = lib
+                self._entries.append(entry)
+        self.links = {}
         self._fill_list()
         self._start_states()
 
     # ---- the list ---------------------------------------------------------------------------------
     def _wanted(self) -> list[LibraryEntry]:
-        scan = self.scan
-        if scan is None or scan.error:
-            return []
         kind = str(self.kind.currentData())
         words = self.search.text().lower().split()
         out = []
-        for e in scan.entries:
+        for e in self._entries:
             if kind != "all" and e.kind != kind:
                 continue
-            hay = f"{e.id} {e.name} {e.description} {e.subsystem} {e.file}".lower()
+            lib = self._origin[e.key]
+            hay = f"{e.id} {e.name} {e.description} {e.subsystem} {e.file} {lib.name}".lower()
             if all(w in hay for w in words):
                 out.append(e)
         return out
+
+    def _library_cells(self, entry: LibraryEntry) -> tuple[str, str]:
+        lib = self._origin[entry.key]
+        tip = strings.LIB_FROM_PROJECT if lib.origin == PROJECT else strings.LIB_FROM_PERSON
+        return lib.name, tip.format(name=lib.name, path=lib.path)
 
     def _fill_list(self, states_only: bool = False) -> None:
         wanted = self._wanted()
@@ -693,6 +873,8 @@ class LibraryWindow(QWidget):
                 "name": e.name,
                 "status": self._status(e)[0],
                 "status_tip": self._status(e)[1],
+                "library": self._library_cells(e)[0],
+                "library_tip": self._library_cells(e)[1],
                 "contents": contents_of(e),
                 "file": e.file,
                 "key": e.key,
@@ -706,7 +888,7 @@ class LibraryWindow(QWidget):
             self._update_buttons()
             return
         self.list_model.set_rows(rows)
-        scan = self.scan
+        read = self.read
         if wanted:
             self.list_stack.setCurrentIndex(0)
             row = next((i for i, e in enumerate(wanted) if e.key == keep), 0)
@@ -714,16 +896,23 @@ class LibraryWindow(QWidget):
             self._select(wanted[row])
         else:
             self._select(None)
-            if scan is None:
-                self._show_empty(
-                    strings.LIB_EMPTY_NO_FOLDER, strings.LIB_EMPTY_NO_FOLDER_HINT, True
-                )
-            elif scan.error:
+            if read is None or not read.libraries:
+                if read is not None and read.problems:
+                    self._show_empty(
+                        strings.LIB_EMPTY_UNREADABLE, strings.LIB_EMPTY_UNREADABLE_HINT, True
+                    )
+                else:
+                    self._show_empty(
+                        strings.LIB_EMPTY_NO_FOLDER, strings.LIB_EMPTY_NO_FOLDER_HINT, True
+                    )
+            elif all(lib.scan.error for lib in read.libraries):
                 self._show_empty(
                     strings.LIB_EMPTY_UNREADABLE, strings.LIB_EMPTY_UNREADABLE_HINT, True
                 )
-            elif scan.entries:
+            elif self._entries:
                 self._show_empty(strings.LIB_EMPTY_NOMATCH, strings.LIB_EMPTY_NOMATCH_HINT, False)
+            elif len(read.libraries) > 1:
+                self._show_empty(strings.LIB_EMPTY_LIBRARIES, strings.LIB_EMPTY_FOLDER_HINT, False)
             else:
                 self._show_empty(strings.LIB_EMPTY_FOLDER, strings.LIB_EMPTY_FOLDER_HINT, False)
         self._update_buttons()
@@ -733,7 +922,8 @@ class LibraryWindow(QWidget):
         are worked out)."""
         state = self.state_of(entry)
         if state is None:
-            if entry.kind == "device" and self.links is not None:
+            lib = self.library_of(entry)
+            if entry.kind == "device" and lib is not None and lib.origin in self.links:
                 return state_words(library_link.NOT_IN_PROJECT), strings.LINK_STATE_TIPS[
                     library_link.NOT_IN_PROJECT
                 ]
@@ -792,7 +982,8 @@ class LibraryWindow(QWidget):
         self.preview_text.setText(strings.LIB_PREVIEW_LOADING)
         self.pin_model.set_rows([])
         self.sub_model.set_rows([])
-        folder = self.folder
+        lib = self.library_of(entry)
+        folder = lib.folder if lib is not None else Path(self.folder)
 
         def load() -> dict[str, Any]:
             return library_folder.load_entry(folder, entry)
@@ -947,7 +1138,9 @@ class LibraryWindow(QWidget):
         if entry is None or libs is None or not self.review_btn.isEnabled():
             return
         try:
-            message, wrote = review_flow(self.host(), libs, entry.id, self.links)
+            lib = self.library_of(entry)
+            info = self.links.get(lib.origin) if lib is not None else None
+            message, wrote = review_flow(self.host(), libs, entry.id, info)
         except HarnessError as exc:
             self.result_notice.show_notice("error", str(exc))
             return

@@ -1949,6 +1949,13 @@ class MainWindow(QMainWindow):
             self.toasts.show_message(message, None)
 
     # ---- Settings > Project > Device libraries of this project (device-libraries.json) ------------
+    def libraries_changed(self, *, notice: bool = False) -> None:
+        """The project's libraries may be others now (a project opened, device-libraries.json
+        written or copied): read them again, and the library window with them."""
+        self.library_links.refresh(notice=notice)
+        if self.library_window is not None:
+            self.library_window.refresh()
+
     def project_libraries_flow(self) -> None:
         """File > Device libraries of this project…: the list on the Settings page."""
         self.set_area("settings")
@@ -1992,7 +1999,7 @@ class MainWindow(QMainWindow):
         )
         self._show_project_libraries(note)
         self.toasts.show_message(note, None)
-        self.library_links.refresh()
+        self.libraries_changed()
 
     def add_project_library_flow(self) -> None:
         """*Add library…*: ask for a folder and name it in device-libraries.json, at once and
@@ -5308,7 +5315,7 @@ class MainWindow(QMainWindow):
         # the project's device libraries, read in a helper thread: a notice when one has a newer
         # version of a device of the project (it never applies anything; D-240)
         self.alerts.clear("library")
-        self.library_links.refresh(notice=True)
+        self.libraries_changed(notice=True)
         return True
 
     def save_flow(self) -> bool:
@@ -5332,7 +5339,7 @@ class MainWindow(QMainWindow):
             self._error(self._explain(exc, folder))
             return False
         self.toasts.show_message(" ".join([strings.SAVED, *notes]), None, 8000 if notes else 2500)
-        self.library_links.refresh()  # device-libraries.json came along, its paths rewritten
+        self.libraries_changed()  # device-libraries.json came along, its paths rewritten
         return True
 
     def _on_save_error(self, exc: Exception) -> None:
