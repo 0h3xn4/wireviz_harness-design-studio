@@ -379,6 +379,9 @@ def test_j5_redundant_copy_cross_strap_fix_and_waiver(win) -> None:  # type: ign
 
 
 def test_j6_todo_items_are_clickable(win) -> None:  # type: ignore[no-untyped-def]
+    # the count below is of the checks that run with each edit: on a slow runner the background
+    # design rule check of the starting project could finish first and add its warnings
+    hold_drc(win)
     add_unit(win, "pyro")
     show_problems(win)
     heading = win.problems.findChild(QLabel, "todo-heading")  # was the To-do tab and its count
