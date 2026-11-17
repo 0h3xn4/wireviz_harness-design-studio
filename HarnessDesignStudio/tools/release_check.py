@@ -252,13 +252,19 @@ def deb_install() -> Result:
         new_code, new_out = run(
             [f"{tmp}/opt/harness-design-studio/cli/harness-design-studio", "new", "--list"]
         )
+        from tools import appstream
+
+        meta = f"{tmp}/usr/share/metainfo/{appstream.FILE_NAME}"
+        meta_code, meta_out = run([sys.executable, "-m", "tools.appstream", "check", meta])
     return (
         code == 0
         and cli_code == 0
         and new_code == 0
+        and meta_code == 0
         and "first-steps" in new_out
         and "selftest ok" in out,
-        f"extracted deb runs: {_selftest_line(out)}; {cli_out}; examples present",
+        f"extracted deb runs: {_selftest_line(out)}; {cli_out}; examples present; "
+        f"App Center data: {tail(meta_out, 1)}",
     )
 
 

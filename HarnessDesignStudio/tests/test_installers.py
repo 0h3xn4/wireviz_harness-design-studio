@@ -16,6 +16,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 PK = ROOT / "packaging" / "ubuntu"
+METAINFO = "io.github._0h3xn4.harness_design_studio.metainfo.xml"  # tools/appstream.FILE_NAME
 
 
 def _action_name(line: str) -> str:
@@ -35,6 +36,9 @@ def fake_package(tmp: Path) -> Path:
     for item in PK.iterdir():
         if item.is_file():
             shutil.copy2(item, pkg / item.name)
+    from tools import appstream
+
+    appstream.write(pkg / appstream.FILE_NAME)  # as build_installer writes it
     return pkg
 
 
@@ -68,13 +72,47 @@ def test_install_then_uninstall_leaves_nothing_behind(tmp_path: Path) -> None:
     desktop = (root / "share" / "applications" / "harness-design-studio.desktop").read_text()
     assert f'Exec="{prefix}/harness-design-studio-gui"' in desktop and "@" not in desktop
     assert (root / "share" / "icons" / "harness-design-studio.svg").is_file()
+    metainfo = root / "share" / "metainfo" / METAINFO  # the App Center data
+    assert metainfo.read_bytes() == (pkg / METAINFO).read_bytes()
     out = subprocess.run(
         [str(link), "--version"], capture_output=True, text=True, check=True
     ).stdout
     assert "stub" in out
     r = run_script(pkg / "uninstall.sh", tmp_path, "--prefix", str(prefix))
     assert r.returncode == 0 and not prefix.exists()
-    assert not list((root).rglob("harness*"))
+    assert not list((root).rglob("harness*")) and not metainfo.exists()
+
+
+def test_install_of_a_package_without_app_center_data_still_works(tmp_path: Path) -> None:
+    """A package built before the metainfo file existed (or without it) installs as before."""
+    pkg = fake_package(tmp_path)
+    (pkg / METAINFO).unlink()
+    prefix = tmp_path / "opt"
+    r = run_script(pkg / "install.sh", tmp_path, "--prefix", str(prefix))
+    assert r.returncode == 0, r.stderr
+    assert not (tmp_path / "root" / "share" / "metainfo").exists()
+    assert run_script(pkg / "uninstall.sh", tmp_path, "--prefix", str(prefix)).returncode == 0
+
+
+def test_the_user_install_puts_the_app_center_data_beside_the_desktop_entry(tmp_path: Path) -> None:
+    """Without the test root, a user install writes under XDG_DATA_HOME (default ~/.local/share)."""
+    if sys.platform != "linux":
+        pytest.skip("install.sh is the Linux tarball's script")
+    pkg = fake_package(tmp_path)
+    home = tmp_path / "home"
+    env = {
+        k: v for k, v in os.environ.items() if k not in ("HARNESS_INSTALL_ROOT", "XDG_DATA_HOME")
+    }
+    env["HOME"] = str(home)
+    for script in ("install.sh", "uninstall.sh"):
+        r = subprocess.run(
+            ["sh", str(pkg / script)], capture_output=True, text=True, env=env, check=False
+        )
+        assert r.returncode == 0, r.stderr
+        share = home / ".local" / "share"
+        installed = script == "install.sh"
+        assert (share / "applications" / "harness-design-studio.desktop").is_file() == installed
+        assert (share / "metainfo" / METAINFO).is_file() == installed
 
 
 def test_reinstall_replaces_the_old_version(tmp_path: Path) -> None:
@@ -133,6 +171,7 @@ def test_deb_has_the_right_files_and_metadata(
         "./usr/bin/harness",
         "./usr/share/applications/harness-design-studio.desktop",
         "./usr/share/icons/hicolor/scalable/apps/harness-design-studio.svg",
+        f"./usr/share/metainfo/{METAINFO}",  # the App Center page
     ):
         assert path in listing, path
     assert "root/root" in listing  # owned by root, not by the build user
@@ -452,7 +491,12 @@ def test_the_deb_ships_licences_and_not_the_tarball_scripts(tmp_path: Path) -> N
     assert "./usr/share/doc/harness-design-studio/copyright" in listing
     assert "./usr/share/doc/harness-design-studio/LICENSES/README.txt" in listing
     assert "opt/harness-design-studio/install.sh" not in listing
-    for name in ("README.txt", "harness-design-studio.desktop.in", "harness-design-studio.svg"):
+    for name in (
+        "README.txt",
+        "harness-design-studio.desktop.in",
+        "harness-design-studio.svg",
+        METAINFO,
+    ):
         assert f"opt/harness-design-studio/{name}" not in listing, name  # tarball-only files
     assert "libc6 (>= 2.39)" in DEPENDS and "libxcb-xinerama0" in DEPENDS
 
