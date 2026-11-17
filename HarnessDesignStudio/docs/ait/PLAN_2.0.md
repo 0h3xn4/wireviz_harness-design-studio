@@ -586,6 +586,8 @@ The design of 2.2.0, the device library, is in [`DESIGN_2.2_DEVICE_LIBRARY.md`](
 
 *Added 2026-11-17:* the owner decided that a harness plan in the users' layout (an `.ods` file with formulas) comes after 2.2.0 and 2.3.0, as 3.0.0 with format 3. Its design is in [`DESIGN_3.0_HARNESS_PLAN.md`](DESIGN_3.0_HARNESS_PLAN.md) (D-242, to be recorded); nothing of it is built.
 
+*Added 2026-11-17:* the design of 2.3.0, branching harnesses and splices, is in [`DESIGN_2.3_BRANCHING.md`](DESIGN_2.3_BRANCHING.md) (D-243, to be recorded). It finds that branching fits format 2: the branch points and segments are in the model, and Generate already makes harnesses that branch in the modes `per_unit_pair` and `per_zone_pair`. A splice needs a new value of the connector role, which is a format change. It recommends that 2.3.0 is M6b, branching in format 2 (a new choice `per_connector_group` of `segmentation.mode`, the routing tree drawn by a person, a *Routing* sheet in the build workbook), that the splices of M6a go into format 3 and so ship with 3.0.0 (the owner's answer to Q10 of the 3.0 design), and that M6c (backshells) comes later. The owner questions are B1 to B9. Nothing of it is built.
+
 ---
 
 ## 4. What I can verify, and what only you can
