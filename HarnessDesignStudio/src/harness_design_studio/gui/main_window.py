@@ -71,6 +71,7 @@ from harness_design_studio.core import (
     device_library,
     drc,
     edit,
+    library_link,
     manual_harness,
     part_approval,
 )
@@ -1779,10 +1780,19 @@ class MainWindow(QMainWindow):
         dlg = LibraryDialog(self, self.theme, self.ctl.project, data)
         if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
             return
-        plan = dlg.plan()
-        if not plan.ops or not self.ctl.run(strings.STEP_ADD_DEVICES, plan.ops):
+        # one core function adds the devices with the import record of the file (D-240); a taken
+        # ID still gets the next free one, as before 2.2 (an unlinked copy, no record)
+        try:
+            libs = library_link.file_library(Path(path), self.ctl.root)
+            add = library_link.plan_add_devices(
+                self.ctl.project, libs, dlg.selected(), rename_taken=True, root=self.ctl.root
+            )
+        except (HarnessError, OSError) as exc:
+            self._error(self._explain(exc, Path(path).parent))
             return
-        added = [r.new_id for r in plan.rows if r.ok]
+        if not add.ops or not self.ctl.run(strings.STEP_ADD_DEVICES, add.ops):
+            return
+        added = list(add.unit_ids)
         if not self._stays_on_the_path():
             self.go_to("devices")
         self.devices_view.show_unit(added[0])

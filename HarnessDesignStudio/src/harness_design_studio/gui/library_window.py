@@ -40,11 +40,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import copies, library_folder
-from harness_design_studio.core import device_library as dl
+from harness_design_studio.core import copies, library_folder, library_link
 from harness_design_studio.core import subsystem_library as sl
 from harness_design_studio.core.commands import Op
-from harness_design_studio.core.edit import EditError, clone_with
+from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.library_folder import LibraryConflict, LibraryEntry, LibraryScan
 from harness_design_studio.core.model import Project
@@ -778,21 +777,25 @@ class LibraryWindow(QWidget):
                 strings.STEP_LIB_ADD_SUBSYSTEM.format(plan.name),
                 plan.notes,
             )
-        device_plan = dl.plan_device_import(project, data, [entry.id])
-        row = device_plan.rows[0] if device_plan.rows else None
-        if row is None or not row.ok:
-            raise EditError(f"{entry.id}: {row.message if row else strings.LIB_PREVIEW_ERROR}")
-        ops = sl.with_placements(project, device_plan.ops)
-        ids = [row.new_id]
-        notes = list(device_plan.notes)
-        count = int(self.number.value())
-        if count > 1:
-            more = copies.plan_copies(clone_with(project, ops), row.new_id, count)
-            ops += more.ops
-            ids += list(more.new_ids)
-            if more.skipped:
-                notes.append(strings.REDUNDANT_SKIPPED.format(len(more.skipped), ", ".join(more.skipped)).strip())  # fmt: skip
-        return ops, ids, strings.STEP_LIB_ADD_DEVICE.format(", ".join(ids)), notes
+        # one core function adds the device with its import record (D-240); a taken ID still gets
+        # the next free one here, as before 2.2 (an unlinked copy, no record)
+        scan = self.scan
+        if scan is None or scan.error:
+            raise EditError(strings.LIB_ADD_NONE)
+        libs = library_link.libraries_from_scan(scan, self.ctl.root)
+        add = library_link.plan_add_device(
+            project,
+            libs,
+            entry.id,
+            int(self.number.value()),
+            rename_taken=True,
+            root=self.ctl.root,
+        )
+        ids = list(add.unit_ids)
+        notes = list(add.notes)
+        if add.skipped:
+            notes.append(strings.REDUNDANT_SKIPPED.format(len(add.skipped), ", ".join(add.skipped)).strip())  # fmt: skip
+        return add.ops, ids, strings.STEP_LIB_ADD_DEVICE.format(", ".join(ids)), notes
 
     def add_flow(self) -> None:
         """Add to project: one undo step; the notice under the list says what was added."""

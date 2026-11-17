@@ -11,6 +11,7 @@ Versions follow semantic versioning. Every project file records the tool version
 ### Changed
 
 - **A device is saved to the library in a file of its own** (decision D-240). *Save to library* writes each device into the file of the library folder that holds it already, else into `<ID>.device.json` (it was `<ID>.json` for one device and `devices.json` for several); *Save to library…* of the Devices tab suggests `<ID>.device.json`. The library window refuses a device that is in two files of the folder, and two device files of the same name, and names the files; the files of 2.1 are still read.
+- **Adding a device from a library records where it came from** (decision D-240). *Add to project* of the library window and *Add from library…* of the Devices tab now write the import record of the library file (`devices:<file name>` in `imports/records.json`, with the SHA-256 of the file, the library's name, the file and its Git commit) in the same undo step, as `import-devices` does. A taken device ID still gets the next free one; such a copy gets no record. Devices added from the Devices tab now get a place on the diagram as the library window gives them.
 
 ## 2.1.1 (2026-11-17; not a statement of compliance)
 

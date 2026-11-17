@@ -16,8 +16,9 @@ from PySide6.QtCore import QSettings, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog  # noqa: E402
 
-from harness_design_studio.core import copies  # noqa: E402
+from harness_design_studio.core import copies, library_link  # noqa: E402
 from harness_design_studio.core.commands import apply_ops  # noqa: E402
+from harness_design_studio.core.import_record import file_sha256  # noqa: E402
 from harness_design_studio.core.library_folder import save_devices, save_subsystem  # noqa: E402
 from harness_design_studio.core.links import plan_add_link  # noqa: E402
 from harness_design_studio.core.samples import new_project  # noqa: E402
@@ -155,6 +156,25 @@ def test_add_a_device_is_one_undo_step(qtbot, tmp_path: Path, library: Path):
     win.ctl.redo()
     lib.add_btn.click()  # again: nothing is replaced, the next free ID
     assert "PCDU-2" in win.ctl.project.units and "PCDU" in win.ctl.project.units
+
+
+def test_add_writes_the_import_record_that_links_the_device(qtbot, tmp_path: Path, library: Path):
+    """REQ-LIB-07: the window adds through `library_link.plan_add_device`, so the device gets the
+    record of its library file in the same undo step (D-240)."""
+    win, lib = opened(qtbot, tmp_path, library)
+    pick(lib, next(e for e in lib._shown if e.id == "RW1").key)
+    lib.add_btn.click()
+    p = win.ctl.project
+    rec = p.import_records["devices:RW1.device.json"]
+    assert rec.kind == "devices" and rec.sha256 == file_sha256(library / "RW1.device.json")
+    assert rec.notes[:2] == ["Library: library", "Library file: RW1.device.json"]
+    libs = library_link.open_libraries([library])
+    assert library_link.link_state(p, libs, "RW1").state == library_link.UP_TO_DATE
+    win.ctl.undo()
+    assert "RW1" not in p.units and not p.import_records
+    win.ctl.redo()
+    lib.add_btn.click()  # a taken ID still gets the next free one: an unlinked copy, no record
+    assert "RW1-2" in p.units and list(p.import_records) == ["devices:RW1.device.json"]
 
 
 def test_add_a_number_of_devices(qtbot, tmp_path: Path, library: Path):
