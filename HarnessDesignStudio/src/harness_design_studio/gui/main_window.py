@@ -138,6 +138,7 @@ from harness_design_studio.gui.devices_dialogs import (
     QuickDeviceDialog,
 )
 from harness_design_studio.gui.devices_view import DevicesView
+from harness_design_studio.gui.dialog_base import InputGuard, run_dialog
 from harness_design_studio.gui.dialogs import (
     Banner,
     ChangeDialog,
@@ -241,7 +242,9 @@ def _lower_first(text: str) -> str:
 
 
 def _exec(dialog: QDialog) -> int:
-    return int(dialog.exec())
+    """The program's dialogs are windows that move on their own (`dialog_base.run_dialog`): never
+    modal for the window system, which on GNOME would glue them to the main window."""
+    return run_dialog(dialog)
 
 
 def _no_file() -> str | None:
@@ -3796,8 +3799,11 @@ class MainWindow(QMainWindow):
     ) -> None:
         progress = QProgressDialog(label, strings.CANCEL, 0, 100, self)
         progress.setObjectName(name)
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        # not modal for the window system (GNOME would glue it to the window): the guard keeps the
+        # clicks and keys away from the window while the job runs, as the modality did
+        progress.setWindowModality(Qt.WindowModality.NonModal)
         progress.setMinimumDuration(400)  # quick runs never flash a dialog
+        guard = InputGuard(progress)
         loop = QEventLoop(self)
 
         def on_progress(fraction: float, text: str) -> None:
@@ -3810,9 +3816,16 @@ class MainWindow(QMainWindow):
         worker.progressed.connect(on_progress)
         progress.canceled.connect(worker.cancel)
         worker.finished.connect(loop.quit)
-        worker.start()
-        loop.exec()
-        worker.wait()
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(guard)
+        try:
+            worker.start()
+            loop.exec()
+            worker.wait()
+        finally:
+            if app is not None:
+                app.removeEventFilter(guard)
         with contextlib.suppress(RuntimeError, TypeError):
             worker.progressed.disconnect(on_progress)  # no late messages into a closed dialog
         progress.reset()
@@ -5058,7 +5071,12 @@ class MainWindow(QMainWindow):
         return path or None
 
     def _ask_text(self, title: str, label: str, default: str) -> str | None:
-        text, ok = QInputDialog.getText(self, title, label, text=default)
+        dlg = QInputDialog(self)  # (not the static getText: that one is modal)
+        dlg.setWindowTitle(title)
+        dlg.setLabelText(label)
+        dlg.setTextValue(default)
+        ok = self.run_dialog(dlg) == QDialog.DialogCode.Accepted
+        text = dlg.textValue()
         return text if ok and text.strip() else None
 
     def _ask_choice(self, title: str, text: str, buttons: list[str]) -> int:
@@ -5066,7 +5084,7 @@ class MainWindow(QMainWindow):
         box.setWindowTitle(title)
         box.setText(text)
         created = [box.addButton(b, QMessageBox.ButtonRole.ActionRole) for b in buttons]
-        box.exec()
+        run_dialog(box)  # (the answer is needed: it waits, but moves on its own)
         clicked = box.clickedButton()
         return created.index(clicked) if clicked in created else len(buttons) - 1
 

@@ -57,7 +57,7 @@ from harness_design_studio.core.model import Connector, Pin, Project
 from harness_design_studio.core.pairing import pair_by_number, parse_pairing
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.connector_picker import ConnectorPicker
-from harness_design_studio.gui.dialog_base import Dialog
+from harness_design_studio.gui.dialog_base import Dialog, run_dialog
 from harness_design_studio.gui.notice import InlineNotice, Severity
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager
@@ -591,7 +591,7 @@ class LinkDialog(Dialog):
     # ---- a connector added here, a pairing proposed by number or pasted ---------------------------
     def _ask_connector(self, unit_id: str) -> tuple[list[Op], str] | None:
         dlg = AddConnectorDialog(self, self.theme, self.project, unit_id)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
+        if run_dialog(dlg) != QDialog.DialogCode.Accepted:
             return None
         return dlg.plan()
 
@@ -619,7 +619,7 @@ class LinkDialog(Dialog):
         dlg = PastePairingDialog(
             self, self.theme, self.a_connector_id() or "?", self.b_connector_id() or "?"
         )
-        return dlg.pasted() if dlg.exec() == QDialog.DialogCode.Accepted else None
+        return dlg.pasted() if run_dialog(dlg) == QDialog.DialogCode.Accepted else None
 
     def _skipped(self) -> tuple[set[str], set[str]]:
         """The pins already in the table (a proposal never offers them again)."""

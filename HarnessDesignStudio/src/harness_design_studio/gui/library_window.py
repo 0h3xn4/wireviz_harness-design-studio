@@ -61,7 +61,7 @@ from harness_design_studio.gui import strings
 from harness_design_studio.gui.background import Job, JobRunner
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.devices_dialogs import _PlannerDialog
-from harness_design_studio.gui.dialog_base import Dialog, refit_on
+from harness_design_studio.gui.dialog_base import Dialog, refit_on, run_dialog
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.library_review import (
     REVIEWABLE,
@@ -391,7 +391,7 @@ class LibraryWindow(QWidget):
         self.setObjectName("library-window")
         self.setWindowTitle(strings.LIB_TITLE)
         self.setAccessibleName(strings.LIB_TITLE)
-        self.run_dialog: Callable[[QDialog], int] = lambda dlg: dlg.exec()
+        self.run_dialog: Callable[[QDialog], int] = run_dialog
         self.ask_choice: Callable[[str, str, list[str]], int] = self._ask_choice
         # the states of the devices by where their library comes from (D-240): the project's
         # libraries, and the person's folder on its own
@@ -1073,7 +1073,7 @@ class LibraryWindow(QWidget):
         box.setWindowTitle(title)
         box.setText(text)
         created = [box.addButton(b, QMessageBox.ButtonRole.ActionRole) for b in buttons]
-        box.exec()
+        run_dialog(box)  # (waits for the answer, but moves on its own)
         clicked = box.clickedButton()
         return created.index(clicked) if clicked in created else len(buttons) - 1
 

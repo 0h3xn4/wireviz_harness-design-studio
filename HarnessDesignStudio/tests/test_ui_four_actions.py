@@ -39,8 +39,10 @@ from PySide6.QtWidgets import (  # noqa: E402
     QFileDialog,
     QInputDialog,
     QMessageBox,
+    QWidget,
 )
 
+from harness_design_studio.gui.dialog_base import run_dialog  # noqa: E402
 from harness_design_studio.gui.main_window import MainWindow  # noqa: E402
 from tests.gui_helpers import make_window  # noqa: E402
 from tests.layout_audit import audit  # noqa: E402
@@ -130,7 +132,7 @@ class Person:
         self.trail.dialogs += 1
         title = dlg.windowTitle() or type(dlg).__name__
         self.trail.note(f"dialog: {title}")
-        dlg.show()
+        QWidget.show(dlg)  # (QDialog.show itself is watched by `no_other_dialogs`)
         for _ in range(5):
             QApplication.processEvents()
         self.trail.findings += [f"{title}: {f}" for f in audit(dlg)]
@@ -187,6 +189,11 @@ def no_other_dialogs(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     ):
         for n in names:
             monkeypatch.setattr(cls, n, refuse(f"{cls.__name__}.{n}"))
+
+    def shown(self: QDialog) -> None:  # `dialog_base.run_dialog` shows a dialog, not exec()
+        seen.append(f"{type(self).__name__}.show")
+
+    monkeypatch.setattr(QDialog, "show", shown)
     for cls, names in (
         (QFileDialog, ("getExistingDirectory", "getSaveFileName", "getOpenFileName")),
         (QInputDialog, ("getText",)),
@@ -275,4 +282,5 @@ def test_the_counter_notices_a_dialog_that_the_path_did_not_have(
     QMessageBox.question(win, "t", "x")
     box = QMessageBox(win)
     box.exec()
-    assert no_other_dialogs == ["QMessageBox.question", "QMessageBox.exec"]
+    run_dialog(QDialog(win))  # the way the program runs its dialogs (not modal, since 2026-11-17)
+    assert no_other_dialogs == ["QMessageBox.question", "QMessageBox.exec", "QDialog.show"]

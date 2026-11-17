@@ -94,6 +94,8 @@ Panels you hide or move are remembered for each project; **View > Reset layout**
 
 **The program starts on Home** (decision D-223). It opens no project by itself, not even the one that was open when you closed it: Home shows *Nothing is open* with the ways to start and your recent projects, without the panels, the top bar and the status bar around it. A project you open or make there opens on the diagram (as an Electrical engineer) or on the Next step page (as a Systems or AIT engineer). Going to another area or an edit ends the start page; the **Model** area then shows the built-in sample until you open a project. Closing the window releases the project and keeps only the window's own settings and the recent list.
 
+**Windows move on their own.** Every window the editor opens (the library, the review of a library change, the export window, the edit windows, a question) stays in front of the main window and can be moved apart from it. A window that asks something waits for the answer: until you answer it, the main window takes no clicks or keys, and a click on it brings the question to the front. The glossary, the assumptions and a change log do not wait: you can go on working beside them.
+
 The three steps in the top bar go in order. **Generate** builds the harnesses, **Check** (F5) runs the design rules, **Release…** locks a harness as a numbered revision. A step that has to wait says what to do first, for example *generate the harnesses first* or *check the design first*. When you look at part of a released harness, a banner says so and offers **Start new revision…**.
 
 The **Device list** and **Interfaces** tables work like a spreadsheet:

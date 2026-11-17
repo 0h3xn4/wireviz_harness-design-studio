@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The window that shows how a number was calculated (D-191): the text of `harness-design-studio explain`.
 
-    ExplainDialog(parent, theme, derivations).exec()
+    ExplainDialog(parent, theme, derivations).show()   # (not modal: it moves on its own)
 
 Read-only, selectable text in a fixed-width font, one derivation after the other, with a Close button.
 It shows what `core.derive.render` gives, so the window, the Why tab and the command line say the
