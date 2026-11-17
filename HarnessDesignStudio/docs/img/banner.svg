@@ -7,6 +7,7 @@
   <clipPath id="logo-tile"><rect width="64" height="64" rx="12"/></clipPath>
   <rect width="64" height="64" rx="12" fill="#4a1fb8"/>
   <path clip-path="url(#logo-tile)" d="M-2 50 C14 66 52 58 66 28" fill="none" stroke="#6b45d6" stroke-width="2"/>
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="10.75" fill="none" stroke="#8f75ec" stroke-width="2.5"/>
   <path d="M10 4 L11 8 L15 9 L11 10 L10 14 L9 10 L5 9 L9 8 Z" fill="#fff"/>
   <g fill="none" stroke-linecap="round" stroke-width="3">
     <path d="M18 22 C24 22 24 26 30 26 L36 26 C42 26 42 14 47 14" stroke="#fff"/>

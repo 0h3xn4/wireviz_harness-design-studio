@@ -4,7 +4,8 @@
 
 The logo shows what the tool does: a device connector with pins (left), a bundle of three
 wires held by a tie, a branch point that splits the bundle to two connectors (right), a check
-mark for the design-rule checks, and an orbit and a star for the spacecraft.
+mark for the design-rule checks, and an orbit and a star for the spacecraft. A lighter rim
+keeps the tile visible in the dark mode of Ubuntu and Windows.
 
 It is drawn with QPainter rather than loaded from the SVG because the packaged program ships
 without the Qt SVG module. Keep the shapes in step with docs/img/logo.svg,
@@ -22,6 +23,7 @@ AMBER = BRAND["amber"]
 WHITE = BRAND["white"]
 LAVENDER = BRAND["lavender"]
 ORBIT = BRAND["orbit"]
+RIM = BRAND["rim"]
 
 # (start, then cubic or line segments) of the three wires, in the 64 x 64 grid of the SVG
 _WIRES = (
@@ -79,6 +81,10 @@ def _pixmap(size: int) -> QPixmap:
     p.setPen(QPen(QColor(ORBIT), 2))
     p.drawPath(_path((-2, 50), ("C", (14, 66), (52, 58), (66, 28))))
     p.setClipping(False)
+    # The rim keeps the tile visible on dark panels (Ubuntu and Windows dark mode), where the
+    # purple alone has less than 2:1 contrast; the rim has at least 3:1 on light and dark.
+    p.setPen(QPen(QColor(RIM), 2.5))
+    p.drawRoundedRect(QRectF(1.25, 1.25, 61.5, 61.5), 10.75, 10.75)
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QColor(WHITE))
     p.drawPolygon(QPolygonF([QPointF(x, y) for x, y in _STAR]))

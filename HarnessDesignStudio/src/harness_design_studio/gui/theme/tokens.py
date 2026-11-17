@@ -114,6 +114,7 @@ BRAND: Final[dict[str, str]] = {
     "white": "#ffffff",
     "lavender": "#b8a4ff",  # the third wire
     "orbit": "#6b45d6",  # the orbit line behind the harness
+    "rim": "#8f75ec",  # the tile edge: at least 3:1 on light and dark panels
 }
 
 # legacy name -> new token (the value is looked up in the theme's own table)

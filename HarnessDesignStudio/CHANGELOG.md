@@ -6,7 +6,7 @@ Versions follow semantic versioning. Every project file records the tool version
 
 ### Changed
 
-- **A new logo.** The application icon now shows what the tool does: a device connector with pins, a bundle of three wires with a cable tie, a branch point that splits the bundle to two connectors, an amber check mark for the design-rule checks, and an orbit and a star for the spacecraft. The colours stay the brand purple, amber and white, with a lavender wire and an orbit line (`BRAND` in `gui/theme/tokens.py`). The window icon (`gui/appicon.py`), `docs/img/logo.svg`, the banner and `packaging/ubuntu/harness-design-studio.svg` show the same picture; `tools/make_icons.py` draws the Windows `.ico` from the same code. No change to the program's behaviour or the project format.
+- **A new logo.** The application icon now shows what the tool does: a device connector with pins, a bundle of three wires with a cable tie, a branch point that splits the bundle to two connectors, an amber check mark for the design-rule checks, and an orbit and a star for the spacecraft. A lighter purple rim keeps the icon visible in the dark mode of Ubuntu and Windows: the purple tile alone has less than 2:1 contrast on a dark panel, the rim at least 3:1 on light and dark panels. The colours stay the brand purple, amber and white, with a lavender wire, an orbit line and the rim (`BRAND` in `gui/theme/tokens.py`). The window icon (`gui/appicon.py`), `docs/img/logo.svg`, the banner and `packaging/ubuntu/harness-design-studio.svg` show the same picture; `tools/make_icons.py` draws the Windows `.ico` from the same code. No change to the program's behaviour or the project format.
 
 ## 2.2.0 (2026-11-17; not a statement of compliance)
 
