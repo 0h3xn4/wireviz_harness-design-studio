@@ -40,7 +40,7 @@ def test_save_to_library_writes_the_device_and_adds_to_an_existing_file(qtbot, t
 
     win.ask_save_path = ask
     win.devices_view.lib_save_btn.click()
-    assert asked["suggested"] == "GYRO1.json" and asked["title"] == strings.DV_LIB_SAVE_TITLE
+    assert asked["suggested"] == "GYRO1.device.json" and asked["title"] == strings.DV_LIB_SAVE_TITLE
     data = read_library(lib)
     assert [d["unit"]["id"] for d in data["devices"]] == ["GYRO1"]
     pins = [p["id"] for c in data["devices"][0]["connectors"] for p in c["pins"]]

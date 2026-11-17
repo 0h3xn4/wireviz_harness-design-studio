@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-__all__ = ["CommitInfo", "find_git_dir", "find_work_tree", "last_commit"]
+__all__ = ["CommitInfo", "find_git_dir", "find_work_tree", "last_commit", "no_commit_yet"]
 
 MAX_OBJECT = 1 << 20  # a commit larger than 1 MiB is not read
 MAX_DELTA_DEPTH = 64
@@ -48,6 +48,10 @@ class CommitInfo:
 
 class _Unreadable(Exception):
     pass
+
+
+class _NoCommit(_Unreadable):
+    """HEAD names a branch that has no commit yet (a new repository)."""
 
 
 def find_git_dir(start: Path) -> tuple[Path, Path] | None:
@@ -106,6 +110,21 @@ def last_commit(start: Path) -> CommitInfo | None:
         return None
 
 
+def no_commit_yet(start: Path) -> bool:
+    """True when the repository around `start` has no commit yet (a new `git init`); False when
+    it has one, when there is no repository and when its `HEAD` cannot be read."""
+    found = find_git_dir(start)
+    if found is None:
+        return False
+    try:
+        _head(*found)
+    except _NoCommit:
+        return True
+    except _Unreadable, OSError, ValueError, UnicodeError:
+        return False
+    return False
+
+
 # ---- references ---------------------------------------------------------------------------
 
 
@@ -133,7 +152,7 @@ def _resolve_ref(git_dir: Path, common: Path, ref: str) -> str:
         for line in _read_text(packed).splitlines():
             if line.endswith(" " + ref) and _HEX.fullmatch(line[:40]):
                 return line[:40]
-    raise _Unreadable("no commit yet")
+    raise _NoCommit("no commit yet")
 
 
 def _read_text(path: Path, limit: int = 1 << 20) -> str:

@@ -144,35 +144,44 @@ class LibraryConflictDialog(Dialog):
 
 @dataclass
 class DeviceSave:
-    """What `save_devices_asking` did: the file, what was kept on the way, the new IDs when the
+    """What `save_devices_asking` did: the files, what was kept on the way, the new IDs when the
     devices were saved under others (`{"RW1": "RW1-2"}`)."""
 
-    path: Path
+    paths: list[Path]
     notes: list[str] = field(default_factory=list)
     new_ids: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def names(self) -> str:
+        """The names of the files written, for a message: `OBC.device.json, RW1.device.json`."""
+        return ", ".join(p.name for p in self.paths)
+
+
+def _paths(written: Path | list[Path]) -> list[Path]:
+    return written if isinstance(written, list) else [written]
 
 
 def save_devices_asking(
     parent: QWidget | None,
     run_dialog: Callable[[QDialog], int],
-    save: Callable[..., Path],
+    save: Callable[..., Path | list[Path]],
 ) -> DeviceSave | None:
     """Save devices with `save(replace=..., new_ids=..., notes=...)`. When the file has a different
     device of the same ID, ask first (Replace / Save as new ID / Cancel). None when the person
     cancelled: nothing was written. Other errors are raised for the caller to show."""
     notes: list[str] = []
     try:
-        return DeviceSave(save(notes=notes), notes)
+        return DeviceSave(_paths(save(notes=notes)), notes)
     except LibraryConflict as conflict:
         dlg = LibraryConflictDialog(parent, conflict)
         run_dialog(dlg)
         choice = dlg.choice
         dlg.deleteLater()
         if choice == "replace":
-            return DeviceSave(save(replace=True, notes=notes), notes)
+            return DeviceSave(_paths(save(replace=True, notes=notes)), notes)
         if choice == "new":
             ids = {c.unit_id: c.suggested_id for c in conflict.conflicts}
-            return DeviceSave(save(new_ids=ids, notes=notes), notes, ids)
+            return DeviceSave(_paths(save(new_ids=ids, notes=notes)), notes, ids)
         return None
 
 
@@ -192,9 +201,12 @@ class SaveToLibraryDialog(_PlannerDialog):
         project: Project,
         unit_ids: list[str],
         folder: str,
+        scan: LibraryScan | None = None,
     ) -> None:
         super().__init__(parent, theme, strings.LIB_SAVE_TITLE, "library-save-dialog")
         self.project, self.unit_ids, self.folder = project, list(unit_ids), folder
+        # the file each device goes into (the one that holds it, else <ID>.device.json, D-240)
+        self.targets = list(dict.fromkeys(library_folder.save_targets(scan, self.unit_ids)))
         self.lay.addWidget(QLabel(strings.LIB_SAVE_SELECTED.format(", ".join(self.unit_ids))))
         self.as_devices = QRadioButton(strings.LIB_SAVE_AS_DEVICES)
         self.as_devices.setObjectName("library-save-devices")
@@ -249,7 +261,9 @@ class SaveToLibraryDialog(_PlannerDialog):
         if left:
             lines.append(strings.LIB_SAVE_LEFT_OUT.format(_n("connections", left)))
         if not subsystem:
-            lines.append(strings.LIB_SAVE_TARGET.format(dl.default_file_name(self.unit_ids)))
+            many = len(self.targets) > 1
+            text = strings.LIB_SAVE_TARGETS if many else strings.LIB_SAVE_TARGET
+            lines.append(text.format(", ".join(self.targets)))
         if subsystem and self.name.text().strip():
             lines.append(
                 strings.LIB_SAVE_FILE.format(
@@ -814,7 +828,9 @@ class LibraryWindow(QWidget):
         selected = self.ctl.selected_ids("unit")
         if not selected or not self.folder:
             return
-        dlg = SaveToLibraryDialog(self, self.theme, self.ctl.project, selected, self.folder)
+        dlg = SaveToLibraryDialog(
+            self, self.theme, self.ctl.project, selected, self.folder, self.scan
+        )
         if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
             return
         notes: list[str] = []
@@ -834,13 +850,13 @@ class LibraryWindow(QWidget):
                 )
                 if done is None:  # cancelled: nothing was written
                     return
-                path, notes = done.path, done.notes
+                notes = done.notes
                 if done.new_ids:
                     message = strings.LIB_SAVED_AS_NEW.format(
-                        ", ".join(done.new_ids), path.name, ", ".join(done.new_ids.values())
+                        ", ".join(done.new_ids), done.names, ", ".join(done.new_ids.values())
                     )
                 else:
-                    message = strings.LIB_SAVED_DEVICES.format(", ".join(selected), path.name)
+                    message = strings.LIB_SAVED_DEVICES.format(", ".join(selected), done.names)
         except (HarnessError, OSError) as exc:
             text = str(exc) if isinstance(exc, HarnessError) else str(exc.strerror or exc)
             self.result_notice.show_notice("error", text)

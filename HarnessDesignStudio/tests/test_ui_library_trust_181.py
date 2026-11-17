@@ -5,6 +5,7 @@
 of the same ID (Replace / Save as a new ID / Cancel) in the library window and in the Devices tab;
 the library list has a File column; plain counts and a sentence said once. Offscreen."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -61,7 +62,7 @@ def answer_save(lib, choice: str, log: list):
     def run(dlg):
         log.append(dlg)
         if isinstance(dlg, SaveToLibraryDialog):
-            assert "OBC.json" in dlg.info.text()  # the target file is shown
+            assert "OBC.device.json" in dlg.info.text()  # the target file is shown
             return QDialog.DialogCode.Accepted
         assert isinstance(dlg, LibraryConflictDialog)
         assert unnamed(dlg) == []
@@ -75,20 +76,20 @@ def test_the_save_window_names_the_file_the_devices_go_to(qtbot, tmp_path, lib_w
     win, lib = start_save(qtbot, tmp_path, lib_with_obc)
     dlg = SaveToLibraryDialog(lib, lib.theme, win.ctl.project, ["OBC"], str(lib_with_obc))
     qtbot.addWidget(dlg)
-    assert strings.LIB_SAVE_TARGET.format("OBC.json") in dlg.info.text()
+    assert strings.LIB_SAVE_TARGET.format("OBC.device.json") in dlg.info.text()
 
 
 def test_cancel_changes_nothing(qtbot, tmp_path, lib_with_obc):
     win, lib = start_save(qtbot, tmp_path, lib_with_obc)
-    before = (lib_with_obc / "OBC.json").read_bytes()
+    before = (lib_with_obc / "OBC.device.json").read_bytes()
     log: list = []
     answer_save(lib, "cancel", log)
     lib.save_btn.click()
     assert [type(d).__name__ for d in log] == ["SaveToLibraryDialog", "LibraryConflictDialog"]
     text = log[1].text.text()
-    assert "OBC is in the library already" in text and "OBC.json" in text and "1 pin" in text
+    assert "OBC is in the library already" in text and "OBC.device.json" in text and "1 pin" in text
     assert log[1].new_btn.text() == "Save as OBC-2"
-    assert (lib_with_obc / "OBC.json").read_bytes() == before
+    assert (lib_with_obc / "OBC.device.json").read_bytes() == before
     assert not lib.result_notice.isVisibleTo(lib)
 
 
@@ -96,17 +97,17 @@ def test_replace_replaces(qtbot, tmp_path, lib_with_obc):
     win, lib = start_save(qtbot, tmp_path, lib_with_obc)
     answer_save(lib, "replace", [])
     lib.save_btn.click()
-    assert signal_of(lib_with_obc / "OBC.json", "OBC") == "OTHER"
-    assert "Saved OBC to OBC.json" in lib.result_notice.text()
+    assert signal_of(lib_with_obc / "OBC.device.json", "OBC") == "OTHER"
+    assert "Saved OBC to OBC.device.json" in lib.result_notice.text()
 
 
 def test_save_as_a_new_id_keeps_both(qtbot, tmp_path, lib_with_obc):
     win, lib = start_save(qtbot, tmp_path, lib_with_obc)
     answer_save(lib, "new", [])
     lib.save_btn.click()
-    path = lib_with_obc / "OBC.json"
-    assert signal_of(path, "OBC") != "OTHER" and signal_of(path, "OBC-2") == "OTHER"
-    assert "OBC-2" in lib.result_notice.text()
+    assert signal_of(lib_with_obc / "OBC.device.json", "OBC") != "OTHER"
+    assert signal_of(lib_with_obc / "OBC-2.device.json", "OBC-2") == "OTHER"  # a file of its own
+    assert "OBC-2" in lib.result_notice.text() and "OBC-2.device.json" in lib.result_notice.text()
     assert lib.jobs.wait_idle()
     assert {e.id for e in lib._shown} >= {"OBC", "OBC-2"}
     assert "OBC-2" not in win.ctl.project.units  # the project is not touched
@@ -128,7 +129,7 @@ def test_the_devices_tab_asks_too(qtbot, tmp_path):
     win.ctl.select("unit", "OBC")
     target = tmp_path / "lib.json"
     save_devices(tmp_path, pinout_project(), ["OBC"])
-    (tmp_path / "OBC.json").rename(target)
+    (tmp_path / "OBC.device.json").rename(target)
     before = target.read_bytes()
     win.ask_save_path = lambda *_: str(target)
     asked: list = []
@@ -157,11 +158,11 @@ def test_the_devices_tab_asks_too(qtbot, tmp_path):
 def test_the_list_has_a_file_column_so_equal_looking_entries_differ(qtbot, tmp_path, lib_with_obc):
     sub = lib_with_obc / "team"
     sub.mkdir()
-    save_devices(sub, changed_obc(), ["OBC"])
+    save_devices(sub, changed_obc(), ["OBC"], new_ids={"OBC": "OBC9"})  # the same name
     win, lib = opened(qtbot, tmp_path, lib_with_obc)
     assert lib.list_model.columnCount() == 5
     files = [lib.list_model.text_at(r, lib.list_model.column_index("file")) for r in range(2)]
-    assert sorted(files) == ["OBC.json", "team/OBC.json"]
+    assert sorted(files) == ["OBC.device.json", "team/OBC9.device.json"]
 
 
 def test_the_counts_use_words_and_a_missing_folder_is_said_once(qtbot, tmp_path):
@@ -183,3 +184,13 @@ def test_one_damaged_file_and_several_are_counted_in_words(qtbot, tmp_path, lib_
     assert "line 1" in text  # where, not a Python name
     for word in ("JSONDecodeError", "UnicodeDecodeError", "RecursionError"):
         assert word not in text
+
+
+def test_a_device_in_two_files_is_said_and_offered_from_neither(qtbot, tmp_path, lib_with_obc):
+    """D-240: a 2.1 file next to the file of 2.2 that holds the same device."""
+    (lib_with_obc / "OBC.json").write_text(json.dumps(dl.export_devices(pinout_project(), ["OBC"])))
+    win, lib = opened(qtbot, tmp_path, lib_with_obc)
+    text = lib.folder_notice.text()
+    assert "2 files in the folder could not be used" in text
+    assert "is also in OBC.json" in text and "is also in OBC.device.json" in text
+    assert not lib._shown
