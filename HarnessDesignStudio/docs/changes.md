@@ -25,6 +25,15 @@ When a test fails, it names what moved: the wire, the finding or the file. Renew
 
 ## Entries
 
+### 2026-11-17: the routing of a harness that branches (2.3.0, D-243 B7; the stored hashes are written again for those harnesses only)
+
+- **Before.** A harness with a branch point had the files of every harness: its build workbook had no sheet of the segments and branch points, and no file listed them.
+- **Now.** A harness with at least one branch point also gets `harnesses/<ID>/segments.csv`, a sheet *Segments* (the last sheet of `<ID>.xlsx`) and a sheet *Routing* after *Cut list* in `<ID>_build.xlsx`, listed on *Start here* (design `docs/ait/DESIGN_2.3_BRANCHING.md`, section 5.6). A straight harness keeps its files byte for byte.
+- **What moves.** Only those three files of the harnesses that branch. In the packaged examples that is `flatsat` `W001`, `W002` and `W004` to `W007` (18 entries of `docs/ui/OUTPUT_HASHES_BASELINE.json`: 12 changed workbooks and 6 new `segments.csv`); in `tests/fixtures/numbers/snapshot.json` the same files of the five flatsat scenarios and of the small satellite grouped `per_unit_pair` (`W025`) and `per_zone_pair` (`W025` to `W027`), 102 entries, no wire and no finding; in `tests/fixtures/outputs/loose_ends.json` the 18 entries of the six flatsat harnesses. A script checked, scenario by scenario, that the changed entries are exactly the three files of each harness with a branch point. No number, no other file, no model hash and no project file moves; `mini3`, `sat15` and `sat15_full` have no branch point and keep their goldens; the example projects are as they were (`tools.build_examples`).
+- **Renewed with the tools, not by hand.** `python -m tools.gen_output_goldens`, `python -m tools.output_hashes --write docs/ui/OUTPUT_HASHES_BASELINE.json` (`BASE_VERSION` stays 2.0.0) and `python -m tools.numbers_snapshot --write tests/fixtures/numbers/snapshot.json`.
+- **Why.** Owner question B7 of the design of 2.3.0: the *Routing* sheet, the *Segments* sheet and `segments.csv` appear for every harness with a branch point, which changes the files of the `flatsat` example once (D-191 (4)).
+- **Agreed.** The owner, 2026-11-17 (D-243, B7 as recommended). The independent check (`verify --outputs`) works the new rows out on its own (`out_routing`).
+
 ### 2026-11-12: version 2.0.0, a shorter version string (the stored hashes are written again; nothing else changes)
 
 - **Before.** The stored hashes (`docs/ui/OUTPUT_HASHES_BASELINE.json`, `tests/fixtures/numbers/snapshot.json`, `tests/fixtures/migration/hashes.json`) were made with `2.0.0rc1` (`BASE_VERSION` 2.0.0rc1).

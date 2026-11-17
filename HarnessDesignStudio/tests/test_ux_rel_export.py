@@ -3,7 +3,8 @@
 # mypy: disable-error-code="no-untyped-def,no-untyped-call"
 """SC-12 / SH-27: the export dialog. One dialog: output folder, harness x document tree, progress with
 Cancel, the list of files written with Reveal / Open / a drawing picture, inline notices instead of
-pop-ups. Driven offscreen on the flatsat example (122 files with the drawings)."""
+pop-ups. Driven offscreen on the flatsat example (128 files with the drawings; six of its harnesses branch,
+so they also have `segments.csv`, 2.3.0)."""
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -120,14 +121,19 @@ def select(dlg: ExportDialog, rel: str) -> None:
 # ---- the layout of the documents --------------------------------------------------------------
 
 
+def branching(done, hid: str) -> set[str]:
+    """The optional document of a harness that has a branch point (2.3.0, D-243 B7)."""
+    return {"segments"} if done.ctl.project.harnesses[hid].branch_points else set()
+
+
 def test_every_written_file_is_a_known_document_and_every_document_type_occurs(done) -> None:
     files = done.res.files
-    assert done.res.count == 122 and len(files) > 100
+    assert done.res.count == 128 and len(files) > 100
     for f in files:
         assert f.doc.key in export_docs.DOCS, f.rel  # never the file name fallback
     for hid in done.ctl.project.harnesses:
         keys = {f.doc.key for f in files if f.doc.scope == hid}
-        assert keys == {d.key for d in export_docs.HARNESS_DOCS}, hid
+        assert keys == {d.key for d in export_docs.HARNESS_DOCS} | branching(done, hid), hid
     assert {f.doc.key for f in files if f.doc.scope == "system"} == {d.key for d in export_docs.SYSTEM_DOCS}  # fmt: skip
     manifest = next(f for f in files if f.rel == "manifest.json")
     assert manifest.doc.scope == "" and manifest.doc.key == "manifest"
@@ -228,7 +234,7 @@ def test_every_file_is_a_known_document_without_the_drawings_too(done) -> None:
             assert export_docs.classify(rel).key in export_docs.DOCS, rel
         for hid in done.ctl.project.harnesses:
             keys = {export_docs.classify(r).key for r in built.files if f"/{hid}/" in r}
-            assert keys == want, (hid, drawings)
+            assert keys == want | branching(done, hid), (hid, drawings)
     assert export_docs.HARNESS_DOCS[0].key == "build"  # listed first among the harness documents
     assert export_docs.classify("harnesses/W001/W001_build.xlsx").label == "Build workbook"
 
@@ -301,7 +307,7 @@ def test_the_export_writes_the_full_set_and_lists_every_file(done) -> None:
     assert isinstance(res, ExportResult) and res.folder == folder
     assert len(done.exported) == 1 and done.exported[0][0] is res
     panel = done.dlg.result_panel
-    assert panel.model.rowCount() == 122 and panel.table.proxy.rowCount() == 122
+    assert panel.model.rowCount() == 128 and panel.table.proxy.rowCount() == 128
     on_disk = sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file())
     assert on_disk == sorted(f.rel for f in res.files)
     for f in res.files:
@@ -310,7 +316,7 @@ def test_the_export_writes_the_full_set_and_lists_every_file(done) -> None:
     assert done.ctl.outputs_state() == "current"
     assert done.dlg.pages.currentWidget() is panel
     assert done.dlg.export_btn.text() == strings.EXP_AGAIN
-    assert "122 files written" in panel.summary.text() and res.stamp in panel.summary.text()
+    assert "128 files written" in panel.summary.text() and res.stamp in panel.summary.text()
     # columns: path, document, harness, size (a number, shown in kB)
     first = dict_rows(panel.model)[0]
     assert set(first) >= {"rel", "doc", "scope", "size"}
@@ -369,7 +375,7 @@ def test_a_drawing_shows_a_picture_and_a_table_does_not(clean) -> None:
 
 def test_the_ticks_choose_what_the_result_list_shows(clean) -> None:
     dlg, panel = clean.dlg, clean.dlg.result_panel
-    assert panel.model.rowCount() == 122 and not panel.showing.isVisible()
+    assert panel.model.rowCount() == 128 and not panel.showing.isVisible()
     dlg.set_checked("W002", None, False)
     shown = {r["rel"] for r in dict_rows(panel.model)}
     assert not any(rel.startswith("harnesses/W002/") for rel in shown)
@@ -390,7 +396,7 @@ def test_the_ticks_choose_what_the_result_list_shows(clean) -> None:
     }  # the two files that are always listed
     assert dlg.selected_paths() == set()
     dlg.all_btn.click()
-    assert panel.model.rowCount() == 122 and len(dlg.selected_paths()) == 120
+    assert panel.model.rowCount() == 128 and len(dlg.selected_paths()) == 126
 
 
 def test_copy_selection_copies_the_ticked_files_byte_for_byte_without_the_manifest(clean, tmp_path) -> None:  # fmt: skip
@@ -402,7 +408,7 @@ def test_copy_selection_copies_the_ticked_files_byte_for_byte_without_the_manife
     assert dlg.copy_btn.isVisible() and dlg.copy_btn.isEnabled()
     target = tmp_path / "copy"
     n = dlg.copy_selection(target)
-    assert n == len(wanted) == 15
+    assert n == len(wanted) == 16  # W001 branches: its segments.csv too
     copied = sorted(p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file())
     assert copied == wanted and "manifest.json" not in copied
     for rel in wanted:
