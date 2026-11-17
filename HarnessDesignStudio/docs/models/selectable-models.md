@@ -146,11 +146,12 @@ How interfaces share a harness was already a choice before this page: `segmentat
 | `segmentation.mode` | `per_connector_pair` (default) | pair of device connectors, and chain |
 | `segmentation.mode` | `per_unit_pair` | pair of devices, chain and class |
 | `segmentation.mode` | `per_zone_pair` | pair of zones, chain and class |
+| `segmentation.mode` | `per_connector_group` (since 2.3.0) | chain, and device connectors joined by interfaces (one harness that branches; [segmentation](segmentation.md#one-harness-that-branches)) |
 | `segregation.forbid_nominal_with_redundant` | `true` (default) / `false` | the nominal and the redundant chain never share a harness (`true`) or may (`false`) |
 | `segregation.forbid_pyro_with_other` | `true` (default) / `false` | a pyro line gets a harness of its own, in the two coarser modes |
 | `segregation.category_pairs_to_separate` | pairs of categories | the listed pairs of interface categories get harnesses of their own, in the two coarser modes |
 
-Two more methods were considered and not made. *One harness for everything* has no meaning for a harness, which has two ends: the interfaces between three devices would need the connectors of one device at both ends. *One harness for each interface* is what `per_connector_pair` already gives wherever each connector carries one interface, which holds in all four examples (before 2.1.0 the editor insisted on it); where two interfaces do end on one pair of connectors (a project from an import), they must share the harness, because a connector takes one plug and a second harness could not mate it. The three modes above are the methods the design supports.
+Two more methods were considered and not made. *One harness for everything* has no meaning for a harness, which has two ends: the interfaces between three devices would need the connectors of one device at both ends. *One harness for each interface* is what `per_connector_pair` already gives wherever each connector carries one interface, which holds in all four examples (before 2.1.0 the editor insisted on it); where two interfaces do end on one pair of connectors (a project from an import), they must share the harness, because a connector takes one plug and a second harness could not mate it. The modes above are the methods the design supports; `per_connector_group` (2.3.0, D-243) joins the harnesses of `per_connector_pair` that plug into one device connector, so such a connector gets one plug.
 
 ## Label format
 
