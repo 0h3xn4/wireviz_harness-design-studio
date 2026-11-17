@@ -138,7 +138,8 @@ def test_a_drawn_harness_gets_the_routing_buttons_and_each_is_one_undo_step(qtbo
         dlg.length.setText("0,4")
 
     DialogScript(win, fill)
-    assert panel.add_segment()
+    done = panel.add_segment()
+    assert done
     win.harness_view.refresh()
     h = win.ctl.project.harnesses[hid]
     assert [(s.id, s.from_node, s.to_node, s.length_m) for s in h.segments] == [
@@ -156,11 +157,13 @@ def test_a_drawn_harness_gets_the_routing_buttons_and_each_is_one_undo_step(qtbo
     # rename the branch point (the window's question), then delete the segment
     win.ask_text = lambda title, label, default: "Branch Y"
     panel.pick("branch", "W001-B1")
-    assert panel.rename()
+    done = panel.rename()
+    assert done
     assert win.ctl.project.harnesses[hid].branch_points[0].name == "Branch Y"
     win.harness_view.refresh()
     panel.pick("segment", "W001-L1")
-    assert panel.delete()
+    done = panel.delete()
+    assert done
     assert win.ctl.project.harnesses[hid].segments == [] and steps(win) == n + 5
     win.ctl.undo()
     assert len(win.ctl.project.harnesses[hid].segments) == 1
@@ -198,7 +201,8 @@ def test_deleting_a_branch_point_on_a_wires_path_is_refused_with_the_wires(qtbot
     assert "W001-L1 (no length)" in panel.branch_model.rows()[0]["segments"]
     panel.pick("branch", "W001-B1")
     n = steps(win)
-    assert not panel.delete()
+    done = panel.delete()
+    assert not done
     assert "on the only path of the wires" in panel.error.text() and steps(win) == n
 
 
@@ -318,7 +322,8 @@ def test_the_problems_list_offers_the_same_fix_in_its_menu(qtbot, tmp_path):
     plist.refresh()
     row = next(r for r in plist.rows() if r["object_id"] == "OBC-J01" and r.get("fix"))
     assert row["fix"].kind == "join" and row["fix"].harness_ids == (keep, other)
-    assert win.join_flow("OBC-J01")
+    done = win.join_flow("OBC-J01")
+    assert done
     assert sorted(win.ctl.project.harnesses) == [keep]
 
 
@@ -337,7 +342,8 @@ def test_generates_plugs_get_use_per_connector_group_which_opens_settings(qtbot,
     settle()
     assert win.area_stack.currentWidget() is win.settings_page
     assert win.settings_page.current_section() == "project"
-    assert not win.join_flow("OBC-J01")  # Generate's harnesses are not joined by hand
+    done = win.join_flow("OBC-J01")  # Generate's harnesses are not joined by hand
+    assert not done
 
 
 # ---- the diagram: a new leg by a drag, the branch point drawn and dragged, the join --------------
