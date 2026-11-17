@@ -167,6 +167,10 @@ def build_outputs(
             ac = tables.accessories(h)
             out[f"{base}/accessories.csv"] = csv_bytes(ac, stamp)
             sheets["Accessories"] = ac
+        if tables.has_branches(h):  # the routing only for a harness that branches (D-243 B7)
+            sg = tables.segments(h)
+            out[f"{base}/segments.csv"] = csv_bytes(sg, stamp)
+            sheets["Segments"] = sg
         out[f"{base}/wireviz.yaml"] = exports.wireviz_yaml(project, h, stamp)
         out[f"{base}/{h.id}.xlsx"] = exports.xlsx_bytes(sheets, stamp)
         out[f"{base}/{h.id}{buildsheet.FILE_SUFFIX}"] = buildsheet.build_workbook(project, h, stamp)
