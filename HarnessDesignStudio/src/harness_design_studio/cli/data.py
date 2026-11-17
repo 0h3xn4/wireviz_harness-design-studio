@@ -387,7 +387,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     im = sub.add_parser(
         "imports",
         help="list what each import read, and whether its source file has changed since",
-        description="List the import records of a project (imports/records.json): for every import the kind, the source file name, the number of rows read, dropped and converted, the unit, and a short SHA-256. A source that can be reached (its path inside the project folder, or a file you name with --source) is compared with the recorded SHA-256 and marked `source changed` when it differs; the other sources are marked `not checked (no path)` or `source not found`. The record holds no time and no absolute path. With --json the records and their status are printed as one JSON document. With --check the command ends with 1 when a source has changed, so a build can stop on it.",
+        description="List the import records of a project (imports/records.json): for every import the kind, the source file name, the number of rows read, dropped and converted, the unit, and a short SHA-256. A source that can be reached (its path inside the project folder, or a file you name with --source; the file of a device record is looked for in the project's device libraries, those of its device-libraries.json or of --library) is compared with the recorded SHA-256 and marked `source changed` when it differs; the other sources are marked `not checked (no path)` or `source not found`. The record holds no time and no absolute path. With --json the records and their status are printed as one JSON document. With --check the command ends with 1 when a source has changed, so a build can stop on it.",
     )
     im.add_argument("project", type=Path)
     im.add_argument(
@@ -397,6 +397,15 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         type=Path,
         metavar="FILE",
         help="a file to compare with the record of the same file name, for a source outside the project folder",
+    )
+    im.add_argument(
+        "--library",
+        action="append",
+        default=[],
+        type=Path,
+        metavar="FOLDER",
+        help="a device library folder to use instead of the project's device-libraries.json "
+        "(repeat for more)",
     )
     add_json_flag(im)
     im.add_argument(
@@ -1141,8 +1150,13 @@ def _pinout(
 
 
 def _imports(project, args: argparse.Namespace, rep: Report) -> int:  # type: ignore[no-untyped-def]
-    """`imports`: the records, and whether each source file is still the one that was read."""
-    checks = check_sources(project, args.project, args.source)
+    """`imports`: the records, and whether each source file is still the one that was read. The
+    file of a `devices` record is looked for in the project's device libraries (D-240)."""
+    from harness_design_studio.core import library_link
+
+    libs = library_link.project_libraries(args.project, args.library or None)
+    located = library_link.located_sources(project, libs)
+    checks = check_sources(project, args.project, args.source, located=located)
     changed = sum(c.status == CHANGED for c in checks)
     if args.json:
         rep.put(
@@ -1182,10 +1196,16 @@ def _imports(project, args: argparse.Namespace, rep: Report) -> int:  # type: ig
         rep.say("  ".join(cell.ljust(w) for cell, w in zip(r, widths, strict=True)).rstrip())
     for c in checks:
         if c.status == CHANGED:
+            # a device library file is taken with update-device, never imported again (D-240)
+            advice = (
+                f"`update-device {args.project}` shows what the library changed, and `--apply` "
+                "takes it."
+                if c.record.kind == "devices" and c.record.id in located
+                else "Import it again to take the new content."
+            )
             rep.say(
                 f"{c.record.id}: the file now has SHA-256 {str(c.current_sha256)[:12]}, "
-                f"it was {c.record.sha256[:12]} when it was imported. Import it again to take "
-                "the new content."
+                f"it was {c.record.sha256[:12]} when it was imported. {advice}"
             )
     if changed:
         rep.say(f"{changed} source(s) changed since they were imported.")

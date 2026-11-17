@@ -59,6 +59,7 @@ from harness_design_studio.core.vcs.lockview import (
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.controller import LIST_DELAY_MS, EditorController
 from harness_design_studio.gui.icons import icon_button
+from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
 from harness_design_studio.gui.panels import PropertiesPanel, heading, muted
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
@@ -400,6 +401,7 @@ class Inspector(QWidget):
     reviseRequested = Signal(str)
     showRequested = Signal(str, str)
     plugRequested = Signal(str)  # a cable end: "Plug into…" was pressed (the window asks where)
+    libraryReviewRequested = Signal(str)  # a device: *Review…* of its library chip (D-240)
 
     def __init__(
         self,
@@ -434,6 +436,13 @@ class Inspector(QWidget):
         self.banner = Banner(theme)
         self.banner.reviseRequested.connect(self.reviseRequested)
         page_lay.addWidget(self.banner)
+        # where a device comes from in the library and how it stands (D-240); the window gives
+        # the states it worked out in its helper thread
+        self.library_state: LinkLookup = lambda _uid: (None, None)
+        self.library_chip = LibraryChip(theme)
+        self.library_chip.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
+        self.library_chip.reviewRequested.connect(self.libraryReviewRequested)
+        page_lay.addWidget(self.library_chip)
         self.stack = QStackedWidget()
         self.props = props if props is not None else PropertiesPanel(ctl, theme)
         self.stack.addWidget(self.props)
@@ -593,6 +602,15 @@ class Inspector(QWidget):
         self._later.stop()
         self._refresh_lists()
 
+    def refresh_library(self) -> None:
+        """The library chip of the device shown (hidden for anything else)."""
+        cur = self.current()
+        if cur is None or cur[0] != "unit":
+            self.library_chip.show_state("", None, None)
+            return
+        state, info = self.library_state(cur[1])
+        self.library_chip.show_state(cur[1], state, info)
+
     def set_problem_counts(self, on: bool) -> None:
         """Whether the Problems tab title carries the number (View > Show problem notices)."""
         if on != self._show_counts:
@@ -625,6 +643,7 @@ class Inspector(QWidget):
         self.banner.show_info(
             banner_for(project, *cur) if cur is not None else None, self.ctl.read_only
         )
+        self.refresh_library()
         self._refresh_lists()
         self._apply_locks()
         self.refresh_badges()

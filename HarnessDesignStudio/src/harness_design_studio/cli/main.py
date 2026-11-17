@@ -23,6 +23,7 @@ from harness_design_studio.cli import (
     explain,
     extensions_cmd,
     journal_cmd,
+    library,
     merge,
     open_data,
     settings_cmd,
@@ -130,6 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     settings_cmd.register(sub)
     changes.register(sub)
     data.register(sub)
+    library.register(sub)
     asbuilt_cmd.register(sub)
     extensions_cmd.register(sub)
     return parser
@@ -487,6 +489,8 @@ NOTHING_DONE = {
     "imports": "listed",
     "workflow": "listed", "asbuilt": "reported", "import-asbuilt": "imported",
     "export-asbuilt": "exported",
+    "libraries": "listed or changed", "add-device": "added", "update-device": "compared or changed",
+    "save-device": "saved",
 }  # fmt: skip
 
 MUTATING = {
@@ -504,6 +508,7 @@ def _project_lock(args: argparse.Namespace) -> Iterator[None]:
         args.command in MUTATING
         or (args.command in journal_cmd.COMMANDS and journal_cmd.mutates(args))
         or (args.command in asbuilt_cmd.COMMANDS and asbuilt_cmd.mutates(args))
+        or (args.command in library.COMMANDS and library.mutates(args))
         or (
             args.command == "config"
             and (
@@ -576,6 +581,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return settings_cmd.run(args)
     if args.command in data.COMMANDS:
         return data.run(args)
+    if args.command in library.COMMANDS:
+        return library.run(args)
     if args.command in changes.COMMANDS:
         return changes.run(args)
     if args.command in asbuilt_cmd.COMMANDS:

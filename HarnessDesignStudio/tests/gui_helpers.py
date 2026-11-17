@@ -28,6 +28,17 @@ def make_window(tmp_path: Path, *, first_run: bool = False, journal_ms: int = 20
     return win
 
 
+def hold_drc(win: MainWindow) -> None:
+    """No background design rule check for the rest of the test. The editor starts one 1.2 s after
+    the last edit, in a helper process; when its result comes in during a test, the open findings
+    and the counts change under the test's feet (J5 failed on a slow Windows runner that way).
+    Tests that need the rules call `win.ctl.run_drc_now()`."""
+    ctl = win.ctl
+    ctl._drc_timer.stop()
+    ctl._drc_timer.setInterval(600_000)
+    ctl.wait_drc()
+
+
 def show_problems(win: MainWindow):  # type: ignore[no-untyped-def]
     """Bring the problems list to the front (the Problems tab of the right panel) and return it.
     Hidden panels refresh lazily, so tests that read its cards call this first."""

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from harness_design_studio.api import write_derivations
 from harness_design_studio.cli.jsonout import Report
+from harness_design_studio.cli.library import explain_device
 from harness_design_studio.core.derive import explain_object, render
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import Project
@@ -51,6 +52,15 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p.add_argument(
         "--out", type=Path, help="with --all: the folder for derivations.json and derivations.csv"
     )
+    p.add_argument(
+        "--library",
+        action="append",
+        default=[],
+        type=Path,
+        metavar="FOLDER",
+        help="for a device: a device library folder to use instead of the project's "
+        "device-libraries.json (repeat for more)",
+    )
 
 
 def _write_all(project: Project, out: Path, rep: Report) -> int:
@@ -61,6 +71,15 @@ def _write_all(project: Project, out: Path, rep: Report) -> int:
     )
     rep.put(**written.to_dict())
     return 0
+
+
+def _history(project: Project, object_id: str) -> None:
+    """A project with a journal: who changed this object, when, from what to what, why."""
+    from harness_design_studio.core import journal
+
+    entries = journal.entries_for(project, object_id)
+    if entries:
+        print(f"\nHistory of {object_id} (from the change journal):\n" + journal.render(entries))
 
 
 def run(args: argparse.Namespace) -> int:
@@ -77,16 +96,18 @@ def run(args: argparse.Namespace) -> int:
             return 2
         rep = Report(args.json)
         return rep.finish(_write_all(project, args.out, rep))
+    if args.object in project.units:  # a device: its library device and the record (D-240)
+        rep = Report(args.json)
+        code = rep.finish(explain_device(project, args.project, args.object, args.library, rep))
+        if not args.json:
+            _history(project, args.object)
+        return code
     found = explain_object(project, args.object)
     if args.json:
         print(json.dumps([d.to_explain_dict() for d in found], indent=2, ensure_ascii=False))
         return 0
     print("\n\n".join(render(d) for d in found))
-    from harness_design_studio.core import journal
-
-    entries = journal.entries_for(project, args.object)
-    if entries:  # a project with a journal: who changed this object, when, from what to what, why
-        print(f"\nHistory of {args.object} (from the change journal):\n" + journal.render(entries))
+    _history(project, args.object)
     pages = list(dict.fromkeys(d.model_page for d in found if d.model_page))
     if pages:  # the last lines: where the model behind each kind of number above is explained
         print()

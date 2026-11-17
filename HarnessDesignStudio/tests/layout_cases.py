@@ -332,6 +332,8 @@ def _cases() -> list[Case]:
         lambda c: library_window.LibraryWindow(c.ctl, c.theme, c.settings),
         "LibraryWindow",
     )
+    add("Review library changes", _library_review, "LibraryReviewDialog")
+    add("The device ID is taken", _taken_id, "TakenIdDialog")
     add("Command palette", _palette, "CommandPalette")
     add("Ask for a name (input dialog)", _input_dialog)
     add("Ask a question (message box)", _message_box)
@@ -451,6 +453,52 @@ def _conflict(c: Ctx) -> QWidget:
 
     found = [DeviceConflict("RW1", 2, 1, "RW1-2"), DeviceConflict(VERY_LONG_ID, 0, 3, "X-2")]
     return library_window.LibraryConflictDialog(None, LibraryConflict("RW1.json", found))
+
+
+def _library_device(c: Ctx) -> tuple[Any, str]:
+    """The project's libraries with one device of the flatsat saved into a folder and then
+    changed there (a longer name, the notes, the function of every pin): (libraries, device)."""
+    import json
+
+    from harness_design_studio.core import library_folder, library_link
+
+    uid = next(u for u in sorted(c.project.units) if any(
+        x.unit_id == u for x in c.project.connectors.values()
+    ))  # fmt: skip
+    folder = c.tmp / "device-library"
+    folder.mkdir(exist_ok=True)
+    path = library_folder.save_devices(folder, c.project, [uid], replace=True)[0]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rec = data["devices"][0]
+    rec["unit"]["notes"] = LONG
+    for conn in rec["connectors"]:
+        for pin in conn["pins"]:
+            pin["function"] = f"{LONG} (changed in the library)"
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return library_link.open_libraries([folder]), uid
+
+
+def _library_review(c: Ctx) -> QWidget:
+    from harness_design_studio.core import library_link
+    from harness_design_studio.gui.library_review import LibraryReviewDialog
+
+    libs, uid = _library_device(c)
+    diff = library_link.library_diff(c.project, libs, uid)
+    source = f"{LONG}, Git commit 1a2b3c4 on main, {uid}.device.json, not committed"
+    take = lambda: library_link.plan_update_device(c.project, libs, uid, adopt=True)  # noqa: E731
+    return LibraryReviewDialog(None, c.theme, diff, source, take)
+
+
+def _taken_id(c: Ctx) -> QWidget:
+    from harness_design_studio.core import library_link
+    from harness_design_studio.gui.library_review import TakenIdDialog
+
+    libs, uid = _library_device(c)
+    try:
+        library_link.plan_add_device(c.project, libs, uid)
+    except library_link.TakenIdError as err:
+        return TakenIdDialog(None, c.theme, c.project, err)
+    raise AssertionError("the ID should be taken")
 
 
 def _wizard(c: Ctx, kind: str) -> QWidget:
