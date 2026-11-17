@@ -149,11 +149,15 @@ J1,5,RS422_2,TX+,fixed
 J1,6,RS422_2,TX-,fixed
 J1,7,RS422_2,RX+,fixed
 J1,8,RS422_2,RX-,fixed
+J1,9,RS422_3,TX+,fixed
+J1,10,RS422_3,TX-,fixed
+J1,11,RS422_3,RX+,fixed
+J1,12,RS422_3,RX-,fixed
 ```
 
-The preview lists the ports it found on each connector, for example `OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8)`. Ethernet and RS-422 have the same signal names; set *Carries* on the connector to see only the type you mean. A port that misses a signal, a port with two pins for one signal and a pin name that reads in two ways are listed as warnings, because Generate does not use them. Only fixed pins form ports, so give the pins the mode *fixed*.
+The preview lists the ports it found on each connector, for example `OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)`. Ethernet and RS-422 have the same signal names; set *Carries* on the connector to see only the type you mean. A port that misses a signal, a port with two pins for one signal and a pin name that reads in two ways are listed as warnings, because Generate does not use them. Only fixed pins form ports, so give the pins the mode *fixed*.
 
-The import refuses a row, and then imports nothing, when the row has a port but no signal, when the port name cannot be read back (`RX+` as a port of RS-422 gives `RX+_TX+`, which reads two ways), when the signal already names another port, or when the name would be longer than 200 characters. A signal that no interface type of the connector has (`HEATER`) is imported as it is, without the port, and a warning says so. The full rule is in [`IMPORTS.md`](../IMPORTS.md#device-pinouts-and-kicad-netlists). `export-pinout` writes the names with the port in them and no Port column, and they read back as they are.
+The import refuses a row, and then imports nothing, when the row has a port but no signal, when the port name cannot be read back (`RX+` as a port of RS-422 gives `RX+_TX+`, which reads two ways), when the signal already names another port, or when the name would be longer than 200 characters. A signal that no interface type of the connector has (`HEATER`) is imported as it is, without the port, and a warning says so. The full rule is in [`IMPORTS.md`](../IMPORTS.md#device-pinouts-and-kicad-netlists). `export-pinout` writes the names with the port in them and no Port column, and they read back as they are. It writes no Mode column either, so the pins it gives are not fixed: set them fixed again (Mode *fixed*), or no ports form.
 
 On the command line, with the table above saved as `obc1.csv` (twelve rows, three ports):
 
@@ -162,12 +166,15 @@ harness-design-studio import-pinout obc-demo obc1.csv --device OBC1 --new-device
 ```
 
 ```
+Read 12 row(s) of device pinout from obc1.csv (sha256 06980d7f7416).
+Columns read: Connector -> connector, Pin -> pin, Port -> port, Signal -> signal, Mode -> mode
 OBC1-J01: OK added (12 pin(s))
 OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)
 Imported 1 connector(s), 12 pin(s).
+Import record: pinout:obc1.csv written to imports/records.json.
 ```
 
-**After the import.** Connect OBC1 to three other devices with RS-422 in Guided mode: J1 is OBC1's only connector, so the tool puts all three interfaces on it, one per port, and Generate gives IF-001 the port RS422_1, IF-002 RS422_2 and IF-003 RS422_3 (ports in name order, interfaces in ID order). To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface, or **Assign…** with its **Port** list in this tab. When every port is used, the connector is *Full*: a fourth interface is refused with the reason. Each interface to another far connector gets its own harness with its own plug on J1, and Generate warns (`box_connector_shared`) until a harness can branch (planned for 2.3.0). The whole case, step by step: [three RS-422 links on one connector](generate-harnesses.md#worked-example-three-rs-422-links-on-one-connector-since-210).
+**After the import.** Connect OBC1 to three other devices with RS-422 in Guided mode: J1 is OBC1's only connector, so the tool puts all three interfaces on it, one per port, and Generate gives IF-001 the port RS422_1, IF-002 RS422_2 and IF-003 RS422_3 (ports in name order, interfaces in ID order). To choose the port of an interface yourself, use **Choose port…** in the Inspector of the interface, or **Assign…** with its **Port** list in this tab. When every port is used, the connector is full: in Expert mode a fourth interface is refused with the reason, and in Guided mode with *OBC1 has no free RS-422 connector…*. Each interface to another far connector gets its own harness with its own plug on J1, and Generate warns (`box_connector_shared`) until a harness can branch (planned for 2.3.0). The whole case, step by step: [three RS-422 links on one connector](generate-harnesses.md#worked-example-three-rs-422-links-on-one-connector-since-210).
 
 ## Check the result and write it out
 
@@ -179,7 +186,7 @@ harness-design-studio export-pinout wheel-link --device GYRO1
 ```
 
 ```
-# harness-design-studio 2.0.1 model <hash>
+# harness-design-studio 2.1.0 model <hash>
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare
 GYRO1-J01,box,,EX-MICROD-9-F,A1,PWR,,,no
 GYRO1-J01,box,,EX-MICROD-9-F,A2,RTN,,,no
@@ -189,7 +196,7 @@ GYRO1-J01,box,,EX-MICROD-9-F,5,HEATER_ENABLE,,,no
 GYRO1-J01,box,,EX-MICROD-9-F,6,,,,yes
 ```
 
-The first line is the stamp (the tool version and the model hash, which depends on the project). `-o file.csv` or `-o file.xlsx` writes a file. A file written this way can be imported again with `import-pinout`. While some pin of the table has a direction (since 1.9), the table gets a last column *Direction* (`in`, `out` or `bidirectional`, empty for a pin without one); a table whose pins have none is written as above.
+The first line is the stamp (the tool version and the model hash, which depends on the project). `-o file.csv` or `-o file.xlsx` writes a file. A file written this way can be imported again with `import-pinout`. It has no Mode column, so the pins it imports are not fixed: set them fixed again for a fixed pinout. While some pin of the table has a direction (since 1.9), the table gets a last column *Direction* (`in`, `out` or `bidirectional`, empty for a pin without one); a table whose pins have none is written as above.
 
 - Then connect the device to others as usual (**Ctrl+I**) and **Generate**. The pins you defined are used as you defined them; a second Generate changes nothing.
 

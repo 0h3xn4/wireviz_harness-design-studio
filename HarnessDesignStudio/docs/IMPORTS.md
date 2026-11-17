@@ -79,7 +79,7 @@ J1,11,RS422_3,RX+,fixed
 J1,12,RS422_3,RX-,fixed
 ```
 
-`export-pinout` writes the composed names (`RS422_2_TX+`) and no Port column, and `import-pinout` reads them back as they are. The list of signals that match no interface type reads port names too: `RS422_2_TX+` is the RS-422 signal TX+ and is not listed. Before 2.1.0 a column headed *Port* was not read; now it is.
+`export-pinout` writes the composed names (`RS422_2_TX+`) and no Port column, and `import-pinout` reads them back as they are. It writes no Mode column either, so the pins are imported as not fixed, and no ports form until you set them fixed (Mode *fixed*). The list of signals that match no interface type reads port names too: `RS422_2_TX+` is the RS-422 signal TX+ and is not listed. Before 2.1.0 a column headed *Port* was not read; now it is.
 
 KiCad: it is used for the electronics inside each device, so it is where each device connector's pinout comes from. It has no harness segment lengths; those come from a plain table as above. The connector pinouts are read from a KiCad netlist with `harness-design-studio import-netlist` (see `docs/KICAD.md`). The import record keeps what the netlist says that the pins have no field for: the KiCad **pin type** of every imported pin (`OBC1-J01.3` is `power_in`) and the name of the **schematic** the netlist was made from (the file name only; KiCad writes a path, which is not kept). The component value and the footprint are named as not imported. With `--pin-direction` the pin types `input`, `output` and `bidirectional` also fill the direction (`in`, `out`, `bidir`) of a pin that has none; the other types (`passive`, `power_in` ...) say nothing about a direction and set nothing.
 
@@ -125,7 +125,7 @@ Every import that is applied keeps a record of the file it read in `imports/reco
       "sha256": "117043908312d3e7ba3fa0ca5ab598d6ba831d6a63e0990df7bcf9c5eb514648",
       "source_name": "segment-lengths.csv",
       "source_path": "data/segment-lengths.csv",
-      "tool_version": "2.0.1",
+      "tool_version": "2.1.0",
       "unit": "mm"
     }
   ]

@@ -202,43 +202,61 @@ Without the import the same line says `Pinout is fixed by the device design = no
 
 An on-board computer OBC1 talks to three star trackers over RS-422, and all three links leave on its one connector J1. The pinout of J1 names a port for each link.
 
+Make an empty project for the example first:
+
+```
+harness-design-studio new obc-demo --template blank
+```
+
 1. **Import the pinout of OBC1** with a *Port* column (or with names such as `RS422_2_TX+` and no Port column; both give the same pins):
 
    ```
    Connector,Pin,Port,Signal,Mode
    J1,1,RS422_1,TX+,fixed
    J1,2,RS422_1,TX-,fixed
-   ...
+   …
    J1,12,RS422_3,RX-,fixed
    ```
+
+   Save it as `obc1.csv` (all twelve rows are in [define a device](define-a-device.md#a-connector-with-several-ports-since-210)), then:
 
    ```
    harness-design-studio import-pinout obc-demo obc1.csv --device OBC1 --new-device "On-board computer" --default-part EX-MICROD-25-F
    ```
 
    ```
+   …
    OBC1-J01: OK added (12 pin(s))
    OBC1-J01: Ethernet or RS-422 ports: RS422_1 (pins 1-4), RS422_2 (5-8), RS422_3 (9-12)
    Imported 1 connector(s), 12 pin(s).
+   …
    ```
 
-   Import the three star trackers STR1, STR2 and STR3 the same way, each with one connector whose pins are `TX+`, `TX-`, `RX+` and `RX-` ([define a device](define-a-device.md#a-connector-with-several-ports-since-210)).
-
-2. **Connect OBC1 to each star tracker** with the type RS-422, in Guided mode. The first link takes J1, the only free connector of OBC1. J1 is not free for the second and the third, so the tool takes it again because it has a free complete port. In the Inspector the end of IF-002 at OBC1 says *Port RS422_2 (pins 5-8), Generate will choose it*.
-
-3. **Generate.** IF-001 gets port RS422_1 (pins 1-4), IF-002 gets RS422_2 and IF-003 gets RS422_3: ports in name order, interfaces in ID order. The default segmentation makes one harness per pair of device connectors, so each link gets its own harness with its own plug on J1, and Generate warns:
+   Import the three star trackers STR1, STR2 and STR3 the same way, each with one connector whose pins are `TX+`, `TX-`, `RX+` and `RX-` ([define a device](define-a-device.md#a-connector-with-several-ports-since-210)). With a file `str.csv` that has the columns *Pin*, *Signal* and *Mode* and these four pins, fixed:
 
    ```
-   warning: [box_connector_shared] OBC1-J01 has more than one cable plug on it: W001-P1 (W001), W002-P1 (W002), W003-P1 (W003). ...
+   harness-design-studio import-pinout obc-demo str.csv --device STR1 --new-device "Star tracker 1" --default-part EX-MICROD-9-F
+   ```
+
+   Then the same for STR2 and STR3. `EX-MICROD-9-F` is a part of the library of the blank template.
+
+2. **Connect OBC1 to each star tracker** in the editor: there is no command to add an interface. Open `obc-demo` (**File > Open project**) and connect OBC1 to STR1, STR2 and STR3 in turn with the type RS-422, in Guided mode (**Ctrl+I**, or a cable dragged from OBC1 to the star tracker). Then save. The first link takes J1, the only free connector of OBC1. J1 is not free for the second and the third, so the tool takes it again because it has a free complete port. In the Inspector the end of IF-002 at OBC1 says *Port RS422_2 (pins 5-8), Generate will choose it*.
+
+3. **Generate** (in the editor, or `harness-design-studio generate obc-demo`). IF-001 gets port RS422_1 (pins 1-4), IF-002 gets RS422_2 and IF-003 gets RS422_3: ports in name order, interfaces in ID order. The default segmentation makes one harness per pair of device connectors, so each link gets its own harness with its own plug on J1, and Generate warns:
+
+   ```
+   warning: [box_connector_shared] OBC1-J01 has more than one cable plug on it: W001-P1 (W001), W002-P1 (W002), W003-P1 (W003). A connector takes one plug; two harnesses cannot both plug into it. Give the interfaces that share it one harness, or use different connectors.
+   3 added, 0 changed, 0 unchanged, 0 removed, 0 frozen (released); 0 locked pin(s) kept
+   3 interfaces and 12 wires checked: 0 error(s)
    ```
 
    The design rules report the same as `model-inconsistent` (*The device connector OBC1-J01 has 3 cable plugs on it*). A real connector takes one plug. Until a harness can branch (planned for 2.3.0, decision D-235), give the three links one harness: set `segmentation.mode` to `per_zone_pair` and put the three star trackers in one zone (one lane of the diagram). Generate then makes one harness W001 with one plug on J1 and one on each star tracker, and the warning and the finding go away ([how links become harnesses](#how-links-become-harnesses)).
 
-4. **Check.** `harness-design-studio verify obc-demo` says `3 interfaces and 12 wires checked: 0 error(s)`. `system/box_pinouts.csv` lists each pin with its port name and its interface (`OBC1-J01,box,,EX-MICROD-25-F,5,RS422_2_TX+,IF-002,W002-001,no`). `harness-design-studio explain obc-demo OBC1-J01.5` names the port: *Port of the pin: RS422_2_TX+ is the TX+ of port RS422_2 of OBC1-J01*. A second Generate changes nothing.
+4. **Check.** `harness-design-studio verify obc-demo` says `3 interfaces and 12 wires checked: 0 error(s)`. `harness-design-studio export obc-demo` writes the outputs. Then `obc-demo/outputs/system/box_pinouts.csv` lists each pin with its port name and its interface (`OBC1-J01,box,,EX-MICROD-25-F,5,RS422_2_TX+,IF-002,W002-001,no`). `harness-design-studio explain obc-demo OBC1-J01.5` names the port: *Port of the pin: RS422_2_TX+ is the TX+ of port RS422_2 of OBC1-J01; …*. A second Generate changes nothing.
 
 5. **Choose a port yourself** when the wiring must follow another plan, say IF-003 on RS422_1. In the Inspector of IF-003, **Choose port…** on the end at OBC1 lists *RS422_1 (pins 1-4)*, *RS422_2 (pins 5-8)* and *RS422_3 (pins 9-12)*. Once Generate has run, a port that another interface holds says why it cannot be taken (*Pin 1 carries IF-001; unassign it first.*), so choose before you generate, or first free those pins with **Unassign from interface** in the **Devices** tab. Pick RS422_1: its pins become *Locked* to IF-003 in one undo step, and the pins Generate gave IF-003 before are freed in the same step. The next Generate keeps IF-003 on RS422_1 and gives IF-001 and IF-002 the free ports in name order, RS422_2 and RS422_3. **Assign…** with its **Port** list in the **Devices** tab does the same.
 
-6. **When J1 is full**, a fourth link cannot use it: the Inspector lists it as *J1: Full*, and connecting to it in Expert mode is refused with the reason (*OBC1-J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2, RS422_3 are used by IF-001, IF-002, IF-003.*). Add a connector, or add a port to the pinout.
+6. **When J1 is full**, a fourth link cannot use it. In Expert mode, connecting to it is refused with the reason (*OBC1-J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2, RS422_3 are used by IF-001, IF-002, IF-003.*), and the Inspector's list of connectors shows it as *J1: Full* when the interface has another connector to choose. In Guided mode a fourth RS-422 link to OBC1 is refused with *OBC1 has no free RS-422 connector. Use a device template that has one …*; this message does not name the ports. Add a connector, or add a port to the pinout.
 
 ### 5: when the checks run
 
