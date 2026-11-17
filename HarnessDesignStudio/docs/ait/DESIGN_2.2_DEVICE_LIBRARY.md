@@ -1,6 +1,6 @@
 # Design of 2.2.0: the device library
 
-Written on 2026-11-17 from a reading of the code at 2.1.1 (prepared). Decision D-240 records it; D-234 is the owner decision it implements, D-235 the order of the 2.x releases. Nothing in this page is built yet. Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`.
+Written on 2026-11-17 from a reading of the code at 2.1.1 (prepared). Decision D-240 records it; D-234 is the owner decision it implements, D-235 the order of the 2.x releases. *Added 2026-11-17, later:* pull request 1 of section 6 is built (D-240): `core/device_file.py`, the checks across the folder in `core/library_folder.py`, `core/library_git.py`, `core/library_pointer.py` and the two schemas; the rest is not built yet. Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`.
 
 ## 1. What exists
 
