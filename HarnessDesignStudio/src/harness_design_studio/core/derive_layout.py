@@ -497,6 +497,14 @@ def connector_choice_derivation(project: Project, connector_id: str) -> Derivati
     )
 
 
+# the two tiers of the Guided choice (D-237, `edit.choose_connector`)
+CHOICE_EQUATION = (
+    "connector = the one a person picks for the interface at the device, else the first free"
+    " connector of the device that carries the type; when none is free, the first connector of the"
+    " device with a fixed pinout that has a free complete port of the type"
+)
+
+
 def _box_choice(project: Project, box: Connector) -> Derivation:
     ends = [
         (i, e)
@@ -533,8 +541,10 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
                     f"connector {box.id}: the pins named by port (A-PORTS)",
                 )
             )
+    # the interfaces whose choice reads the same share one step that names them, so each interface
+    # appears once (D-237; a connector with one interface keeps the step of 2.1.0, without a name)
+    groups: dict[tuple[str, str, bool], list[str]] = {}
     for i, e in ends:
-        siblings = [c.id for c in unit_connectors(project, e.unit_id) if carries(c, i.type_id)]
         inputs.append(
             Input(
                 f"Interface {i.id}",
@@ -545,15 +555,23 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
             )
         )
         if method != connector_choice.DEFAULT_METHOD:
-            steps.append(_ranking_step(project, method, i, e.unit_id, box.id, bool(e.auto)))
+            steps.append(
+                _ranking_step(project, method, i, e.unit_id, box.id, bool(e.auto), named=shared)
+            )
+        members = groups.setdefault((e.unit_id, i.type_id, bool(e.auto)), [])
+        if i.id not in members:
+            members.append(i.id)
+    for (unit_id, type_id, auto), ids in groups.items():
+        siblings = [c.id for c in unit_connectors(project, unit_id) if carries(c, type_id)]
         steps.append(
             text_step(
-                f"Connectors of {e.unit_id} that carry {i.type_id}",
+                f"Connectors of {unit_id} that carry {type_id}"
+                + (f", for {', '.join(ids)}" if shared else ""),
                 "in ID order: "
                 + _names(siblings)
                 + (
                     "; a person picked this one"
-                    if not e.auto
+                    if not auto
                     else "; the tool takes the first one that is free, else the first with a free"
                     " complete port of the type"
                     if shared and edit.fixed_pinout(box)
@@ -570,10 +588,12 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
         "Choice of connector",
         None,
         "",
-        "connector = the one a person picks for the interface at the device, else the first free connector of the device that carries the type"
+        CHOICE_EQUATION
         if method == connector_choice.DEFAULT_METHOD
         else "connector = the one a person picks for the interface at the device, else "
-        + connector_choice.METHOD_TEXT[method],
+        + connector_choice.METHOD_TEXT[method]
+        + "; when none is free, the connectors with a fixed pinout that have a free complete port"
+        " of the type, in the same order",
         tuple(inputs),
         tuple(steps),
         None,
@@ -585,12 +605,20 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
 
 
 def _ranking_step(
-    project: Project, method: str, i: InterfaceInstance, unit_id: str, chosen_id: str, auto: bool
+    project: Project,
+    method: str,
+    i: InterfaceInstance,
+    unit_id: str,
+    chosen_id: str,
+    auto: bool,
+    *,
+    named: bool = False,
 ) -> Step:
     """The connectors of the device that carry the type in the order of the model in force, each
     with the pins it has, the pins an interface may take, the pins the interface needs and what is
     left over (the numbers the choice is made from), every interface that ends on it and, on a
-    fixed pinout, its free ports of the type (D-237)."""
+    fixed pinout, its free ports of the type (D-237). `named`: the step names the interface (on a
+    connector that carries several, each interface has a step of its own)."""
     itype = project.interface_types.get(i.type_id)
     candidates = [c for c in unit_connectors(project, unit_id) if carries(c, i.type_id)]
     parts = []
@@ -610,7 +638,7 @@ def _ranking_step(
             f"{free}"
         )
     return text_step(
-        f"Connectors of {unit_id} in the order of {method}",
+        f"Connectors of {unit_id} in the order of {method}" + (f", for {i.id}" if named else ""),
         "; ".join(parts) or "none carries the type",
         f"{connector_choice.METHOD_TEXT[method]}; the tool takes the first one that is free"
         + ("" if auto else " (a person picked " + chosen_id + ", so the model did not decide)"),

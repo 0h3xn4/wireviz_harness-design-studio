@@ -346,6 +346,58 @@ def test_explain_lists_every_interface_and_the_free_ports_of_each_candidate() ->
     assert a in text and b in text
 
 
+def test_explain_of_a_shared_connector_names_each_interface_once_and_both_tiers() -> None:
+    """Regression (end-to-end test of 2.1.0): `explain` of a connector with three interfaces gave
+    the same step three times without naming an interface, and its equation named only tier 1 of
+    the Guided choice. Now the interfaces with the same choice share one step that names them, and
+    the equation names both tiers."""
+    p = obc(("J1", port_pins("RS422_1", "RS422_2", "RS422_3")))
+    ids = [add(p, "OBC1", f"ST{k}") for k in (1, 2, 3)]  # Guided: J1 by tier 1, then by tier 2
+    assert all(end_at(p, i, "OBC1") == "OBC1-J1" for i in ids)
+    d = connector_choice_derivation(p, "OBC1-J1")
+    assert [(s.label, s.text) for s in d.steps] == [
+        ("Connectors of OBC1 that carry rs422, for IF-001, IF-002, IF-003", "OBC1-J1")
+    ]
+    assert "else the first with a free complete port of the type" in d.steps[0].expression
+    assert d.equation == (
+        "connector = the one a person picks for the interface at the device, else the first free"
+        " connector of the device that carries the type; when none is free, the first connector of"
+        " the device with a fixed pinout that has a free complete port of the type"
+    )
+    # a person picks one: that interface gets a step of its own
+    p.interfaces[ids[1]] = evolve(
+        p.interfaces[ids[1]],
+        endpoints=[evolve(e, auto=False) for e in p.interfaces[ids[1]].endpoints],
+    )
+    steps = connector_choice_derivation(p, "OBC1-J1").steps
+    assert [s.label for s in steps] == [
+        "Connectors of OBC1 that carry rs422, for IF-001, IF-003",
+        "Connectors of OBC1 that carry rs422, for IF-002",
+    ]
+    assert steps[1].expression.endswith("; a person picked this one")
+    # another model: one ranking step per interface, each named, and both tiers in the equation
+    with_model(p, connector_choice="fewest_spare_pins")
+    d = connector_choice_derivation(p, "OBC1-J1")
+    ranking = [s.label for s in d.steps if "in the order of" in s.label]
+    assert ranking == [
+        f"Connectors of OBC1 in the order of fewest_spare_pins, for {i}" for i in ids
+    ]
+    assert d.equation.endswith(
+        "; when none is free, the connectors with a fixed pinout that have a free complete port"
+        " of the type, in the same order"
+    )
+    assert render(d) == render(connector_choice_derivation(p, "OBC1-J1"))  # deterministic
+
+
+def test_explain_of_a_connector_with_one_interface_keeps_its_step() -> None:
+    """One interface on the connector: the step reads as in 2.1.0 (the user manual quotes it)."""
+    p = obc(("J1", port_pins("RS422_1", "RS422_2")))
+    add(p, "OBC1", "ST1")
+    (step,) = connector_choice_derivation(p, "OBC1-J1").steps
+    assert step.label == "Connectors of OBC1 that carry rs422"
+    assert step.expression == "in ID order: OBC1-J1; the tool takes the first one that is free"
+
+
 def test_assumptions_name_the_ports() -> None:
     from harness_design_studio.core.assumptions import ASSUMPTIONS
 
