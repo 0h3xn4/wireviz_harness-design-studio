@@ -134,7 +134,10 @@ def test_libraries_add_and_remove_round_trip_outside_undo(tmp_path: Path, lib: P
     assert rc == 0 and "already" in out and files(proj) == before
     rc, _out, err = cli(capsys, "libraries", proj, "--remove", "../other")
     assert rc == 2 and "does not name ../other" in err and files(proj) == before
-    rc, _out, err = cli(capsys, "libraries", proj, "--add", "C:\\libs")
+    # A path for one person's home folder is refused on every system. (Not "C:\\libs": on
+    # Windows that is an absolute path on the drive of the project, which --add stores as a
+    # relative path, as the absolute path below shows.)
+    rc, _out, err = cli(capsys, "libraries", proj, "--add", "~/libs")
     assert rc == 2 and files(proj) == before
     rc, out, _ = cli(capsys, "libraries", proj, "--remove", "../lib")
     assert rc == 0 and lp.read_pointer(proj) == []
