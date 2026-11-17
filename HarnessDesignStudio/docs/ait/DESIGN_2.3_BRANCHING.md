@@ -1,6 +1,6 @@
 # Design of 2.3.0: branching harnesses and splices
 
-Written on 2026-11-17 from a reading of the code at `ba1d2b2` (master, with pull request 3 of 2.2.0) and of the users' harness plan template as the owner's session described it. The decision that records it is D-243 (to be recorded). D-235 is the owner decision that placed branching harnesses and splices at 2.3.0; in [`PLAN_2.0.md`](PLAN_2.0.md) section 3.2 they are milestone M6 (M6a splices, M6b branches and breakouts, M6c backshells). It is a design only: nothing of it is built. Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`.
+Written on 2026-11-17 from a reading of the code at `ba1d2b2` (master, with pull request 3 of 2.2.0) and of the users' harness plan template as the owner's session described it. The decision that records it is D-243. D-235 is the owner decision that placed branching harnesses and splices at 2.3.0; in [`PLAN_2.0.md`](PLAN_2.0.md) section 3.2 they are milestone M6 (M6a splices, M6b branches and breakouts, M6c backshells). It is a design only: nothing of it is built. Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`.
 
 ## 0. The answer in short
 
