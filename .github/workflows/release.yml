@@ -71,6 +71,12 @@ jobs:
       - run: python -m pip install -e ".[gui,dev]"
       - run: python -m tools.build_installer
       - run: python -m tools.build_deb
+      - name: The App Center data and the desktop entry of the .deb are valid
+        run: |
+          sudo apt-get install -y appstream desktop-file-utils
+          rm -rf build/deb-check && dpkg-deb -x dist/harness-design-studio_*_amd64.deb build/deb-check
+          python -m tools.appstream check build/deb-check/usr/share/metainfo/io.github._0h3xn4.harness_design_studio.metainfo.xml
+          desktop-file-validate build/deb-check/usr/share/applications/harness-design-studio.desktop
       - name: Frozen app self-test
         timeout-minutes: 5
         env:

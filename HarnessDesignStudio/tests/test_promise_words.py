@@ -6,7 +6,7 @@ The words "guarantee", "ensure", "certified", "compliant", "validated", "qualifi
 "error-free", "accurate", "flight-proven" and "approved" must not be used to say something about
 the tool or what it makes. The check reads the text a person sees: the READMEs and user documents,
 the strings of the app, the help of the command line, the text of the written files and of the
-release notes, and the package descriptions.
+release notes, and the package descriptions (the App Center page among them).
 
 What is allowed, and only this:
 - a sentence that says the opposite ("does not say that a harness is compliant", "not validated");
@@ -68,12 +68,14 @@ MARKDOWN += sorted((ROOT / "docs" / "releases").glob("*.md"))
 TEXT = [
     ROOT / "packaging" / "windows" / "README-windows.txt",
     ROOT / "packaging" / "ubuntu" / "README.txt",
+    ROOT / "packaging" / "appstream" / "metainfo.xml.in",  # the App Center page
 ]
 PYTHON = [
     SRC / "gui" / "strings.py",
     ROOT / "tools" / "release_notes.py",
     ROOT / "tools" / "release_bundle.py",
     ROOT / "tools" / "build_deb.py",
+    ROOT / "tools" / "appstream.py",
 ]
 PYTHON += sorted((SRC / "cli").glob("*.py"))
 PYTHON += sorted((SRC / "core" / "outputs").glob("*.py"))

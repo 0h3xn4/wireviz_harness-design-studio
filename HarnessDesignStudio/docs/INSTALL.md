@@ -139,6 +139,8 @@ harness 2.2.0
 
 Remove it later with `sudo apt remove harness-design-studio`. Upgrade by installing the newer `.deb` the same way.
 
+The `.deb` also brings the program's page for Ubuntu's App Center (an AppStream file, `/usr/share/metainfo/io.github._0h3xn4.harness_design_studio.metainfo.xml`, with the summary, the licence, the age rating and the newest releases). App Center loads the screenshots of that page from the web, so on an offline computer the page shows without them; the program itself never uses the network. App Center still says *Provided by a third party* and *No Software Repository Included* for any `.deb` installed from a file: the program comes from no apt repository, Snap or Flatpak.
+
 ## B. The `.tar.gz` without administrator rights
 
 ```
@@ -147,7 +149,7 @@ cd harness-design-studio
 ./install.sh
 ```
 
-This installs for **your user only**, into `~/.local/opt/harness-design-studio`, and adds links in `~/.local/bin` and an entry in your application menu.
+This installs for **your user only**, into `~/.local/opt/harness-design-studio`, and adds links in `~/.local/bin`, an entry in your application menu and the App Center data in `~/.local/share/metainfo`.
 
 If `install.sh` ends with a note that `~/.local/bin` is not on your PATH, the commands `harness-design-studio-gui`, `harness-design-studio` and `harness` are not found yet. Fix it once:
 

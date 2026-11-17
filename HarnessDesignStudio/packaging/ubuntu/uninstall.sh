@@ -25,13 +25,18 @@ case "$prefix" in /*) ;; *) prefix="$(pwd)/$prefix" ;; esac
 prefix=$(printf '%s' "$prefix" | sed 's://*:/:g; s:/$::')
 if [ "$mode" = system ]; then
   bindir=/usr/local/bin; appdir=/usr/share/applications; icondir=/usr/share/icons/hicolor/scalable/apps
+  metadir=/usr/share/metainfo
 else
   base="${XDG_DATA_HOME:-$HOME/.local/share}"
   bindir="${HOME}/.local/bin"; appdir="$base/applications"; icondir="$base/icons/hicolor/scalable/apps"
+  metadir="$base/metainfo"
 fi
 if [ -n "${HARNESS_INSTALL_ROOT:-}" ]; then
   bindir="$HARNESS_INSTALL_ROOT/bin"; appdir="$HARNESS_INSTALL_ROOT/share/applications"; icondir="$HARNESS_INSTALL_ROOT/share/icons"
+  metadir="$HARNESS_INSTALL_ROOT/share/metainfo"
 fi
+# the App Center data (AppStream); its name is the component ID of tools/appstream.py
+metainfo=io.github._0h3xn4.harness_design_studio.metainfo.xml
 removed=0
 marker="$prefix/.harness-design-studio-install"
 if [ ! -f "$marker" ]; then   # a folder this installer did not make is never touched
@@ -60,8 +65,11 @@ desktop="$appdir/harness-design-studio.desktop"
 if [ -e "$desktop" ] && grep -qF -- "$prefix/harness-design-studio" "$desktop" 2>/dev/null; then
   rm -f "$desktop"; removed=1
   [ -e "$icondir/harness-design-studio.svg" ] && rm -f "$icondir/harness-design-studio.svg"
-elif [ ! -e "$desktop" ] && [ -e "$icondir/harness-design-studio.svg" ]; then
-  rm -f "$icondir/harness-design-studio.svg"; removed=1
+  [ -e "$metadir/$metainfo" ] && rm -f "$metadir/$metainfo"
+elif [ ! -e "$desktop" ]; then
+  for left in "$icondir/harness-design-studio.svg" "$metadir/$metainfo"; do
+    if [ -e "$left" ]; then rm -f "$left"; removed=1; fi
+  done
 fi
 # only what the installer listed in its marker file; anything else in the folder stays
 if [ -n "$prefix" ] && [ "$prefix" != "/" ]; then
