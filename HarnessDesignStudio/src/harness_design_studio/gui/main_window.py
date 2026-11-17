@@ -1188,6 +1188,8 @@ class MainWindow(QMainWindow):
         self.harness_view.routing.branchPicked.connect(
             lambda _hid, bid: self.inspector.show_object("branch_point", bid)
         )
+        self.ctl.branchPicked.connect(lambda bid: self.inspector.show_object("branch_point", bid))
+        self.ctl.joinRequested.connect(lambda box, keep: self.join_flow(box, keep))
         self.install_view("harness", self.harness_view)
         self.install_view("lists", self.lists_panel)
         self.devices_view = DevicesView(self.ctl, self.theme, self.settings)

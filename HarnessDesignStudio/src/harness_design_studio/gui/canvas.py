@@ -45,11 +45,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import cable_ends, describe, edit, linepos, routing
+from harness_design_studio.core import branching, cable_ends, describe, edit, linepos, routing
 from harness_design_studio.core.model import Project, mark_is_along
 from harness_design_studio.gui import cable as cb
 from harness_design_studio.gui import canvas_badges as cbadges
 from harness_design_studio.gui import device_kinds, device_looks, glyphs, strings
+from harness_design_studio.gui.canvas_branches import BranchPointItem
 from harness_design_studio.gui.canvas_cable import RING, CableLayer
 from harness_design_studio.gui.canvas_ends import CableEndItem
 from harness_design_studio.gui.canvas_links import (
@@ -1809,6 +1810,7 @@ class DiagramScene(QGraphicsScene):
         self.link_items: dict[str, LinkItem] = {}
         self.connection_items: dict[str, ConnectionItem] = {}  # core.links.Link lines
         self.end_items: dict[str, CableEndItem] = {}  # ends of cables drawn by hand (M4c)
+        self.branch_items: dict[str, BranchPointItem] = {}  # their branch points (2.3.0)
         self._chips: dict[tuple[int, int], list[tuple[str, QRectF]]] = {}
         self._chip_rects: dict[str, QRectF] = {}
         self._segments: dict[tuple[int, int], list[tuple[str, QRectF]]] = {}  # route pieces
@@ -2401,6 +2403,7 @@ class DiagramScene(QGraphicsScene):
         self.link_items.clear()
         self.connection_items.clear()
         self.end_items.clear()
+        self.branch_items.clear()
         self._chips.clear()
         self._chip_rects.clear()
         self._slots.clear()
@@ -2521,8 +2524,48 @@ class DiagramScene(QGraphicsScene):
                 self.end_items[cid] = item
             else:
                 item.set_end(end)
+        self._sync_branches(project)
+
+    def _sync_branches(self, project: Project) -> None:
+        """The branch points of the cables drawn by hand (2.3.0): an item for each one that
+        `core.cable_ends.drawn_branch_points` names; the lines of their ends run through them."""
+        spots = (
+            {b.branch_id: b for b in cable_ends.drawn_branch_points(project)}
+            if project.harnesses
+            else {}
+        )
+        for bid in [b for b in self.branch_items if b not in spots]:
+            self.removeItem(self.branch_items.pop(bid))
+        for bid, spot in spots.items():
+            item = self.branch_items.get(bid)
+            if item is None:
+                item = BranchPointItem(self, spot)
+                self.addItem(item)
+                self.branch_items[bid] = item
+            else:
+                item.set_spot(spot)
+        if spots:
+            for end in self.end_items.values():
+                if end.end.via:
+                    end.update_path()
+
+    def branch_spot(self, branch_id: str) -> tuple[float, float] | None:
+        """Where a branch point of a cable drawn by hand is drawn (None: it is not)."""
+        item = self.branch_items.get(branch_id)
+        return item.placed() if item is not None and item.isVisible() else None
+
+    def follow_harness(self, harness_id: str) -> None:
+        """The branch points and the ends of one harness follow (a branch point is carried)."""
+        for b in self.branch_items.values():
+            if b.spot.harness_id == harness_id and b._drag is None:
+                b.update_place()
+        for end in self.end_items.values():
+            if end.end.harness_id == harness_id:
+                end.update_path()
 
     def _follow_ends(self) -> None:
+        for branch in self.branch_items.values():
+            branch.update_place()
         for item in self.end_items.values():
             item.update_path()
 
@@ -2777,6 +2820,12 @@ class DiagramScene(QGraphicsScene):
                 end = self.end_items.get(ident)
                 if end is not None:
                     end.update_path()
+                    self.follow_harness(end.end.harness_id)  # (its branch points sit by it)
+                continue
+            if kind == cable_ends.BRANCH_KIND:  # where a branch point sits
+                branch = self.branch_items.get(ident)
+                if branch is not None:
+                    self.follow_harness(branch.spot.harness_id)
                 continue
             ident = ident.partition(":")[0]  # ("end:L1:0" is of the connection L1)
             by_kind = self.link_items if kind in ("interface", "route") else self.connection_items
@@ -3791,6 +3840,26 @@ class DiagramView(QGraphicsView):
                 partial(ctl.unplug, cid),
                 ro or ctl.why_not_unplug(cid),
             )
+        self._join_entry(menu, connector_id, "")
+
+    def _join_entry(self, menu: QMenu, box_id: str, keep: str) -> bool:
+        """*Join into one harness…* on a device connector with plugs of harnesses drawn by hand
+        (2.3.0): the window asks which one joins `keep` (the harness clicked; the lowest ID when
+        none) and joins them as one undo step. Nothing when there is nothing to join."""
+        fix = branching.plug_fix(self.ctl.project, box_id)
+        if fix is None or fix.kind != "join":
+            return False
+        keep = keep if keep in fix.harness_ids else fix.harness_ids[0]
+        act = self._entry(
+            menu,
+            strings.JOIN_MENU,
+            partial(self.ctl.joinRequested.emit, box_id, keep),
+            strings.WHY_READ_ONLY if self.ctl.read_only else "",
+        )
+        act.setObjectName("diagram-menu-join")
+        if not self.ctl.read_only:
+            act.setToolTip(strings.JOIN_MENU_TIP.format(box=box_id))
+        return True
 
     def _leave_from(self, connector_id: str) -> None:
         if self.ctl.leave_loose_end(connector_id) is not None and self.ctl.selected_end:
@@ -3816,6 +3885,10 @@ class DiagramView(QGraphicsView):
             )
         else:
             self._mirror(menu, "unplug")
+            if item is not None:  # the plug sits on a connector that another harness uses too
+                for box in (item.end.target, item.end.anchor):
+                    if self._join_entry(menu, box, item.end.harness_id):
+                        break
         if item is not None:
             hid = item.end.harness_id
             self._entry(

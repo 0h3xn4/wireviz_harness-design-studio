@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-# mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,union-attr,arg-type,type-arg,assignment,index"
+# mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,union-attr,arg-type,type-arg,assignment,index,misc,func-returns-value"
 """REQ-HARN-03. The editor of harnesses that branch (2.3.0, D-243, section 5.8 of the design of
 branching, pull request 6): Settings > Project offers *per connector group*; the Harness tab's
 *Routing* table (an entered length, the buttons of a harness a person drew, the refusals); the
@@ -338,3 +338,145 @@ def test_generates_plugs_get_use_per_connector_group_which_opens_settings(qtbot,
     assert win.area_stack.currentWidget() is win.settings_page
     assert win.settings_page.current_section() == "project"
     assert not win.join_flow("OBC-J01")  # Generate's harnesses are not joined by hand
+
+
+# ---- the diagram: a new leg by a drag, the branch point drawn and dragged, the join --------------
+
+
+def plugged_cable(w):
+    """W001: a cable drawn by hand from OBC-J01 (pins 1, 2) plugged into RW1-J02."""
+    hid = drawn(w.win)
+    w.settle()
+    return hid
+
+
+def messages(w) -> list[str]:
+    said: list[str] = []
+    w.win.ctl.message.connect(lambda text, _undo: said.append(text))
+    return said
+
+
+def test_a_cable_dragged_from_a_plugged_port_of_a_drawn_harness_is_a_new_leg(qtbot, tmp_path):
+    from PySide6.QtCore import QPointF
+
+    from harness_design_studio.core.cable_ends import branch_mark, pos_mark
+    from harness_design_studio.core.io.layout import model_hash
+    from tests.test_ui_tactile_connect import expert
+
+    w = expert(tmp_path)
+    hid = plugged_cable(w)
+    n = w.steps()
+    w.drag(w.grab_spot(w.port("OBC", "OBC-J01")), QPointF(420, 300))
+    w.settle()
+    assert sorted(w.project.harnesses) == [hid] and w.steps() == n + 1  # one undo step
+    h = w.project.harnesses[hid]
+    loose = [c.id for c in h.connectors if c.role == "loose"]
+    assert loose == ["W001-P3"] and [b.id for b in h.branch_points] == ["W001-B1"]
+    assert w.win.ctl.selected_end == "W001-P3"
+    assert pos_mark("W001-P3") in w.project.diagram_marks  # where it was let go
+    end = w.scene.end_items["W001-P3"]
+    assert end.spot == pytest.approx((420, 300), abs=1.5)
+    # the branch point is drawn at the middle of its connectors, and the lines run through it
+    branch = w.scene.branch_items["W001-B1"]
+    assert branch.isVisible()
+    spots = [branch.connector_spot(c) for c in branch.spot.connectors]
+    middle = (sum(x for x, _ in spots) / 3, sum(y for _, y in spots) / 3)
+    assert branch.placed() == pytest.approx(middle)
+    assert end.end.via == ("W001-B1",) and branch.placed() in [tuple(p) for p in end.points]
+    # dragged, it writes the mark branch:<ID>, one undo step outside the model hash
+    before = model_hash(w.project)
+    at = QPointF(*branch.placed())
+    n = w.steps()
+    w.drag(at, at + QPointF(40, -30))
+    w.settle()
+    mark = w.project.diagram_marks[branch_mark("W001-B1")]
+    assert (mark.dx, mark.dy) == pytest.approx((40, -30), abs=1.5) and w.steps() == n + 1
+    assert model_hash(w.project) == before
+    assert branch.placed() == pytest.approx((middle[0] + mark.dx, middle[1] + mark.dy))
+    assert w.win.ctl.picked_branch == "W001-B1"
+    assert w.win.inspector.current() == ("branch_point", "W001-B1")
+    assert branch.placed() in [tuple(p) for p in w.scene.end_items["W001-P3"].points]
+    w.win.ctl.undo()
+    w.settle()
+    assert branch_mark("W001-B1") not in w.project.diagram_marks
+    assert branch.placed() == pytest.approx(middle)
+    w.win.ctl.undo()  # the leg
+    w.settle()
+    assert "W001-B1" not in w.scene.branch_items and "W001-P3" not in w.scene.end_items
+
+
+def test_a_port_with_a_harness_of_a_connection_still_refuses_a_second_cable(qtbot, tmp_path):
+    from PySide6.QtCore import QPointF
+
+    from tests.test_ui_tactile_connect import expert
+
+    w = expert(tmp_path)
+    lid = w.win.ctl.add_link("OBC-J01", "RW1-J02", [("1", "1"), ("2", "2")])
+    assert w.win.ctl.create_harness_from_link(lid)
+    w.settle()
+    before = dict(w.project.harnesses)
+    said = messages(w)
+    w.drag(w.grab_spot(w.port("OBC", "OBC-J01")), QPointF(420, 300))
+    w.settle()
+    assert w.project.harnesses == before
+    name = w.project.connectors["OBC-J01"].name
+    assert said[-1] == strings.CABLE_REFUSED_PLUGGED.format(name=name)
+
+
+def test_a_leg_with_no_free_pin_is_refused_with_the_reason(qtbot, tmp_path):
+    from PySide6.QtCore import QPointF
+
+    from tests.test_ui_tactile_connect import expert
+
+    w = expert(tmp_path)
+    drawn(w.win, pins=("1", "2", "3", "4"))
+    w.settle()
+    before, n = dict(w.project.harnesses), w.steps()
+    said = messages(w)
+    w.drag(w.grab_spot(w.port("OBC", "OBC-J01")), QPointF(420, 300))
+    w.settle()
+    assert w.project.harnesses == before and w.steps() == n
+    assert "no free pin with a signal for a new leg" in said[-1]
+
+
+def test_the_menu_of_a_shared_port_offers_join_into_one_harness(qtbot, tmp_path):
+    from PySide6.QtCore import QPointF
+
+    from tests.test_ui_tactile_connect import expert
+
+    w = expert(tmp_path)
+    hid = plugged_cable(w)
+    other = plan_cable_from_port(w.project, "OBC-J01", pin_ids=["3", "4"])
+    assert w.win.ctl.run("cable", other.ops)
+    w.settle()
+    menu = w.view.build_context_menu("unit", "OBC", QPointF(0, 0), connector="OBC-J01")
+    entry = next(a for a in menu.actions() if a.objectName() == "diagram-menu-join")
+    assert entry.text() == strings.JOIN_MENU and entry.isEnabled()
+    asked = []
+    w.win.ask_choice = lambda title, text, buttons: asked.append(buttons) or 0
+    n = w.steps()
+    entry.trigger()
+    w.settle()
+    assert asked == [[strings.JOIN_INTO.format(other=other.harness_id, keep=hid), strings.CANCEL]]
+    assert sorted(w.project.harnesses) == [hid] and w.steps() == n + 1
+    # the plugged end of the joined harness offers nothing more to join
+    menu = w.view.build_context_menu("unit", "OBC", QPointF(0, 0), connector="OBC-J01")
+    assert not [a for a in menu.actions() if a.objectName() == "diagram-menu-join"]
+
+
+def test_the_menu_of_a_plugged_end_offers_the_join_and_cancel_changes_nothing(qtbot, tmp_path):
+    from PySide6.QtCore import QPointF
+
+    from tests.test_ui_tactile_connect import expert
+
+    w = expert(tmp_path)
+    hid = plugged_cable(w)
+    other = plan_cable_from_port(w.project, "OBC-J01", pin_ids=["3", "4"])
+    assert w.win.ctl.run("cable", other.ops)
+    w.settle()
+    plugged = next(i for i in w.scene.end_items.values() if not i.end.loose)
+    menu = w.view.build_context_menu("cable_end", plugged.connector_id, QPointF(0, 0))
+    entry = next(a for a in menu.actions() if a.objectName() == "diagram-menu-join")
+    w.win.ask_choice = lambda title, text, buttons: len(buttons) - 1  # Cancel
+    entry.trigger()
+    assert sorted(w.project.harnesses) == sorted([hid, other.harness_id])

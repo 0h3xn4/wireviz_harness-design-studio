@@ -479,6 +479,8 @@ class CableLayer:
             self.ctl.message.emit(strings.LOOSE_NO_PORT.format(unit=anchor.unit_id), False)
             return
         plugs = self.occ.plugs if self.occ is not None else cb.Occupancy.of(project).plugs
+        if box in plugs and self._leg(box, at):
+            return
         if box in plugs:
             conn = project.connectors.get(box)
             name = conn.name if conn is not None else box
@@ -486,6 +488,29 @@ class CableLayer:
             return
         home = cb.loose_spot(self.port_now(cb.Port(anchor.unit_id, box)), 0)
         self.ctl.leave_loose_end(box, (at[0] - home[0], at[1] - home[1]))
+
+    def _leg(self, box: str, at: Spot) -> bool:
+        """A cable from a port that one harness drawn by hand plugs into, let go on empty ground:
+        a new leg of that harness (2.3.0, `EditorController.add_leg`; its refusal is a message).
+        False when the port's plugs are of a harness Generate made, of one made from a connection
+        (its link owns its pairs) or of several harnesses: the cable is refused as before."""
+        from harness_design_studio.core.integrity import mating_plugs
+        from harness_design_studio.core.origin import harness_link
+
+        project = self.ctl.project
+        owners = {hid for hid, _c in mating_plugs(project.harnesses.values()).get(box, [])}
+        if len(owners) != 1:
+            return False
+        hid = owners.pop()
+        h = project.harnesses.get(hid)
+        if h is None or h.generated or harness_link(project, hid) is not None:
+            return False
+
+        def home(end: cable_ends.CableEnd) -> Spot:
+            return cb.loose_spot(self.port_now(cb.Port(end.anchor_unit, end.anchor)), end.index)
+
+        self.ctl.add_leg(hid, box, at, home)
+        return True
 
     def _refusal_text(self, out: cb.Outcome) -> str:
         project = self.ctl.project

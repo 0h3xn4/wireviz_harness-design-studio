@@ -3873,3 +3873,15 @@ JOIN_INTO = "Join {other} into {keep}"
 JOIN_DONE = "{other} joined into {keep}: one plug on {box}."
 JOIN_MORE_LEFT = " {box} still has plugs of {n} harnesses: join again."
 STEP_JOIN = "Join {other} into {keep}"
+# the diagram: branch points of cables drawn by hand, a new leg, the join
+BRANCH_TIP = (
+    "Branch point {branch} ({name}) of harness {harness}, between {connectors}. Drag it to move it "
+    "on the diagram; that changes no written file."
+)
+STEP_MOVE_BRANCH = "Move branch point {}"
+STEP_ADD_LEG = "New leg of {}"
+LEG_MADE = (
+    "A new leg of {harness}: the loose end {end} from {port}. Choose its part, or plug it in."
+)
+JOIN_MENU = "Join into one harness…"
+JOIN_MENU_TIP = "Join this harness with another that plugs into {box} (one undo step)"

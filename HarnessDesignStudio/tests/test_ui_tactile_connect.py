@@ -601,12 +601,16 @@ def test_a_loose_end_follows_its_device_when_the_device_moves(qtbot, tmp_path) -
 def test_a_cable_from_a_port_with_a_cable_plug_on_it_is_refused_with_the_reason(
     qtbot, tmp_path
 ) -> None:
+    """Since 2.3.0 (D-243) a cable from a port that a harness drawn by hand plugs into is a new
+    leg of that harness (`tests/test_ui_branching.py`); here the plug uses every pin with a signal,
+    so the leg is refused with the plan's reason and nothing changes. A port with plugs of a
+    connection's harness keeps CABLE_REFUSED_PLUGGED (also in `test_ui_branching.py`)."""
     w = expert(tmp_path)
     make_loose(w)
     n = w.steps()
     w.drag(w.grab_spot(w.port("OBC", "OBC-J01")), QPointF(430, 400))
     assert w.steps() == n and len(w.project.harnesses) == 1
-    assert w.win.toasts.messages[-1] == strings.CABLE_REFUSED_PLUGGED.format(name="J01")
+    assert "has no free pin with a signal for a new leg" in w.win.toasts.messages[-1]
 
 
 def test_opening_another_project_drops_the_drawn_ends(qtbot, tmp_path) -> None:
