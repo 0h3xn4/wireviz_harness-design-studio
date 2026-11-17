@@ -6,6 +6,8 @@
     paths = read_pointer(project_folder)              # ["../acme-device-library"]; [] without file
     write_pointer(project_folder, ["../acme-device-library"])
     folders = library_folders(project_folder, paths)  # the folders, relative to the project folder
+    relative_path("/work/acme-device-library", project_folder)   # "../acme-device-library"
+    copy_pointer(old_folder, new_folder)              # Save As: the same libraries, new paths
 
 The file is `{"format": "harness-project-libraries", "version": 1, "device_libraries":
 [{"path": "../acme-device-library"}]}`. A path is relative to the project folder and written with
@@ -17,7 +19,7 @@ not write or delete it, and it is in no hash and no output. Every problem is one
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from harness_design_studio.core.device_library import json_problem
@@ -32,10 +34,13 @@ __all__ = [
     "VERSION",
     "PointerError",
     "check_pointer",
+    "copy_pointer",
     "library_folders",
+    "moved_paths",
     "path_problem",
     "pointer_document",
     "read_pointer",
+    "relative_path",
     "write_pointer",
 ]
 
@@ -157,3 +162,36 @@ def library_folders(project_folder: Path | str, paths: list[str]) -> list[Path]:
     reading the disk)."""
     root = Path(project_folder)
     return [Path(os.path.normpath(root / p)) for p in paths]
+
+
+def relative_path(folder: Path | str, project_folder: Path | str) -> str:
+    """The path of `folder` as `device-libraries.json` holds it: relative to the project folder,
+    with `/`. Raises `PointerError` when it cannot be written so (a folder on another drive)."""
+    try:
+        rel = os.path.relpath(os.path.abspath(folder), os.path.abspath(project_folder))
+    except ValueError as exc:  # another drive on Windows
+        raise PointerError(
+            f"The folder {folder} is on another drive than the project, so the project cannot "
+            "name it with a relative path."
+        ) from exc
+    text = PurePosixPath(*Path(rel).parts).as_posix()
+    if problem := path_problem(text):
+        raise PointerError(problem)
+    return text
+
+
+def moved_paths(paths: list[str], old_folder: Path | str, new_folder: Path | str) -> list[str]:
+    """The library paths of a project in `old_folder`, rewritten so that they name the same
+    folders from `new_folder` (Save As). Raises `PointerError` when one cannot be written."""
+    return [relative_path(f, new_folder) for f in library_folders(old_folder, paths)]
+
+
+def copy_pointer(old_folder: Path | str, new_folder: Path | str) -> Path | None:
+    """Save As: write the `device-libraries.json` of the project in `old_folder` into
+    `new_folder`, with every path rewritten for the new place (`moved_paths`). None when the old
+    folder has no such file (nothing is written then). Raises `PointerError` when the file cannot
+    be read or a path cannot be rewritten; nothing is written then."""
+    if not (Path(old_folder) / FILE).exists() and not (Path(old_folder) / FILE).is_symlink():
+        return None
+    paths = read_pointer(old_folder)
+    return write_pointer(new_folder, moved_paths(paths, old_folder, new_folder))

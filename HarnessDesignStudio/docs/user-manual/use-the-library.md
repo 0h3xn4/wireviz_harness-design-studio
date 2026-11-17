@@ -15,6 +15,7 @@ This page shows how a team keeps its devices and subsystems in one **library fol
 - [Share the library: a drive or a Git repository](#share-the-library-a-drive-or-a-git-repository)
 - [On the command line](#on-the-command-line)
 - [A device library on the command line (2.2.0)](#a-device-library-on-the-command-line-220)
+- [A device library in the editor (2.2.0)](#a-device-library-in-the-editor-220)
 - [What the program never does](#what-the-program-never-does)
 - [Common mistakes](#common-mistakes)
 
@@ -47,7 +48,7 @@ The program looks for `.json` files in the folder and in the folders two levels 
    - **A subsystem**: the devices **and the connections between them**, added together later. Give it a **Subsystem name** and, if you like, a **Description**. A connection with one end on a device that you did not select is left out (the window says how many). The file is `subsystem-<name>.json`.
 5. Press **Save**. The window reads the folder again and the new entry is in the list.
 
-![The library window: the folder, the search field, the list with two devices and a subsystem, and the preview of the subsystem Wheel drive](../img/library-window.png)
+![The library window: the folder, the search field, the list with two devices and a subsystem and the Status of each device, the preview of the subsystem Wheel drive, and the buttons Review changes, Save selection to library and Add to project](../img/library-window.png)
 
 ![The window Save to library: the three selected devices, Save as a subsystem, the name and the description, and the file that will be written](../img/library-save-window.png)
 
@@ -62,7 +63,7 @@ The program never replaces a subsystem file. If the name is taken, the window sa
 
 What the program does when it adds:
 
-- **Nothing in the project is replaced.** A device whose ID is taken gets the next free one: `OBC` becomes `OBC-2`, its connectors follow (`OBC-2-J01`), and the connections of a subsystem follow too. A note under the list names every renamed ID.
+- **Nothing in the project is replaced.** In a subsystem, a device whose ID is taken gets the next free one: `OBC` becomes `OBC-2`, its connectors follow (`OBC-2-J01`), and the connections follow too. A note under the list names every renamed ID. For a single device whose ID is taken, the program asks what to do (since 2.2.0, [below](#a-device-library-in-the-editor-220)).
 - **A subsystem is added whole.** Every device gets the subsystem name of the file as its **Subsystem**, the connections between the new connectors are added, and the devices stand side by side in one lane of the diagram. If one device or one connection of the subsystem cannot be added, nothing is added and the window says which one and why.
 - **Parts and interface types** that the project does not have are added with the status that the file says; the program does not decide it again. A part that the project has already is kept as the project has it, and a note says if the file's part differs.
 - **A project that is read-only** cannot be added to; the button is off and says so.
@@ -193,6 +194,32 @@ RW1: library changed. Library acme-devices, RW1.device.json.
 
 `update-device second --check` ends with exit code 1 while a device differs, so a build can stop on it. `update-device second RW1 --apply` takes the library's version (*Took the library's version of RW1: 2 changes.*) and the new record. What stays the project's own: the name, subsystem, zone, side and place of the device, and on each pin its interface, its lock and an allocated signal. It is all or nothing for a device and its copies: a change that a released harness locks is refused, the message names the harness (start a new revision with `revise`), and nothing of that device changes. `libraries second --devices` lists every device with its state, `explain second RW1` names the library file and the record, and `imports second --check` notices a library file that changed.
 
+## A device library in the editor (2.2.0)
+
+> **New in 2.2.0** (decision D-240, not released yet). The steps are described from the program's code and its tests; nobody has watched them on a real screen yet. There is no picture of these screens yet.
+
+The editor uses the libraries that the project names in `device-libraries.json`. When the project names none, it uses your library folder.
+
+**Name the libraries of the project.** Choose **File > Device libraries of this project…** (or **Settings > Project**). Press **Add library…** and pick the folder, or choose a folder in the list and press **Remove**. The program writes `device-libraries.json` at once, with a path relative to the project folder. This change is outside undo; commit the file with the project. **File > Save As…** copies the file and rewrites its paths for the new folder.
+
+**Add a device from a library.** Use **Edit > Add device > From library**, **Add here > From library** on the empty diagram, or Ctrl+K and type *Add from library*. In Quick mode the **Add device** window lists the library devices after the kinds. The device comes with its connectors, its pins and the record of its file, in one step that **Undo** takes back.
+
+**When the ID is taken,** the program asks what to do:
+
+- **Add copies** of the project's device (`PCDU00-R`, `PCDU00-3` …). Copies of a device that follows the library follow it too.
+- **Adopt:** link the project's device to the library and take the library's version. This choice is off when the device follows the library already.
+- **Add the library's device under another ID.** That copy does not follow the library.
+
+**See where a device comes from.** Select a device. The Inspector and the Devices tab show a line such as *From ACME devices, PCDU00.device.json, up to date*. The library window has a **Status** column, and its preview names the source: the library, the Git commit, the file and *not committed* when the file differs from the last commit.
+
+**When the library has a newer version.** When you open a project, the program reads its libraries in the background. When a device has a newer version in its library, a notice says so: *1 device has a newer version in the library: PCDU00.* Nothing changes until you press **Review…**.
+
+**Review the changes.** **Review…** on the notice or on the device's line, or **Review changes…** in the library window, shows one row per field (connector, pin, field, in this project, in the library, locked by) and what the change touches. Then choose:
+
+- **Take the library's version.** One step that **Undo** takes back, the record with it. The name, subsystem, chain, place and the interfaces on the pins stay. When the change is refused (a released harness locks a pin, a part differs), the window says why and nothing changes.
+- **Keep this project's.** Nothing is stored. The device keeps its state, so the line still says that it differs.
+- **Save this project's to the library…** After you confirm, the program writes the device into its library file and records the file. Undo does not take the file back, and the program never commits.
+
 ## What the program never does
 
 - It never uses a network. The library is the folder you choose.
@@ -206,7 +233,8 @@ RW1: library changed. Library acme-devices, RW1.device.json.
 - **The list is empty and the folder is right.** The files must say what they are (`harness-device-library` or `harness-subsystem-library` in the `format` field) and be no deeper than two folders below the one you chose. Press **Refresh**.
 - **A file is listed as a problem.** The line under the folder says why (not valid JSON, a newer version, no devices). Open it in a text editor; a file that was half-copied from a drive is the usual cause.
 - **A subsystem comes without its connections.** A connection with an end on a device that was not selected is left out when saving; the Save window says how many. Select every device of the subsystem before you save.
-- **The devices came in with other IDs.** Their IDs were taken in the project. The note says which; rename them in the Devices tab if you want.
+- **The devices came in with other IDs.** Their IDs were taken in the project: the devices of a subsystem get the next free ID, and for a single device you chose *Add the library's device under another ID*. Rename them in the Devices tab if you want.
+- **No notice and no line on the device.** The project names no library, or the device was not added from one (it has no record). Name the library in **Settings > Project**, then review the device and choose **Take the library's version** to adopt it.
 - **Add copies is off.** The number is not above the number of devices that exist, or the device is a copy, or the project is read-only.
 
 Next: [define a device](define-a-device.md), [redundancy and zones](redundancy-and-zones.md), [connect two connectors](connect-two-connectors.md)

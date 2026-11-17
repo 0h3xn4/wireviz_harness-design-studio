@@ -153,3 +153,47 @@ def test_a_save_leaves_the_file_byte_identical_and_does_not_delete_it(tmp_path: 
     save_project(mini3(), proj)
     assert (proj / lp.FILE).read_bytes() == before
     assert lp.read_pointer(proj) == ["../acme-device-library"]
+
+
+# ---- Save As (design section 5; pull request 4) -------------------------------------------------
+
+
+def test_relative_path_of_a_folder(tmp_path: Path):
+    proj, lib = tmp_path / "work" / "proj", tmp_path / "work" / "acme-device-library"
+    proj.mkdir(parents=True)
+    lib.mkdir()
+    assert lp.relative_path(lib, proj) == "../acme-device-library"
+    assert lp.relative_path(proj / "libs" / "acme", proj) == "libs/acme"
+    assert lp.library_folders(proj, [lp.relative_path(lib, proj)]) == [lib]
+
+
+def test_save_as_rewrites_the_paths_for_the_new_place(tmp_path: Path):
+    old = tmp_path / "work" / "proj"
+    new = tmp_path / "elsewhere" / "deeper" / "copy"
+    old.mkdir(parents=True)
+    new.mkdir(parents=True)
+    lp.write_pointer(old, ["../acme-device-library", "libs/inside"])
+    written = lp.copy_pointer(old, new)
+    assert written == new / lp.FILE
+    paths = lp.read_pointer(new)
+    assert paths == ["../../../work/acme-device-library", "../../../work/proj/libs/inside"]
+    assert lp.library_folders(new, paths) == lp.library_folders(old, lp.read_pointer(old))
+    assert lp.read_pointer(old) == ["../acme-device-library", "libs/inside"]  # left as it was
+
+
+def test_save_as_without_the_file_writes_none(tmp_path: Path):
+    old, new = tmp_path / "a", tmp_path / "b"
+    old.mkdir()
+    new.mkdir()
+    assert lp.copy_pointer(old, new) is None
+    assert not (new / lp.FILE).exists()
+
+
+def test_save_as_of_a_damaged_file_writes_nothing(tmp_path: Path):
+    old, new = tmp_path / "a", tmp_path / "b"
+    old.mkdir()
+    new.mkdir()
+    write(old, {"format": lp.FORMAT, "version": 1, "device_libraries": [{"path": "/abs"}]})
+    with pytest.raises(lp.PointerError, match="absolute"):
+        lp.copy_pointer(old, new)
+    assert not (new / lp.FILE).exists()

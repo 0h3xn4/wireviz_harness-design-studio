@@ -18,6 +18,7 @@ from harness_design_studio.core.import_record import file_sha256  # noqa: E402
 from harness_design_studio.core.samples import new_project  # noqa: E402
 from harness_design_studio.gui import strings  # noqa: E402
 from harness_design_studio.gui.devices_dialogs import LibraryDialog  # noqa: E402
+from harness_design_studio.gui.library_review import TakenIdDialog  # noqa: E402
 from tests.gui_helpers import make_window  # noqa: E402
 from tests.test_accessibility import unnamed  # noqa: E402
 from tests.test_ux_devices import custom  # noqa: E402
@@ -79,7 +80,17 @@ def test_add_from_library_is_one_undo_step_and_shows_the_new_device(qtbot, tmp_p
     assert "GYRO1" not in win.ctl.project.units
 
     win.ctl.redo()
-    win.devices_view.lib_add_btn.click()  # the device exists now: the next free ID
+
+    def taken(dlg: QDialog) -> int:  # the device exists now: the window asks (D-240)
+        if isinstance(dlg, LibraryDialog):
+            assert "GYRO1 is in this project already" in dlg.preview.text()
+            return QDialog.DialogCode.Accepted
+        assert isinstance(dlg, TakenIdDialog) and dlg.adopt.isEnabled() is False
+        dlg.other.setChecked(True)
+        return QDialog.DialogCode.Accepted
+
+    win.run_dialog = taken
+    win.devices_view.lib_add_btn.click()
     assert "GYRO1-2" in win.ctl.project.units
 
 

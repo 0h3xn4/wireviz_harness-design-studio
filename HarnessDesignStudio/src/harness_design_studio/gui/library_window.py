@@ -10,7 +10,11 @@ library folder (workshop feedback M4, D-175).
 Left, a search field, a filter (devices / subsystems) and the list of what the folder holds. Right,
 a preview: the connectors and pins of a device, or the devices and connections of a subsystem. Below,
 *Add to project* (one undo step, never replaces anything) with the number of these devices, and
-*Save selection to library…* (the devices selected in the project). The window shares the editor's
+*Save selection to library…* (the devices selected in the project). Since 2.2.0 (D-240) each device
+has a *Status* (how the device of the project with its ID stands to the library, worked out in a
+helper thread), the preview names its source (library, Git commit, file, *not committed*), *Review
+changes…* opens the review of a device that differs, and a taken ID asks what to do (add copies,
+adopt, or add under another ID; `gui/library_review.py`). The window shares the editor's
 controller, so an addition is an ordinary edit with undo; it is not modal, follows the theme, and
 keeps its own size and place (`library/geometry`), apart from the editor's layout. The folder is
 read in a helper thread (it may be on a slow drive); nothing is written unless the person saves.
@@ -31,6 +35,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QRadioButton,
     QSpinBox,
@@ -43,7 +48,7 @@ from PySide6.QtWidgets import (
 from harness_design_studio.core import copies, library_folder, library_link
 from harness_design_studio.core import subsystem_library as sl
 from harness_design_studio.core.commands import Op
-from harness_design_studio.core.edit import EditError
+from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.library_folder import LibraryConflict, LibraryEntry, LibraryScan
 from harness_design_studio.core.model import Project
@@ -53,6 +58,15 @@ from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.devices_dialogs import _PlannerDialog
 from harness_design_studio.gui.dialog_base import Dialog, refit_on
 from harness_design_studio.gui.icons import icon_button
+from harness_design_studio.gui.library_review import (
+    REVIEWABLE,
+    Host,
+    LinkInfo,
+    plan_library_add,
+    resolve_links,
+    review_flow,
+    state_words,
+)
 from harness_design_studio.gui.notice import InlineNotice
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
@@ -288,6 +302,7 @@ class LibraryWindow(QWidget):
 
     folderChangeRequested = Signal()
     added = Signal(list)  # the IDs of the devices that were added to the project
+    libraryWritten = Signal()  # a device file of the folder was written (the editor reads it again)
 
     def __init__(
         self,
@@ -302,6 +317,9 @@ class LibraryWindow(QWidget):
         self.setWindowTitle(strings.LIB_TITLE)
         self.setAccessibleName(strings.LIB_TITLE)
         self.run_dialog: Callable[[QDialog], int] = lambda dlg: dlg.exec()
+        self.ask_choice: Callable[[str, str, list[str]], int] = self._ask_choice
+        self.links: LinkInfo | None = None  # the states of the devices of the folder (D-240)
+        self._links_for = 0  # the scan the states belong to
         self.jobs = JobRunner(ctl)
         self.jobs.done.connect(self._job_done)
         self.folder = str(settings.value(SETTINGS_FOLDER, "") or "")
@@ -314,6 +332,7 @@ class LibraryWindow(QWidget):
         ctl.selectionChanged.connect(self._update_buttons)
         ctl.stateChanged.connect(self._update_buttons)
         ctl.changed.connect(lambda _d: self._update_buttons())
+        ctl.changed.connect(lambda _d: self._start_states())
         self.refresh()
 
     # ---- building -----------------------------------------------------------------------------
@@ -388,6 +407,7 @@ class LibraryWindow(QWidget):
                 Column("kind", strings.LIB_COLUMNS[0], width=80),
                 Column("id", strings.LIB_COLUMNS[1], mono=True, width=70),
                 Column("name", strings.LIB_COLUMNS[2], width=160),
+                Column("status", strings.LIB_COLUMN_STATUS, width=120, tooltip="status_tip"),
                 Column("contents", strings.LIB_COLUMNS[3], width=190),
                 Column("file", strings.LIB_COLUMN_FILE, mono=True),
             ],
@@ -442,6 +462,12 @@ class LibraryWindow(QWidget):
         self.preview_text.setWordWrap(True)
         self.preview_text.setProperty("muted", True)
         self.preview_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.source_label = QLabel()  # library, Git commit, file, "not committed" (D-240)
+        self.source_label.setObjectName("library-source")
+        self.source_label.setWordWrap(True)
+        self.source_label.setProperty("muted", True)
+        self.source_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        mark_mono(self.source_label)
         self.pin_model = DictTableModel(
             [
                 Column("connector", strings.LIB_PREVIEW_PIN_COLUMNS[0], mono=True),
@@ -472,6 +498,7 @@ class LibraryWindow(QWidget):
         self.preview_stack.addWidget(self.sub_table)
         rv.addWidget(self.preview_title)
         rv.addWidget(self.preview_text)
+        rv.addWidget(self.source_label)
         rv.addWidget(self.preview_stack, 1)
         split.addWidget(right)
         split.setStretchFactor(0, 4)
@@ -498,19 +525,25 @@ class LibraryWindow(QWidget):
         self.add_btn.setObjectName("library-add")
         self.add_btn.setProperty("primary", True)
         icon_button(self.add_btn, "plus", theme, strings.LIB_ADD_TIP, "Enter", text=strings.LIB_ADD)
+        self.review_btn = QPushButton(strings.LIB_REVIEW)
+        self.review_btn.setObjectName("library-review")
+        self.review_btn.setAccessibleName(strings.LIB_REVIEW.rstrip("…"))
+        self.review_btn.setToolTip(strings.LIB_REVIEW_NONE)
         self.close_btn = QPushButton(strings.LIB_CLOSE)
         self.close_btn.setObjectName("library-close")
         self.close_btn.setAccessibleName(strings.LIB_CLOSE)
         self.close_btn.setToolTip(strings.LIB_CLOSE_TIP)
+        buttons.addWidget(self.review_btn)
         buttons.addWidget(self.save_btn)
         buttons.addWidget(self.add_btn)
         buttons.addWidget(self.close_btn)
         outer.addLayout(buttons)
 
         self.save_btn.clicked.connect(self.save_flow)
+        self.review_btn.clicked.connect(self.review_flow)
         self.add_btn.clicked.connect(self.add_flow)
         self.close_btn.clicked.connect(self.close)
-        self.search.textChanged.connect(self._fill_list)
+        self.search.textChanged.connect(lambda _t: self._fill_list())
         self.kind.currentIndexChanged.connect(lambda _i: self._fill_list())
         self.list.selectionModel().currentRowChanged.connect(self._row_changed)
         self.list.activated.connect(lambda _i: self.add_flow())
@@ -550,6 +583,7 @@ class LibraryWindow(QWidget):
         self.refresh_btn.setEnabled(bool(self.folder))
         if not self.folder:
             self.scan = None
+            self.links = None
             self._fill_list()
             return
         folder = self.folder
@@ -568,6 +602,47 @@ class LibraryWindow(QWidget):
             if self.entry is None or job.key != self.entry.key:
                 return
             self._entry_ready(job)
+        elif job.kind == "library-states":
+            if job.key != self._links_for or job.error is not None:
+                return
+            self.links = job.value
+            self._fill_list(states_only=True)
+            self._show_source()
+
+    # ---- the states of the devices (D-240) ------------------------------------------------------
+    def libraries(self) -> library_link.ProjectLibraries | None:
+        """The folder as the one library of an add or a review (None while it is not read)."""
+        scan = self.scan
+        if scan is None or scan.error:
+            return None
+        return library_link.libraries_from_scan(scan, self.ctl.root)
+
+    def _start_states(self) -> None:
+        """Work out how the project's devices stand to the folder's (in the helper thread)."""
+        libs = self.libraries()
+        if libs is None or not libs.libraries:
+            return
+        self._links_for = id(self.scan)
+        project, root = clone_with(self.ctl.project, []), self.ctl.root
+        self.jobs.start(
+            "library-states", self._links_for, lambda: resolve_links(project, root, "", libs)
+        )
+
+    def state_of(self, entry: LibraryEntry | None) -> library_link.LinkState | None:
+        if entry is None or entry.kind != "device" or self.links is None:
+            return None
+        return self.links.state(entry.id)
+
+    def _show_source(self) -> None:
+        entry, info = self.entry, self.links
+        dev = None
+        if entry is not None and entry.kind == "device" and info is not None:
+            dev = next((d for d in info.libraries.holders(entry.id) if d.file == entry.file), None)
+        self.source_label.setText(
+            strings.LIB_SOURCE_LINE.format(info.source(dev)) if dev is not None and info else ""
+        )
+        self.source_label.setVisible(dev is not None)
+        self._update_buttons()
 
     def _scan_ready(self) -> None:
         scan = self.scan
@@ -585,7 +660,9 @@ class LibraryWindow(QWidget):
             )
         else:
             self.folder_notice.clear()
+        self.links = None
         self._fill_list()
+        self._start_states()
 
     # ---- the list ---------------------------------------------------------------------------------
     def _wanted(self) -> list[LibraryEntry]:
@@ -603,7 +680,7 @@ class LibraryWindow(QWidget):
                 out.append(e)
         return out
 
-    def _fill_list(self) -> None:
+    def _fill_list(self, states_only: bool = False) -> None:
         wanted = self._wanted()
         self._shown = wanted
         keep = self.entry.key if self.entry is not None else None
@@ -614,12 +691,20 @@ class LibraryWindow(QWidget):
                 else strings.LIB_KIND_SUBSYSTEM,
                 "id": e.id,
                 "name": e.name,
+                "status": self._status(e)[0],
+                "status_tip": self._status(e)[1],
                 "contents": contents_of(e),
                 "file": e.file,
                 "key": e.key,
             }
             for e in wanted
         ]
+        shown = [r.get("key") if isinstance(r, dict) else None for r in self.list_model.rows()]
+        same = shown == [r["key"] for r in rows]
+        if states_only and rows and same:
+            self.list_model.update_rows(rows)  # (the states arrived: the selection stays)
+            self._update_buttons()
+            return
         self.list_model.set_rows(rows)
         scan = self.scan
         if wanted:
@@ -642,6 +727,21 @@ class LibraryWindow(QWidget):
             else:
                 self._show_empty(strings.LIB_EMPTY_FOLDER, strings.LIB_EMPTY_FOLDER_HINT, False)
         self._update_buttons()
+
+    def _status(self, entry: LibraryEntry) -> tuple[str, str]:
+        """The Status cell of an entry and its tooltip ("" for a subsystem, or before the states
+        are worked out)."""
+        state = self.state_of(entry)
+        if state is None:
+            if entry.kind == "device" and self.links is not None:
+                return state_words(library_link.NOT_IN_PROJECT), strings.LINK_STATE_TIPS[
+                    library_link.NOT_IN_PROJECT
+                ]
+            return "", ""
+        tip = strings.LINK_STATE_TIPS.get(state.state, "")
+        if state.unit_id != entry.id or state.message:
+            tip = " ".join(t for t in (tip, state.message) if t)
+        return state_words(state.state), tip
 
     def _show_empty(self, title: str, hint: str, choose: bool) -> None:
         self.empty_title.setText(title)
@@ -681,6 +781,7 @@ class LibraryWindow(QWidget):
         if entry is None:
             self.preview_title.setText(strings.LIB_PREVIEW_NONE)
             self.preview_text.setText("")
+            self._show_source()
             self.pin_model.set_rows([])
             self.sub_model.set_rows([])
             self._update_buttons()
@@ -726,6 +827,7 @@ class LibraryWindow(QWidget):
             text.insert(0, entry.description)
         text.append(strings.LIB_FILE.format(entry.file))
         self.preview_text.setText("\n".join(text))
+        self._show_source()
         self._update_buttons()
 
     # ---- buttons ----------------------------------------------------------------------------------
@@ -748,6 +850,18 @@ class LibraryWindow(QWidget):
         )
         if not is_device:
             self.number.setValue(1)
+        state = self.state_of(entry)
+        review = (
+            state is not None and state.state in REVIEWABLE and state.unit_id == state.library_id
+        )
+        self.review_btn.setEnabled(review and not ro)
+        self.review_btn.setToolTip(
+            strings.LIB_REVIEW_READ_ONLY
+            if ro and review
+            else strings.LIB_REVIEW_TIP
+            if review
+            else strings.LIB_REVIEW_NONE
+        )
         selected = self.ctl.selected_ids("unit")
         usable = bool(self.folder) and self.scan is not None and not self.scan.error
         self.save_btn.setEnabled(bool(selected) and usable)
@@ -760,9 +874,22 @@ class LibraryWindow(QWidget):
         )
 
     # ---- add to the project -----------------------------------------------------------------------
-    def plan_add(self) -> tuple[list[Op], list[str], str, list[str]]:
-        """(ops, IDs of the new devices, the name of the undo step, notes) for the chosen entry and
-        number. Raises a `HarnessError` (the sentence says what is wrong)."""
+    def host(self) -> Host:
+        return Host(self, self.theme, self.ctl, self.run_dialog, self.ask_choice)
+
+    def _ask_choice(self, title: str, text: str, buttons: list[str]) -> int:
+        box = QMessageBox(self)
+        box.setWindowTitle(title)
+        box.setText(text)
+        created = [box.addButton(b, QMessageBox.ButtonRole.ActionRole) for b in buttons]
+        box.exec()
+        clicked = box.clickedButton()
+        return created.index(clicked) if clicked in created else len(buttons) - 1
+
+    def plan_add(self) -> tuple[list[Op], list[str], str, list[str], str] | None:
+        """(ops, IDs of the new devices, the name of the undo step, notes, the message) for the
+        chosen entry and number; None when the person cancelled the question about a taken ID.
+        Raises a `HarnessError` (the sentence says what is wrong)."""
         entry, data = self.entry, self.entry_data
         if entry is None or data is None:
             raise EditError(strings.LIB_ADD_NONE)
@@ -771,31 +898,26 @@ class LibraryWindow(QWidget):
             plan = sl.plan_subsystem_import(project, data)
             if not plan.ok:
                 raise EditError(plan.problem)
+            ids = [r.new_id for r in plan.rows if r.ok]
+            n_conn = sum(1 for o in plan.ops if getattr(o, "collection", "") == "links")
+            message = strings.LIB_ADDED_SUBSYSTEM.format(
+                entry.name, _n("devices", len(ids)), _n("connections", n_conn)
+            )
             return (
                 plan.ops,
-                [r.new_id for r in plan.rows if r.ok],
+                ids,
                 strings.STEP_LIB_ADD_SUBSYSTEM.format(plan.name),
                 plan.notes,
+                message,
             )
-        # one core function adds the device with its import record (D-240); a taken ID still gets
-        # the next free one here, as before 2.2 (an unlinked copy, no record)
-        scan = self.scan
-        if scan is None or scan.error:
+        # one core function adds the device with its import record; a taken ID asks (D-240)
+        libs = self.libraries()
+        if libs is None:
             raise EditError(strings.LIB_ADD_NONE)
-        libs = library_link.libraries_from_scan(scan, self.ctl.root)
-        add = library_link.plan_add_device(
-            project,
-            libs,
-            entry.id,
-            int(self.number.value()),
-            rename_taken=True,
-            root=self.ctl.root,
-        )
-        ids = list(add.unit_ids)
-        notes = list(add.notes)
-        if add.skipped:
-            notes.append(strings.REDUNDANT_SKIPPED.format(len(add.skipped), ", ".join(add.skipped)).strip())  # fmt: skip
-        return add.ops, ids, strings.STEP_LIB_ADD_DEVICE.format(", ".join(ids)), notes
+        add = plan_library_add(self.host(), libs, [entry.id], int(self.number.value()))
+        if add is None:
+            return None
+        return add.ops, add.ids, add.label, add.notes, add.message()
 
     def add_flow(self) -> None:
         """Add to project: one undo step; the notice under the list says what was added."""
@@ -804,26 +926,36 @@ class LibraryWindow(QWidget):
                 self.ctl.refuse_read_only()
             return
         try:
-            ops, ids, label, notes = self.plan_add()
+            planned = self.plan_add()
         except HarnessError as exc:
             self.result_notice.show_notice("error", str(exc))
             return
-        entry = self.entry
-        if entry is None:
+        if planned is None:  # the question about a taken ID was cancelled: nothing changed
             return
-        if entry.kind == "subsystem":
-            n_conn = sum(1 for o in ops if getattr(o, "collection", "") == "links")
-            message = strings.LIB_ADDED_SUBSYSTEM.format(
-                entry.name, _n("devices", len(ids)), _n("connections", n_conn)
-            )
-        else:
-            message = strings.LIB_ADDED.format(", ".join(ids))
-        if not self.ctl.run(label, ops, message=message):
+        ops, ids, label, notes, message = planned
+        if not ops or not self.ctl.run(label, ops, message=message):
             return
         self.result_notice.show_notice("info", message, details=notes or None)
         if ids:
             self.ctl.select("unit", ids[0])
         self.added.emit(ids)
+
+    # ---- review a device that differs (D-240) -----------------------------------------------------
+    def review_flow(self) -> None:
+        """Review changes…: the project's device with the chosen entry's ID beside the library's."""
+        entry, libs = self.entry, self.libraries()
+        if entry is None or libs is None or not self.review_btn.isEnabled():
+            return
+        try:
+            message, wrote = review_flow(self.host(), libs, entry.id, self.links)
+        except HarnessError as exc:
+            self.result_notice.show_notice("error", str(exc))
+            return
+        if wrote:
+            self.refresh()
+            self.libraryWritten.emit()
+        if message:
+            self.result_notice.show_notice("info", message)
 
     # ---- save the selection -----------------------------------------------------------------------
     def save_flow(self) -> None:
@@ -865,6 +997,7 @@ class LibraryWindow(QWidget):
             self.result_notice.show_notice("error", text)
             return
         self.refresh()
+        self.libraryWritten.emit()
         self.result_notice.show_notice("info", message, details=notes or None)
 
     # ---- the window's own place ---------------------------------------------------------------------

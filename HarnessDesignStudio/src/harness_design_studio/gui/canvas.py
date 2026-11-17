@@ -3109,6 +3109,10 @@ class DiagramView(QGraphicsView):
     def __init__(self, ctl: EditorController, theme: ThemeManager) -> None:
         self.ctl = ctl
         self.theme = theme
+        # the *From library* section of *Add here* (D-240): the window gives the project's library
+        # devices as (ID, menu text, tooltip) and adds one at a place of the diagram
+        self.library_devices: Callable[[], list[tuple[str, str, str]]] = lambda: []
+        self.add_from_library: Callable[[str, float, float], None] = lambda _i, _x, _y: None
         self.dscene = DiagramScene(ctl, theme)
         super().__init__(self.dscene)
         self.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.TextAntialiasing)
@@ -3745,6 +3749,13 @@ class DiagramView(QGraphicsView):
                 add.menuAction().setText(f"{strings.CM_ADD_HERE} — {ro}")
             for tid, tpl in edit.TEMPLATES.items():
                 self._entry(add, tpl.label, partial(self._add_here, tid, at))
+            found = self.library_devices()
+            if found:
+                add.addSection(strings.FROM_LIBRARY)
+                for uid, text, tip in found:
+                    act = self._entry(add, text, partial(self._add_library_here, uid, at))
+                    act.setObjectName(f"diagram-add-library-{uid}")
+                    act.setToolTip(tip)
             menu.addSeparator()
             for name in ("select_all", "find", "fit", "zoom100", "zoom_selection", "arrange"):
                 self._mirror(menu, name)
@@ -3924,6 +3935,11 @@ class DiagramView(QGraphicsView):
         ctl.begin_connect(type_id)
         if ctl.mode == "guided":
             ctl.pick(unit_id)
+
+    def _add_library_here(self, unit_id: str, at: QPointF) -> None:
+        x = round((at.x() - W / 2) / GRID) * GRID
+        y = round(at.y() / GRID) * GRID
+        self.add_from_library(unit_id, x, y)
 
     def _add_here(self, template_id: str, at: QPointF) -> None:
         x = round((at.x() - W / 2) / GRID) * GRID

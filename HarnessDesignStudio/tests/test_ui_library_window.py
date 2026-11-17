@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-# mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,union-attr"
+# mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,union-attr,call-overload"
 """REQ-LIB-06, REQ-EDIT-03. M4 of the workshop feedback: the library window (not modal, the list, the
 preview, add to the project in one undo step, save the selection), the library folder setting, the
 number of these devices, and the start screen. Offscreen."""
@@ -17,12 +17,17 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog  # noqa: E402
 
 from harness_design_studio.core import copies, library_link  # noqa: E402
-from harness_design_studio.core.commands import apply_ops  # noqa: E402
+from harness_design_studio.core.commands import Put, apply_ops  # noqa: E402
 from harness_design_studio.core.import_record import file_sha256  # noqa: E402
 from harness_design_studio.core.library_folder import save_devices, save_subsystem  # noqa: E402
 from harness_design_studio.core.links import plan_add_link  # noqa: E402
+from harness_design_studio.core.model import evolve  # noqa: E402
 from harness_design_studio.core.samples import new_project  # noqa: E402
 from harness_design_studio.gui import strings  # noqa: E402
+from harness_design_studio.gui.library_review import (  # noqa: E402
+    LibraryReviewDialog,
+    TakenIdDialog,
+)
 from harness_design_studio.gui.library_window import (  # noqa: E402
     LibraryWindow,
     SaveToLibraryDialog,
@@ -154,8 +159,18 @@ def test_add_a_device_is_one_undo_step(qtbot, tmp_path: Path, library: Path):
     win.ctl.undo()
     assert "PCDU" not in win.ctl.project.units and not win.ctl.project.connectors
     win.ctl.redo()
-    lib.add_btn.click()  # again: nothing is replaced, the next free ID
-    assert "PCDU-2" in win.ctl.project.units and "PCDU" in win.ctl.project.units
+    # again: nothing is replaced; the taken ID asks what to do (D-240), here another ID
+    asked: list[QDialog] = []
+
+    def other(dlg):
+        asked.append(dlg)
+        assert isinstance(dlg, TakenIdDialog) and dlg.new_id.text() == "PCDU-2"
+        dlg.other.setChecked(True)
+        return QDialog.DialogCode.Accepted
+
+    lib.run_dialog = other
+    lib.add_btn.click()
+    assert asked and "PCDU-2" in win.ctl.project.units and "PCDU" in win.ctl.project.units
 
 
 def test_add_writes_the_import_record_that_links_the_device(qtbot, tmp_path: Path, library: Path):
@@ -173,8 +188,17 @@ def test_add_writes_the_import_record_that_links_the_device(qtbot, tmp_path: Pat
     win.ctl.undo()
     assert "RW1" not in p.units and not p.import_records
     win.ctl.redo()
-    lib.add_btn.click()  # a taken ID still gets the next free one: an unlinked copy, no record
+
+    def other(dlg):  # a taken ID under another ID: an unlinked copy, no record of its own
+        dlg.other.setChecked(True)
+        return QDialog.DialogCode.Accepted
+
+    lib.run_dialog = other
+    lib.add_btn.click()
     assert "RW1-2" in p.units and list(p.import_records) == ["devices:RW1.device.json"]
+    lib.run_dialog = lambda dlg: QDialog.DialogCode.Rejected  # cancelled: nothing changes
+    lib.add_btn.click()
+    assert "RW1-3" not in p.units and "RW1-R" not in p.units
 
 
 def test_add_a_number_of_devices(qtbot, tmp_path: Path, library: Path):
@@ -516,3 +540,44 @@ def test_two_windows_share_one_settings_file_without_losing_the_folder(qtbot, tm
     win = make_window(tmp_path)
     qtbot.addWidget(win)
     assert win.library_folder() == str(tmp_path)
+
+
+# ---- the status of each device and the source line (D-240, pull request 4) ---------------------------
+
+
+def test_the_status_column_and_the_source_line(qtbot, tmp_path: Path, library: Path):
+    win, lib = opened(qtbot, tmp_path, library)
+    assert lib.list_model.columns[3].header == strings.LIB_COLUMN_STATUS
+    status = {r["id"]: r["status"] for r in lib.list_model.rows() if r["id"]}
+    assert status == {"PCDU": "Not in this project", "RW1": "Not in this project"}
+    pick(lib, next(e for e in lib._shown if e.id == "RW1").key)
+    lib.add_btn.click()
+    assert lib.jobs.wait_idle()
+    status = {r["id"]: r["status"] for r in lib.list_model.rows() if r["id"]}
+    assert status["RW1"] == "Up to date" and status["PCDU"] == "Not in this project"
+    assert lib.source_label.text() == "Source: library, RW1.device.json"
+    assert not lib.review_btn.isEnabled()  # nothing differs
+    # a device changed here can be reviewed
+    p = win.ctl.project
+    win.ctl.run("Notes", [Put("units", evolve(p.units["RW1"], notes="ours"))])
+    assert lib.jobs.wait_idle()
+    status = {r["id"]: r["status"] for r in lib.list_model.rows() if r["id"]}
+    assert status["RW1"] == "Changed here"
+    assert lib.review_btn.isEnabled() and lib.review_btn.toolTip() == strings.LIB_REVIEW_TIP
+    seen: list[QDialog] = []
+
+    def keep(dlg):
+        seen.append(dlg)
+        assert isinstance(dlg, LibraryReviewDialog) and dlg.model.rows()[0]["here"] == "ours"
+        dlg.keep_btn.click()
+        return QDialog.DialogCode.Rejected
+
+    lib.run_dialog = keep
+    lib.review_btn.click()
+    assert seen and p.units["RW1"].notes == "ours"
+    assert strings.REVIEW_KEPT.format(device="RW1") in lib.result_notice.text()
+
+
+def test_every_state_has_words_and_a_tooltip():
+    for state in library_link.STATES:
+        assert strings.LINK_STATE_WORDS[state] and strings.LINK_STATE_TIPS[state]
