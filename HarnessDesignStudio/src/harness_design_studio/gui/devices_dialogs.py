@@ -219,11 +219,19 @@ class QuickDeviceDialog(_PlannerDialog):
     """Add device in Quick mode: only a name, and a kind when wanted. The ID, the subsystem and
     the connector are made by the tool (`values()` and `template_id()`): a kind gives the device
     the connectors of its template, no kind gives it one starter connector, so that Connect works
-    at once. Everything can be changed later in the Devices tab."""
+    at once. Everything can be changed later in the Devices tab. The kinds are followed by the
+    devices of the project's libraries (`library`: ID and name, D-240); one of those is added from
+    its library with its connectors and pins, and needs no name (`library_id()`)."""
 
     quiet_at_open = True
 
-    def __init__(self, parent: QWidget | None, theme: ThemeManager, project: Project) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None,
+        theme: ThemeManager,
+        project: Project,
+        library: Sequence[tuple[str, str]] = (),
+    ) -> None:
         super().__init__(parent, theme, strings.QD_NEWDEV_TITLE, "devices-quick-device-dialog")
         self.project = project
         form = QFormLayout()
@@ -238,6 +246,11 @@ class QuickDeviceDialog(_PlannerDialog):
         self.kind.addItem(strings.QD_NEWDEV_NONE, "")
         for tid, tpl in edit.TEMPLATES.items():
             self.kind.addItem(tpl.label, tid)
+        if library:
+            self.kind.insertSeparator(self.kind.count())
+        for uid, name in library:
+            self.kind.addItem(strings.QD_FROM_LIBRARY_ITEM.format(id=uid, name=name), f"lib:{uid}")
+        self.kind.currentIndexChanged.connect(self.revalidate)
         form.addRow(strings.NEWDEV_NAME, self.name)
         form.addRow(strings.QD_NEWDEV_KIND, self.kind)
         self.lay.addLayout(form)
@@ -254,10 +267,20 @@ class QuickDeviceDialog(_PlannerDialog):
         return {"name": name, "unit_id": devices.suggest_device_id(self.project, name)}
 
     def template_id(self) -> str:
-        """The kind chosen ("" for none)."""
-        return str(self.kind.currentData() or "")
+        """The kind chosen ("" for none, or for a device of the library)."""
+        data = str(self.kind.currentData() or "")
+        return "" if data.startswith("lib:") else data
+
+    def library_id(self) -> str:
+        """The library device chosen ("" for a kind or none)."""
+        data = str(self.kind.currentData() or "")
+        return data[4:] if data.startswith("lib:") else ""
 
     def check(self) -> str | None:
+        lib = self.library_id()
+        self.name.setEnabled(not lib)
+        if lib:
+            return None
         v = self.values()
         return devices.check_new_device(self.project, v["unit_id"], v["name"]) or None
 
@@ -796,6 +819,8 @@ class LibraryDialog(_PlannerDialog):
         plan = self.plan()
         lines = [
             strings.DV_LIB_ROW_OK.format(r.unit_id, r.new_id, r.connectors, r.pins)
+            if r.new_id == r.unit_id
+            else strings.DV_LIB_ROW_TAKEN.format(r.unit_id)  # (asked after Add, D-240)
             for r in plan.rows
             if r.ok
         ]

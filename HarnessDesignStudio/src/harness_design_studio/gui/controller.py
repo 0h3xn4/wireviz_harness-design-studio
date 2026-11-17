@@ -28,6 +28,7 @@ from harness_design_studio.core import (
     edit,
     first_connector,
     journal,
+    library_pointer,
     linepos,
     links,
     manual_harness,
@@ -1648,7 +1649,10 @@ class EditorController(QObject):
         save_project(self.project, self.root, expected_fingerprint=self._fingerprint)
         self._after_save()
 
-    def save_as(self, folder: Path) -> None:
+    def save_as(self, folder: Path) -> list[str]:
+        """Write the project into a new, empty folder and work there from now on. The project's
+        `device-libraries.json` comes along with its paths rewritten for the new place (D-240);
+        the sentences returned say what could not come along (the save itself is done)."""
         folder = Path(folder)
         if (folder / "project.json").exists():
             raise HarnessError(strings.FOLDER_HAS_PROJECT)
@@ -1665,6 +1669,14 @@ class EditorController(QObject):
             self.project.read_only = was_read_only
             lock.release()
             raise
+        notes: list[str] = []
+        if self.root is not None:  # the device libraries of the project, named from the new place
+            try:
+                library_pointer.copy_pointer(self.root, folder)
+            except (HarnessError, OSError) as exc:
+                notes.append(
+                    strings.SAVE_AS_POINTER_FAILED.format(file=library_pointer.FILE, why=exc)
+                )
         owned = self._lock is not None
         if self._lock:
             self._lock.release()
@@ -1674,6 +1686,7 @@ class EditorController(QObject):
         self._lock, self.root, self.sample = lock, folder, False
         self.read_only_cause = None
         self._after_save()
+        return notes
 
     def _after_save(self) -> None:
         self._fingerprint = disk_fingerprint(self.root) if self.root else None

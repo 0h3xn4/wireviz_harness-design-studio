@@ -3635,3 +3635,167 @@ DV_COL_PORT_TIP = (
 DV_PORT_CELL = "{port} ({interface})"
 CONFIRM_ONE = "Confirm {}"
 CONFIRM_ONE_TIP = "Keep {connector} for {interface}: the tool chose it, and it stays marked Auto until you confirm it."
+# ---- the device library in the editor: status, chip, notice, review, taken IDs (D-240, PR 4) ----
+LINK_STATE_WORDS = {
+    "not in project": "Not in this project",
+    "up to date": "Up to date",
+    "library changed": "Library changed",
+    "changed here": "Changed here",
+    "same ID, not from the library": "Same ID, not from the library",
+    "source not found": "Source not found",
+    "in more than one library": "In more than one library",
+}
+LINK_STATE_TIPS = {
+    "not in project": "The project has no device with this ID.",
+    "up to date": "The device is as the library has it.",
+    "library changed": "The library has a newer version of the device. Review it to take it.",
+    "changed here": "The device was changed in this project since it was taken from the library.",
+    "same ID, not from the library": (
+        "The project has a device with this ID that was not added from the library. Review it "
+        "to adopt the library's version, or leave it as it is."
+    ),
+    "source not found": "The library file the device was added from cannot be found now.",
+    "in more than one library": (
+        "This ID is in more than one library of the project, so none of them is used."
+    ),
+}
+LIB_COLUMN_STATUS = "Status"
+LIB_COLUMN_STATUS_TIP = "How the device of this project stands to the library"
+LIB_SOURCE_LINE = "Source: {}"
+LIB_REVIEW = "Review changes…"
+LIB_REVIEW_TIP = (
+    "Compare the chosen device of this project with the library's version, and choose which to keep"
+)
+LIB_REVIEW_NONE = (
+    "Choose a device of the library that differs from the device of this project with its ID"
+)
+LIB_REVIEW_READ_ONLY = "This project is read-only, so nothing can be taken from the library"
+LIBCHIP_NAME = "Library link of the device"
+LIBCHIP_FROM = "From {library}, {file}, {state}"
+LIBCHIP_NOT_FOUND = "From {file}, source not found"
+LIBCHIP_NOT_FROM = "Same ID as {device} in {library}, not from the library"
+LIBCHIP_AMBIGUOUS = "{device} is in more than one library of this project"
+LIBCHIP_REVIEW = "Review…"
+LIBCHIP_REVIEW_NAME = "Review the library's version of {}"
+LIBCHIP_REVIEW_TIP = "Compare this device with the library's version and choose which to keep"
+NOTICE_NEWER_ONE = "1 device has a newer version in the library: {devices}."
+NOTICE_NEWER_MANY = "{n} devices have a newer version in the library: {devices}."
+NOTICE_NEWER_DETAIL = "Nothing changes until you review a device and take the library's version."
+NOTICE_REVIEW = "Review…"
+REVIEW_TITLE = "Review library changes"
+REVIEW_HEADING = "{device}: this project and the library"
+REVIEW_SOURCE = "Library: {}"
+REVIEW_STATE = "State: {}"
+REVIEW_COPIES = "The copies {} follow this device and change with it."
+REVIEW_COLUMNS = [
+    "Device", "Connector", "Pin", "Field", "In this project", "In the library", "Locked by",
+]  # fmt: skip
+REVIEW_TABLE = "Differences between this project and the library"
+REVIEW_NO_ROWS = (
+    "The fields the library owns are the same. The name, subsystem, chain, place and the "
+    "interfaces on the pins belong to this project and are never compared."
+)
+REVIEW_IMPACTS = "Taking the library's version touches:"
+REVIEW_NOTES = "Kept as they are:"
+REVIEW_TAKE = "Take the library's version"
+REVIEW_TAKE_TIP = (
+    "Give this device and its copies the library's version, in one step that you can undo. The "
+    "name, subsystem, chain, place and interfaces stay."
+)
+REVIEW_ADOPT_TIP = (
+    "Link this device to the library and give it the library's version, in one step that you "
+    "can undo. The name, subsystem, chain, place and interfaces stay."
+)
+REVIEW_KEEP = "Keep this project's"
+REVIEW_KEEP_TIP = (
+    "Change nothing (Esc). Nothing is stored: the device keeps its state, and the library window "
+    "and the Inspector still show that it differs."
+)
+REVIEW_SAVE = "Save this project's to the library…"
+REVIEW_SAVE_TIP = (
+    "Write this project's version of the device into its library file, after you confirm"
+)
+REVIEW_REFUSED = "Nothing was changed. {}"
+REVIEW_SAVE_TITLE = "Replace the device in the library?"
+REVIEW_SAVE_BODY = (
+    "{device} in {file} of the library {library} is replaced by this project's version. The "
+    "file is written now and is not committed; Undo does not take the file back."
+)
+REVIEW_SAVE_OK = "Replace in the library"
+REVIEW_TAKEN = "{device} has the library's version now."
+REVIEW_TAKEN_NONE = "{device} is as the library has it; nothing was changed."
+REVIEW_SAVED = "Saved {device} to {file} in the library {library}; the project records the file."
+REVIEW_KEPT = "{device} keeps this project's version."
+STEP_RECORD_LIBRARY = "Record {} of the library"
+TAKEN_TITLE = "The device ID is taken"
+TAKEN_ASK = "What do you want to do?"
+TAKEN_COPY = "Add copies of this project's {device}"
+TAKEN_COPY_TIP = (
+    "Add copies ({device}-R, {device}-3 …) of the device the project has; a copy of a device that "
+    "follows the library follows it too"
+)
+TAKEN_COPY_NUMBER = "Number of new copies"
+TAKEN_COPY_NUMBER_TIP = "How many copies to add next to the ones the project has"
+TAKEN_COPY_FULL = "The project has as many of these devices as it can."
+TAKEN_ADOPT = "Adopt: link this project's {device} to the library and take the library's version"
+TAKEN_ADOPT_TIP = (
+    "The project's device follows the library from now on; its name, subsystem, place and "
+    "interfaces stay"
+)
+TAKEN_ADOPT_LINKED = "It follows the library already."
+TAKEN_OTHER = "Add the library's device under another ID"
+TAKEN_OTHER_TIP = (
+    "An unlinked copy: the device is added under the new ID and does not follow the library"
+)
+TAKEN_OTHER_ID = "New ID"
+TAKEN_ID_BAD = "'{}' cannot be used as a device ID."
+TAKEN_ID_USED = "{} is taken in this project; choose another ID."
+TAKEN_OK = "Continue"
+TAKEN_ADOPTED = "{} now follows the library."
+STEP_LIB_COPIES = "Add {} as copies of {}"
+FROM_LIBRARY = "From library"
+FROM_LIBRARY_ENTRY = "{id} ({name})"
+FROM_LIBRARY_TIP = "Add {id} from the library {library} ({file}), with the record of its file"
+FROM_LIBRARY_PALETTE = "Add from library:"
+QD_FROM_LIBRARY_ITEM = "From library: {id} ({name})"
+QD_FROM_LIBRARY_NOTE = "{id} comes from the library {library} with its connectors and pins."
+SETTINGS_PROJECT_LIBRARIES = "Device libraries of this project"
+SETTINGS_PROJECT_LIBRARIES_TEXT = (
+    "The project names these library folders in device-libraries.json, next to project.json, "
+    "relative to the project folder. A change is written at once. It is outside undo and the "
+    "change journal; commit the file with the project."
+)
+SETTINGS_PROJECT_LIBRARIES_LIST = "Library folders of this project"
+SETTINGS_PROJECT_LIBRARIES_LIST_TIP = (
+    "The folders of device-libraries.json, relative to the project folder"
+)
+SETTINGS_PROJECT_LIBRARIES_NONE = (
+    "This project names no device library; the editor then uses your own library folder."
+)
+SETTINGS_PROJECT_LIBRARIES_ADD = "Add library…"
+SETTINGS_PROJECT_LIBRARIES_ADD_TIP = (
+    "Name one more library folder for this project; device-libraries.json is written at once, "
+    "outside undo"
+)
+SETTINGS_PROJECT_LIBRARIES_REMOVE = "Remove"
+SETTINGS_PROJECT_LIBRARIES_REMOVE_TIP = (
+    "Take the chosen folder out of the list; device-libraries.json is written at once, outside "
+    "undo. The folder itself is not touched."
+)
+SETTINGS_PROJECT_LIBRARIES_NO_FOLDER = (
+    "Save the project in a folder first: the list is kept next to project.json."
+)
+SETTINGS_PROJECT_LIBRARIES_READ_ONLY = "This project is read-only, so its list cannot change."
+SETTINGS_PROJECT_LIBRARIES_TITLE = "Choose a device library folder for this project"
+SETTINGS_PROJECT_LIBRARIES_WRITTEN = (
+    "device-libraries.json written: {} device libraries. This change is outside undo."
+)
+SETTINGS_PROJECT_LIBRARIES_WRITTEN_ONE = (
+    "device-libraries.json written: 1 device library. This change is outside undo."
+)
+A_PROJECT_LIBRARIES = "Device libraries of this project…"
+A_PROJECT_LIBRARIES_TIP = (
+    "Show the list of device library folders this project names (Settings, Project)"
+)
+SAVE_AS_POINTER_FAILED = "{file} was not copied to the new folder: {why}"
+DV_LIB_ROW_TAKEN = "{0} is in this project already: you choose what to do after you press Add."
