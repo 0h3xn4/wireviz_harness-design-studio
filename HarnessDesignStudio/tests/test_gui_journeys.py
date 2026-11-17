@@ -22,6 +22,7 @@ from tests.gui_helpers import (  # noqa: E402
     add_unit,
     click_link,
     click_unit,
+    hold_drc,
     make_window,
     new_project_answers,
     pick_connect_type,
@@ -343,6 +344,7 @@ def test_j4_import_from_xlsx_file(win, tmp_path) -> None:  # type: ignore[no-unt
 
 def test_j5_redundant_copy_cross_strap_fix_and_waiver(win) -> None:  # type: ignore[no-untyped-def]
     ctl = win.ctl
+    hold_drc(win)  # the counts below are of the checks that run with each edit
     click_unit(win, "RW1")
     assert win.redundant_btn.isEnabled()
     win.redundant_btn.click()
