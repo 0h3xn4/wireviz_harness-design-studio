@@ -609,12 +609,13 @@ def _full_text(c: Connector, itype: InterfaceType, base: Allocation, msg: str) -
 
 def _far_key(project: Project, unit_id: str | None, connector_id: str | None) -> str | None:
     """What decides, in the segmentation in force, whether two interfaces from one connector share
-    a harness: the far connector, the far device or the zone of the far device. None: not known."""
-    from .generate.segmentation import MODES
+    a harness: the far connector, the far device or the zone of the far device. None: not known.
+    In `per_connector_group` it is the far connector, as in `per_connector_pair`: the interfaces to
+    other far connectors are joined into the harness as a branch (`_shared_note`)."""
+    from .generate.segmentation import GROUP_MODE, mode_of
 
-    cfg = project.config.get("segmentation")
-    mode = str(cfg.values.get("mode", MODES[0])) if cfg is not None else MODES[0]
-    if mode == "per_connector_pair" or mode not in MODES:
+    mode = mode_of(project)
+    if mode in ("per_connector_pair", GROUP_MODE):
         if connector_id is not None:
             return f"connector {connector_id}"
         mode = "per_unit_pair"
@@ -635,6 +636,8 @@ def _shared_note(
 ) -> str:
     """The notes of a connector that already carries interfaces: a second harness plug when the
     others go elsewhere, and a released harness that plugs into it."""
+    from .generate.segmentation import GROUP_MODE, mode_of
+
     notes: list[str] = []
     mine = _far_key(project, far_unit, far_connector)
     elsewhere: list[str] = []
@@ -647,11 +650,16 @@ def _shared_note(
             }
             if far and mine not in keys:
                 elsewhere.append(i.id)
-    if elsewhere:
+    if elsewhere and mode_of(project) == GROUP_MODE:
+        notes.append(
+            f"{c.id} also carries {', '.join(elsewhere)} to another connector: Generate joins it"
+            f" into the harness on {c.id} as a branch."
+        )
+    elif elsewhere:
         notes.append(
             f"{c.id} also carries {', '.join(elsewhere)} to another connector: Generate makes a"
-            f" second harness with its own plug on {c.id} and warns about it, until a harness can"
-            " branch (planned for 2.3.0)."
+            f" second harness with its own plug on {c.id} and warns about it; with"
+            " segmentation.mode per_connector_group it makes one harness that branches."
         )
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
         if h.status != "released" or not any(k.mates_with == c.id for k in h.connectors):

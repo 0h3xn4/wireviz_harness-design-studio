@@ -51,7 +51,7 @@ When two or more interfaces of one type need signal names that repeat on a conne
 
 The design rules `signal-unassigned` and `direction-conflict` read the signal of a port pin, and so does the independent verifier. The verifier reports `port_mixed` when one interface uses the pins of two ports of one connector.
 
-Ports and harnesses are separate decisions. The ports decide the pins on the device connector; the segmentation decides how many harnesses plug into it. With the default `per_connector_pair`, interfaces from one connector to different far connectors get a harness each, so the connector gets one plug per harness and Generate warns `box_connector_shared` (the design rule `model-inconsistent` reports it too). `per_zone_pair` with the far devices in one zone puts them into one harness with one plug on the connector ([segmentation](segmentation.md)). A harness that branches from one plug to several far connectors is planned for 2.3.0 (D-235).
+Ports and harnesses are separate decisions. The ports decide the pins on the device connector; the segmentation decides how many harnesses plug into it. With the default `per_connector_pair`, interfaces from one connector to different far connectors get a harness each, so the connector gets one plug per harness and Generate warns `box_connector_shared` (the design rule `model-inconsistent` reports it too). `per_zone_pair` with the far devices in one zone puts them into one harness with one plug on the connector ([segmentation](segmentation.md)). Since 2.3.0 (D-243) `segmentation.mode` = `per_connector_group` makes one harness that branches from one plug to the several far connectors ([segmentation](segmentation.md#one-harness-that-branches)).
 
 ## The inputs and where they come from
 
@@ -89,7 +89,7 @@ A connector can carry several interfaces (since 2.1.0, D-237). Whether it takes 
 The **cable end** of a device connector is the part the library names as its mating part (`mates_with` of the device connector's part); a part with none is mated with itself, and generation says so. The gender is the opposite of the device connector's and the keying is copied. A cable connector that a person edited keeps its part, gender and keying.
 
 - **A-CONNECTOR-CHOICE.** First free connector that carries the type (the default of the setting `model.connector_choice`; the alternatives are best fit and most spare pins); only when none is free, a connector with a fixed pinout and a free complete port of the type; the cable end is the mating part.
-- **A-PORTS.** A connector takes another interface while the dry run of the pin allocation has room for it. On a fixed pinout the pins of one port are named by the port and the signal (`RS422_2_TX+`); an interface uses the pins of one complete port, never of two. Interfaces from one connector to different far connectors get a harness each, with two plugs on the connector, until a harness can branch.
+- **A-PORTS.** A connector takes another interface while the dry run of the pin allocation has room for it. On a fixed pinout the pins of one port are named by the port and the signal (`RS422_2_TX+`); an interface uses the pins of one complete port, never of two. Interfaces from one connector to different far connectors get a harness each, with two plugs on the connector, unless the segmentation `per_connector_group` joins them into one harness that branches.
 
 ## What happens when a value is missing
 

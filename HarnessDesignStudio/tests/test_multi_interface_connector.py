@@ -187,7 +187,8 @@ def test_note_when_the_other_interfaces_go_to_another_far_connector() -> None:
     assert other.ok
     assert other.note == (
         f"OBC1-J1 also carries {a} to another connector: Generate makes a second harness with its"
-        " own plug on OBC1-J1 and warns about it, until a harness can branch (planned for 2.3.0)."
+        " own plug on OBC1-J1 and warns about it; with segmentation.mode per_connector_group it"
+        " makes one harness that branches."
     )
     # only the far device is known (the connect tool before the far connector is picked)
     assert "second harness" in edit.connector_compat(p, "rs422", "OBC1-J1", "ST2").note

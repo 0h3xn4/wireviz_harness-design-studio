@@ -54,7 +54,7 @@ def default_configs() -> dict[str, ConfigFile]:
             placeholder=True,  # DECISIONS D-10: defaulted, owner must confirm
             values={
                 "mode": "per_connector_pair"
-            },  # per_connector_pair | per_unit_pair | per_zone_pair
+            },  # per_connector_pair | per_unit_pair | per_zone_pair | per_connector_group
         ),
         "segregation": ConfigFile(
             name="segregation",
