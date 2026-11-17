@@ -108,7 +108,13 @@ _DARK_NEW: Final[dict[str, str]] = {
 }
 
 # The logo's colours (docs/img/logo.svg); the same in both themes, drawn by gui/appicon.py.
-BRAND: Final[dict[str, str]] = {"purple": "#4a1fb8", "amber": "#f2b04a", "white": "#ffffff"}
+# "rim" is the outer edge of the tile: 3:1 or more against light and dark panels alike.
+BRAND: Final[dict[str, str]] = {
+    "purple": "#4a1fb8",
+    "amber": "#f2b04a",
+    "white": "#ffffff",
+    "rim": "#8b6cf0",
+}
 
 # legacy name -> new token (the value is looked up in the theme's own table)
 LEGACY_ALIAS: Final[dict[str, str]] = {
