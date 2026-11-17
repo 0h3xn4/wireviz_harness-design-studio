@@ -265,21 +265,26 @@ def test_the_folder_lists_devices_and_subsystems(project, tmp_path: Path):
     (lib / "package.json").write_text('{"name": "x"}')  # another JSON file: skipped
     sub = lib / "team" / "more"
     sub.mkdir(parents=True)
-    save_devices(sub, project, ["OBC"])
+    save_devices(sub, project, ["OBC"], new_ids={"OBC": "OBC9"})  # two levels below: read
     (lib / ".git").mkdir()
     (lib / ".git" / "x.json").write_text("{")  # hidden folders are not looked into
     scan = scan_folder(lib)
     assert not scan.error and not scan.problems and scan.skipped == 1
     kinds = [(e.kind, e.id or e.name) for e in scan.entries]
     assert kinds.count(("subsystem", "Wheel drive")) == 1
-    assert [e.id for e in scan.entries if e.kind == "device"].count("OBC") == 2
+    assert [(e.id, e.file) for e in scan.entries if e.kind == "device"] == [
+        ("OBC", "OBC.device.json"),
+        ("OBC9", "team/more/OBC9.device.json"),
+        ("PCDU", "PCDU.device.json"),
+        ("RW1", "RW1.device.json"),
+    ]
     sub_e = next(e for e in scan.entries if e.kind == "subsystem")
     assert (sub_e.devices, sub_e.connections) == (
         2,
         1,
     ) and sub_e.file == "subsystem-wheel-drive.json"
     dev = next(e for e in scan.entries if e.id == "PCDU")
-    assert dev.file == "devices.json" and dev.connectors == 3 and dev.pins > 0
+    assert dev.file == "PCDU.device.json" and dev.connectors == 3 and dev.pins > 0
     rows = describe_entry(load_entry(lib, dev), dev)
     assert rows and {"connector", "pin", "signal", "function"} == set(rows[0])
     rows = describe_entry(load_entry(lib, sub_e), sub_e)
@@ -344,7 +349,7 @@ def test_symlinks_are_not_followed(project, tmp_path: Path):
     lib.mkdir()
     outside = tmp_path / "outside.json"
     save_devices(tmp_path, project, ["OBC"])
-    (tmp_path / "OBC.json").rename(outside)
+    (tmp_path / "OBC.device.json").rename(outside)
     try:
         (lib / "link.json").symlink_to(outside)
     except OSError:
@@ -365,8 +370,9 @@ def test_saving_needs_a_usable_folder_and_never_replaces_a_subsystem(project, tm
     # saving a device again replaces that device in its own file and keeps the others
     save_devices(lib, project, ["OBC", "RW1"])
     save_devices(lib, project, ["OBC", "PCDU"])
-    ids = [d["unit"]["id"] for d in dl.read_library(lib / "devices.json")["devices"]]
-    assert ids == ["OBC", "PCDU", "RW1"]
+    names = sorted(p.name for p in lib.glob("*.device.json"))
+    assert names == ["OBC.device.json", "PCDU.device.json", "RW1.device.json"]
+    assert [d["unit"]["id"] for d in dl.read_library(lib / names[0])["devices"]] == ["OBC"]
 
 
 @pytest.mark.skipif(

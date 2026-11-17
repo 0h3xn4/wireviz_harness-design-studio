@@ -3191,6 +3191,7 @@ LIB_CONFLICT_NEW_TIP = (
 )
 LIB_CONFLICT_DIALOG = "Library conflict"
 LIB_SAVE_TARGET = "The devices are saved in the file {} in the library folder."
+LIB_SAVE_TARGETS = "The devices are saved in the files {} in the library folder."
 LIB_SAVED_AS_NEW = "Saved {} to {} as {}."
 
 # 1.8.1 (G5): command-line and Outputs-list trust fixes

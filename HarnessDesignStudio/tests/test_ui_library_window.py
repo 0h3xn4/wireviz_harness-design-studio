@@ -334,7 +334,8 @@ def test_save_selection_as_devices_and_as_a_subsystem(qtbot, tmp_path: Path, lib
 
     lib.run_dialog = as_devices
     lib.save_btn.click()
-    assert (library / "devices.json").exists() and "Saved OBC, PCDU" in lib.result_notice.text()
+    assert (library / "OBC.device.json").exists() and (library / "PCDU.device.json").exists()
+    assert "Saved OBC, PCDU to OBC.device.json, PCDU.device.json" in lib.result_notice.text()
 
 
 def test_nothing_is_written_to_the_folder_unless_the_person_saves(

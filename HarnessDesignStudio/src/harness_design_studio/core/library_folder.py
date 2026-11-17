@@ -6,7 +6,7 @@ and that holds device library files and subsystem library files (workshop feedba
     scan = scan_folder(Path("/mnt/shared/harness-library"))
     for e in scan.entries: print(e.kind, e.name, e.file)
     data = load_entry(scan.folder, scan.entries[0])             # re-read from disk
-    path = save_devices(folder, project, ["OBC1"])             # only when the person says so
+    paths = save_devices(folder, project, ["OBC1"])            # only when the person says so
     path = save_subsystem(folder, project, ["OBC1", "RW1"], "Wheel drive")
 
 The tool is offline: this is plain file reading, never a network call. Sharing is the job of the
@@ -14,20 +14,30 @@ drive or the repository around the folder. The folder is only read, except by `s
 `save_subsystem`, which the person starts with *Save to library*. A file that cannot be read does
 not stop the others: it is listed in `LibraryScan.problems` with a plain sentence. A file whose JSON
 is not one of the two library formats (a `package.json` next to them) is skipped without a word.
+
+Since 2.2.0 (D-240) a device is saved in a file of its own, `NAME.device.json`, which keeps the
+rules of `core/device_file.py`; the multi-device files of 2.1 are still offered. Across the folder,
+a device ID in two files is offered from neither (the message names both files), two device files
+of the same name (in two folders, or differing only in case) are both refused, because a project
+records where a device came from by the file name, and a part with different data in two files is
+a warning that names the fields. An optional `library.json` gives the library its name.
 """
 
 import os
 import stat
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass, field, replace
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from pydantic import ValidationError
+
+from harness_design_studio.core import device_file as df
 from harness_design_studio.core import device_library as dl
 from harness_design_studio.core import subsystem_library as sl
 from harness_design_studio.core.device_library import DeviceConflict, LibraryConflict
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.io import canonical
-from harness_design_studio.core.model import Project
+from harness_design_studio.core.model import Part, Project
 
 __all__ = [
     "DeviceConflict",
@@ -39,6 +49,7 @@ __all__ = [
     "describe_entry",
     "load_entry",
     "save_devices",
+    "save_targets",
     "save_subsystem",
     "scan_folder",
 ]
@@ -87,6 +98,12 @@ class LibraryScan:
     problems: list[LibraryProblem] = field(default_factory=list)
     error: str = ""  # the folder itself cannot be used: why, in plain words
     skipped: int = 0  # JSON files that are not library files
+    warnings: list[LibraryProblem] = field(default_factory=list)  # offered all the same
+    name: str = ""  # the library's name: from library.json, else the folder's name
+    description: str = ""
+    # every device ID of a device file (compared without regard to case) -> the files that hold
+    # it, the ones refused for holding it twice included
+    holders: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def _folder_problem(folder: Path) -> str:
@@ -134,43 +151,158 @@ def _json_files(folder: Path) -> tuple[list[Path], str]:
     return found, cut
 
 
+@dataclass
+class _DeviceFile:
+    """A device file that gave entries, kept for the checks across the folder."""
+
+    rel: str
+    ids: list[str]
+    parts: list[dict[str, Any]]
+
+
 def scan_folder(folder: Path | str) -> LibraryScan:
     """Everything the library folder offers. Never raises: a folder that cannot be used gives a
     scan with `error` set; a file that cannot be used gives an entry in `problems`."""
     root = Path(folder)
     scan = LibraryScan(root)
+    scan.name = root.name or str(root)
     scan.error = _folder_problem(root)
     if scan.error:
         return scan
     files, cut = _json_files(root)
     if cut:
         scan.problems.append(LibraryProblem(".", cut))
+    found: list[_DeviceFile] = []
     for path in files:
         rel = path.relative_to(root).as_posix()
         try:
-            _scan_file(scan, path, rel)
+            _scan_file(scan, path, rel, found)
         except HarnessError as exc:
             scan.problems.append(LibraryProblem(rel, str(exc)))
         except (OSError, ValueError, UnicodeError, RecursionError) as exc:
             scan.problems.append(LibraryProblem(rel, _read_words(exc)))
         except Exception:  # noqa: BLE001  (a promise: one bad file never hides the good ones)
             scan.problems.append(LibraryProblem(rel, "The file has a form that cannot be read."))
+    _across_files(scan, found)
     scan.entries.sort(key=lambda e: (e.kind, e.name.casefold(), e.id.casefold(), e.file))
     return scan
 
 
-def _scan_file(scan: LibraryScan, path: Path, rel: str) -> None:
+def _scan_file(scan: LibraryScan, path: Path, rel: str, found: list[_DeviceFile]) -> None:
     """Read one file (once) and add its entries, its skip or its problems to the scan."""
     data = _read_json(path)
     fmt = data.get("format") if isinstance(data, dict) else None
-    if fmt == dl.FORMAT:
-        entries, problems = _device_entries(rel, dl.check_library(data))
-        scan.entries += entries
-        scan.problems += [LibraryProblem(rel, text) for text in problems]
+    if rel == df.INFO_FILE and fmt == df.FOLDER_FORMAT:
+        info = df.check_library_info(data)
+        scan.name, scan.description = info.name, info.description
+    elif df.is_device_file(path.name):
+        if fmt != dl.FORMAT:
+            raise LibraryError(
+                f"A file named NAME{df.DEVICE_SUFFIX} must be a device library file "
+                f"(format '{dl.FORMAT}')."
+            )
+        rules = df.device_file_problems(path.name, data)
+        if rules:
+            scan.problems += [LibraryProblem(rel, text) for text in rules]
+            return
+        _add_device_file(scan, rel, data, found)
+    elif fmt == dl.FORMAT:
+        _add_device_file(scan, rel, data, found)
     elif fmt == sl.FORMAT:
         scan.entries.append(_subsystem_entry(rel, sl.check_subsystem(data)))
     else:
         scan.skipped += 1
+
+
+def _add_device_file(scan: LibraryScan, rel: str, data: object, found: list[_DeviceFile]) -> None:
+    entries, problems = _device_entries(rel, dl.check_library(data))
+    scan.entries += entries
+    scan.problems += [LibraryProblem(rel, text) for text in problems]
+    parts = data.get("parts", []) if isinstance(data, dict) else []
+    found.append(_DeviceFile(rel, [e.id for e in entries], parts))
+
+
+# ---- the checks across the folder -------------------------------------------------------------
+
+
+def _others(rels: list[str], rel: str) -> str:
+    return ", ".join(r for r in rels if r != rel)
+
+
+def _across_files(scan: LibraryScan, found: list[_DeviceFile]) -> None:
+    """A device ID in two files, a file name twice, a part that differs between files."""
+    by_name: dict[str, list[str]] = {}
+    by_id: dict[str, list[str]] = {}
+    for f in found:
+        by_name.setdefault(PurePosixPath(f.rel).name.casefold(), []).append(f.rel)
+        for uid in f.ids:
+            by_id.setdefault(uid.casefold(), []).append(f.rel)
+    scan.holders = {k: tuple(v) for k, v in sorted(by_id.items())}
+    refused_files: set[str] = set()
+    for rels in by_name.values():
+        if len(rels) > 1:
+            for rel in rels:
+                refused_files.add(rel)
+                scan.problems.append(
+                    LibraryProblem(
+                        rel,
+                        f"Another device file has the same name ({_others(rels, rel)}), and a "
+                        "project records where a device came from by the file name; neither "
+                        "file is offered until one of them is renamed.",
+                    )
+                )
+    refused_ids: set[str] = set()
+    for key, rels in by_id.items():
+        if len(rels) > 1:
+            refused_ids.add(key)
+            uid = next(e.id for e in scan.entries if e.id.casefold() == key)
+            for rel in rels:
+                scan.problems.append(
+                    LibraryProblem(
+                        rel,
+                        f"The device {uid} is also in {_others(rels, rel)}, so it is offered "
+                        "from neither file; keep it in one file only.",
+                    )
+                )
+    scan.entries = [
+        e
+        for e in scan.entries
+        if e.kind != "device"
+        or (e.file not in refused_files and e.id.casefold() not in refused_ids)
+    ]
+    scan.warnings += _part_warnings(found)
+
+
+def _part_form(rec: dict[str, Any]) -> dict[str, Any]:
+    """A part record as the model writes it, so that two forms of the same data compare equal."""
+    try:
+        return Part.model_validate(rec).model_dump(mode="json")
+    except ValidationError, ValueError:
+        return rec
+
+
+def _part_warnings(found: list[_DeviceFile]) -> list[LibraryProblem]:
+    first: dict[str, tuple[str, dict[str, Any]]] = {}
+    out: list[LibraryProblem] = []
+    for f in found:
+        for rec in f.parts:
+            if not isinstance(rec, dict) or not isinstance(rec.get("id"), str):
+                continue
+            pid, form = rec["id"], _part_form(rec)
+            if pid not in first:
+                first[pid] = (f.rel, form)
+                continue
+            where, other = first[pid]
+            fields = sorted(k for k in set(form) | set(other) if form.get(k) != other.get(k))
+            if fields:
+                out.append(
+                    LibraryProblem(
+                        f.rel,
+                        f"The part {pid} differs from the one in {where} in "
+                        f"{', '.join(fields)}; a project keeps the part it has.",
+                    )
+                )
+    return out
 
 
 def _read_words(exc: Exception) -> str:
@@ -334,6 +466,16 @@ def _writable_folder(folder: Path) -> None:
         raise LibraryError(f"You may not write in the folder {folder}. Ask who owns the library.")
 
 
+def save_targets(scan: LibraryScan | None, unit_ids: list[str]) -> list[str]:
+    """The file (inside the library folder, with `/`) that each device is saved into: the device
+    file that holds it already, else `<ID>.device.json` at the root of the folder."""
+    out = []
+    for uid in unit_ids:
+        holders = scan.holders.get(uid.casefold(), ()) if scan is not None else ()
+        out.append(holders[0] if len(holders) == 1 else df.device_file_name(uid))
+    return out
+
+
 def save_devices(
     folder: Path | str,
     project: Project,
@@ -342,18 +484,69 @@ def save_devices(
     replace: bool = False,
     new_ids: dict[str, str] | None = None,
     notes: list[str] | None = None,
-) -> Path:
-    """Add the devices to a device library file in the folder (`GYRO1.json` for one device,
-    `devices.json` for several). A device with the same ID in that file that differs is not
-    replaced: `LibraryConflict` says which and how much differs (`replace=True` replaces it,
-    `new_ids={"GYRO1": "GYRO1-2"}` saves it under another ID). A part never gets a lower
-    approval than the file has; what was kept is added to `notes`. Returns the path."""
+) -> list[Path]:
+    """Save each device into the device file of the folder that holds it already, else into a
+    file of its own, `<ID>.device.json` (D-240). A device with the same ID in that file that
+    differs is not replaced: `LibraryConflict` says which and how much differs (`replace=True`
+    replaces it, `new_ids={"GYRO1": "GYRO1-2"}` saves it under another ID). A part never gets a
+    lower approval than the file has; what was kept is added to `notes`. All or nothing: a problem
+    with one device writes no file. Returns the paths written, in the order of `unit_ids`."""
     root = Path(folder)
     _writable_folder(root)
-    path = root / dl.default_file_name(unit_ids)
-    return dl.save_devices_to_file(
-        path, project, unit_ids, replace=replace, new_ids=new_ids, notes=notes
-    )
+    if not unit_ids:
+        raise LibraryError("Choose at least one device.")
+    scan = scan_folder(root)
+    names = {uid: (new_ids or {}).get(uid, uid) for uid in dict.fromkeys(unit_ids)}
+    by_file: dict[str, list[str]] = {}
+    for uid, nid in names.items():
+        holders = scan.holders.get(nid.casefold(), ())
+        if len(holders) > 1:
+            raise LibraryError(
+                f"{nid} is in more than one file of the library ({', '.join(holders)}); keep it "
+                "in one file only, then save again. Nothing was saved."
+            )
+        by_file.setdefault(save_targets(scan, [nid])[0], []).append(uid)
+    writes: list[tuple[Path, dict[str, Any]]] = []
+    conflicts: list[tuple[str, dl.DeviceConflict]] = []
+    kept: list[str] = []
+    for rel, uids in by_file.items():
+        target = root / rel
+        if df.is_device_file(target.name) and len(uids) > 1:
+            raise LibraryError(f"{', '.join(uids)} would all be saved in {rel}. Nothing was saved.")
+        if df.is_device_file(target.name):
+            data = df.device_file_data(project, uids[0], names[uids[0]])
+        else:
+            data = dl.export_devices(project, uids, {u: names[u] for u in uids})
+        existing = dl.read_library(target) if target.exists() else None
+        conflicts += [(rel, c) for c in dl.find_conflicts(existing, data)]
+        merged, notes_here = dl.merge_with_notes(existing, data, replace=replace)
+        if df.is_device_file(target.name):
+            problems = df.device_file_problems(target.name, merged)
+            if problems:
+                raise LibraryError(f"{rel} cannot be written as a device file: {problems[0]}")
+        writes.append((target, merged))
+        kept += notes_here
+    if conflicts and not replace:
+        raise _conflict(scan, names, conflicts)
+    for target, merged in writes:
+        dl.write_library(target, merged)
+    if notes is not None:
+        notes.extend(kept)
+    return [root / rel for rel in by_file]
+
+
+def _conflict(
+    scan: LibraryScan, names: dict[str, str], found: list[tuple[str, dl.DeviceConflict]]
+) -> LibraryConflict:
+    """One `LibraryConflict` for all files, with a suggested ID that is free in the whole folder."""
+    taken = set(scan.holders) | {n.casefold() for n in names.values()}
+    out = []
+    for _rel, c in found:
+        free = dl._free_id(c.unit_id, taken)
+        taken.add(free.casefold())
+        out.append(replace(c, suggested_id=free))
+    files = list(dict.fromkeys(rel for rel, _c in found))
+    return LibraryConflict(", ".join(files), out)
 
 
 def save_subsystem(

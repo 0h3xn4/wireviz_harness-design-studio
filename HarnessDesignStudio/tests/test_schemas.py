@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -79,3 +80,45 @@ def test_the_schemas_state_the_id_rule_and_the_numeric_ranges() -> None:
     assert wire["from_pin"]["pattern"]
     assert wire["gauge_awg"]["anyOf"][0]["maximum"] == 40
     assert docs["project"]["properties"]["schema_version"]["minimum"] == 1
+
+
+def test_the_two_files_outside_the_project_have_a_schema(tmp_path: Path) -> None:
+    """D-240: the one-device file of a device library and the project's `device-libraries.json`."""
+    from harness_design_studio.core import device_file, library_pointer
+    from tests.helpers import pinout_project
+
+    docs = schemas.schemas()
+    device = docs["device-file"]
+    assert device["properties"]["format"]["const"] == "harness-device-library"
+    assert device["properties"]["version"]["const"] == 1
+    assert (
+        device["properties"]["devices"]["minItems"],
+        device["properties"]["devices"]["maxItems"],
+    ) == (1, 1)
+    assert device["additionalProperties"] is False
+    assert {"Unit", "Connector", "Part", "InterfaceType"} <= set(device["$defs"])
+    data = device_file.device_file_data(pinout_project(), "OBC")
+    assert set(data) <= set(device["properties"])
+    record = device["$defs"]["DeviceRecord"]
+    assert (
+        set(data["devices"][0]) == set(record["properties"]) and not record["additionalProperties"]
+    )
+    pointer = docs["device-libraries"]
+    assert pointer["properties"]["format"]["const"] == library_pointer.FORMAT
+    assert pointer["properties"]["device_libraries"]["maxItems"] == 8
+    assert pointer["additionalProperties"] is False
+    entry = pointer["$defs"]["DeviceLibrary"]
+    assert set(entry["properties"]) == {"path"} and entry["additionalProperties"] is False
+    pattern = re.compile(entry["properties"]["path"]["pattern"])
+    for path in ("../acme-device-library", "libs/acme", "./x"):
+        assert pattern.fullmatch(path) and not library_pointer.path_problem(path)
+    for path in ("/abs", "~/lib", "C:/x", "a\\b", "a//b", "a/", ""):
+        assert not pattern.fullmatch(path) and library_pointer.path_problem(path)
+    assert main(["schema", str(tmp_path / "s")]) == 0
+    assert (tmp_path / "s" / "device-file.schema.json").is_file()
+    assert (tmp_path / "s" / "device-libraries.schema.json").is_file()
+    settings = json.loads((tmp_path / "s" / "editor-settings.json").read_text(encoding="utf-8"))
+    assert {
+        "fileMatch": ["/device-libraries.json"],
+        "url": "./schemas/device-libraries.schema.json",
+    } in settings["json.schemas"]

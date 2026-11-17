@@ -582,6 +582,8 @@ What changes in the earlier sections: 2.1.0 is no longer M5 (section 3.2 named i
 
 The design of 2.1.0 is in [`DESIGN_2.1_PORTS.md`](DESIGN_2.1_PORTS.md) (D-237). *Added 2026-11-16:* its six pull requests are built, and 2.1.0 is prepared (D-238); it is not tagged yet. *Added 2026-11-17:* 2.1.0 is published as the latest full release (tag `v2.1.0` on `97e7d24`; `compliance/SIGNOFF.md`, *Publication of 2.1.0*). *Added 2026-11-17, later:* 2.1.1 is prepared (D-239), a patch release with the three fixes of the end-to-end test of 2.1.0; it is not tagged yet.
 
+The design of 2.2.0, the device library, is in [`DESIGN_2.2_DEVICE_LIBRARY.md`](DESIGN_2.2_DEVICE_LIBRARY.md) (D-240); its first pull request builds the rules of the library folder, `library.json`, the Git state of a library, the project's `device-libraries.json` and two schemas.
+
 ---
 
 ## 4. What I can verify, and what only you can

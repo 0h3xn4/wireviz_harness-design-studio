@@ -279,28 +279,28 @@ def changed_obc():
 
 def test_saving_a_different_device_with_the_same_id_is_refused(tmp_path: Path):
     save_devices(tmp_path, pinout_project(), ["OBC"])
-    before = (tmp_path / "OBC.json").read_bytes()
+    before = (tmp_path / "OBC.device.json").read_bytes()
     with pytest.raises(LibraryConflict) as err:
         save_devices(tmp_path, changed_obc(), ["OBC"])
-    assert (tmp_path / "OBC.json").read_bytes() == before  # nothing was written
+    assert (tmp_path / "OBC.device.json").read_bytes() == before  # nothing was written
     (conflict,) = err.value.conflicts
     assert (conflict.unit_id, conflict.pins, conflict.suggested_id) == ("OBC", 1, "OBC-2")
-    assert "OBC.json" in str(err.value) and "1 pin" in str(err.value)
+    assert "OBC.device.json" in str(err.value) and "1 pin" in str(err.value)
     assert "Python" not in str(err.value)
 
 
 def test_saving_the_same_device_again_is_not_a_conflict(tmp_path: Path):
     p = pinout_project()
     save_devices(tmp_path, p, ["OBC"])
-    before = (tmp_path / "OBC.json").read_bytes()
+    before = (tmp_path / "OBC.device.json").read_bytes()
     save_devices(tmp_path, p, ["OBC"])
-    assert (tmp_path / "OBC.json").read_bytes() == before
+    assert (tmp_path / "OBC.device.json").read_bytes() == before
 
 
 def test_replace_replaces(tmp_path: Path):
     save_devices(tmp_path, pinout_project(), ["OBC"])
     save_devices(tmp_path, changed_obc(), ["OBC"], replace=True)
-    pins = dl.read_library(tmp_path / "OBC.json")["devices"][0]["connectors"][0]["pins"]
+    pins = dl.read_library(tmp_path / "OBC.device.json")["devices"][0]["connectors"][0]["pins"]
     assert pins[0]["signal"] == "OTHER"
 
 
@@ -311,9 +311,10 @@ def test_save_under_a_new_id_keeps_the_old_device_and_adds_the_new_one(tmp_path:
         save_devices(tmp_path, p, ["OBC"])
     new = err.value.conflicts[0].suggested_id
     save_devices(tmp_path, p, ["OBC"], new_ids={"OBC": new})
-    data = dl.read_library(tmp_path / "OBC.json")
-    assert [d["unit"]["id"] for d in data["devices"]] == ["OBC", "OBC-2"]
-    old, added = data["devices"]
+    # one device per file (D-240): the new ID gets a file of its own
+    (old,) = dl.read_library(tmp_path / "OBC.device.json")["devices"]
+    data = dl.read_library(tmp_path / "OBC-2.device.json")
+    (added,) = data["devices"]
     assert old["connectors"][0]["pins"][0].get("signal") != "OTHER"
     assert added["connectors"][0]["pins"][0]["signal"] == "OTHER"
     assert all(
@@ -336,7 +337,7 @@ def test_a_part_never_gets_a_lower_approval_in_the_file(tmp_path: Path):
     p2.parts[part_id] = p2.parts[part_id].model_copy(update={"approval": "not_approved"})
     notes: list[str] = []
     save_devices(tmp_path, p2, ["OBC"], replace=True, notes=notes)
-    parts = {x["id"]: x for x in dl.read_library(tmp_path / "OBC.json")["parts"]}
+    parts = {x["id"]: x for x in dl.read_library(tmp_path / "OBC.device.json")["parts"]}
     assert parts[part_id]["approval"] == "approved"
     assert any(part_id in n and "approved" in n and "kept" in n for n in notes)
 
@@ -349,7 +350,7 @@ def test_a_part_that_is_raised_is_taken_and_a_part_that_differs_is_kept_without_
     p2.parts[part_id] = p2.parts[part_id].model_copy(update={"notes": "other"})
     notes: list[str] = []
     save_devices(tmp_path, p2, ["OBC"], notes=notes)
-    parts = {x["id"]: x for x in dl.read_library(tmp_path / "OBC.json")["parts"]}
+    parts = {x["id"]: x for x in dl.read_library(tmp_path / "OBC.device.json")["parts"]}
     assert parts[part_id].get("notes", "") != "other" and any("file's is kept" in n for n in notes)
 
 

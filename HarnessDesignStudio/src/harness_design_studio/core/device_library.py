@@ -374,11 +374,12 @@ class LibraryConflict(DeviceLibraryError):
     """A file holds a device of the same ID that differs, and nobody said to replace it."""
 
     def __init__(self, file: str, conflicts: list[DeviceConflict]) -> None:
-        self.file = file
+        self.file = file  # one file name, or several with ", " between them (D-240)
         self.conflicts = conflicts
         what = "; ".join(f"{c.unit_id} (differs in {c.differs_in()})" for c in conflicts)
+        has = "have" if ", " in file else "has"
         super().__init__(
-            f"{file} has {'this device' if len(conflicts) == 1 else 'these devices'} already "
+            f"{file} {has} {'this device' if len(conflicts) == 1 else 'these devices'} already "
             f"and {'it differs' if len(conflicts) == 1 else 'they differ'}: {what}. "
             "Nothing was changed."
         )
@@ -695,5 +696,8 @@ _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def default_file_name(unit_ids: list[str]) -> str:
-    """A file name for exported devices: the unit ID for one, `devices.json` for several."""
-    return (_SAFE_NAME.sub("_", unit_ids[0]) if len(unit_ids) == 1 else "devices") + ".json"
+    """A file name for exported devices: `<ID>.device.json` for one (a file of its own, D-240),
+    `devices.json` for several."""
+    if len(unit_ids) == 1:
+        return _SAFE_NAME.sub("_", unit_ids[0]) + ".device.json"
+    return "devices.json"
