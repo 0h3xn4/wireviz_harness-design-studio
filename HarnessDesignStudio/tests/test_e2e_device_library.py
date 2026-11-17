@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The end-to-end case of 2.2.0, the device library (D-240, section 5 of
+"""REQ-LIB-07. The end-to-end case of 2.2.0, the device library (D-240, section 5 of
 `docs/ait/DESIGN_2.2_DEVICE_LIBRARY.md`, pull request 5), through the command line wherever a
 command exists. A source project saves two devices, OBC1 and STR1, into a library folder
 `acme-devices` (`save-device`), which is then made a Git repository and committed. A blank project
