@@ -1,5 +1,5 @@
-# harness-design-studio 2.1.1 model aaf312881ba2
-# harness-design-studio 2.1.1. Provided as is, without warranty. Verify before use.
+# harness-design-studio 2.2.0 model 71b2f8dda48d
+# harness-design-studio 2.2.0. Provided as is, without warranty. Verify before use.
 Part,Category,Manufacturer,Part number,Description,Approval,Quantity,Unit,Wires without length,Used in
 (no part),unknown,,,,missing from parts list,0,m,2,W010
 EX-MICROD-31-M,connector,,,"Micro-D 31-pin, male (example, baseline power and data)",pending (example data),1,ea,,W010
