@@ -342,8 +342,8 @@ class LibraryReviewDialog(Dialog):
         self.choice = "keep"
         self.plan: ll.UpdatePlan | None = None
         self.setObjectName("library-review-dialog")
-        self.setWindowTitle(strings.REVIEW_TITLE)
-        self.setAccessibleName(strings.REVIEW_TITLE)
+        self.setWindowTitle(strings.LIB_REVIEW_TITLE)
+        self.setAccessibleName(strings.LIB_REVIEW_TITLE)
         lay = QVBoxLayout(self)
         lay.setSpacing(theme.space(8))
         base = diff.devices[0] if diff.devices else diff.library_id
