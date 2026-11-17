@@ -104,14 +104,15 @@ def fit_height_for_width(window: QWidget) -> None:
     grown: tuple[int, int] | None = getattr(window, "_fit_grown", None)  # (before, after)
     if grown is not None and abs(window.height() - grown[1]) > _SLACK:
         grown = None  # somebody else set the height since: theirs stands
+    before = window.height()
     # (a window that is not shown yet has no height of its own: what it gives back goes to the need)
-    start = window.height() if window.isVisible() else need
+    start = before if window.isVisible() else need
     if window.minimumHeight() != need or (wide and window.minimumWidth() != wide):
         window.setMinimumSize(wide or window.minimumWidth(), need)  # (this grows a smaller window)
     if window.height() < need or (wide and window.width() < wide):
         window.resize(max(window.width(), wide), max(window.height(), need))
     height = window.height()
-    if height > start + _SLACK:  # grown here: remember from what, to give it back later
+    if height > before + _SLACK:  # grown here: remember from what, to give it back later
         grown = (grown[0] if grown is not None else start, height)
     elif grown is not None and height > max(need, grown[0]) + _SLACK:
         target = max(need, grown[0])  # the width grew: give back the height that was added

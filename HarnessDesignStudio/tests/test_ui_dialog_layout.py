@@ -202,6 +202,27 @@ def test_a_height_the_person_chose_is_kept(qtbot) -> None:
     assert dlg.height() == chosen
 
 
+def test_a_height_the_code_set_is_kept(qtbot) -> None:
+    """A dialog that its code makes larger than it needs (the glossary: `resize(560, 520)`) opens at
+    that size; only a height the base itself added is given back."""
+    from harness_design_studio.gui.dialogs import GlossaryDialog
+
+    dlg = GlossaryDialog(None)
+    qtbot.addWidget(dlg)
+    dlg.show()
+    settle()
+    assert dlg.height() == 520 > needed_height(dlg) + MARGIN
+    dlg.resize(dlg.width() + 100, dlg.height())
+    settle()
+    assert dlg.height() == 520
+    plain = _Wrapped()
+    qtbot.addWidget(plain)
+    plain.resize(520, 600)  # (before it is shown, as a dialog's __init__ does)
+    plain.show()
+    settle()
+    assert plain.height() == 600
+
+
 @pytest.mark.parametrize("cls", [NewDeviceDialog, QuickDeviceDialog])
 def test_a_dialog_of_the_program_gives_the_height_back(qtbot, cls) -> None:
     dlg = open_dialog(cls)
