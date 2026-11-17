@@ -3,7 +3,8 @@
 # mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,union-attr,call-overload"
 """REQ-LIB-06, REQ-EDIT-03. M4 of the workshop feedback: the library window (not modal, the list, the
 preview, add to the project in one undo step, save the selection), the library folder setting, the
-number of these devices, and the start screen. Offscreen."""
+number of these devices, and the start screen; since 2.2.0 (D-240) the Status column, the source
+line and the libraries the project names in device-libraries.json. Offscreen."""
 
 from pathlib import Path
 
@@ -19,7 +20,9 @@ from PySide6.QtWidgets import QApplication, QDialog  # noqa: E402
 from harness_design_studio.core import copies, library_link  # noqa: E402
 from harness_design_studio.core.commands import Put, apply_ops  # noqa: E402
 from harness_design_studio.core.import_record import file_sha256  # noqa: E402
+from harness_design_studio.core.io.saver import save_project  # noqa: E402
 from harness_design_studio.core.library_folder import save_devices, save_subsystem  # noqa: E402
+from harness_design_studio.core.library_pointer import write_pointer  # noqa: E402
 from harness_design_studio.core.links import plan_add_link  # noqa: E402
 from harness_design_studio.core.model import evolve  # noqa: E402
 from harness_design_studio.core.samples import new_project  # noqa: E402
@@ -581,3 +584,131 @@ def test_the_status_column_and_the_source_line(qtbot, tmp_path: Path, library: P
 def test_every_state_has_words_and_a_tooltip():
     for state in library_link.STATES:
         assert strings.LINK_STATE_WORDS[state] and strings.LINK_STATE_TIPS[state]
+
+
+# ---- the project's own libraries (device-libraries.json; D-240, pull request 5) -----------------
+
+
+@pytest.fixture
+def acme(tmp_path: Path) -> Path:
+    """A library the project names, with a name of its own (library.json)."""
+    folder = tmp_path / "work" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "library.json").write_text(
+        '{"format": "harness-device-library-folder", "version": 1, "name": "ACME devices"}\n'
+    )
+    p = source_project()
+    for uid in ("PCDU", "RW1"):
+        save_devices(folder, p, [uid])
+    return folder
+
+
+def project_on_disk(tmp_path: Path, paths: list[str]) -> Path:
+    proj = tmp_path / "work" / "proj"
+    save_project(new_project(), proj)
+    if paths:
+        write_pointer(proj, paths)
+    return proj
+
+
+def opened_project(qtbot, tmp_path: Path, proj: Path, folder: Path | None = None):
+    win = make_window(tmp_path)
+    qtbot.addWidget(win)
+    if folder is not None:
+        win.set_library_folder(str(folder))
+    assert win.open_project(proj)
+    action_named(win, "act-library").trigger()
+    lib = win.library_window
+    assert lib is not None
+    qtbot.addWidget(lib)
+    assert lib.jobs.wait_idle()
+    return win, lib
+
+
+def cells(lib: LibraryWindow, *keys: str) -> list[tuple[str, ...]]:
+    return [tuple(str(r[k]) for k in keys) for r in lib.list_model.rows()]
+
+
+def test_the_window_lists_the_libraries_the_project_names_without_a_folder_of_the_person(
+    qtbot, tmp_path: Path, acme: Path
+):
+    proj = project_on_disk(tmp_path, ["../acme"])
+    win, lib = opened_project(qtbot, tmp_path, proj)
+    assert win.library_folder() == "" and lib.folder_label.text() == strings.LIB_FOLDER_NONE
+    assert lib.project_label.text() == "ACME devices (../acme)"
+    assert lib.project_label.accessibleName() and lib.project_label.toolTip()
+    assert lib.list_stack.currentIndex() == 0 and not lib.folder_notice.isVisibleTo(lib)
+    assert lib.list_model.columns[4].header == strings.LIB_COLUMN_LIBRARY
+    assert cells(lib, "id", "library", "status") == [
+        ("PCDU", "ACME devices", "Not in this project"),
+        ("RW1", "ACME devices", "Not in this project"),
+    ]
+    assert lib.list_model.rows()[0]["library_tip"] == (
+        "ACME devices: named by this project as ../acme"
+    )
+    # add one: the record links it to the project's library, and the status follows
+    pick(lib, next(e for e in lib._shown if e.id == "RW1").key)
+    assert "RW1" in lib.preview_title.text() and lib.pin_model.rows()
+    lib.add_btn.click()
+    assert lib.jobs.wait_idle()
+    rec = win.ctl.project.import_records["devices:RW1.device.json"]
+    assert (
+        rec.sha256 == file_sha256(acme / "RW1.device.json") and "Library: ACME devices" in rec.notes
+    )
+    assert {r["id"]: r["status"] for r in lib.list_model.rows()}["RW1"] == "Up to date"
+    assert lib.source_label.text() == "Source: ACME devices, RW1.device.json"
+    assert not lib.save_btn.isEnabled()  # Save writes into the person's folder, which is not set
+
+
+def test_the_persons_folder_is_listed_beside_the_projects_libraries(
+    qtbot, tmp_path: Path, acme: Path, library: Path
+):
+    proj = project_on_disk(tmp_path, ["../acme"])
+    win, lib = opened_project(qtbot, tmp_path, proj, library)
+    assert lib.folder_label.text() == str(library)
+    assert lib.project_label.text() == "ACME devices (../acme)"
+    rows = cells(lib, "kind", "id", "library")
+    assert rows == [
+        ("Device", "PCDU", "ACME devices"),
+        ("Device", "RW1", "ACME devices"),
+        ("Device", "PCDU", "library"),
+        ("Device", "RW1", "library"),
+        ("Subsystem", "", "library"),
+    ]
+    tips = {r["library_tip"] for r in lib.list_model.rows()}
+    assert f"library: your library folder, {library}" in tips
+    assert len({r["key"] for r in lib.list_model.rows()}) == 5  # every entry has its own key
+    lib.search.setText("acme")  # the library's name is searched too
+    assert {e.id for e in lib._shown} == {"PCDU", "RW1"} and len(lib._shown) == 2
+    lib.search.setText("")
+    # a device of the person's folder is added from that folder; the save goes there too
+    mine = next(e for e in lib._shown if e.id == "PCDU" and lib.library_of(e).origin == "person")
+    pick(lib, mine.key)
+    assert lib.libraries().libraries[0].folder == library
+    assert lib.save_btn.toolTip() == strings.LIB_SAVE_NONE  # usable, once devices are selected
+
+
+def test_a_folder_named_by_the_project_and_the_person_is_listed_once(
+    qtbot, tmp_path: Path, acme: Path
+):
+    proj = project_on_disk(tmp_path, ["../acme"])
+    win, lib = opened_project(qtbot, tmp_path, proj, acme)
+    assert cells(lib, "id", "library") == [("PCDU", "ACME devices"), ("RW1", "ACME devices")]
+    assert lib.list_model.rows()[0]["library_tip"].startswith("ACME devices: named by this project")
+
+
+def test_the_window_follows_the_projects_list_and_says_what_cannot_be_read(
+    qtbot, tmp_path: Path, acme: Path
+):
+    proj = project_on_disk(tmp_path, [])
+    win, lib = opened_project(qtbot, tmp_path, proj)
+    assert lib.project_label.text() == strings.LIB_PROJECT_NONE
+    assert lib.empty_title.text() == strings.LIB_EMPTY_NO_FOLDER
+    win._write_project_libraries(["../acme", "../gone"])  # Settings > Project writes the file
+    assert lib.jobs.wait_idle()
+    assert lib.project_label.text() == "ACME devices (../acme)"
+    assert [r["id"] for r in lib.list_model.rows()] == ["PCDU", "RW1"]
+    assert lib.folder_notice.isVisibleTo(lib) and "gone" in lib.folder_notice.text()
+    win._write_project_libraries([])
+    assert lib.jobs.wait_idle()
+    assert lib.project_label.text() == strings.LIB_PROJECT_NONE and not lib.list_model.rows()
