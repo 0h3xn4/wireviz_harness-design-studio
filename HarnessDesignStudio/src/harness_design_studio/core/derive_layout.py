@@ -307,6 +307,12 @@ def _interface_row(
     )
 
 
+GROUP_EQUATION = (
+    "harness = the interfaces of one chain whose device connectors are joined by interfaces, when"
+    " the connectors fall on two ends; one plug on each device connector"
+)
+
+
 def segmentation_derivation(project: Project, h: Harness) -> Derivation:
     """Why the interfaces of the harness share it, and why not more or fewer of them do."""
     seg = segmentation.segment(project)
@@ -398,6 +404,13 @@ def segmentation_derivation(project: Project, h: Harness) -> Derivation:
                 "",
             )
         )
+        if group.mode == segmentation.GROUP_MODE:  # the join of per_connector_group (D-243)
+            steps.append(
+                text_step("Join of the group", segmentation.join_text(project, group), "joined", "")
+            )
+    for ring in seg.rings:
+        if h.group_key in ring.group_keys:
+            steps.append(text_step("Not joined into one harness", ring.message, "ring", ""))
     for note in seg.notes:
         if h.name in note or (group is not None and group.label in note):
             steps.append(text_step("Note of the segmentation", note, "note", ""))
@@ -421,7 +434,9 @@ def segmentation_derivation(project: Project, h: Harness) -> Derivation:
         "Why these interfaces share a harness",
         None,
         "",
-        "harness = the interfaces with the same key: the chain, the class, and the pair of connectors, devices or zones the mode names",
+        GROUP_EQUATION
+        if group is not None and group.mode == segmentation.GROUP_MODE
+        else "harness = the interfaces with the same key: the chain, the class, and the pair of connectors, devices or zones the mode names",
         tuple(inputs),
         tuple(steps),
         None,

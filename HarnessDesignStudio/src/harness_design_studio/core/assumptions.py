@@ -226,7 +226,13 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "redundant chains never share one while segregation.forbid_nominal_with_redundant is on. "
             "Per device pair and per zone pair, a pyro line (while forbid_pyro_with_other is on) and "
             "the categories listed in category_pairs_to_separate get a harness of their own; per "
-            "connector pair the connector decides and the tool only notes it when one harness mixes them.",
+            "connector pair the connector decides and the tool only notes it when one harness mixes them. "
+            "Per connector group (per_connector_group, chosen by the project), the groups of "
+            "per_connector_pair that plug into one device connector are joined into one harness "
+            "with one plug on each device connector, branching where an end has more than one "
+            "connector; the two ends come from a walk from the first connector in natural ID "
+            "order. Connectors wired in a ring, different chains and the interfaces of a released "
+            "harness are not joined; a ring is reported (branch_not_built).",
             "setting",
             "config/segmentation.json: mode; config/segregation.json: forbid_nominal_with_redundant, forbid_pyro_with_other, category_pairs_to_separate",
         ),
@@ -310,8 +316,8 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "of another. On a fixed pinout the pins of one port are named by the port and the signal "
             "(RS422_2_TX+ is TX+ of port RS422_2); an interface uses the pins of one complete port, "
             "and pins of two ports are never mixed. Interfaces from one connector to different far "
-            "connectors get a harness each, with two plugs on the connector, until a harness can "
-            "branch.",
+            "connectors get a harness each, with two plugs on the connector, unless the segmentation "
+            "per_connector_group joins them into one harness that branches.",
             "built in",
             "core/edit.py (connector_room, choose_connector); core/ports.py (ports_of); core/generate/pins.py (allocate)",
         ),

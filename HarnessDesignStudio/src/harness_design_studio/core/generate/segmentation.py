@@ -1,13 +1,21 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 """Segmentation: which interfaces share a harness. Rules come from the `segmentation` and
-`segregation` configuration (DECISIONS D-10: default one harness per pair of unit connectors)."""
+`segregation` configuration (DECISIONS D-10: default one harness per pair of unit connectors).
 
-from dataclasses import dataclass, field
+The mode `per_connector_group` (2.3.0, D-243; opt-in) first makes the groups of
+`per_connector_pair` and then joins those that plug into one device connector into one harness that
+branches (`docs/ait/DESIGN_2.3_BRANCHING.md` section 5.1). In the three modes of 2.2 the groups are
+made by the code of 2.2 (`tests/reference/segmentation_220.py`)."""
+
+from collections import deque
+from dataclasses import dataclass, field, replace
 
 from harness_design_studio.core.model import Endpoint, InterfaceInstance, Project
 
-MODES = ("per_connector_pair", "per_unit_pair", "per_zone_pair")
+GROUP_MODE = "per_connector_group"
+MODES = ("per_connector_pair", "per_unit_pair", "per_zone_pair", GROUP_MODE)
+MAX_END_NAMES = 3  # the connectors of one end named in the name of a joined harness
 
 
 @dataclass(frozen=True)
@@ -18,6 +26,29 @@ class Group:
     interface_ids: tuple[str, ...]
     label: str  # human name of the harness, e.g. "OBC to RW1"
     zones: tuple[str, str] | None = None  # only for per_zone_pair
+    # only for per_connector_group: (device connector, "X" or "Y") for each connector of the group,
+    # the end of the harness it is on (not a field of any file)
+    sides: tuple[tuple[str, str], ...] | None = None
+
+    def side_of(self) -> dict[str, str]:
+        return dict(self.sides or ())
+
+
+@dataclass(frozen=True)
+class Ring:
+    """Device connectors of one chain joined by interfaces that cannot be the two ends of one trunk
+    (an odd ring): their `per_connector_pair` groups stay separate harnesses (`branch_not_built`)."""
+
+    chain: str
+    connectors: tuple[str, ...]  # the connectors of the ring that closes it, in natural order
+    group_keys: tuple[str, ...]  # the groups that stay separate
+
+    @property
+    def message(self) -> str:
+        return (
+            f"{words(list(self.connectors))} are wired in a ring, so one harness cannot run them as "
+            "two ends of one trunk. They stay separate harnesses; draw the harness to join them."
+        )
 
 
 @dataclass
@@ -33,6 +64,12 @@ class Segmentation:
     skipped: list[Skipped] = field(default_factory=list)
     mode: str = "per_connector_pair"
     notes: list[str] = field(default_factory=list)
+    rings: list[Ring] = field(default_factory=list)  # per_connector_group only
+
+
+def words(items: list[str]) -> str:
+    """`A`, `A and B`, `A, B and C`."""
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
 
 
 def _esc(name: str) -> str:
@@ -80,6 +117,12 @@ def orient(
         return (a, b) if a.unit_id <= b.unit_id else (b, a)
     za = project.units[a.unit_id].zone or ""
     return (a, b) if za == zones[0] else (b, a)
+
+
+def mode_of(project: Project) -> str:
+    """The segmentation mode in force: the one set, or the default when it is not one of `MODES`."""
+    mode = str(_cfg(project, "segmentation").get("mode", MODES[0]))
+    return mode if mode in MODES else MODES[0]
 
 
 def segment(project: Project) -> Segmentation:
@@ -151,7 +194,7 @@ def segment(project: Project) -> Segmentation:
         cls = _class_of(project, i, seg_cfg, sep_cfg)
         ua, ub = sorted([a.unit_id, b.unit_id])
         za, zb = sorted([project.units[a.unit_id].zone or "", project.units[b.unit_id].zone or ""])
-        if result.mode == "per_connector_pair":
+        if result.mode in ("per_connector_pair", GROUP_MODE):
             ca, cb = sorted([a.connector_id, b.connector_id])
             key, label = f"cp|{chain}|{ca}|{cb}", f"{ca} to {cb}"
         elif result.mode == "per_unit_pair":
@@ -170,10 +213,11 @@ def segment(project: Project) -> Segmentation:
         classes.setdefault(key, {}).setdefault(cls, []).append(i.id)
         labels[key] = label
         chains[key] = chain
+    base_mode = "per_connector_pair" if result.mode == GROUP_MODE else result.mode
     for key in sorted(buckets):
         result.groups.append(
             Group(
-                key, result.mode, chains[key], tuple(buckets[key]), labels[key], zone_pairs.get(key)
+                key, base_mode, chains[key], tuple(buckets[key]), labels[key], zone_pairs.get(key)
             )
         )
         if len(classes[key]) > 1:
@@ -183,4 +227,182 @@ def segment(project: Project) -> Segmentation:
                 "harness because they use the same pair of device connectors; give the separated "
                 "class its own connector, or segment per device pair or per zone pair."
             )
+    if result.mode == GROUP_MODE:
+        result.groups, result.rings = _join(project, result.groups)
     return result
+
+
+# ---- per_connector_group: the join of the groups of per_connector_pair -----------------------
+
+
+def _natural(connector_id: str) -> tuple[object, ...]:
+    from harness_design_studio.core.links import natural_key
+
+    return (natural_key(connector_id), connector_id)
+
+
+def _ends(g: Group) -> tuple[str, str]:
+    """The two device connectors of a `per_connector_pair` group (its key: cp|chain|A|B)."""
+    _cp, _chain, a, b = g.key.split("|")
+    return a, b
+
+
+def _released(project: Project) -> dict[str, tuple[str, str]]:
+    """Interface -> (ID, group key) of the released harness Generate made that carries it, the
+    lowest ID first. Such a harness is never taken over (B6), so its interfaces are not joined."""
+    from harness_design_studio.core.vcs.snapshot import carried_interfaces
+
+    out: dict[str, tuple[str, str]] = {}
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        if h.generated and h.status == "released":
+            for iid in sorted(carried_interfaces(h)):
+                out.setdefault(iid, (h.id, h.group_key or ""))
+    return out
+
+
+def _colour(groups: list[Group]) -> tuple[dict[str, str], tuple[str, ...]]:
+    """Two-colour the connectors of one connected candidate by a walk in breadth from its first
+    connector in natural ID order (end X), neighbours in the same order. Returns the side of each
+    connector and, when two connectors of one side are joined, the ring that closes it."""
+    adj: dict[str, set[str]] = {}
+    for g in groups:
+        a, b = _ends(g)
+        adj.setdefault(a, set()).add(b)
+        adj.setdefault(b, set()).add(a)
+    first = min(adj, key=_natural)
+    side = {first: "X"}
+    parent: dict[str, str] = {}
+    todo = deque([first])
+    while todo:
+        u = todo.popleft()
+        for v in sorted(adj[u], key=_natural):
+            if v not in side:
+                side[v] = "Y" if side[u] == "X" else "X"
+                parent[v] = u
+                todo.append(v)
+            elif side[v] == side[u]:
+                return side, _cycle(parent, u, v)
+    return side, ()
+
+
+def _cycle(parent: dict[str, str], u: str, v: str) -> tuple[str, ...]:
+    """The connectors of the ring that the edge u-v closes in the tree of the walk."""
+
+    def up(x: str) -> list[str]:
+        path = [x]
+        while path[-1] in parent:
+            path.append(parent[path[-1]])
+        return path
+
+    pu, pv = up(u), up(v)
+    common = next(x for x in pu if x in set(pv))
+    ring = pu[: pu.index(common) + 1] + pv[: pv.index(common)]
+    return tuple(sorted(ring, key=_natural))
+
+
+def _components(groups: list[Group]) -> list[list[Group]]:
+    """The connected parts of the graph with a node per device connector and an edge per group, each
+    with its groups in key order; the parts in the natural order of their first connector."""
+    root: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        while root.setdefault(x, x) != x:
+            root[x] = root[root[x]]
+            x = root[x]
+        return x
+
+    for g in groups:
+        a, b = _ends(g)
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            root[max(ra, rb, key=_natural)] = min(ra, rb, key=_natural)
+    parts: dict[str, list[Group]] = {}
+    for g in groups:
+        parts.setdefault(find(_ends(g)[0]), []).append(g)
+    return [parts[k] for k in sorted(parts, key=_natural)]
+
+
+def end_names(connectors: list[str]) -> str:
+    """The connectors of one end of a joined harness for its name: at most three, then *and N more*."""
+    shown = connectors[:MAX_END_NAMES]
+    more = len(connectors) - len(shown)
+    return " + ".join(shown) + (f" and {more} more" if more else "")
+
+
+def _joined(chain: str, part: list[Group], side: dict[str, str], key: str) -> Group:
+    ends = {s: sorted((c for c, k in side.items() if k == s), key=_natural) for s in ("X", "Y")}
+    label = f"{end_names(ends['X'])} to {end_names(ends['Y'])}"
+    if chain == "redundant":
+        label += " (redundant)"
+    return Group(
+        key,
+        GROUP_MODE,
+        chain,
+        tuple(sorted(i for g in part for i in g.interface_ids)),
+        label,
+        None,
+        tuple(sorted(side.items())),
+    )
+
+
+def _join(project: Project, pairs: list[Group]) -> tuple[list[Group], list[Ring]]:
+    """Join the `per_connector_pair` groups that plug into one device connector (section 5.1):
+    per chain, each connected part of the graph of connectors whose connectors fall on two sides is
+    one group `cg|<chain>|<first connector>`; a part of one group stays that group (key `cp|...`);
+    a ring stays as its groups and is reported. A group with an interface that a released harness
+    carries is not joined; the groups of a released joined harness are given its key again, so that
+    Generate leaves it as it is."""
+    released = _released(project)
+    held: dict[str, list[Group]] = {}  # the key of a released joined harness -> its groups
+    out: list[Group] = []
+    rings: list[Ring] = []
+    free: dict[str, list[Group]] = {}
+    for g in pairs:
+        owner = next((released[i] for i in g.interface_ids if i in released), None)
+        if owner is None:
+            free.setdefault(g.chain, []).append(g)
+        elif owner[1].startswith("cg|"):
+            held.setdefault(owner[1], []).append(g)
+        else:
+            out.append(g)
+    taken = {key for _hid, key in released.values()}
+    for key, groups in held.items():
+        side, ring = _colour(groups)
+        joined = _joined(groups[0].chain, groups, side, key)
+        # never built (released), so a ring that its interfaces close today only loses the sides
+        out.append(replace(joined, sides=None) if ring else joined)
+    for chain in sorted(free):
+        for part in _components(free[chain]):
+            if len(part) == 1:
+                out.append(part[0])
+                continue
+            side, ring = _colour(part)
+            if ring:
+                rings.append(Ring(chain, ring, tuple(g.key for g in part)))
+                out.extend(part)
+                continue
+            first = min(side, key=_natural)
+            key = f"cg|{chain}|{first}"
+            if key in taken:  # a released joined harness has this key: never take it over
+                key += "|" + min(i for g in part for i in g.interface_ids)
+            out.append(_joined(chain, part, side, key))
+    return sorted(out, key=lambda g: g.key), rings
+
+
+def join_text(project: Project, group: Group) -> str:
+    """Why the interfaces of a joined group share a harness, for the generation record and
+    `explain`: the connectors they share, the mode and the two ends."""
+    count: dict[str, int] = {}
+    for iid in group.interface_ids:
+        i = project.interfaces.get(iid)
+        for e in i.endpoints if i is not None else []:
+            if e.connector_id is not None:
+                count[e.connector_id] = count.get(e.connector_id, 0) + 1
+    shared = sorted((c for c, n in count.items() if n > 1), key=_natural)
+    side = group.side_of()
+    ends = {s: sorted((c for c, k in side.items() if k == s), key=_natural) for s in ("X", "Y")}
+    return (
+        f"{words(list(group.interface_ids))} share a harness because they plug into "
+        f"{words(shared) if shared else 'connectors joined by interfaces'}; mode {GROUP_MODE}; "
+        f"ends X: {', '.join(ends['X'])}, Y: {', '.join(ends['Y'])}"
+    )

@@ -502,11 +502,14 @@ def test_segmentation_explain_names_the_method_in_force_and_the_key(work: Path, 
     assert api.generate(work).ok
     project = api.load_project(work)
     groups = segmentation.segment(project).groups
-    assert groups and all(g.mode == mode for g in groups)
+    # per_connector_group joins only the groups of per_connector_pair that share a device
+    # connector; flatsat has none, so its groups stay those of per_connector_pair (D-243)
+    made = "per_connector_pair" if mode == segmentation.GROUP_MODE else mode
+    assert groups and all(g.mode == made for g in groups)
     harness = sorted(project.harnesses)[0]
     d = derivation(work, harness, "segmentation")
     shown = next(i for i in d.inputs if i.name == "Segmentation mode")
     assert shown.value == mode and "config/segmentation.json: mode" in shown.source
     # hand check of the key: its prefix says the method (cp, up or zp) and the harness holds a group
-    prefix = {"per_connector_pair": "cp|", "per_unit_pair": "up|", "per_zone_pair": "zp|"}[mode]
+    prefix = {"per_connector_pair": "cp|", "per_unit_pair": "up|", "per_zone_pair": "zp|"}[made]
     assert project.harnesses[harness].group_key.startswith(prefix)
