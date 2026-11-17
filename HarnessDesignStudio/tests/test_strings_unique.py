@@ -22,6 +22,8 @@ STRINGS = ROOT / "src" / "harness_design_studio" / "gui" / "strings.py"
 # that the window also uses by name.)
 ALLOWED_UNREFERENCED: dict[str, str] = {}
 
+WORD = re.compile(r"\w+")
+
 
 def _top_level_names() -> dict[str, list[int]]:
     names: dict[str, list[int]] = collections.defaultdict(list)
@@ -59,15 +61,17 @@ def test_every_string_constant_is_used_somewhere() -> None:
             if path == STRINGS or path == Path(__file__).resolve():
                 continue
             texts.append(path.read_text(encoding="utf-8"))
-    outside = "\n".join(texts)
+    # Every name is a Python identifier, so a search for \bNAME\b finds it exactly when NAME is
+    # one of the words of the text: read the words once (one regex per name over all the source
+    # made this test take minutes on a busy Windows runner, past the 300 s test limit).
+    outside = set(WORD.findall("\n".join(texts)))
     # Uses inside strings.py itself (one constant built from another) count, the definition does not.
-    inside = STRINGS.read_text(encoding="utf-8")
+    inside = collections.Counter(WORD.findall(STRINGS.read_text(encoding="utf-8")))
     dead = []
     for name in names:
         if name in ALLOWED_UNREFERENCED:
             continue
-        word = re.compile(r"\b" + re.escape(name) + r"\b")
-        if not word.search(outside) and len(word.findall(inside)) <= 1:
+        if name not in outside and inside[name] <= 1:
             dead.append(name)
     assert not dead, (
         "constants in gui/strings.py that nothing uses (delete them, or list them in "
