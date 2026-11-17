@@ -52,14 +52,14 @@ It works offline and produces byte-identical files for the same design, so the f
 
 You need Ubuntu 24.04 or newer on a 64-bit PC (see [Requirements](#requirements)); the Windows packages (from version 1.2.0) are described in [`INSTALL.md`](HarnessDesignStudio/docs/INSTALL.md), way D.
 
-**Easiest: the ready-made package.** Download `harness-design-studio_2.0.1_amd64.deb` and `SHA256SUMS` from the [latest release](https://github.com/0h3xn4/wireviz_harness-design-studio/releases/latest), then in the folder with the files:
+**Easiest: the ready-made package.** Download `harness-design-studio_2.1.0_amd64.deb` and `SHA256SUMS` from the [latest release](https://github.com/0h3xn4/wireviz_harness-design-studio/releases/latest), then in the folder with the files:
 
 ```
 sha256sum -c SHA256SUMS --ignore-missing
-sudo apt install ./harness-design-studio_2.0.1_amd64.deb
+sudo apt install ./harness-design-studio_2.1.0_amd64.deb
 ```
 
-That installs the `harness-design-studio` command line tool (`harness` works as a short alias) and the `harness-design-studio-gui` app; check the download before you install it: the checksum (`sha256sum -c SHA256SUMS --ignore-missing`) and, for the releases after 1.17.0, the Sigstore signature (the commands are in [`INSTALL.md`](HarnessDesignStudio/docs/INSTALL.md#check-the-signature); releases up to 1.17.0 are not signed). The release page also has a `.tar.gz` with an `install.sh` that needs no administrator rights. Versions 2.0.0 and 2.0.1 save projects in format 2: a project saved by 1.17.1 or older is upgraded once, and then versions 1.x open it read-only ([Upgrade a project to format 2](HarnessDesignStudio/docs/user-manual/upgrade-a-project.md)).
+That installs the `harness-design-studio` command line tool (`harness` works as a short alias) and the `harness-design-studio-gui` app; check the download before you install it: the checksum (`sha256sum -c SHA256SUMS --ignore-missing`) and, for the releases after 1.17.0, the Sigstore signature (the commands are in [`INSTALL.md`](HarnessDesignStudio/docs/INSTALL.md#check-the-signature); releases up to 1.17.0 are not signed). The release page also has a `.tar.gz` with an `install.sh` that needs no administrator rights. Versions 2.0.0, 2.0.1 and 2.1.0 save projects in format 2: a project saved by 1.17.1 or older is upgraded once, and then versions 1.x open it read-only ([Upgrade a project to format 2](HarnessDesignStudio/docs/user-manual/upgrade-a-project.md)).
 
 **From the source code.** These commands install the command line tool in a private Python environment and make a practice project:
 
