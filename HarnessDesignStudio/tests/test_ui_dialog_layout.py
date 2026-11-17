@@ -357,7 +357,10 @@ def test_the_audit_sees_a_child_that_reaches_out_of_its_parent(qtbot) -> None:
     host = QWidget()
     child = QPushButton("cut off", host)
     host.resize(100, 60)
-    child.setGeometry(60, 10, 100, 30)
+    # at least its own minimum: an earlier test of the worker may have left a larger app font,
+    # and this test is about `outside` alone, not `squeezed`
+    hint = child.minimumSizeHint()
+    child.setGeometry(60, 10, max(100, hint.width()), max(30, hint.height()))
     shown(qtbot, host)
     assert [f.rule for f in audit(host)] == ["outside"]
 
