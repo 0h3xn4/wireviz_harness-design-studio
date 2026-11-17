@@ -183,11 +183,11 @@ def test_the_readme_tour_names_screens_that_exist_and_quotes_real_output(tmp_pat
         strings.AREA_CHECKS,
         strings.AREA_DRAWINGS,
         strings.TAB_WHY,
-        strings.ROLE_DIALOG_TITLE,
+        strings.HOME_ROLE_TITLE,
         strings.A_OPEN,
     ):
         assert label in tour, label
-    assert "View > Role" in strings.ROLE_DIALOG_LATER and "File > Open project" in tour
+    assert "View > Role" in strings.HOME_ROLE_LATER and "File > Open project" in tour
     # the lines the text says you should see are what the commands print
     results = _run_document(
         ROOT / "README.md",

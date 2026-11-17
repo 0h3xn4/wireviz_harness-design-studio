@@ -48,7 +48,7 @@ You need the tool installed ([`docs/INSTALL.md`](docs/INSTALL.md); `sudo apt ins
    harness-design-studio export wheel-link
    ```
 
-5. **Open it in the app** (4 minutes). Start **Harness Design Studio**, choose **File > Open project…** and pick `wheel-link`. The first start asks *Who are you working as?* (the **Role** button or **View > Role** changes it). A Systems engineer lands on the **Next step** page, which names one thing to do (so does an AIT engineer); an Electrical engineer lands on the diagram. Look at **Model** (the diagram), **Checks** (what passed and what is *not checked*, and why) and, as an Electrical engineer, **Drawings** (a harness, and its **Why** tab with the reason for every choice).
+5. **Open it in the app** (4 minutes). Start **Harness Design Studio**, choose **File > Open project…** and pick `wheel-link`. The program starts on **Home** with nothing open; the first time, Home asks *Who are you working as?* on the page itself (the **Role** button or **View > Role** changes it later). A Systems engineer lands on the **Next step** page, which names one thing to do (so does an AIT engineer); an Electrical engineer lands on the diagram. Look at **Model** (the diagram), **Checks** (what passed and what is *not checked*, and why) and, as an Electrical engineer, **Drawings** (a harness, and its **Why** tab with the reason for every choice).
 
 That is the whole idea. The full tutorial with the output of every command is [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) (45 minutes); [`docs/LEARNING_PATH.md`](docs/LEARNING_PATH.md) is the route in nine steps.
 

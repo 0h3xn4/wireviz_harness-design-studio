@@ -4,7 +4,11 @@ name: harness-design-studio real platform
 # workflows: Linux with a virtual X display (xvfb, the `xcb` platform) and Windows (the `windows`
 # platform). They run the layout audit and the sweep over every dialog and window (REQ-GUI-23) at
 # several interface and font sizes, the scripted four-action path with its click budget
-# (REQ-GUI-27) and the mouse tests of connecting two devices. This finds a class of problems
+# (REQ-GUI-27), the mouse tests of connecting two devices, the start on Home with the question of the
+# role (its section fits without gaps) and a dialog that gives back the height a narrow width added
+# (tests/test_ui_dialog_layout.py), and the dialogs that are not modal for the window system but
+# still wait for their answer (REQ-GUI-30, tests/test_ui_dialog_windows.py). xvfb has no window
+# manager, so whether GNOME attaches a window is not seen here. This finds a class of problems
 # (overlap, clipping, a wrong minimum size); it is not a person looking at a real monitor.
 #
 # NOT A REQUIRED CHECK. The jobs have names of their own so that branch protection can name them
@@ -70,7 +74,7 @@ jobs:
           xvfb-run -a -s "-screen 0 3840x2160x24"
           python -m pytest -n auto --dist worksteal -m "not perf" -q -rfE --tb=short -p no:cacheprovider --no-cov --timeout=300
           tests/test_ui_layout_sweep.py tests/test_ui_dialog_layout.py tests/test_ui_four_actions.py
-          tests/test_ui_tactile_connect.py tests/test_real_platform_lane.py
+          tests/test_ui_tactile_connect.py tests/test_ui_dialog_windows.py tests/test_real_platform_lane.py
 
   windows:
     name: real platform / Windows windows
@@ -92,4 +96,4 @@ jobs:
         run: >
           python -m pytest -n auto --dist worksteal -m "not perf" -q -rfE --tb=short -p no:cacheprovider --no-cov --timeout=300
           tests/test_ui_layout_sweep.py tests/test_ui_dialog_layout.py tests/test_ui_four_actions.py
-          tests/test_ui_tactile_connect.py tests/test_real_platform_lane.py
+          tests/test_ui_tactile_connect.py tests/test_ui_dialog_windows.py tests/test_real_platform_lane.py

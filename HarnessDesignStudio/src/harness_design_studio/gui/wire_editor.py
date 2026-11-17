@@ -57,6 +57,7 @@ from harness_design_studio.core.wires import (
 )
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.controller import EditorController
+from harness_design_studio.gui.dialog_base import run_dialog
 from harness_design_studio.gui.harness_edit_dialogs import BulkWireDialog, ChangeGroupDialog
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.theme import ThemeManager
@@ -334,7 +335,7 @@ class WireEditor(QWidget):
         self._touched: set[str] = set()
         self._filling = False
         self._form_on = False
-        self.run_dialog: Callable[[QDialog], int] = lambda dlg: dlg.exec()  # (the window sets it)
+        self.run_dialog: Callable[[QDialog], int] = run_dialog  # (the window sets it)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)

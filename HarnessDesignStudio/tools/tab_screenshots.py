@@ -26,7 +26,7 @@ the project tree). Since milestone M3: `edit-all-wires-window.png` (the window E
 gauge and a colour typed) and `connections-ends.png` (a connection in the Guided mode with the
 connector boxes at its ends). Since milestone M4: `library-window.png` (the library window with a
 subsystem chosen) and `library-save-window.png` (the window Save to library with a name typed).
-Since milestone M5: `role-question.png` (the question of the first start), `role-menu.png` (View >
+Since milestone M5: `role-question.png` (the question of the first start, on Home since 2026-11-17), `role-menu.png` (View >
 Role open) and the pictures that show a role (the three Next step pictures, `systems-engineer.png`,
 `electrical-engineer.png`, `problem-notices-setting.png`).
 The time of the last check, which the status bar shows, is cleared
@@ -70,7 +70,6 @@ from harness_design_studio.gui.harness_edit_dialogs import BulkWireDialog
 from harness_design_studio.gui.library_window import SaveToLibraryDialog
 from harness_design_studio.gui.link_dialog import LinkDialog
 from harness_design_studio.gui.main_window import MainWindow
-from harness_design_studio.gui.role_dialog import RoleDialog
 from tools import ui_screenshots as shots
 
 DEFAULT_OUT = Path(__file__).resolve().parents[1] / "docs" / "img"
@@ -223,12 +222,10 @@ def _role_pictures(out: Path) -> None:
     win.menu_role.close()
     win.close()
     win = _window("harness-role-question", "blank", "electrical", MAIN)
-    dlg = RoleDialog(win, win.theme)
-    dlg.show()
-    dlg.resize(dlg.sizeHint())
+    win.show_landing()  # the start of the program: Home, which asks at the first start
+    win.home_page.show_role_question(True)
     shots._wait(500)
-    _save(dlg, out / "role-question.png")
-    dlg.close()
+    _save(win, out / "role-question.png")
     win.close()
     problem = _generated("harness-notices", "electrical", MAIN)
     _notices_menu(problem, out)

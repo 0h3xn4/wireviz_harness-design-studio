@@ -42,9 +42,9 @@ No role locks anything. A role is only what you see first; everything a role lea
 
 ## Choose and change your role
 
-- **At the first start** (a settings file with nothing stored yet), a small window asks **Who are you working as?** with three big buttons, each with one sentence, and says *You can change this later in View > Role.* It is asked once, before the tour of the first start. Closing the window without choosing means Electrical engineer, which shows everything.
+- **At the first start** (a settings file with nothing stored yet), the program starts on **Home** with nothing open, and Home asks **Who are you working as?** on the page itself: a short heading, the three roles as big buttons, each with one sentence, and the line *You can change this later in View > Role.* Press one: the choice is stored, the question goes away and Home stays, still with nothing open. Until you answer, the window is an Electrical engineer, which shows everything; choosing a role with the **Role** button or in **View > Role** answers the question too. (Until 2026-11-17 the question was a window of its own.)
 
-![The first-start window Who are you working as?: two buttons, Systems engineer (I think in devices, the connections between them, subsystems and the library) and Electrical engineer (I work with connectors, pinouts, harnesses, wires, build sheets and tests), and the line You can change this later in View > Role](../img/role-question.png)
+![Home at the first start: the line Nothing is open, the section Who are you working as? with three big buttons, Systems engineer (I think in devices, the connections between them, subsystems and the library), Electrical engineer (I work with connectors, pinouts, harnesses, wires, the engineering values and the models) and AIT engineer (I build and test the harnesses: build data, build sheets, as-built records and the workflow), the line You can change this later in View > Role, and below it the buttons to start, the recent projects and the examples](../img/role-question.png)
 
 - **Always in view:** the top bar has a **Role** button that says who the window is set up for (for example *Role: Systems engineer*). One click lists the three roles; pick one and the window changes at once. It is in the bar in every role and it is the same choice as **View > Role** (since 1.14).
 - **Later**, choose **View > Role > Systems engineer**, **Electrical engineer** or **AIT engineer**, or the row **Role** at the top of the Editing section of the **Settings** page. The menu and the Settings row follow each other, and the command palette (Ctrl+K) finds both entries. The three entries exclude each other.
@@ -122,7 +122,7 @@ While it is on, the window shows less:
 - **The rail** lists the **Model**, **Home** and **Settings**. Next step, Checks, Drawings, Outputs, Revisions and As-built are left out (the area that is open stays listed until you leave it).
 - **The top bar** keeps the project name, the save marker, Undo and Redo, the Role button, a **Quick** marker (click it to leave Quick mode), the search and one button, **Export diagram**. Generate, Check, Release, Export, the model hash, the revision and the status chip are left out.
 - **Problem notices** are off whatever you chose in *Show problem notices* (your own choice comes back when you leave Quick mode): no Problems count, no badges on the diagram, no *out of date* banner. The banners that say why something cannot be done (read-only, released data) stay.
-- **No tour** and no first-start question about the role. A project opens on the diagram, whatever the role.
+- **No first-start question** about the role. A project opens on the diagram, whatever the role.
 - The banner of the sample project stays and is shorter.
 
 Nothing is locked and nothing is deleted. Every hidden area and command is still in the menus (**Go**, **View**, **File**, **Design**) and in the command palette (Ctrl+K), and the keys (Ctrl+G, F5, Ctrl+E) work. Quick mode changes only what the window shows and what it asks; it never changes a project file, the model hash or a written file. Turn it off and the layout of your role is back exactly as it was.

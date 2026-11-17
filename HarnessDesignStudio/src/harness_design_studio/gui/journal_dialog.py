@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The History window (S4, D-191): the change journal of the open project, read-only.
 
-    JournalDialog(parent, theme, project, start_journal=...).exec()
+    run_dialog(JournalDialog(parent, theme, project, start_journal=...))   # (dialog_base)
 
 One row for each entry of the journal (`journal.jsonl`): number, time (UTC), author, what kind of change, the
 object and field, the value before and after, and the reason where the model holds one. The filter

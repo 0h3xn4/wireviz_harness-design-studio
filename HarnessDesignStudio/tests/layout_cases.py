@@ -110,7 +110,6 @@ def _cases() -> list[Case]:
         library_window,
         link_dialog,
         new_project_dialog,
-        role_dialog,
     )
     from harness_design_studio.gui.main_window import MainWindow  # noqa: F401
 
@@ -323,7 +322,6 @@ def _cases() -> list[Case]:
         lambda c: new_project_dialog.NewProjectDialog(c.theme, None, start_folder=c.tmp),
         "NewProjectDialog",
     )
-    add("Who are you working as", lambda c: role_dialog.RoleDialog(None, c.theme), "RoleDialog")
     add("Import wizard: file", lambda c: _wizard(c, "interfaces"), "ImportWizard", "FilePage")
     add("Import wizard: pinout", lambda c: _wizard(c, "pinout"), "ImportWizard", "FilePage")
     add("Import wizard: parts", lambda c: _wizard(c, "parts"), "ImportWizard", "FilePage")
@@ -562,7 +560,6 @@ def make_window(ctx: Ctx, role: str = "electrical", quick: bool = False):  # typ
     settings.setValue("ui/quick", quick)
     settings.setValue("ui/scale", round(ctx.theme.scale * 100))  # (the window applies its own)
     settings.setValue("ui/theme", ctx.theme.name)
-    settings.setValue("tour/done", True)
     settings.sync()
     win = MainWindow(settings, ctx.theme, first_run=False)
     win.ask_choice = lambda title, text, buttons: 1  # type: ignore[method-assign]
@@ -603,6 +600,12 @@ def window_views(win) -> list[tuple[str, Callable[[], None]]]:  # type: ignore[n
     # Home as the landing page of the program's start (D-223): no panels or bars around it, the
     # recent list with Clear list (last: the next view's area ends the landing page)
     view("landing", win.show_landing)
+
+    def first_start() -> None:  # the question of the first start, on Home (2026-11-17)
+        win.show_landing()
+        win.home_page.show_role_question(True)
+
+    view("landing/role-question", first_start)
     return views
 
 

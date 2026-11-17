@@ -10,7 +10,7 @@ The automated audit (`tests/test_accessibility.py`) checks names on controls, te
 ## What to try (one row per item on the result sheet)
 | # | Item | Pass when |
 | --- | --- | --- |
-| 1 | Start the editor | The window title and the first focus are announced; the tour or the empty state is readable |
+| 1 | Start the editor | The window title and the first focus are announced; Home (the start page) is readable |
 | 2 | Move between the areas of the navigation rail (Next step, Home, Model, Checks, Drawings, Outputs, Revisions, Settings; the Systems engineer role leaves Home out; Ctrl+7 opens Home and Ctrl+, Settings), the main tabs (Diagram, Harness, Lists, Checks, Releases, Devices; Ctrl+1 to Ctrl+6), the left panel (Project, Units, Interfaces), the right panel (Inspector, Why, Problems) and the Problems panel at the bottom (Ctrl+Shift+M); F6 moves between the panels | Each area and tab name is announced; focus order is logical |
 | 3 | Interfaces and Units tables (Ctrl+Shift+T, Ctrl+Shift+J) | Rows and column headers are announced; a row can be selected and a cell edited from the keyboard (Enter edits, Esc cancels) |
 | 4 | Project tree | Units, interfaces and harnesses can be walked item by item; the selection is announced |

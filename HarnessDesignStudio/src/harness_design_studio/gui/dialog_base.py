@@ -16,10 +16,25 @@ is shorter. `Dialog` calls it, so every dialog that derives from it grows with i
         def __init__(self, parent):
             super().__init__(parent)
             ...
+
+It also runs them (`run_dialog`) as windows that move on their own. A dialog that Qt makes modal
+(`exec()`) is marked modal for the window system, and GNOME (Mutter, `attach-modal-dialogs`)
+then glues it to its parent: it cannot be moved apart from the main window (the owner's feedback
+of 2026-11-17). `run_dialog` shows the dialog as a normal window that stays in front of its
+parent instead, and waits for its answer as `exec()` did. While it waits, `InputGuard` keeps
+the clicks, keys and the close button away from the windows that were open before it (the main
+window, the library window, a dialog that opened this one), so the step that needs the answer
+still gets it first, exactly as with a modal dialog; a click on such a window brings the dialog
+to the front. A dialog that only shows something (`blocks = False`: the glossary, the
+assumptions, a change log) does not wait at all: the main window stays usable beside it.
+
+    if run_dialog(dlg) == QDialog.DialogCode.Accepted:   # waits; the window moves freely
+        ...
 """
 
-from PySide6.QtCore import QEvent, QSize
-from PySide6.QtWidgets import QDialog, QScrollArea, QWidget, QWizard
+from PySide6.QtCore import QEvent, QEventLoop, QObject, QSize, Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QDialog, QScrollArea, QWidget, QWizard
 
 _REFIT = (
     QEvent.Type.Resize,
@@ -53,11 +68,21 @@ def needed_height(window: QWidget) -> int:
     return _page_height_needed(window)
 
 
+_SLACK = 2  # px a window system may round a height by (a scaled display) and still be "ours"
+
+
 def fit_height_for_width(window: QWidget) -> None:
     """Make the window at least as high as its layout needs at its width (and keep it so when the
     width changes), and at least as wide as the layout's minimum. Setting a minimum also grows a
     window that is smaller. A minimum that the dialog set itself (`setMinimumSize`) stays as the
-    floor, which also means that a size set in the code never hides what the layout needs."""
+    floor, which also means that a size set in the code never hides what the layout needs.
+
+    It fits both ways: the height it added (a narrow window wraps its text into more lines) is
+    given back when the width grows again, down to the height the window had before it was grown
+    and never below what the layout needs or the author's floor. A height that somebody else set
+    after the growth (the person dragging the edge, the code) is left alone. Without this, a window
+    that was narrow for a moment while it was being placed stayed tall, with gaps between its
+    parts (the first-start window on a real display, 2026-11-17)."""
     if window.isMaximized() or window.isFullScreen():
         return
     need = needed_height(window)
@@ -76,10 +101,24 @@ def fit_height_for_width(window: QWidget) -> None:
         window._author_min = floors  # type: ignore[attr-defined]
     need = max(need, floors[1])
     wide = max(wide, floors[0])
+    grown: tuple[int, int] | None = getattr(window, "_fit_grown", None)  # (before, after)
+    if grown is not None and abs(window.height() - grown[1]) > _SLACK:
+        grown = None  # somebody else set the height since: theirs stands
+    before = window.height()
+    # (a window that is not shown yet has no height of its own: what it gives back goes to the need)
+    start = before if window.isVisible() else need
     if window.minimumHeight() != need or (wide and window.minimumWidth() != wide):
-        window.setMinimumSize(wide or window.minimumWidth(), need)
+        window.setMinimumSize(wide or window.minimumWidth(), need)  # (this grows a smaller window)
     if window.height() < need or (wide and window.width() < wide):
         window.resize(max(window.width(), wide), max(window.height(), need))
+    height = window.height()
+    if height > before + _SLACK:  # grown here: remember from what, to give it back later
+        grown = (grown[0] if grown is not None else start, height)
+    elif grown is not None and height > max(need, grown[0]) + _SLACK:
+        target = max(need, grown[0])  # the width grew: give back the height that was added
+        window.resize(window.width(), target)
+        grown = (grown[0], window.height()) if window.height() > grown[0] + _SLACK else None
+    window._fit_grown = grown  # type: ignore[attr-defined]
 
 
 def refit_on(window: QWidget, e: QEvent) -> None:
@@ -94,7 +133,10 @@ def refit_on(window: QWidget, e: QEvent) -> None:
 
 
 class Dialog(QDialog):
-    """A dialog that grows with its content (see the module text)."""
+    """A dialog that grows with its content (see the module text). `blocks` False: a dialog that
+    only shows something; `run_dialog` shows it beside the main window and does not wait."""
+
+    blocks = True
 
     def event(self, e: QEvent) -> bool:
         handled = super().event(e)
@@ -130,3 +172,124 @@ class HeightScrollArea(QScrollArea):
             return base
         bar = self.verticalScrollBar().sizeHint().width() if self.verticalScrollBar() else 0
         return QSize(max(base.width(), inner.minimumSizeHint().width() + bar), base.height())
+
+
+# ---- running a dialog as a window that moves on its own ---------------------------------------------
+
+_GUARDED = frozenset(
+    {
+        QEvent.Type.MouseButtonPress,
+        QEvent.Type.MouseButtonRelease,
+        QEvent.Type.MouseButtonDblClick,
+        QEvent.Type.MouseMove,
+        QEvent.Type.Wheel,
+        QEvent.Type.KeyPress,
+        QEvent.Type.KeyRelease,
+        QEvent.Type.ShortcutOverride,
+        QEvent.Type.Shortcut,
+        QEvent.Type.ContextMenu,
+        QEvent.Type.DragEnter,
+        QEvent.Type.DragMove,
+        QEvent.Type.Drop,
+        QEvent.Type.TabletPress,
+        QEvent.Type.TouchBegin,
+        QEvent.Type.ToolTip,
+        QEvent.Type.Close,
+    }
+)
+
+
+def _window_of(obj: QObject) -> QWidget | None:
+    if isinstance(obj, QWidget):
+        return obj.window()
+    if isinstance(obj, QAction):  # (a shortcut is delivered to its action)
+        parent = obj.parent()
+        return parent.window() if isinstance(parent, QWidget) else None
+    return None
+
+
+class InputGuard(QObject):
+    """What makes a dialog that is not modal wait like one: while it is installed, the windows that
+    were open when it was made (all but `dialog`) get no clicks, keys, shortcuts, wheel or drop,
+    and the window system's close button does nothing on them. A press on one of them brings the
+    dialog to the front. Windows that open later (the dialog's own lists and menus, a question it
+    asks) are not touched. Install it on the application; `run_dialog` does."""
+
+    def __init__(self, dialog: QWidget) -> None:
+        super().__init__()
+        self.dialog = dialog
+        self.blocked = [
+            w for w in QApplication.topLevelWidgets() if w.isVisible() and w is not dialog
+        ]
+
+    def guards(self, window: QWidget | None) -> bool:
+        return window is not None and any(window is w for w in self.blocked)
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        kind = event.type()
+        if kind not in _GUARDED:
+            return False
+        window = _window_of(obj)
+        if not self.guards(window):
+            return False
+        if kind == QEvent.Type.Close:
+            if obj is not window or not event.spontaneous():
+                return False  # (the program closing something itself goes on)
+            event.ignore()  # the window system's close button: the answer comes first
+            return True
+        if kind == QEvent.Type.ShortcutOverride:
+            event.accept()  # (an accepted override is what keeps the shortcut from firing)
+            return True
+        if kind == QEvent.Type.MouseButtonPress and self.dialog.isVisible():
+            self.dialog.raise_()
+            self.dialog.activateWindow()
+        return True
+
+
+def show_beside(dialog: QDialog) -> None:
+    """Show a dialog that only shows something as a window of its own, in front of its parent and
+    not modal, and return at once (the main window stays usable)."""
+    dialog.setWindowModality(Qt.WindowModality.NonModal)
+    dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
+
+
+def run_dialog(dialog: QDialog) -> int:
+    """Run a dialog of the program and return its result, as `exec()` does, without making it
+    modal for the window system (see the module text): it stays in front of its parent and moves
+    on its own. A dialog with `blocks` False is only shown (`show_beside`) and 0 is returned."""
+    if not getattr(dialog, "blocks", True):
+        show_beside(dialog)
+        return 0
+    app = QApplication.instance()
+    dialog.setWindowModality(Qt.WindowModality.NonModal)
+    guard = InputGuard(dialog)
+    loop = QEventLoop()
+    ended: list[bool] = []
+
+    def end(*_args: object) -> None:
+        ended.append(True)
+        loop.quit()
+
+    dialog.finished.connect(end)
+    dialog.destroyed.connect(end)
+    if app is not None:
+        app.installEventFilter(guard)
+    try:
+        dialog.setResult(0)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        if not ended and dialog.isVisible():
+            loop.exec()
+    finally:
+        if app is not None:
+            app.removeEventFilter(guard)
+    try:
+        dialog.finished.disconnect(end)
+        dialog.destroyed.disconnect(end)
+        return int(dialog.result())
+    except RuntimeError:  # (the dialog was deleted while it ran)
+        return 0
