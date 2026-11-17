@@ -55,7 +55,7 @@ from .pins import (
     earlier_strategy,
 )
 from .pins import strategy as pin_strategy
-from .segmentation import Group, orient, segment
+from .segmentation import GROUP_MODE, Group, join_text, mode_of, orient, segment
 from .sizing import size_wire
 from .wiring import links_of
 
@@ -253,6 +253,8 @@ def plan_generation(
     )  # fmt: skip
     for note in seg.notes:
         ctx.finding("warning", "segmentation", note)
+    for ring in seg.rings:
+        ctx.finding("warning", "branch_not_built", ring.message, ring.connectors[0])
     for s in seg.skipped:
         ctx.finding(
             s.severity,
@@ -265,6 +267,8 @@ def plan_generation(
     frozen = {h.id for h in old_by_key.values() if h.status == "released"}
     frozen_ifaces = _frozen_ifaces(project, old_by_key, frozen)
     old_for = _match_renamed(old_by_key, frozen, seg.groups)
+    absorbed = _take_over(old_by_key, frozen, seg.groups, old_for)
+    merged_into = {d.id: old_for[key].id for key, drafts in absorbed.items() for d in drafts}
     tick(0.02, "Segmenting")
 
     frozen_owned = {
@@ -292,7 +296,7 @@ def plan_generation(
     new_harnesses: dict[str, Harness] = {}
     for n, group in enumerate(live):
         tick(0.2 + 0.7 * n / max(1, len(live)), f"Building {group.label}")
-        h = _build_harness(ctx, group, old_for.get(group.key))
+        h = _build_harness(ctx, group, old_for.get(group.key), absorbed.get(group.key, []))
         if h is not None:
             new_harnesses[h.id] = h
 
@@ -328,7 +332,7 @@ def plan_generation(
             report.removed.append(old.id)
             ops.append(Delete("harnesses", old.id))
         if old.id not in frozen:
-            _warn_lost_data(ctx, old, new_harnesses.get(old.id))
+            _warn_lost_data(ctx, old, new_harnesses.get(merged_into.get(old.id, old.id)))
     for hid in sorted(new_harnesses):
         h = new_harnesses[hid]
         existing = project.harnesses.get(hid)
@@ -391,7 +395,7 @@ def _warn_shared_connectors(ctx: _Ctx, new_harnesses: dict[str, Harness], frozen
             "box_connector_shared",
             f"{box_id} has more than one cable plug on it: {names}. A connector takes one plug"
             + (
-                ". " + one_plug_advice(len(found))
+                ". " + one_plug_advice(mode_of(ctx.project))
                 if made
                 else "; two harnesses cannot both plug into it. Give the interfaces that share it "
                 "one harness, or use different connectors."  # (the text of 2.1.0)
@@ -651,8 +655,15 @@ def _warn_equal_labels(ctx: _Ctx, harnesses: dict[str, Harness]) -> None:
             )
 
 
-def _build_harness(ctx: _Ctx, group: Group, old: Harness | None) -> Harness | None:
+def _build_harness(
+    ctx: _Ctx, group: Group, old: Harness | None, taken: list[Harness] | None = None
+) -> Harness | None:
+    """The harness of a group. `old` is the harness it was before (its ID and what a person set are
+    kept); `taken` are the other drafts a joined group takes over (`per_connector_group`): their
+    locked wires, labels, notes and strip lengths, and the cable connectors a person edited, carry
+    over under the numbering of `old`."""
     p = ctx.project
+    taken = taken or []
     ifaces = [
         i for iid in group.interface_ids if iid not in ctx.failed for i in [p.interfaces[iid]]
     ]
@@ -665,14 +676,25 @@ def _build_harness(ctx: _Ctx, group: Group, old: Harness | None) -> Harness | No
     hid = old.id if old else _new_harness_id(ctx)
     ends: dict[str, list[str]] = {"X": [], "Y": []}
     oriented: dict[str, tuple[str, str]] = {}
+    end_of = group.side_of()
     for i in ifaces:
-        x, y = orient(p, i, group.mode, zones)
+        if end_of:  # per_connector_group: the end of each connector comes from the group
+            e0, e1 = i.endpoints[0], i.endpoints[1]
+            x, y = (e0, e1) if end_of.get(e0.connector_id or "") == "X" else (e1, e0)
+        else:
+            x, y = orient(p, i, group.mode, zones)
         oriented[i.id] = (x.connector_id or "", y.connector_id or "")
         ends["X"].append(x.connector_id or "")
         ends["Y"].append(y.connector_id or "")
     ends = {k: sorted(set(v)) for k, v in ends.items()}
     old_cables = {c.mates_with: c for c in (old.connectors if old else []) if c.mates_with}
     used_cables = {c.id for c in old_cables.values()}
+    # the cable ends of the drafts taken over, by device connector
+    taken_cables: dict[str, Connector] = {}
+    for d in taken:
+        for c in d.connectors:
+            if c.mates_with and c.mates_with not in old_cables:
+                taken_cables.setdefault(c.mates_with, c)
     cables: dict[str, Connector] = {}
     n = 1
     for side in ("X", "Y"):
@@ -713,6 +735,9 @@ def _build_harness(ctx: _Ctx, group: Group, old: Harness | None) -> Harness | No
                 ),
             )
             kept_edit = old_cables.get(box_id)
+            if box_id in taken_cables:  # under the numbering of the harness that is kept
+                kept_edit = taken_cables[box_id]
+                cables[box_id] = evolve(cables[box_id], label=kept_edit.label)
             if kept_edit is not None and kept_edit.locked:
                 cables[box_id] = _keep_edited_connector(cables[box_id], kept_edit)
                 ctx.note(
@@ -751,6 +776,11 @@ def _build_harness(ctx: _Ctx, group: Group, old: Harness | None) -> Harness | No
     # ---- wires
     old_wires = _wire_keys(old)
     used_wires = {w.id for w in old_wires.values()}
+    taken_wires: dict[str, Wire] = {}  # the wires of the drafts taken over, by what they carry
+    for d in taken:
+        for key, w in _wire_keys(d).items():
+            if key not in old_wires:
+                taken_wires.setdefault(key, w)
     used_wires |= {w.id for w in (old.wires if old else []) if w.manual}
     wire_n = 1
     wires: list[Wire] = []
@@ -789,6 +819,12 @@ def _build_harness(ctx: _Ctx, group: Group, old: Harness | None) -> Harness | No
             prev_w = old_wires.get(key)
             if prev_w is not None:
                 wid = prev_w.id
+            elif key in taken_wires:  # a wire of a draft taken over gets an ID of this harness
+                wire_n, wid = _first_free(
+                    ctx, "wire", wire_n, lambda k: ctx.namer.wire(hid, k), used_wires, ctx.used_ids
+                )
+                used_wires.add(wid)
+                prev_w = evolve(taken_wires[key], id=wid)
             else:
                 wire_n, wid = _first_free(
                     ctx, "wire", wire_n, lambda k: ctx.namer.wire(hid, k), used_wires, ctx.used_ids
@@ -886,10 +922,13 @@ def _build_harness(ctx: _Ctx, group: Group, old: Harness | None) -> Harness | No
         (a for a in (old.accessories if old else []) if a.target is None or a.target in carried),
         key=lambda a: a.id,
     )
-    ctx.note(
-        f"harness:{hid}",
-        f"segmentation: {', '.join(interfaces)} share a harness because they have the same {_describe(group)} and chain ({group.chain or 'nominal or redundant'})",
-    )
+    if group.mode == GROUP_MODE:
+        ctx.note(f"harness:{hid}", f"segmentation: {join_text(p, group)}")
+    else:
+        ctx.note(
+            f"harness:{hid}",
+            f"segmentation: {', '.join(interfaces)} share a harness because they have the same {_describe(group)} and chain ({group.chain or 'nominal or redundant'})",
+        )
     built = Harness(
         id=hid, name=group.label, revision=old.revision if old else "A", status=old.status if old else "draft",
         connectors=sorted(cables.values(), key=lambda c: c.id), wires=sorted(wires, key=lambda x: x.id),
@@ -967,7 +1006,7 @@ def _match_renamed(
         key=lambda h: h.id,
     )
     for g in groups:
-        if g.key in old_by_key:
+        if g.key in old_by_key or g.mode == GROUP_MODE:  # a joined group: `_take_over`
             continue
         want = sorted(g.interface_ids)
         for h in spare:
@@ -978,9 +1017,53 @@ def _match_renamed(
     return matched
 
 
+def _take_over(
+    old_by_key: dict[str, Harness],
+    frozen: set[str],
+    groups: list[Group],
+    matched: dict[str, Harness],
+) -> dict[str, list[Harness]]:
+    """The drafts a joined group (`per_connector_group`) takes over: every unreleased draft that no
+    group of today has by its key and whose interfaces all belong to the group. When no harness has
+    the group's key yet, the one with the lowest ID becomes the group's harness (added to `matched`,
+    so its ID and what a person set on it are kept); the others are returned by group key, to carry
+    over what can be carried and to be removed (D-243, B6). A released harness is never taken."""
+    keys = {g.key for g in groups}
+    used = {h.id for k, h in matched.items() if k in keys}
+    spare = sorted(
+        (
+            h
+            for h in old_by_key.values()
+            if h.group_key not in keys and h.id not in frozen and h.id not in used and h.interfaces
+        ),
+        key=lambda h: h.id,
+    )
+    out: dict[str, list[Harness]] = {}
+    for g in groups:
+        if g.mode != GROUP_MODE:
+            continue
+        if g.key in matched and matched[g.key].id in frozen:
+            continue
+        mine = set(g.interface_ids)
+        found = [h for h in spare if set(h.interfaces) <= mine]
+        if not found:
+            continue
+        spare = [h for h in spare if h not in found]
+        if g.key not in matched:
+            matched[g.key] = found.pop(0)
+        if found:
+            out[g.key] = found
+    return out
+
+
 def _warn_lost_data(ctx: _Ctx, old: Harness, new: Harness | None) -> None:
     """Locked wires, wire labels, notes and strip lengths, accessories and entered segment lengths of
-    `old` that `new` does not carry over."""
+    `old` that `new` does not carry over. A `new` of another ID is the harness of a joined group
+    that took `old` over: it carries its wires by what they carry and its edited cable connectors by
+    the device connector, and nothing else of it."""
+    if new is not None and new.id != old.id:
+        _warn_lost_taken(ctx, old, new)
+        return
     kept_wires = _wire_keys(new)
     kept_manual = {w.id for w in new.wires if w.manual} if new else set()
     kept_segments = {(s.from_node, s.to_node) for s in new.segments} if new else set()
@@ -1028,11 +1111,58 @@ def _warn_lost_data(ctx: _Ctx, old: Harness, new: Harness | None) -> None:
         )
 
 
+def _warn_lost_taken(ctx: _Ctx, old: Harness, new: Harness) -> None:
+    """What of a draft taken over by the harness `new` of a joined group cannot be carried over."""
+    kept_wires = _wire_keys(new)
+    lost = [
+        f"the {'locked wire' if w.locked else 'wire with a label or note' if w.label or w.note else 'wire with a strip length'} {w.id} "
+        f"({w.interface_id} {w.signal})"
+        for key, w in _wire_keys(old).items()
+        if (w.locked or w.label or w.note or _has_strip(w)) and key not in kept_wires
+    ]
+    lost += [
+        f"the accessory {a.id} ({a.kind.replace('_', ' ')} on {a.target or 'the harness'})"
+        for a in old.accessories
+    ]
+    lost += [
+        f"the wire {w.id} that you drew ({w.from_connector}.{w.from_pin} to {w.to_connector}.{w.to_pin})"
+        for w in old.wires
+        if w.manual
+    ]
+    kept_boxes = {c.mates_with for c in new.connectors if c.locked}
+    lost += [
+        f"the edited connector {c.id} (part {c.part_id})"
+        for c in old.connectors
+        if c.locked and c.mates_with not in kept_boxes
+    ]
+    lost += [
+        f"the {s.kind.replace('_', ' ')} {s.id} that you made" for s in old.shields if s.manual
+    ]
+    lost += [
+        f"the entered length of segment {s.id} ({s.length_m:g} m)"
+        for s in old.segments
+        if s.length_m is not None
+    ]
+    if old.notes:
+        lost.append(f"the notes of {old.id}")
+    if old.label:
+        lost.append(f"the label {old.label} of {old.id}")
+    if lost:
+        lost.sort()
+        ctx.finding(
+            "warning",
+            "locked_data_lost",
+            f"{old.id}: {', '.join(lost)} cannot be carried over to {new.id} and will be lost.",
+            old.id,
+        )
+
+
 def _describe(group: Group) -> str:
     return {
         "per_connector_pair": "pair of unit connectors",
         "per_unit_pair": "pair of units",
         "per_zone_pair": "pair of zones",
+        GROUP_MODE: "group of device connectors joined by interfaces",
     }[group.mode]
 
 

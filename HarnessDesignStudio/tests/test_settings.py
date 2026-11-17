@@ -85,6 +85,10 @@ _TICK = "a progress fraction of the progress bar: no result depends on it"
 _SHOWN = "how many names a message shows: no result depends on it"
 _GEOMETRY = "geometry of the drawn router: no engineering value depends on it"
 EXEMPT: dict[tuple[str, float], str] = {
+    (
+        "core/generate/segmentation.py",
+        3,
+    ): "how many connectors of an end the name of a joined harness shows: no result depends on it",
     ("core/derive.py", 1e-06): "unit conversion mm2 to m2",
     ("core/derive.py", 1e-09): "definition D-LIMIT-TOLERANCE (the tolerance of a float comparison)",
     ("core/derive.py", 6): _SHOWN,

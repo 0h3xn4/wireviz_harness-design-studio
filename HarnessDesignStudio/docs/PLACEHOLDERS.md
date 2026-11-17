@@ -8,7 +8,7 @@ The tool never invents numbers from standards. These shipped values are placehol
 | `emc.json` | EMC classes and their rules (`null`) | EMC engineer | the EMC separation checks |
 | `generation.json` | conductor resistivity, service loop, mass margin, pin gaps, shield ends, test limits (all `null`); the wire parts are example parts | EE | wire sizing, lengths, mass, shield checks and the test tables |
 | `segregation.json` | which category pairs must be separated (`null`); the nominal/redundant and pyro rules are on by default | EE | the separation checks |
-| `segmentation.json` | confirm the harness boundary rule (default `per_connector_pair`: one harness for each pair of device connectors; `per_unit_pair` and `per_zone_pair` group more interfaces into one harness) | Owner (DECISIONS D-10) | how interfaces are grouped into harnesses |
+| `segmentation.json` | confirm the harness boundary rule (default `per_connector_pair`: one harness for each pair of device connectors; `per_unit_pair`, `per_zone_pair` and `per_connector_group` group more interfaces into one harness) | Owner (DECISIONS D-10) | how interfaces are grouped into harnesses |
 | `titleblock.json` | company title block layout | Owner (D-15) | the title block of the drawings |
 
 `naming.json` is not in the table: it ships with `"placeholder": false`, because the name patterns are a style choice and not an engineering value. That is why `harness-design-studio validate` lists six placeholder files, not seven.

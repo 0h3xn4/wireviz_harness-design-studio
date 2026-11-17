@@ -331,10 +331,11 @@ def test_generate_reports_a_second_plug_on_one_connector_and_builds_the_same():
 
 def test_the_advice_on_a_second_plug_says_what_can_be_done_today():
     """Regression (end-to-end test of 2.1.0): the advice named a harness with a branch, which
-    Generate does not make before 2.3.0. It now names `per_zone_pair` with the far devices in one
-    zone, or accepting the second plug until then; following it removes the warning."""
+    Generate did not make before 2.3.0. It names `per_zone_pair` with the far devices in one zone,
+    and since 2.3.0 (D-243) the mode `per_connector_group`, which makes one harness that branches;
+    following it removes the warning."""
     today = "put the far devices in one zone and set segmentation.mode to per_zone_pair"
-    later = "Or accept the second plug until a harness can branch (planned for 2.3.0)."
+    later = "or set segmentation.mode to per_connector_group for one harness that branches."
     p = shared_project()
     plan = plan_generation(p)
     (found,) = [f for f in plan.report.findings if f.code == "box_connector_shared"]
@@ -350,13 +351,17 @@ def test_the_advice_on_a_second_plug_says_what_can_be_done_today():
     plan = plan_generation(p)
     assert len(plan.harnesses) == 1
     assert not [f for f in plan.report.findings if f.code == "box_connector_shared"]
+    # and so does per_connector_group, with the devices in their zones (2.3.0)
+    plan = plan_generation(shared_project("per_connector_group"))
+    assert len(plan.harnesses) == 1
+    assert not [f for f in plan.report.findings if f.code == "box_connector_shared"]
 
 
 def test_the_advice_on_plugs_of_harnesses_drawn_by_hand_stays_as_it_was():
     """The segmentation does not join harnesses drawn by hand, and such a harness can branch
     today, so their advice stays the one of 2.1.0 (the finding ID, and so a waiver, and the written
     DRC outputs of projects with such harnesses do not change). Three plugs that Generate makes say
-    *the extra plugs*."""
+    *per_connector_group* (2.3.0)."""
     p = pinout_project()
     hand_harness(p, "OBC-J01", "RW1-J02", ("1", "3"), name="one")
     hand_harness(p, "OBC-J01", "PCDU-J03", ("2", "1"), name="two")
@@ -368,8 +373,8 @@ def test_the_advice_on_plugs_of_harnesses_drawn_by_hand_stays_as_it_was():
     assert [as_181_text(i) for i in check_integrity(p)] == [
         as_181_text(i) for i in old_integrity.check_integrity(p)
     ]
-    assert one_plug_advice(3).endswith(
-        "Or accept the extra plugs until a harness can branch (planned for 2.3.0)."
+    assert one_plug_advice("per_connector_pair").endswith(
+        "or set segmentation.mode to per_connector_group for one harness that branches."
     )
 
 
