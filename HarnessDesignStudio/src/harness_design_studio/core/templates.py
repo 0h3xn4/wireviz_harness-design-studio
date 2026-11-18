@@ -8,7 +8,9 @@ copies the CSV, netlist and script templates.
 Both only read the bundled files and write where the caller says; nothing is overwritten.
 """
 
+import csv
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -123,3 +125,21 @@ def copy_import_templates(dest: Path) -> list[Path]:
         raise TemplateError("The bundled templates are missing from this installation.")
     shutil.copytree(source, dest, dirs_exist_ok=True)
     return sorted(p for p in dest.rglob("*") if p.is_file())
+
+
+EXAMPLE_COLOUR_CODE = "pigtail-colour-code-EXAMPLE.csv"
+EXAMPLE_CODE_NAME = "example"
+
+
+def example_colour_code(parts: Sequence[str]) -> dict[str, object]:
+    """The colour code of the users' template (`templates/pigtail-colour-code-EXAMPLE.csv`, design
+    of 3.0.0 section 6 and appendix A) as an entry of `colour_codes` in `config/harness_plan.json`,
+    for the connector `parts` a person names: marked `"example": true` (Q26). It is an example, not
+    a standard and not a supplier's table, and it is applied only when a person takes it."""
+    path = _root() / "templates" / EXAMPLE_COLOUR_CODE
+    if not path.is_file():
+        raise TemplateError("The bundled example colour code is missing from this installation.")
+    with path.open(newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    pins = {pin.strip(): colour.strip() for pin, colour in rows[1:]}
+    return {"name": EXAMPLE_CODE_NAME, "parts": list(parts), "pins": pins, "example": True}

@@ -471,8 +471,12 @@ def validate_harness_plan(project: Project) -> list[Issue]:
                     break
             else:
                 twice = sorted({str(n) for n in names if names.count(n) > 1})
+                parts = [p for c in v for p in dict.fromkeys(c.get("parts", []))]
+                shared = sorted({p for p in parts if parts.count(p) > 1})
                 if twice:
                     bad(key, f"names the code '{twice[0][:30]}' more than once")
+                elif shared:  # a part takes its colours from one code only (section 6)
+                    bad(key, f"names the part '{shared[0][:30]}' in more than one code")
         elif key == "notes" and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
             bad(key, "must be a list of lines of text")
     return out
