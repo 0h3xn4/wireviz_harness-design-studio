@@ -5,7 +5,7 @@ of 2.x, from the record `tests/fixtures/format3/before/` (made by `tools.format3
 code of 2.x), changed by these steps in this order, must equal the file this tool writes for the
 same project:
 
-1. the stamp: the model hash (and the content hash and the hash of the title block values, which
+1. the stamp: the tool version, the model hash (and the content hash and the hash of the title block values, which
    follow from it: the step renamed the title block field), paired by their places in
    `export.json`, `manifest.json` and `provenance.json`;
 2. the file names: `system/revision_report.md` is `system/version_report.md` (Q31);
@@ -30,6 +30,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from harness_design_studio import __version__
 from harness_design_studio.core.vcs.versions import letter_to_version
 from tests.helpers import FIXTURES
 
@@ -264,9 +265,16 @@ def comparable(entry: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def compare(old: Files, new: Files, raw: dict[str, bytes], used: list[int]) -> list[str]:
+def compare(
+    old: Files, new: Files, raw: dict[str, bytes], used: list[int], old_version: str = ""
+) -> list[str]:
     """The differences that are left after the steps of section 5.6, one line each."""
-    old = apply_stamp(old, stamp_map(old, new))  # 1
+    hashes = stamp_map(old, new)  # 1
+    if old_version and old_version != __version__:
+        # the tool version of the stamp, where the record keeps it as written (cells and the text
+        # items of drawings; the texts are kept with the version read as the base version)
+        hashes[f"harness-design-studio {old_version}"] = f"harness-design-studio {__version__}"
+    old = apply_stamp(old, hashes)
     if OLD_REPORT in old:  # 2
         old[NEW_REPORT] = old.pop(OLD_REPORT)
     old = apply_word_changes(old, used)  # 3

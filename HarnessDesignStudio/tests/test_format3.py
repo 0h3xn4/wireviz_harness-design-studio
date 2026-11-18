@@ -759,7 +759,9 @@ def test_the_written_files_of_3_0_are_those_of_2x_after_the_word_list() -> None:
     problems: list[str] = []
     for name in f3.recorded():
         new, raw = f3.dump_now(name)
-        problems += [f"{name}: {p}" for p in f3.compare(f3.record(name)["files"], new, raw, used)]
+        rec = f3.record(name)
+        found = f3.compare(rec["files"], new, raw, used, rec["tool_version"])
+        problems += [f"{name}: {p}" for p in found]
     assert problems == []
     unused = [c["old"] for c, n in zip(f3.word_changes(), used, strict=True) if n == 0]
     assert unused == []
@@ -773,7 +775,8 @@ def test_a_word_change_left_out_of_the_list_fails_the_comparison(monkeypatch) ->
     changes = [c for c in f3.word_changes() if not c["old"].startswith("Revision {L}  status")]
     monkeypatch.setattr(f3, "word_changes", lambda: changes)
     new, raw = f3.dump_now("mini3")
-    problems = f3.compare(f3.record("mini3")["files"], new, raw, [0] * len(changes))
+    rec = f3.record("mini3")
+    problems = f3.compare(rec["files"], new, raw, [0] * len(changes), rec["tool_version"])
     assert problems and all("drawing_" in p for p in problems), problems
 
 

@@ -1,5 +1,5 @@
-# harness-design-studio 2.3.1 model 284396947b85
-# harness-design-studio 2.3.1. Provided as is, without warranty. Verify before use.
+# harness-design-studio 2.4.0 model 2f54bb2eb39e
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare
 W011-P1,loose,open end,TBD-CONNECTOR (loose end),1,SIG+,,W011-001,no
 W011-P1,loose,open end,TBD-CONNECTOR (loose end),2,SIG-,,W011-002,no

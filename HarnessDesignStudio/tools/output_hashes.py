@@ -21,7 +21,7 @@ Signal cells, the Requirement column), and when the version string changes its l
 file `docs/ui/OUTPUT_HASHES_1.2.0.json` is the baseline of releases 1.2.0 to 1.9.0, kept as the record of
 what those releases wrote; nothing compares with it any more. The baseline was written again for 3.0.0
 (D-242, design of 3.0.0 section 5.6: format 3, the versions MAJOR.MINOR.PATCH and the word *Version* in
-the written files); `docs/ui/OUTPUT_HASHES_2.x.json` is the baseline of 2.0.0 to 2.3.0, kept as the record
+the written files); `docs/ui/OUTPUT_HASHES_2.x.json` is the baseline of 2.0.0 to 2.4.0, kept as the record
 of what 2.x wrote.
 """
 
@@ -42,7 +42,7 @@ from harness_design_studio.core.outputs.build import build_outputs
 
 STORED = Path(__file__).resolve().parent.parent / "docs" / "ui" / "OUTPUT_HASHES_BASELINE.json"
 EXAMPLES = ("first-steps", "minimal-satellite", "small-satellite", "flatsat")
-BASE_VERSION = "2.3.1"  # the version of the tool that wrote the stored hashes
+BASE_VERSION = "2.4.0"  # the version of the tool that wrote the stored hashes
 BASE_RULES = 39  # the number of design rules then; a rule added later is given as in the baseline
 # A new kind of file is the one thing the check lets through (none now); every file of the baseline is compared.
 ADDED_AFTER_BASE: tuple[str, ...] = ()
