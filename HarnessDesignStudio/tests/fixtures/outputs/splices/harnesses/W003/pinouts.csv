@@ -1,0 +1,14 @@
+# harness-design-studio 2.4.0 model e0075c432202
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare,Termination
+W003-P1,cable,PCDU-J02,EX-MICROD-9-M,1,PWR,,W003-001,no,unspecified
+W003-P1,cable,PCDU-J02,EX-MICROD-9-M,2,RTN,,W003-004,no,unspecified
+W003-P1,cable,PCDU-J02,EX-MICROD-9-M,3,,,,yes,unspecified
+W003-P2,cable,OBC-J02,EX-MICROD-9-M,1,PWR,,W003-002,no,unspecified
+W003-P2,cable,OBC-J02,EX-MICROD-9-M,2,RTN,,W003-005,no,unspecified
+W003-P2,cable,OBC-J02,EX-MICROD-9-M,3,,,,yes,unspecified
+W003-P3,cable,OBC-J03,EX-MICROD-15-M,1,PWR,,W003-003,no,unspecified
+W003-P3,cable,OBC-J03,EX-MICROD-15-M,2,RTN,,W003-006,no,unspecified
+W003-P3,cable,OBC-J03,EX-MICROD-15-M,3,,,,yes,unspecified
+W003-X1,splice,,EX-SPLICE-1,1,PWR,,W003-001;W003-002;W003-003,no,crimp
+W003-X2,splice,,EX-SPLICE-1,1,RTN,,W003-004;W003-005;W003-006,no,solder

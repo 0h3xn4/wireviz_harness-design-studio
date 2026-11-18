@@ -10,10 +10,14 @@ from harness_design_studio.core.ids import Id
 
 from .base import MAX_PIN_COUNT, Entity, IsoDate, Name, NonNegative, SparseEntity, Text, WebLink
 
-PartCategory = Literal["connector", "contact", "backshell", "wire", "sleeving", "label"]
+PartCategory = Literal["connector", "contact", "backshell", "wire", "sleeving", "label", "splice"]
 PART_CATEGORIES: tuple[PartCategory, ...] = (
-    "connector", "contact", "backshell", "wire", "sleeving", "label",
+    "connector", "contact", "backshell", "wire", "sleeving", "label", "splice",
 )  # fmt: skip
+# `splice` (format 3, owner answer B3 of the design of 2.3.0): the part of a splice, `pin_count` the
+# number of its nodes. Its file `library/splice.json` is written only while the library holds one,
+# so a project without splices keeps its files and its model hash.
+SPARSE_CATEGORIES: frozenset[PartCategory] = frozenset({"splice"})
 Approval = Literal["approved", "pending", "not_approved"]
 
 

@@ -31,7 +31,8 @@ def _q(s: str) -> str:
 def wireviz_yaml(project: Project, h: Harness, stamp: Stamp) -> bytes:
     """Best-effort WireViz input: each wire is its own one-conductor cable. Not validated here
     against the WireViz program (see docs/OUTPUTS.md). A loose end's type reads
-    `TBD-CONNECTOR (loose end)` (D-201), as in the pinout table."""
+    `TBD-CONNECTOR (loose end)` (D-201), as in the pinout table; a splice is a connector of style
+    `simple` (format 3)."""
     out = [
         f"# {stamp.line}",
         f"# {stamp.notice}",
@@ -45,6 +46,8 @@ def wireviz_yaml(project: Project, h: Harness, stamp: Stamp) -> bytes:
         out.append(f"    pinlabels: [{', '.join(_q(p.id) for p in c.pins)}]")
         if c.part_id:
             out.append(f"    type: {_q(part_text(c))}")
+        if c.role == "splice":  # a splice: a WireViz connector drawn as a simple node (format 3)
+            out.append("    style: simple")
     out.append("cables:")
     wires = sorted(h.wires, key=lambda x: x.id)
     for w in wires:

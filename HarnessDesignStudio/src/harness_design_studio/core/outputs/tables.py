@@ -20,7 +20,14 @@ where a harness has one, so every other table keeps its bytes: its part reads
 counts the ends on one line `(open end)` with the approval `to fill in` instead of a line for the
 placeholder part; a test that names a pin of it says `(open end)` and expects nothing yet (`test
 when the end is decided`); the mass never counts it (`generate/mass.py`). The independent verifier
-(`verify.py`) words all of it again on its own."""
+(`verify.py`) words all of it again on its own.
+
+A splice (role `splice`, format 3, M6a; section 6.5 of the design of 2.3.0) changes the tables of
+its harness only, so every other harness keeps its bytes: the wire list gets a last column `Via`
+(the splices of the wire's net, `core/nets.py`); the tests of a net through a splice are one
+continuity test per pair of its ends (`W001-P1.1` to `W001-P2.3 via W001-X1`, with the wires of the
+path) and one isolation test of the net, in place of one of each per wire; a splice has no label;
+the mass table does not count it as a connector. The verifier words all of it again on its own."""
 
 import math
 import re
@@ -40,6 +47,13 @@ from harness_design_studio.core.generate.lengths import clear_length_cache, path
 from harness_design_studio.core.generate.mass import harness_mass, pins_in_use
 from harness_design_studio.core.model import Connector, Harness, Link, Pin, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE
+from harness_design_studio.core.nets import (
+    end_pairs,
+    has_splices,
+    is_splice,
+    net_of_wire,
+    path_wires,
+)
 
 from .stamp import Table
 
@@ -52,6 +66,8 @@ LOOSE_PART_TAG = " (loose end)"  # after the placeholder part: `TBD-CONNECTOR (l
 OPEN_END_PART = "(open end)"  # the BOM line that counts the ends, like `(no part)` for wires
 OPEN_END_DESCRIPTION = "Connector not chosen yet (loose end)"
 OPEN_END_TEST = "test when the end is decided"  # the Expected cell of a test at an open end
+VIA = "Via"  # the last column of the wire list of a harness with a splice: the splices of the net
+SPLICE_ISOLATION = "all other nets and shields"  # the To cell of the isolation test of a net
 
 
 def num(v: float | None) -> str:
@@ -156,6 +172,8 @@ def wire_list(project: Project, h: Harness) -> Table:
     text = uses_wire_text(project)
     strip = uses_strip_lengths(project)
     over = uses_overrides(project)
+    via = has_splices(h)
+    nets = net_of_wire(h) if via else {}
     rows: Table = [[
         "Wire", "Signal", "Interface", "From connector", "From pin", "To connector", "To pin",
         "AWG", "Part", "Colour", "Length (m)", "Shield group", "Locked",
@@ -163,6 +181,7 @@ def wire_list(project: Project, h: Harness) -> Table:
         *(["Label", "Note"] if text else []),
         *(["Strip A (mm)", "Strip B (mm)"] if strip else []),
         *(["Overrides"] if over else []),
+        *([VIA] if via else []),
     ]]  # fmt: skip
     for w in sorted(h.wires, key=lambda x: x.id):
         rows.append([
@@ -174,6 +193,7 @@ def wire_list(project: Project, h: Harness) -> Table:
             *([w.label or "", w.note] if text else []),
             *([data_num(w.strip_a_mm), data_num(w.strip_b_mm)] if strip else []),
             *([override_text(w)] if over else []),
+            *([";".join(nets[w.id].splices)] if via else []),
         ])  # fmt: skip
     return rows
 
@@ -544,8 +564,9 @@ def mass_length(project: Project, harnesses: list[Harness]) -> Table:
         lengths = [wire_length(h, w) for w in h.wires]
         known = sum(x for x in lengths if x is not None)
         unk = sum(1 for x in lengths if x is None)
+        connectors = sum(1 for c in h.connectors if not is_splice(c))  # a splice is no connector
         rows.append([
-            h.id, str(len(h.wires)), str(len(h.connectors)), data_num(known), str(unk),
+            h.id, str(len(h.wires)), str(connectors), data_num(known), str(unk),
             data_num(r.total_g), data_num(r.margin_g), data_num(r.with_margin_g),
             "yes" if r.complete and unk == 0 else "no", "; ".join(r.missing),
         ])  # fmt: skip
@@ -553,7 +574,7 @@ def mass_length(project: Project, harnesses: list[Harness]) -> Table:
         tot_mass += r.total_g
         tot_unknown += unk
         tot_wires += len(h.wires)
-        tot_conn += len(h.connectors)
+        tot_conn += connectors
         complete = complete and r.complete and unk == 0
         margins.append(r.margin_g)
     margin = None if any(m is None for m in margins) else sum(m for m in margins if m is not None)
@@ -605,12 +626,36 @@ def tests(project: Project, h: Harness, marks: bool = True) -> Table:
     def end(cid: str, pin: str) -> str:
         return f"{cid}.{pin}" + (f" ({OPEN_END})" if cid in loose else "")
 
+    nets = net_of_wire(h) if has_splices(h) else {}
     n = 0
+    tested: set[str] = set()  # the first wire of each net through a splice with its continuity
+    done: set[str] = set()  # ... and with its isolation test
     for w in sorted(h.wires, key=lambda x: x.id):
+        net = nets.get(w.id)
+        if net is not None and net.splices:  # one test per pair of ends of the net (format 3)
+            if net.wires[0] in tested:
+                continue
+            tested.add(net.wires[0])
+            via = " via " + ", ".join(net.splices)
+            for a, b in end_pairs(net):
+                n += 1
+                expect = OPEN_END_TEST if {a[0], b[0]} & loose else "continuous"
+                rows.append([f"T{n:03d}", "continuity", end(*a), end(*b) + via, expect, cont, "", ";".join(path_wires(h, a, b, net.wires))])  # fmt: skip
+            continue
         n += 1
         expect = OPEN_END_TEST if {w.from_connector, w.to_connector} & loose else "continuous"
         rows.append([f"T{n:03d}", "continuity", end(w.from_connector, w.from_pin), end(w.to_connector, w.to_pin), expect, cont, "", w.id])  # fmt: skip
     for w in sorted(h.wires, key=lambda x: x.id):
+        net = nets.get(w.id)
+        if net is not None and net.splices:
+            if net.wires[0] in done:
+                continue
+            done.add(net.wires[0])
+            n += 1
+            shown = net.ends or net.pins
+            expect = OPEN_END_TEST if {p[0] for p in shown} & loose else "isolated"
+            rows.append([f"T{n:03d}", "isolation", " + ".join(end(*p) for p in shown), SPLICE_ISOLATION, expect, iso, volts, ";".join(net.wires)])  # fmt: skip
+            continue
         n += 1
         expect = OPEN_END_TEST if w.from_connector in loose else "isolated"
         rows.append([f"T{n:03d}", "isolation", end(w.from_connector, w.from_pin), "all other wires and shields", expect, iso, volts, w.id])  # fmt: skip
@@ -701,6 +746,8 @@ def labels(project: Project, h: Harness) -> Table:
     if h.label:
         rows.append([h.id, "harness", h.label, "1"])
     for c in sorted(h.connectors, key=lambda x: x.id):
+        if is_splice(c):
+            continue  # a splice is inside the sleeve: no label (format 3)
         rows.append([f"{c.id}", "connector", connector_label_text(project, c, h), "1"])
     for w in sorted(h.wires, key=lambda x: x.id):
         text_a, text_b = wire_label_texts(project, w, h)

@@ -40,7 +40,7 @@ from harness_design_studio.core.derive import (
 from harness_design_studio.core.drc import run as run_drc
 from harness_design_studio.core.drc.base import cfg, number
 from harness_design_studio.core.drc.by_rule import READS
-from harness_design_studio.core.drc.rules import RULES, _carried, wires_on_pins
+from harness_design_studio.core.drc.rules import RULES, _carried, shared_pins, wires_on_pins
 from harness_design_studio.core.drc.standard_rules import (
     _rating,
     _temperature_users,
@@ -504,7 +504,7 @@ def _pin_shared(project: Project, oid: str) -> Derivation | None:
     h = project.harnesses.get(oid)
     if h is None:
         return None
-    shared = {k: v for k, v in wires_on_pins(h).items() if len(v) > 1}
+    shared = shared_pins(h)
     most = max((len(v) for v in shared.values()), default=1)
     steps = [
         Step(f"Pin {pid} of {cid}", ", ".join(sorted(ids)), len(ids), "wires")
