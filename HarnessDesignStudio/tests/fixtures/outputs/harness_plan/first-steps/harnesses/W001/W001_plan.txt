@@ -1,0 +1,351 @@
+== Cover
+E2	Doc.-No.
+F2	to fill in
+E3	Version
+F3	1.0.0
+E4	Release
+F4	to fill in
+A17	First steps: reaction wheel link
+A19	First steps: reaction wheel link Harness Plan
+A21	to fill in
+A23	harness-design-studio 2.4.0 model 716ddb8f1f85
+A24	This file is written by Harness Design Studio. An export overwrites it; work on a copy.
+A25	harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+C36	Contact Information
+D37	to fill in
+== Change_Register
+B2	Change register of W001
+B4	Version
+C4	Sub-Version
+D4	Date
+E4	Name
+F4	Sheets
+G4	Description
+B5	No entry in the change log of this harness yet.
+== W001
+H6	First steps: reaction wheel link
+N6	W001
+Q6	VERSION: v1.0.0 (draft)
+H8	Harness First steps: reaction wheel link-W001: OBC1 <–> RW1	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_OBC1-J01'.B1]&" <–> "&[$'CON_RW1-J02'.B1]
+H10	used Connectors
+H11	No.
+I11	Part No.
+M11	Quantity
+N11	Remark
+H12	1
+I12	EX-MICROD-21-M
+M12	1
+N12	W001-P2
+H13	2
+I13	EX-MICROD-25-M
+M13	1
+N13	W001-P1
+H15	used Cable Types
+H16	No.
+I16	Part No.
+K16	AWG
+L16	Conductor
+O16	Colours
+R16	No. of wires in cable
+S16	Length [mm]
+H17	1
+I17	EX-WIRE-TWISTED-SHIELDED
+R17	2
+S17	0	=[.N57]
+H19	used Backshells
+H20	No.
+I20	Part No.
+M20	Quantity
+N20	Remark
+I21	No backshells.
+B23	OBC1-J01
+F26	Device Side
+H26	Harness Side
+V26	RW1-J02
+B27	Data from CON_OBC1-J01
+F27	OBC1 [OBC1-J01]: RS-422 OBC1 to RW1; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[$'CON_OBC1-J01'.B11]
+H27	Micro-D 25-pin, male (example, baseline power and data) [W001:OBC1:OBC1-J01]	="Micro-D 25-pin, male (example, baseline power and data) ["&[.N6]&":"&[$'CON_OBC1-J01'.B1]&":"&[$'CON_OBC1-J01'.B2]&"]"
+V27	Data from CON_RW1-J02
+B28	Pin No.
+C28	Function
+D28	Direction
+E28	Level
+F28	Description
+H28	Pinout
+I28	Function
+J28	Direction
+K28	Color
+L28	Cable / Type
+M28	Shielding / (Grouping)
+N28	Length [mm]
+O28	Level
+P28	Cable / Type
+Q28	Color
+R28	Direction
+S28	Function
+T28	Pinout (of RW1)
+V28	Pinout
+W28	Function
+X28	Direction
+Y28	Level
+Z28	Description
+B29	1	=[$'CON_OBC1-J01'.A19]
+C29	TX+	=[$'CON_OBC1-J01'.B19]
+H29	1	=[.B29]
+I29	TX+	=[.C29]
+K29	to fill in
+L29	1
+M29	W001-S1
+N29	to fill in
+P29	1	=[.L29]
+Q29	to fill in
+S29	RX+	=[$'CON_RW1-J02'.B21]
+T29	3
+V29	3
+W29	RX+	=[$'CON_RW1-J02'.B21]
+B30	2	=[$'CON_OBC1-J01'.A20]
+C30	TX-	=[$'CON_OBC1-J01'.B20]
+H30	2	=[.B30]
+I30	TX-	=[.C30]
+K30	to fill in
+L30	1
+M30	W001-S1
+N30	to fill in
+P30	1	=[.L30]
+Q30	to fill in
+S30	RX-	=[$'CON_RW1-J02'.B22]
+T30	4
+V30	4
+W30	RX-	=[$'CON_RW1-J02'.B22]
+B31	3	=[$'CON_OBC1-J01'.A21]
+C31	RX+	=[$'CON_OBC1-J01'.B21]
+H31	3	=[.B31]
+I31	RX+	=[.C31]
+K31	to fill in
+L31	1
+M31	W001-S2
+N31	to fill in
+P31	1	=[.L31]
+Q31	to fill in
+S31	TX+	=[$'CON_RW1-J02'.B19]
+T31	1
+V31	1
+W31	TX+	=[$'CON_RW1-J02'.B19]
+B32	4	=[$'CON_OBC1-J01'.A22]
+C32	RX-	=[$'CON_OBC1-J01'.B22]
+H32	4	=[.B32]
+I32	RX-	=[.C32]
+K32	to fill in
+L32	1
+M32	W001-S2
+N32	to fill in
+P32	1	=[.L32]
+Q32	to fill in
+S32	TX-	=[$'CON_RW1-J02'.B20]
+T32	2
+V32	2
+W32	TX-	=[$'CON_RW1-J02'.B20]
+B33	5	=[$'CON_OBC1-J01'.A23]
+I33	Not connected pins will be marked yellow
+B34	6	=[$'CON_OBC1-J01'.A24]
+B35	7	=[$'CON_OBC1-J01'.A25]
+B36	8	=[$'CON_OBC1-J01'.A26]
+B37	9	=[$'CON_OBC1-J01'.A27]
+B38	10	=[$'CON_OBC1-J01'.A28]
+B39	11	=[$'CON_OBC1-J01'.A29]
+B40	12	=[$'CON_OBC1-J01'.A30]
+B41	13	=[$'CON_OBC1-J01'.A31]
+B42	14	=[$'CON_OBC1-J01'.A32]
+B43	15	=[$'CON_OBC1-J01'.A33]
+B44	16	=[$'CON_OBC1-J01'.A34]
+B45	17	=[$'CON_OBC1-J01'.A35]
+B46	18	=[$'CON_OBC1-J01'.A36]
+B47	19	=[$'CON_OBC1-J01'.A37]
+B48	20	=[$'CON_OBC1-J01'.A38]
+B49	21	=[$'CON_OBC1-J01'.A39]
+B50	22	=[$'CON_OBC1-J01'.A40]
+B51	23	=[$'CON_OBC1-J01'.A41]
+B52	24	=[$'CON_OBC1-J01'.A42]
+B53	25	=[$'CON_OBC1-J01'.A43]
+H55	Sum of length of cable type [mm]
+V55	RW1-J02
+H56	No.
+I56	Part No.
+N56	Sum of length [mm]
+H57	1
+I57	EX-WIRE-TWISTED-SHIELDED
+N57	0	=(SUMIF([.L29:.L53];[.H57];[.N29:.N53]))/[.R17]
+O57	4 wires without a length
+V57	Data from CON_RW1-J02
+V58	Pinout
+W58	Function
+X58	Direction
+Y58	Level
+Z58	Description
+AA58	Used in Row
+V59	1	=[$'CON_RW1-J02'.A19]
+W59	TX+	=[$'CON_RW1-J02'.B19]
+AA59	31	=IF(ISNA(MATCH([.V59];[.V29:.V53];0));"";MATCH([.V59];[.V29:.V53];0)+28)
+V60	2	=[$'CON_RW1-J02'.A20]
+W60	TX-	=[$'CON_RW1-J02'.B20]
+AA60	32	=IF(ISNA(MATCH([.V60];[.V29:.V53];0));"";MATCH([.V60];[.V29:.V53];0)+28)
+V61	3	=[$'CON_RW1-J02'.A21]
+W61	RX+	=[$'CON_RW1-J02'.B21]
+AA61	29	=IF(ISNA(MATCH([.V61];[.V29:.V53];0));"";MATCH([.V61];[.V29:.V53];0)+28)
+V62	4	=[$'CON_RW1-J02'.A22]
+W62	RX-	=[$'CON_RW1-J02'.B22]
+AA62	30	=IF(ISNA(MATCH([.V62];[.V29:.V53];0));"";MATCH([.V62];[.V29:.V53];0)+28)
+V63	5	=[$'CON_RW1-J02'.A23]
+AA63		=IF(ISNA(MATCH([.V63];[.V29:.V53];0));"";MATCH([.V63];[.V29:.V53];0)+28)
+V64	6	=[$'CON_RW1-J02'.A24]
+AA64		=IF(ISNA(MATCH([.V64];[.V29:.V53];0));"";MATCH([.V64];[.V29:.V53];0)+28)
+V65	7	=[$'CON_RW1-J02'.A25]
+AA65		=IF(ISNA(MATCH([.V65];[.V29:.V53];0));"";MATCH([.V65];[.V29:.V53];0)+28)
+V66	8	=[$'CON_RW1-J02'.A26]
+AA66		=IF(ISNA(MATCH([.V66];[.V29:.V53];0));"";MATCH([.V66];[.V29:.V53];0)+28)
+V67	9	=[$'CON_RW1-J02'.A27]
+AA67		=IF(ISNA(MATCH([.V67];[.V29:.V53];0));"";MATCH([.V67];[.V29:.V53];0)+28)
+V68	10	=[$'CON_RW1-J02'.A28]
+AA68		=IF(ISNA(MATCH([.V68];[.V29:.V53];0));"";MATCH([.V68];[.V29:.V53];0)+28)
+V69	11	=[$'CON_RW1-J02'.A29]
+AA69		=IF(ISNA(MATCH([.V69];[.V29:.V53];0));"";MATCH([.V69];[.V29:.V53];0)+28)
+V70	12	=[$'CON_RW1-J02'.A30]
+AA70		=IF(ISNA(MATCH([.V70];[.V29:.V53];0));"";MATCH([.V70];[.V29:.V53];0)+28)
+V71	13	=[$'CON_RW1-J02'.A31]
+AA71		=IF(ISNA(MATCH([.V71];[.V29:.V53];0));"";MATCH([.V71];[.V29:.V53];0)+28)
+V72	14	=[$'CON_RW1-J02'.A32]
+AA72		=IF(ISNA(MATCH([.V72];[.V29:.V53];0));"";MATCH([.V72];[.V29:.V53];0)+28)
+V73	15	=[$'CON_RW1-J02'.A33]
+AA73		=IF(ISNA(MATCH([.V73];[.V29:.V53];0));"";MATCH([.V73];[.V29:.V53];0)+28)
+V74	16	=[$'CON_RW1-J02'.A34]
+AA74		=IF(ISNA(MATCH([.V74];[.V29:.V53];0));"";MATCH([.V74];[.V29:.V53];0)+28)
+V75	17	=[$'CON_RW1-J02'.A35]
+AA75		=IF(ISNA(MATCH([.V75];[.V29:.V53];0));"";MATCH([.V75];[.V29:.V53];0)+28)
+V76	18	=[$'CON_RW1-J02'.A36]
+AA76		=IF(ISNA(MATCH([.V76];[.V29:.V53];0));"";MATCH([.V76];[.V29:.V53];0)+28)
+V77	19	=[$'CON_RW1-J02'.A37]
+AA77		=IF(ISNA(MATCH([.V77];[.V29:.V53];0));"";MATCH([.V77];[.V29:.V53];0)+28)
+V78	20	=[$'CON_RW1-J02'.A38]
+AA78		=IF(ISNA(MATCH([.V78];[.V29:.V53];0));"";MATCH([.V78];[.V29:.V53];0)+28)
+V79	21	=[$'CON_RW1-J02'.A39]
+AA79		=IF(ISNA(MATCH([.V79];[.V29:.V53];0));"";MATCH([.V79];[.V29:.V53];0)+28)
+H81	Block diagram: harnesses/W001/drawing_A3.pdf
+== Notes
+B2	Notes
+B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.
+B6	A yellow row is a pin of the device connector with no wire in this harness.
+B7	[no SGND*] in the header: a pin of the role signal ground (SGND) of a device connector of this harness has no wire.
+B8	Formulas: the device side and the far device side copy the CON_ sheets; Pinout, Function and Level of the harness side copy the device side; the two Direction columns mirror it; a colour by pin code is looked up in its table on this sheet; the title, the connector descriptions, the sums per cable type, the cable type lengths and Used in Row are formulas too. Every other cell is a value of the design.
+B9	The change register lists the change log of this harness (system/changelog.csv of the outputs); it is not typed into this file.
+B10	This file is written by Harness Design Studio. An export overwrites it, formulas and typed changes alike; work on a copy.
+== CON_OBC1-J01
+A1	Device
+B1	OBC1
+A2	Connector ID
+B2	OBC1-J01
+A3	Interface Name
+B3	RS-422 OBC1 to RW1
+A6	Connector Type
+B6	Micro-D 25-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	25
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	OBC1 [OBC1-J01]: RS-422 OBC1 to RW1; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	TX+
+A20	2
+B20	TX-
+A21	3
+B21	RX+
+A22	4
+B22	RX-
+A23	5
+A24	6
+A25	7
+A26	8
+A27	9
+A28	10
+A29	11
+A30	12
+A31	13
+A32	14
+A33	15
+A34	16
+A35	17
+A36	18
+A37	19
+A38	20
+A39	21
+A40	22
+A41	23
+A42	24
+A43	25
+== CON_RW1-J02
+A1	Device
+B1	RW1
+A2	Connector ID
+B2	RW1-J02
+A3	Interface Name
+B3	RS-422 OBC1 to RW1
+A6	Connector Type
+B6	Micro-D 21-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	21
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 21-pin, female (example, baseline power and data) 21 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	RW1 [RW1-J02]: RS-422 OBC1 to RW1; Micro-D 21-pin, female (example, baseline power and data) 21 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	TX+
+A20	2
+B20	TX-
+A21	3
+B21	RX+
+A22	4
+B22	RX-
+A23	5
+A24	6
+A25	7
+A26	8
+A27	9
+A28	10
+A29	11
+A30	12
+A31	13
+A32	14
+A33	15
+A34	16
+A35	17
+A36	18
+A37	19
+A38	20
+A39	21
+== About
+A1	Generated by
+B1	harness-design-studio 2.4.0 model 716ddb8f1f85
+A2	Model hash
+B2	716ddb8f1f8510ce4ec07eb3f17e38fdd02d1ccbb5e65c24924439c73c65dc44
+A3	Notice
+B3	harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.

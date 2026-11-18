@@ -20,6 +20,7 @@ from harness_design_studio.core.vcs.report import changelog_rows, version_report
 from . import buildsheet, connections, drawing, exports, system, tables
 from .canvas import SHEETS, Sheet, to_pdf, to_svg
 from .errors import OutputsError
+from .harness_plan import plan_ods, plan_path
 from .provenance import provenance_bytes
 from .stamp import Stamp, Table, csv_bytes, readme_text, stamp_of, with_notice
 
@@ -124,14 +125,18 @@ def build_outputs(
     *,
     sizes: tuple[str, ...] = ("A4", "A3"),
     drawings: bool = True,
+    harness_plan: bool = False,
     harness_ids: list[str] | None = None,
     cancel: Callable[[], bool] | None = None,
     progress: Callable[[float, str], None] | None = None,
 ) -> OutputSet:
     """Every output file of the project (or of `harness_ids`). `drawings=False` leaves out the PDF
     and SVG drawings of the harnesses (decision D-169: the build workbook is the main output and
-    the drawings are optional); the system diagrams and every other file are always written. The
-    library default is every file; the command line and the editor pass the user's choice."""
+    the drawings are optional); the system diagrams and every other file are always written.
+    `harness_plan=True` adds the harness plan of each harness, `harnesses/<ID>/<ID>_plan.ods`
+    (D-242, design of 3.0.0 section 10); it is off by default, so a set without it is the set of
+    2.x. The library default is every other file; the command line and the editor pass the user's
+    choice."""
     tables.clear_cache()
     stamp = stamp_of(project)
     result = OutputSet(stamp)
@@ -176,6 +181,8 @@ def build_outputs(
         out[f"{base}/{h.id}{buildsheet.FILE_SUFFIX}"] = buildsheet.build_workbook(project, h, stamp)
         if drawings:
             _drawing_files(project, h, stamp, out, sizes)
+        if harness_plan:
+            out[plan_path(h)] = _plan_bytes(project, h, stamp, drawings)
     if progress is not None:
         progress(0.92, "System outputs")
     bom_all = tables.bom(project, chosen)
@@ -221,6 +228,15 @@ def build_outputs(
     _sheet_files(system.block_diagram(project, stamp), "system/block_diagram", stamp, out)
     _sheet_files(system.harness_overview(project, stamp), "system/harness_overview", stamp, out)
     return result
+
+
+def _plan_bytes(project: Project, h: Harness, stamp: Stamp, drawings: bool) -> bytes:
+    try:
+        return plan_ods(project, h, stamp, drawings=drawings)
+    except ValueError as exc:  # the writer refuses a model it cannot write, and says why
+        raise OutputsError(
+            f"The harness plan of {h.id} could not be built ({exc}). Nothing was written."
+        ) from exc
 
 
 def _safe_rel(rel: str) -> bool:
