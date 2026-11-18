@@ -61,6 +61,7 @@ SHAPES: dict[str, tuple[str, ...]] = {
     ),
     "merge-fix": (
         "ok", "result", "conflicts", "problem", "generate", "check", "dry_run", "renamed",
+        "versions",
     ),
     "config": (
         "ok", "set_count", "total", "values", "problems", "placeholder_files",
@@ -96,11 +97,13 @@ SHAPES: dict[str, tuple[str, ...]] = {
     "export-pinout": ("ok", "device", "pin_rows", "columns", "rows", "written"),
     "export-devices": ("ok", "devices", "connectors", "notes"),
     "export-subsystem": ("ok", "name", "devices", "connectors", "connections"),
-    "review": ("ok", "action", "by", "blockers", "outputs"),
-    "release": ("ok", "action", "by", "blockers", "outputs"),
-    "new-version": ("ok", "action", "by", "kind", "blockers", "outputs"),
-    "revise": ("ok", "action", "by", "kind", "blockers", "outputs"),
-    "diff": ("ok", "harness", "from", "to", "added", "removed", "changed", "changes"),
+    # `notes`: the notes of the design of 3.0.0 section 5.3 (a pinout change, a major version)
+    "review": ("ok", "action", "by", "notes", "blockers", "outputs"),
+    "release": ("ok", "action", "by", "notes", "blockers", "outputs"),
+    "new-version": ("ok", "action", "by", "kind", "notes", "blockers", "outputs"),
+    "revise": ("ok", "action", "by", "kind", "notes", "blockers", "outputs"),
+    # `read_as`: an old letter given to --from or --to, and the version it is read as (Q18)
+    "diff": ("ok", "harness", "from", "to", "read_as", "added", "removed", "changed", "changes"),
     "compare": ("ok", "added", "removed", "changed", "changes", "not_compared"),
     "log": ("ok", "harness", "entries"),
     "migrate": (

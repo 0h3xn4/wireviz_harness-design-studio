@@ -483,7 +483,7 @@ def test_new_version_on_the_command_line_and_revise_as_its_older_name(tmp_path, 
     assert main(["new-version", *args, "--kind", "minor", "--json", "--date", "2026-04-01"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert (doc["action"], doc["kind"]) == (f"New version 1.1.0 of {hid}", "minor")
-    assert list(doc) == ["ok", "action", "by", "kind", "blockers", "outputs"]
+    assert list(doc) == ["ok", "action", "by", "kind", "notes", "blockers", "outputs"]
     assert load_project(root).project.harnesses[hid].version == "1.1.0"
     from harness_design_studio.cli.main import build_parser
 
@@ -638,3 +638,141 @@ def test_the_note_on_a_major_version() -> None:
         "harness plan template gives such a harness a new ID instead (TH01 becomes TH02, not TH01 "
         "2.0.0)."
     )
+
+
+def test_review_and_new_version_print_their_notes(tmp_path, capsys) -> None:
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from harness_design_studio.core.io.saver import save_project
+    from harness_design_studio.core.vcs.release import MAJOR_NOTE, pinout_note
+
+    p, hid = _draft_of(tmp_path / "a", "patch")
+    _change_a_device_end(p, hid)
+    note = pinout_note(p, hid)
+    root = tmp_path / "a" / "p"
+    save_project(p, root)
+    assert main(["review", str(root), hid, "--by", "Ada", "--date", "2026-04-01", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["notes"] == [note] and list(doc) == ["ok", "action", "by", "notes", "blockers", "outputs"]  # fmt: skip
+    q, hid2 = _released_project(tmp_path / "b")
+    root2 = tmp_path / "b" / "p"
+    save_project(q, root2)
+    args = [str(root2), hid2, "--by", "Ada", "--comment", "A larger change", "--date", "2026-04-01"]
+    assert main(["new-version", *args, "--kind", "major"]) == 0
+    out = capsys.readouterr().out
+    assert f"New version 2.0.0 of {hid2}: done.\nNote: {MAJOR_NOTE}\n" in out
+    assert main(["new-version", *args, "--kind", "minor", "--json"]) == 0  # the kind again
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["action"] == f"Version 2.0.0 of {hid2} becomes 1.1.0 (minor)" and doc["notes"] == []
+    log = load_project(root2).project.changelog.values()
+    assert [e.kind for e in sorted(log, key=lambda e: e.id)][-2:] == ["new_version", "version_changed"]  # fmt: skip
+
+
+def test_diff_reads_an_old_letter_as_its_version(tmp_path, capsys) -> None:
+    """Q18, section 5.4: after the upgrade `diff --from` and `--to` still take an old letter, and
+    the output says once which version it is."""
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from tests.migration_support import as_format, build
+
+    root = as_format(build("released", tmp_path / "p"), 2)
+    assert main(["migrate", str(root)]) == 0
+    capsys.readouterr()
+    p = load_project(root).project
+    hid = next(h for h in sorted(p.harnesses) if p.harnesses[h].version == "2.0.0")
+    assert main(["diff", str(root), hid, "--from", "A"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("A is read as version 1.0.0") == 1
+    assert f"{hid}: working design against version 1.0.0" in out
+    assert main(["diff", str(root), hid, "--from", "A", "--to", "1.0.0", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert (doc["from"], doc["to"], doc["read_as"]) == ("1.0.0", "1.0.0", {"A": "1.0.0"})
+    assert main(["diff", str(root), hid, "--from", "B"]) == 2  # B is 2.0.0: no such baseline
+    assert "no baseline for version 2.0.0" in capsys.readouterr().err
+
+
+def _as_merged_from_format_2(root, hid: str) -> None:
+    """Write the files of one released harness as a branch still in format 2 holds them, as a merge
+    brings them into a format 3 project: the key `revision` and the letter, the baseline under its
+    old name."""
+    from harness_design_studio.core.io import canonical
+
+    path = root / "physical" / "harnesses" / f"{hid}.json"
+    doc = json.loads(path.read_bytes())
+    assert doc.pop("version") == "1.0.0"
+    doc["revision"] = "A"
+    path.write_bytes(canonical.dumps(doc))
+    log = root / "changelog.json"
+    doc = json.loads(log.read_bytes())
+    for e in doc["changelog"]:
+        if e["harness_id"] == hid:
+            assert e.pop("version") == "1.0.0"
+            e["revision"] = "A"
+    log.write_bytes(canonical.dumps(doc))
+    old = root / "baselines" / hid / f"{hid}.1.0.0.json"
+    doc = json.loads(old.read_bytes())
+    assert doc.pop("version") == "1.0.0"
+    doc["id"], doc["revision"] = f"{hid}.A", "A"
+    for h in doc["snapshot"]["harnesses"]:
+        h["version"] = "A"  # a letter under the new key, as a hand-resolved conflict leaves it
+    old.unlink()
+    (old.parent / f"{hid}.A.json").write_bytes(canonical.dumps(doc))
+
+
+def test_the_loader_names_a_key_or_letter_of_format_2_and_merge_fix_rewrites_it(
+    tmp_path, capsys
+) -> None:
+    """Section 5.6, *Merges across the upgrade*: the loader refuses such a file with
+    `revision_not_version` and names the version the letter maps to; `merge-fix` rewrites the keys
+    and letters by the rule of section 5.5, and the project is then byte for byte what it was."""
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from tests.migration_support import build, folder_bytes
+
+    root = build("released", tmp_path / "p")
+    p = load_project(root).project
+    hid = next(h for h in sorted(p.harnesses) if p.harnesses[h].status == "released")
+    before = folder_bytes(root)
+    _as_merged_from_format_2(root, hid)
+    r = load_project(root)
+    found = [i for i in r.issues if i.code == "revision_not_version"]
+    assert {i.location for i in found} == {
+        f"physical/harnesses/{hid}.json", "changelog.json", f"baselines/{hid}/{hid}.A.json"
+    }
+    assert any(
+        f"harness {hid} holds the revision 'A' of format 2; in format 3 that is version 1.0.0"
+        in i.message
+        for i in found
+    )
+    assert hid not in r.project.harnesses  # the model refuses the file: it is set aside
+    assert main(["merge-fix", str(root), "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert f"physical/harnesses/{hid}.json: harness {hid}: revision 'A' -> version 1.0.0" in out
+    assert folder_bytes(root) != before  # the dry run wrote nothing
+    assert main(["merge-fix", str(root)]) == 0, capsys.readouterr().err
+    out = capsys.readouterr().out
+    assert f"baselines/{hid}/{hid}.A.json -> baselines/{hid}/{hid}.1.0.0.json" in out
+    after = {k: v for k, v in folder_bytes(root).items() if not k.startswith(".harness.lock")}
+    assert after == before
+    assert not [i for i in load_project(root).issues if i.code == "revision_not_version"]
+
+
+def test_merge_fix_does_not_guess_a_revision_that_is_not_a_letter(tmp_path, capsys) -> None:
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io import canonical
+    from harness_design_studio.core.io.loader import load_project
+    from tests.migration_support import build, folder_bytes
+
+    root = build("mini3", tmp_path / "p")
+    path = root / "physical" / "harnesses" / "W001.json"
+    doc = json.loads(path.read_bytes())
+    doc.pop("version")
+    doc["revision"] = "A1"
+    path.write_bytes(canonical.dumps(doc))
+    found = [i for i in load_project(root).issues if i.code == "revision_not_version"]
+    assert found and "which is not a letter, so its version is not guessed" in found[0].message
+    before = folder_bytes(root)
+    assert main(["merge-fix", str(root)]) == 1
+    assert "not guessed" in capsys.readouterr().err
+    after = {k: v for k, v in folder_bytes(root).items() if not k.startswith(".harness.lock")}
+    assert after == before

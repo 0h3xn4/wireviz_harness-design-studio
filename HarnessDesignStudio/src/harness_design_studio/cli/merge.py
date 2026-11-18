@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 """`merge-fix`: after a Git merge, when two people each pressed Generate, each added entries to the
-change journal, or each made a harness or a link with the same ID (M7b, D-231)."""
+change journal, or each made a harness or a link with the same ID (M7b, D-231), or when a branch
+still in format 2 was merged into a project in format 3 (D-242)."""
 
 import argparse
 import sys
@@ -45,7 +46,11 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "branch's gets the next free one, with the IDs inside the harness and every link, waiver "
         "and diagram mark of the other branch that names it; it prints each rename and adds one "
         "journal entry that names them. It refuses to rename a harness or link with a release "
-        "history (released IDs never change). It refuses, and changes nothing, when any other file "
+        "history (released IDs never change). When a branch still in format 2 was merged into a "
+        "project in format 3, it rewrites the old key and letter of each harness version that the "
+        "merge brought in by the rule of the upgrade (A is 1.0.0, B is 2.0.0), in the harness "
+        "files, the change log and the baselines (a baseline moves to its new name), and prints "
+        "each one. It refuses, and changes nothing, when any other file "
         "of the project is in conflict, and it writes nothing itself apart from those files, the "
         "journal and what `generate` writes. Commit the result afterwards.",
     )
@@ -129,6 +134,7 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
             check=check,
             dry_run=dry,
             renamed=renamed if result in ("planned", "fixed", "undone") else [],
+            versions=list(plan.versions.lines) if result in ("planned", "fixed", "undone") else [],
         )
 
     if plan.nothing_to_do:
@@ -190,6 +196,10 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
             "generate writes the record again for the merged design and check tests it."
         )
     _say_ids(rep, plan.ids)
+    if plan.versions.lines:
+        rep.say("A branch in format 2 was merged: its versions are rewritten for format 3:")
+        for line in plan.versions.lines:
+            rep.say(f"  {line}")
     regenerate = record or plan.ids.regenerate
     if dry:
         if regenerate:
@@ -215,6 +225,13 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
             write(path, plan.new_record)
     for rel, data in plan.ids.writes:
         write(folder / rel, data)
+    for rel, maybe in plan.versions.writes:
+        path = folder / rel
+        if maybe is None:
+            originals.setdefault(path, path.read_bytes() if path.is_file() else None)
+            path.unlink(missing_ok=True)
+        else:
+            write(path, maybe)
     loaded = load_project(folder)
     if loaded.has_errors or loaded.project.recovered:
         first = errors(loaded.issues)[0].render() if loaded.has_errors else "parts set aside"
@@ -262,6 +279,8 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
                 if regenerate
                 else "The IDs are renamed."
                 if plan.ids.renames
+                else "The versions are rewritten."
+                if plan.versions.writes
                 else "The journal is merged."
             ),
             file=sys.stderr,
