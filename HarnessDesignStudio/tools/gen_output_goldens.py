@@ -11,10 +11,11 @@ every file, and the text files of the drawn harnesses and the system BOM and mas
 (`branch_leg_project`: mini3 with a Y harness through two splices and a harness with a splice on a
 branch point's leg): the digest of every file, and the text files of those two harnesses.
 
-`harness_plan/` (3.0.0, D-242, pull request 3 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`): the
-harness plans of the four examples and of the branching fixture, made with the plan on
-(`build_outputs(..., harness_plan=True)`): the SHA-256 of each plan in `<project>.json`, and the
-cells of the plans of `first-steps` and `branching` as text in `<project>/` to read in a diff."""
+`harness_plan/` (3.0.0, D-242, pull requests 3 and 6 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`):
+the harness plans of the four examples, of the branching fixture and of the splice fixture
+(`splices`, `branch_leg_project`), made with the plan on (`build_outputs(..., harness_plan=True)`):
+the SHA-256 of each plan in `<project>.json`, and the cells of the plans of `first-steps`,
+`branching` and `splices` as text in `<project>/` to read in a diff."""
 
 import json
 import shutil
