@@ -31,3 +31,9 @@ The full release `1.17.1` (D-225; the program of `1.17.1rc2` with the retries of
 The note on the publication of the full release 2.0.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 2.3.0 was written; that item still names 2.0.0 in the list of releases and says where this note is.
 
 The full release `2.0.0` (D-230; the program of `2.0.0rc1` with the fixes of pull request 226) was published on 2026-11-15 (annotated tag `v2.0.0` on `e6a6763`, made by the tag workflow `harness-tag.yml`, run 43743416529, its second use, D-227; release workflow run 43743439114, first attempt; signed and attested by the workflow): the latest full release until 2.0.1 and the first full release that writes format 2; format 2 is frozen at its tag. Not done for it: the signature and the attestation verified from outside the workflow (the owner decided to skip such checks), the Windows packages on a real computer, a look at a real display, the owner's sign-off (`compliance/SIGNOFF.md`, *Publication of 2.0.0*).
+
+## From the Status section of CLAUDE.md, moved with the preparation of 2.3.1 (2026-11-18)
+
+The note on the publication of the patch release 2.0.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when 2.3.1 was prepared; that item still names 2.0.1 in the list of releases and says where this note is.
+
+The patch release `2.0.1` (D-236; M7b and the release page of D-232; no format change) was published on 2026-11-16 (annotated tag `v2.0.1` on `69c5aac`, made by the tag workflow `harness-tag.yml`, run 43903141934, its third use, D-227; release workflow run 43903192546, first attempt; signed and attested by the workflow): the latest full release until 2.1.0, and the first release page with seven files, the four packages, `SHA256SUMS`, its signature and the release bundle (D-232).
