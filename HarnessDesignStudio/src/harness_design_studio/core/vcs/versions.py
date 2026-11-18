@@ -234,7 +234,6 @@ __all__ = [
     "KINDS",
     "MAX_PART",
     "PINOUT_FIELDS",
-    "VersionKey",
     "VersionKind",
     "bump",
     "is_first",
