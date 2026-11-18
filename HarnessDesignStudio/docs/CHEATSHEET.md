@@ -11,6 +11,8 @@ harness-design-studio check my-design                       # validate, plus lef
 harness-design-studio drc my-design                         # the full design rule check, as a report
 harness-design-studio export my-design                      # build workbook per harness, wire lists, pinouts, BOM, test tables
 harness-design-studio export my-design --drawings           # the same, and the PDF drawings of the harnesses
+harness-design-studio export my-design --harness-plan       # the same, and the harness plan of each harness (.ods, users' layout)
+harness-design-studio document my-design --set company="Example Ltd"   # what the Cover of the harness plans shows
 harness-design-studio verify my-design --outputs            # an self-check of the exported files
 ```
 

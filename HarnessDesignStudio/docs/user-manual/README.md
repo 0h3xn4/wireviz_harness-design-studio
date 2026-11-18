@@ -36,6 +36,7 @@ This manual has one page for each job you do with Harness Design Studio, written
 | keep devices and subsystems in a folder my team shares, add them to a project, or say how many of a device there are | [Use the library](use-the-library.md) |
 | take a device's pinout from KiCad | [Import KiCad pinouts](import-kicad-pinouts.md) |
 | write the build workbook to build a harness from, the wire lists and the test tables (and, if you want them, the PDF drawings) | [Export the outputs](export-the-outputs.md) |
+| write the harness plan of each harness, a spreadsheet with formulas in the users' layout, and fill in its Cover (new in 3.0.0) | [Export the harness plans](export-the-harness-plans.md) |
 | find every PDF and Excel file the tool writes | [PDF and Excel files at a glance](export-the-outputs.md#pdf-and-excel-files-at-a-glance) |
 | give the wires colours | [Set wire colours](set-wire-colours.md) |
 | understand IDs such as `PCDU1-J01`, `W001-P1`, `L7` and `IF-002`, where they show up, and the text on a label | [Connector IDs and tags](naming-and-title-block.md#connector-ids-and-tags) |
@@ -77,6 +78,7 @@ The numbers follow the order of the work. The first page is the one the editor s
 13a. [Branching harnesses](branching-harnesses.md): branch points and segments, how a segment is measured, the Generate choice `per_connector_group`, the **Routing** table of the Harness tab, a new leg from a plugged port, *Join into one harness*, shields across a branch, the *Routing* and *Segments* sheets and `segments.csv`, `routing` and `explain`, what older versions do, and what is not in 2.3.0 (splices). New in 2.3.0.
 14. [Enter the build data](enter-the-build-data.md): strip lengths, the contact on each pin and its crimp tool, accessories; in the app and with `harness-design-studio import-build-data`; what the build workbook then shows. Since 1.7.0.
 15. [Export the outputs](export-the-outputs.md): the build workbook sheet by sheet and how to build from it, the optional PDF drawings, what each file is for; every PDF and Excel file at a glance; checking that it is current.
+15a. [Export the harness plans](export-the-harness-plans.md): `export --harness-plan`, one plan per harness in the users' layout; `document` for the Cover; the colour code by pin number and the notes of `check`; a release, and an export without the plans. New in 3.0.0, command line only for now.
 16. [Naming and title block](naming-and-title-block.md): connector IDs and tags (how IDs are made, where they show up, what a label prints), name patterns and title block fields.
 17. [Release a harness](release-a-harness.md): review, release, the gates, the change log.
 18. [Change a released harness](change-a-released-harness.md): new revision, `diff`, `log`, `compare`.
