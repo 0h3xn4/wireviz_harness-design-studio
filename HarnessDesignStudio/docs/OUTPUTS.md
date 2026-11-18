@@ -27,6 +27,7 @@ The screen says *device*, the files say *unit*: the written files keep the word 
 - [Requirement IDs on findings](#requirement-ids-on-findings)
 - [A loose cable end](#a-loose-cable-end)
 - [A harness that branches](#a-harness-that-branches)
+- [A splice](#a-splice)
 
 The main output of a harness is its **build workbook** (`<ID>_build.xlsx`, new in 1.7.0, decision D-169). The PDF and SVG drawings of the harnesses are **optional**: `export` writes none of them unless you add `--drawings` (in the app: the check box **Include the PDF drawings** in the Export window, ticked at the start only when the last export of the folder had them). An `export` without `--drawings` into a folder whose last export had the drawings removes them and says so. Everything else, the system diagrams too, is always written. For the `first-steps` example `export` writes 34 files and `export --drawings` 40 (not counting `manifest.json`; with 1.6.0 and earlier the same command wrote 38). The build data (decision D-170, below) adds nothing to a project that does not use it, and one file, `accessories.csv`, to each harness that has accessories. A harness with a branch point (2.3.0) gets one file more, `segments.csv`, and a sheet more in each of its two workbooks ([below](#a-harness-that-branches)).
 
@@ -246,3 +247,22 @@ A harness with at least one branch point (2.3.0, decision D-243, owner question 
 | `system/export.json`, `wireviz.yaml`, `export-data` | Unchanged: they already carry the branch points and the segments |
 
 No cell of the *Routing* sheet holds a line break (the sides of a branch point are on one line), so the workbook has the same bytes on Linux and Windows. The output check reports `out_routing` ([Verifier v2](#verifier-v2-coreoutputsverifypy)). The `flatsat` example has six harnesses with branch points (W001, W002 and W004 to W007), so its export writes six `segments.csv` files more than 2.2.0 did, and their two workbooks changed once. `harness-design-studio routing DIR HARNESS` prints the same rows ([CLI](CLI.md)).
+
+## A splice
+
+A splice (format 3, M6a; design `docs/ait/DESIGN_2.3_BRANCHING.md` section 6.5; [File format](FILE_FORMAT.md#format-3-versions-and-the-fields-of-the-harness-plan-300)) changes the files of its own harness only: every harness without a splice keeps its files byte for byte (`tools.output_hashes --check` and `tools.numbers_snapshot --check` print *identical*; no example holds a splice). A **net** is the set of pins that the wires of a harness join; a node of a splice joins every wire on it, and the pins of the net that are not on a splice are its **ends**.
+
+| Output | What a harness with a splice holds |
+| --- | --- |
+| `tests.csv` and the *Tests* sheets | For a net through a splice, one continuity test per pair of its ends, `From` the first end and `To` the second with the splices of the net (`W003-P2.1 via W003-X1`), `Wire` the wires of the path between them joined by `;`; and one isolation test of the net, `From` its ends joined by ` + `, `To` *all other nets and shields*, `Wire` every wire of the net. They take the place of the tests of the wires of that net, at the place of its first wire; every other wire keeps its two tests |
+| `wirelist.csv` and the *Wire list* sheet | A last column *Via*: the splices of the wire's net, joined by `;` (empty for a wire of a net without a splice). From and To name a splice as they name any connector |
+| `pinouts.csv` | A splice is listed like a connector: role `splice`, no mate, one row per node |
+| `labels.csv` and the *Labels* sheet | No label for a splice (it is inside the sleeve); its wires keep their two labels |
+| `bom.csv` | One line per splice part, of category `splice`, counted per splice as connectors are |
+| `mass_length.csv` | A splice is not counted under *Connectors*, and its mass only by the model `full_bom` (D-200), with the contacts and accessories; the default model leaves it out |
+| *Connectors* sheet of `<ID>_build.xlsx` | The connectors, then the heading *Splices: each node joins the wires listed on it* and each splice in a block of its own (`W003-X1 · EX-SPLICE-1 · splice · 1 node`): a row per node with its signal, the wires on it, the colours, the gauges, where each goes, the termination (crimp or solder, else *to fill in*) and the tool of the splice part. A node has no contact, so it is not counted under *Pins in use without a contact part*. The cut list cuts each piece (each piece is a wire) |
+| Drawing | A splice is a small node on its wires (a dark bar, a dot per node, the node numbers, its ID labelled `data-ref="splice/<ID>"` and its part), not a connector table; the lines beneath list each splice with its part and the wires on each node |
+| `wireviz.yaml` | A splice is a WireViz connector of style `simple` |
+| `system/export.json` | The splice as saved: a connector of role `splice` |
+
+The output check works the nets out with its own code and words each of these again; a wrong cell is `out_tests`, `out_wire_differs`, `out_labels`, `out_mass`, `out_build`, `out_drawing` or `out_yaml` ([Verifier v2](#verifier-v2-coreoutputsverifypy)).

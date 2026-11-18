@@ -8,7 +8,12 @@ cannot hide itself.
 The words of a loose cable end (role `loose`, D-201) are stated here a second time (`_OPEN_*`),
 never imported from the builders: the part `TBD-CONNECTOR (loose end)`, the mate `open end`, the
 label `ID open end`, the BOM line `(open end)`, the tests `(open end)`, the mass never counted,
-the drawing's `part/` and `end/` texts and the head of the end in the build workbook."""
+the drawing's `part/` and `end/` texts and the head of the end in the build workbook.
+
+The splices (role `splice`, format 3, M6a) are checked with this module's own nets (`_nets`, a third
+copy beside `core/nets.py` and `core/verify.py`): the column *Via* of the wire list, the tests per
+pair of ends of a net, no label for a splice, the splice block of the build workbook, the drawn
+node and the WireViz style; their words are stated here again (`_SPLICE_*`)."""
 
 import csv
 import hashlib
@@ -46,6 +51,10 @@ _OPEN_PART_TAG = " (loose end)"
 _OPEN_BOM_PART = "(open end)"
 _OPEN_BOM_TEXT = "Connector not chosen yet (loose end)"
 _OPEN_TEST = "test when the end is decided"
+# A splice, worded independently of tables.py, buildsheet.py and drawing.py (format 3).
+_VIA = "Via"
+_SPLICE_ISOLATION = "all other nets and shields"
+_SPLICE_BLOCK = "Splices: each node joins the wires listed on it"
 
 
 def _open(c: Connector) -> bool:
@@ -54,6 +63,63 @@ def _open(c: Connector) -> bool:
 
 def _open_ends(h: Harness) -> set[str]:
     return {c.id for c in h.connectors if c.role == LOOSE_ROLE}
+
+
+def _splice(c: Connector) -> bool:
+    return c.role == "splice"
+
+
+def _splice_set(h: Harness) -> set[str]:
+    return {c.id for c in h.connectors if c.role == "splice"}
+
+
+def _nets(h: Harness) -> list[tuple[frozenset[tuple[str, str]], frozenset[str]]]:
+    """The nets of a harness as (pins, wire IDs): every wire starts as a net of its two pins, and
+    nets that share a pin are merged until none do. The output check's own copy (the core has
+    `core/nets.py`, the verifier `core/verify.py` `splice_nets`; a test compares the three)."""
+    nets: list[tuple[set[tuple[str, str]], set[str]]] = []
+    for w in h.wires:
+        pins = {(w.from_connector, w.from_pin), (w.to_connector, w.to_pin)}
+        ids = {w.id}
+        keep = []
+        for other in nets:
+            if other[0] & pins:
+                pins |= other[0]
+                ids |= other[1]
+            else:
+                keep.append(other)
+        nets = [*keep, (pins, ids)]
+    return [(frozenset(p), frozenset(i)) for p, i in nets]
+
+
+def _nat(text: str) -> tuple[tuple[int, int | str], ...]:
+    return tuple((0, int(x)) if x.isdigit() else (1, x) for x in re.split(r"(\d+)", text) if x)
+
+
+def _pin_nat(pin: tuple[str, str]) -> tuple[tuple[tuple[int, int | str], ...], ...]:
+    return _nat(pin[0]), _nat(pin[1])
+
+
+def _shortest(h: Harness, ids: frozenset[str], a: tuple[str, str], b: tuple[str, str]) -> list[str]:
+    """The wires of the shortest way from pin `a` to pin `b` over the wires `ids` (a tie: the wire
+    with the smaller ID first), in order."""
+    edges: dict[tuple[str, str], list[tuple[str, tuple[str, str]]]] = defaultdict(list)
+    for w in sorted(h.wires, key=lambda x: x.id):
+        if w.id in ids:
+            x, y = (w.from_connector, w.from_pin), (w.to_connector, w.to_pin)
+            edges[x].append((w.id, y))
+            edges[y].append((w.id, x))
+    paths: dict[tuple[str, str], list[str]] = {a: []}
+    layer = [a]
+    while layer and b not in paths:
+        nxt = []
+        for node in layer:
+            for wid, far in edges[node]:
+                if far not in paths:
+                    paths[far] = [*paths[node], wid]
+                    nxt.append(far)
+        layer = nxt
+    return paths.get(b, [])
 
 
 MANIFEST = "manifest.json"
@@ -313,16 +379,18 @@ def _harness(r: VerifyReport, project: Project, h: Harness, files: dict[str, byt
     if ts:
         cont = [row for row in ts[1:] if row[1] == "continuity"]
         iso = [row for row in ts[1:] if row[1] == "isolation"]
-        if sorted(row[7] for row in cont) != sorted(w.id for w in h.wires):
+        spliced = bool(_splice_set(h))  # a net through a splice has a test per pair of its ends
+        if not spliced and sorted(row[7] for row in cont) != sorted(w.id for w in h.wires):
             r.error(
                 "out_tests", f"{h.id} does not have exactly one continuity test per wire.", h.id
             )
-        if len(iso) != len(h.wires) + len(h.shields):
+        if not spliced and len(iso) != len(h.wires) + len(h.shields):
             r.error(
                 "out_tests", f"{h.id} does not have one isolation test per wire and shield.", h.id
             )
     lb = _table(files, f"{base}/labels.csv")
-    if lb and len(lb) - 1 != len(h.connectors) + 2 * len(h.wires) + (1 if h.label else 0):
+    plugs = sum(1 for c in h.connectors if not _splice(c))  # a splice has no label
+    if lb and len(lb) - 1 != plugs + 2 * len(h.wires) + (1 if h.label else 0):
         r.error("out_labels", f"{h.id} has the wrong number of labels.", h.id)
     yml = files.get(f"{base}/wireviz.yaml")
     if yml is not None:
@@ -405,6 +473,8 @@ def _mass(project: Project, h: Harness) -> tuple[float, bool]:
     """Mass of the parts whose mass is known, and whether every mass and length was known."""
     total, complete = 0.0, True
     for c in h.connectors:
+        if _splice(c):
+            continue  # a splice: only under the model full_bom
         part = None if _open(c) else project.parts.get(c.part_id)  # an open end is never counted
         if part is None or part.mass_g is None:
             complete = False
@@ -430,6 +500,21 @@ def _harness_cells(r: VerifyReport, project: Project, h: Harness, files: dict[st
     base = f"harnesses/{h.id}"
     shield_of = {wid: s.id for s in h.shields for wid in s.wire_ids}
     wl = wl_whole = _table(files, f"{base}/wirelist.csv")
+    if wl and _splice_set(h):  # the very last column, only for a harness with a splice
+        if wl[0][-1:] != [_VIA]:
+            r.error("out_wire_differs", f"The wire list of {h.id} has no column {_VIA}, but {h.id} has a splice.", h.id)  # fmt: skip
+        else:
+            splices = _splice_set(h)
+            via: dict[str, str] = {}
+            for pins, ids in _nets(h):
+                shown = ";".join(sorted({c for c, _p in pins if c in splices}, key=_nat))
+                via.update(dict.fromkeys(ids, shown))
+            for row in wl[1:]:
+                if row[0] in via and row[-1] != via[row[0]]:
+                    r.error("out_wire_differs", f"Wire {row[0]} in the wire list of {h.id} differs from the design: via.", row[0])  # fmt: skip
+            wl = [row[:-1] for row in wl]
+    elif wl and wl[0][-1:] == [_VIA]:
+        r.error("out_wire_differs", f"The wire list of {h.id} has a column {_VIA}, but {h.id} has no splice.", h.id)  # fmt: skip
     if wl:
         by_id = {w.id: w for w in h.wires}
         has_over = uses_overrides(project)  # a last column, only when a wire has an override
@@ -519,7 +604,7 @@ def _harness_cells(r: VerifyReport, project: Project, h: Harness, files: dict[st
         by_id = {w.id: w for w in h.wires}
         ends = _open_ends(h)
         for row in ts[1:]:
-            w = by_id.get(row[7]) if row[1] == "continuity" else None
+            w = by_id.get(row[7]) if row[1] == "continuity" and " via " not in row[3] else None
             if w is not None and (
                 row[2] != _test_end(ends, w.from_connector, w.from_pin)
                 or row[3] != _test_end(ends, w.to_connector, w.to_pin)
@@ -531,7 +616,8 @@ def _harness_cells(r: VerifyReport, project: Project, h: Harness, files: dict[st
                 )
     lb = _table(files, f"{base}/labels.csv")
     if lb:
-        want = {c.id for c in h.connectors} | {f"{w.id}-{s}" for w in h.wires for s in "AB"}
+        want = {c.id for c in h.connectors if not _splice(c)}
+        want |= {f"{w.id}-{s}" for w in h.wires for s in "AB"}
         if h.label:
             want.add(h.id)
         if {row[0] for row in lb[1:]} != want:
@@ -569,7 +655,7 @@ def _mass_row(r: VerifyReport, project: Project, h: Harness, row: list[str], wha
     margin = _margin(project)
     ok = (
         row[1] == str(len(h.wires))
-        and row[2] == str(len(h.connectors))
+        and row[2] == str(sum(1 for c in h.connectors if not _splice(c)))
         and _same_number(row[3], known)
         and row[4] == str(unknown)
         and _same_number(row[5], total)
@@ -628,6 +714,7 @@ def _drawings(r: VerifyReport, project: Project, h: Harness, files: dict[str, by
                     break
     _drawing_pins(r, project, h, svgs, files)
     _drawn_open_ends(r, h, svgs, files)
+    _drawn_splices(r, h, svgs, files)
     for size in ("A3", "A4"):
         pdf = files.get(f"{base}/drawing_{size}.pdf")
         if pdf is not None:
@@ -728,6 +815,29 @@ def _drawn_open_ends(r: VerifyReport, h: Harness, svgs: list[str], files: dict[s
             if kind == "end":
                 seen.add(cid)
     bad += [f"the loose end {cid} is not drawn as an open end" for cid in sorted(set(ends) & wired - seen)]  # fmt: skip
+    for text in dict.fromkeys(bad[:3]):
+        r.error("out_drawing", f"The drawing of {h.id} is wrong: {text}.", h.id)
+
+
+def _drawn_splices(r: VerifyReport, h: Harness, svgs: list[str], files: dict[str, bytes]) -> None:
+    """A splice with wires is drawn as a node with its ID labelled `splice/ID`; no other connector
+    carries that label, and a splice has no signal texts (`sig/`)."""
+    splices = _splice_set(h)
+    wired = {w.from_connector for w in h.wires} | {w.to_connector for w in h.wires}
+    seen: set[str] = set()
+    bad: list[str] = []
+    for k in svgs:
+        for ref, text in _svg_items(files[k]):
+            kind, _s, rest = ref.partition("/")
+            if kind == "splice":
+                if rest not in splices:
+                    bad.append(f"{rest} is drawn as a splice but is not one")
+                elif text != rest:
+                    bad.append(f"the splice {rest} is drawn as '{text}'")
+                seen.add(rest)
+            elif kind == "sig" and rest.partition("/")[0] in splices:
+                bad.append(f"the splice {rest.partition('/')[0]} is drawn with a signal")
+    bad += [f"the splice {cid} is not drawn as a splice" for cid in sorted(splices & wired - seen)]
     for text in dict.fromkeys(bad[:3]):
         r.error("out_drawing", f"The drawing of {h.id} is wrong: {text}.", h.id)
 
@@ -1291,12 +1401,38 @@ def _test_rows(project: Project, h: Harness) -> list[list[Cell]]:
     volts = _limit(project, "test_isolation_voltage_v", "V")
     wires = sorted(h.wires, key=lambda x: x.id)
     ends = _open_ends(h)
+    splices = _splice_set(h)
+    spliced: dict[str, tuple[frozenset[tuple[str, str]], frozenset[str]]] = {}
+    if splices:  # a net through a splice: tests per pair of its ends, and of the net (format 3)
+        for pins, ids in _nets(h):
+            if any(c in splices for c, _p in pins):
+                spliced.update(dict.fromkeys(ids, (pins, ids)))
+    first = {ids: min(ids) for _pins, ids in spliced.values()}
     rows: list[list[Cell]] = []
     for w in wires:
+        if w.id in spliced:
+            pins, ids = spliced[w.id]
+            if first[ids] != w.id:
+                continue
+            outer = sorted((p for p in pins if p[0] not in splices), key=_pin_nat)
+            via = " via " + ", ".join(sorted({c for c, _p in pins if c in splices}, key=_nat))
+            for k, x in enumerate(outer):
+                for y in outer[k + 1 :]:
+                    expect = _OPEN_TEST if {x[0], y[0]} & ends else "continuous"
+                    rows.append(["", "continuity", _test_end(ends, *x), _test_end(ends, *y) + via, expect, cont, "", ";".join(_shortest(h, ids, x, y))])  # fmt: skip
+            continue
         a, b = _test_end(ends, w.from_connector, w.from_pin), _test_end(ends, w.to_connector, w.to_pin)  # fmt: skip
         open_wire = w.from_connector in ends or w.to_connector in ends
         rows.append(["", "continuity", a, b, _OPEN_TEST if open_wire else "continuous", cont, "", w.id])  # fmt: skip
     for w in wires:
+        if w.id in spliced:
+            pins, ids = spliced[w.id]
+            if first[ids] != w.id:
+                continue
+            shown = sorted((p for p in pins if p[0] not in splices), key=_pin_nat) or sorted(pins, key=_pin_nat)  # fmt: skip
+            expect = _OPEN_TEST if {c for c, _p in shown} & ends else "isolated"
+            rows.append(["", "isolation", " + ".join(_test_end(ends, *p) for p in shown), _SPLICE_ISOLATION, expect, iso, volts, ";".join(sorted(ids))])  # fmt: skip
+            continue
         a = _test_end(ends, w.from_connector, w.from_pin)
         rows.append(["", "isolation", a, "all other wires and shields", _OPEN_TEST if w.from_connector in ends else "isolated", iso, volts, w.id])  # fmt: skip
     for s in sorted(h.shields, key=lambda x: x.id):
@@ -1332,6 +1468,8 @@ def _emc_class(project: Project, w: Wire) -> str:
 def _label_rows(project: Project, h: Harness) -> list[list[Cell]]:
     rows: list[list[Cell]] = [[h.id, "harness", h.label, "1"]] if h.label else []
     for c in h.connectors:
+        if _splice(c):
+            continue  # no label for a splice
         box = project.connectors.get(c.mates_with or "")
         name = c.label or ((box.label or "") if box is not None else "")
         mates = f"{c.id} {_OPEN_END}" if _open(c) else f"{c.id} mates {c.mates_with or '-'}"
@@ -1350,6 +1488,8 @@ def _missing_mass_data(project: Project, h: Harness) -> str:
     """The text of the "Missing data" column: what is needed to complete the mass."""
     missing: set[str] = set()
     for c in h.connectors:
+        if _splice(c):
+            continue
         if _open(c):  # no connector chosen: no mass, whatever the placeholder part says
             missing.add(f"mass of open end {c.id} (no connector chosen yet)")
             continue
@@ -1728,7 +1868,10 @@ def _build_expected_checks(project: Project, h: Harness) -> dict[str, int]:
             1 for w in h.wires if w.strip_a_mm is None or w.strip_b_mm is None
         ),
         "Pins in use without a contact part": sum(
-            1 for c in h.connectors for p in c.pins if (c.id, p.id) in used and not p.contact_part
+            1
+            for c in h.connectors
+            for p in c.pins
+            if (c.id, p.id) in used and not p.contact_part and not _splice(c)
         ),
         "Parts that are not approved": sum(
             1
@@ -1918,6 +2061,16 @@ def _build_connectors(
         want_open = [c.part_id + _OPEN_PART_TAG, f"{_OPEN_END}, {_TO_FILL}"]
         if (heads[c.id][:2] == want_open) != _open(c):
             r.error("out_build", f"{what} (Connectors) shows {c.id} wrongly as a loose end or not.", c.id)  # fmt: skip
+        n = len(c.pins)
+        want_splice = [c.part_id, "splice", f"{n} node{'s' if n != 1 else ''}"]
+        if (heads[c.id] == want_splice) != _splice(c):
+            r.error("out_build", f"{what} (Connectors) shows {c.id} wrongly as a splice or not.", c.id)  # fmt: skip
+    splices = sorted(c.id for c in h.connectors if _splice(c))
+    titles = [row[0] for row in rows[1:] if row[:1] == [_SPLICE_BLOCK]]
+    order = [row[0].split("   ·   ")[0] for row in rows[1:] if row and "   ·   " in row[0]]
+    plain = sorted(c.id for c in h.connectors if not _splice(c))
+    if len(titles) != (1 if splices else 0) or order != [*plain, *splices]:
+        r.error("out_build", f"{what} (Connectors) does not list the connectors and then the splices in a block of their own.", h.id)  # fmt: skip
     for c in h.connectors:
         pins = blocks[c.id]
         if [row[0] for row in pins] != [p.id for p in c.pins]:
@@ -1931,8 +2084,12 @@ def _build_connectors(
             if listed != want or (not want and row[3] != marker):
                 r.error("out_build", f"Pin {c.id}.{p.id} lists the wrong wires in the build workbook.", c.id)  # fmt: skip
                 break
-            part = project.parts.get(p.contact_part or "")
-            want_contact = p.contact_part or (_TO_FILL if want else "")
+            if _splice(c):  # a node takes no contact; the tool is the splice part's
+                part = project.parts.get(c.part_id)
+                want_contact = ""
+            else:
+                part = project.parts.get(p.contact_part or "")
+                want_contact = p.contact_part or (_TO_FILL if want else "")
             want_tool = (part.tool or "") if part is not None else ""
             if (row[9], row[10]) != (want_contact, want_tool):
                 r.error("out_build", f"Pin {c.id}.{p.id} shows the wrong contact or tool in the build workbook.", c.id)  # fmt: skip
@@ -2184,6 +2341,8 @@ def _yaml_values(r: VerifyReport, h: Harness, text: str) -> None:
             wrong.append(f"pin names of {c.id}")
         if got.get("type") != q(c.part_id + _OPEN_PART_TAG if _open(c) else c.part_id):
             wrong.append(f"part of {c.id}")
+        if got.get("style") != ("simple" if _splice(c) else None):
+            wrong.append(f"style of {c.id}")
     for w in h.wires:
         got = blocks["cables"].get(w.id, {})
         if got.get("gauge") != (None if w.gauge_awg is None else q(f"{w.gauge_awg} AWG")):
@@ -2263,7 +2422,7 @@ def _mass_total(r: VerifyReport, project: Project, row: list[str]) -> None:
     margin = _margin(project)
     ok = (
         len(row) == 10
-        and row[2] == str(sum(len(h.connectors) for h in hs))
+        and row[2] == str(sum(1 for h in hs for c in h.connectors if not _splice(c)))
         and _same_number(row[3], known)
         and row[4] == str(unknown)
         and _same_number(row[5], mass)

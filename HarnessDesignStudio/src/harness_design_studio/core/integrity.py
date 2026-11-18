@@ -69,7 +69,12 @@ def _check_connector(project: Project, c: Connector, owner: str) -> list[Issue]:
                 c.id,
             )
         )
-    elif part.category != "connector":
+    elif c.role == "splice" and part.category != "splice":
+        out.append(
+            _err("wrong_part_category", f"Splice '{c.id}' uses '{c.part_id}', which is not a "
+                 "splice part.", c.id)
+        )  # fmt: skip
+    elif c.role != "splice" and part.category != "connector":
         out.append(
             _err("wrong_part_category", f"Connector '{c.id}' uses '{c.part_id}', which is not a "
                  "connector part.", c.id)
@@ -105,6 +110,12 @@ def _check_connector(project: Project, c: Connector, owner: str) -> list[Issue]:
         owner_h = project.harnesses.get(owner)
         if owner_h is not None and owner_h.generated:
             out.append(_err("loose_end_in_generated_harness", f"Connector '{c.id}' is a loose end in harness '{owner}', which Generate makes: Generate would replace it. Loose ends belong in a harness you made.", c.id))  # fmt: skip
+    if c.role == "splice":  # a joint inside the harness (format 3): it plugs into nothing
+        if c.mates_with is not None:
+            out.append(_err("splice_mated", f"Splice '{c.id}' says it mates with '{c.mates_with}'. A splice is a joint inside the harness and plugs into nothing; clear the mate.", c.id))  # fmt: skip
+        owner_h = project.harnesses.get(owner)
+        if owner_h is not None and owner_h.generated:
+            out.append(_err("splice_in_generated_harness", f"Splice '{c.id}' is in harness '{owner}', which Generate makes: Generate would replace it. Splices belong in a harness you made.", c.id))  # fmt: skip
     if c.mates_with is not None and c.mates_with not in project.connectors:
         owner_h = project.harnesses.get(owner)
         out.append(
@@ -206,6 +217,38 @@ def _check_harness(project: Project, h: Harness, all_wires: Counter[str]) -> lis
             if n > 1:
                 out.append(_err("duplicate_id", f"Harness '{h.id}' has {n} {kind} with ID '{dup}'.", dup))  # fmt: skip
     out.extend(_check_routing(h))
+    out.extend(_check_splices(h))
+    return out
+
+
+def _check_splices(h: Harness) -> list[Issue]:
+    """The warnings of the splices of a harness (format 3, section 6.4 of the design of 2.3.0).
+    They read the harness alone, so the tracker's memo of the harness covers them; they only warn.
+
+    - `splice_stub`: an entry of the list `splices` of formats 1 and 2, which no tool made; it is
+      kept as it is, and a splice is a connector of role `splice` now.
+    - `splice_unused`: a node of a splice with no wire.
+    - `splice_one_wire`: a node with one wire, which joins it to nothing.
+    - `splice_signals_mixed`: wires of different signals on one node."""
+    out: list[Issue] = []
+    for g in sorted(h.splices, key=lambda x: x.id):
+        out.append(_warn("splice_stub", f"Harness '{h.id}' has the splice entry '{g.id}' of an older format, which no tool reads. It is kept as it is; a splice is a connector of role splice since format 3. Place the splice again and remove the entry from the file.", g.id))  # fmt: skip
+    nodes = [(c, p.id) for c in h.connectors if c.role == "splice" for p in c.pins]
+    if not nodes:
+        return out
+    on: dict[tuple[str, str], list[Wire]] = {}
+    for w in h.wires:
+        for end in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin)):
+            on.setdefault(end, []).append(w)
+    for c, pid in nodes:
+        wires = sorted(on.get((c.id, pid), []), key=lambda w: w.id)
+        if not wires:
+            out.append(_warn("splice_unused", f"Node {pid} of splice '{c.id}' in harness '{h.id}' has no wire. Add wires to it, or delete the splice or the node.", c.id))  # fmt: skip
+        elif len(wires) == 1:
+            out.append(_warn("splice_one_wire", f"Node {pid} of splice '{c.id}' in harness '{h.id}' has one wire ({wires[0].id}), so it joins nothing. Add the wires it joins, or delete the splice to join its wires back.", c.id))  # fmt: skip
+        signals = sorted({w.signal for w in wires if w.signal})
+        if len(signals) > 1:
+            out.append(_warn("splice_signals_mixed", f"Node {pid} of splice '{c.id}' in harness '{h.id}' joins wires of different signals ({', '.join(signals)}). A node joins one signal; check the wires.", c.id))  # fmt: skip
     return out
 
 

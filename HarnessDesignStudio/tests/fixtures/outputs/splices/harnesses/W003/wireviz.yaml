@@ -1,0 +1,77 @@
+# harness-design-studio 2.4.0 model e0075c432202
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+metadata:
+  title: "W003 Power Y"
+connectors:
+  "W003-P1":
+    pincount: 3
+    pinlabels: ["1", "2", "3"]
+    type: "EX-MICROD-9-M"
+  "W003-P2":
+    pincount: 3
+    pinlabels: ["1", "2", "3"]
+    type: "EX-MICROD-9-M"
+  "W003-P3":
+    pincount: 3
+    pinlabels: ["1", "2", "3"]
+    type: "EX-MICROD-15-M"
+  "W003-X1":
+    pincount: 1
+    pinlabels: ["1"]
+    type: "EX-SPLICE-1"
+    style: simple
+  "W003-X2":
+    pincount: 1
+    pinlabels: ["1"]
+    type: "EX-SPLICE-1"
+    style: simple
+cables:
+  "W003-001":
+    wirecount: 1
+    gauge: "22 AWG"
+    colors: ["red"]
+    length: 0.5
+  "W003-002":
+    wirecount: 1
+    gauge: "24 AWG"
+    colors: ["red"]
+    length: 1
+  "W003-003":
+    wirecount: 1
+    gauge: "24 AWG"
+    colors: ["red"]
+    length: 1.25
+  "W003-004":
+    wirecount: 1
+    gauge: "22 AWG"
+    colors: ["black"]
+    length: 0.52
+  "W003-005":
+    wirecount: 1
+    gauge: "24 AWG"
+    colors: ["black"]
+    length: 1.02
+  "W003-006":
+    wirecount: 1
+    gauge: "24 AWG"
+    colors: ["black"]
+    length: 1.27
+connections:
+  - - "W003-P1": ["1"]
+    - "W003-001": [1]
+    - "W003-X1": ["1"]
+  - - "W003-X1": ["1"]
+    - "W003-002": [1]
+    - "W003-P2": ["1"]
+  - - "W003-X1": ["1"]
+    - "W003-003": [1]
+    - "W003-P3": ["1"]
+  - - "W003-P1": ["2"]
+    - "W003-004": [1]
+    - "W003-X2": ["1"]
+  - - "W003-X2": ["1"]
+    - "W003-005": [1]
+    - "W003-P2": ["2"]
+  - - "W003-X2": ["1"]
+    - "W003-006": [1]
+    - "W003-P3": ["2"]

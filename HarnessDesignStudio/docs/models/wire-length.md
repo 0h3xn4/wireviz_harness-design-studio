@@ -71,6 +71,10 @@ On a harness Generate made, Generate keeps an entered or imported length by the 
 
 On the `flatsat` example, `harness-design-studio explain DIR W005-L3` prints *Segment W005-L3 of harness W005. Length: 1 m*, from `W005-P2 (PCDU1-J01)` to `W005-B1 (Branch X)`, *entered, kept by Generate*, and the two wires `W005-001` and `W005-002`. `explain DIR W005-B1` prints the four segments that meet *Branch X* and the connectors beyond each: `W005-P4`, `W005-P5` and `W005-P6` beyond `W005-L1`, and one connector beyond each of `W005-L2`, `W005-L3` and `W005-L4`.
 
+### Splices (format 3)
+
+A splice is a node of the routing tree like a connector: a segment may end at it, and a wire from a plug to a splice is measured along the segments between them like any other wire. Each pin of a splice is a node that joins every wire on it into one net (a net is the set of pins its wires join). `routing DIR HARNESS` lists the splices of a harness with the wires on each node, and `explain DIR SPLICE` gives the derivation of kind `splice`: its part and, for each node, the ends of its net (the pins not on a splice). Like a segment, it is computed when asked and is not in `explain --all`.
+
 ## What happens when a value is missing
 
 A length is never made up. The derivation names what is missing: that the harness has no routing segments, that the segments do not give one path between the connectors (a loop, see `segment-loop`), or which segments have no length. Mass, the cut list and the voltage drop then say the same, because they use the same function.

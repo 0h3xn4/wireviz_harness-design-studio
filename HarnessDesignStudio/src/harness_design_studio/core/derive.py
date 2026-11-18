@@ -42,7 +42,7 @@ from harness_design_studio.core.generate.sizing import (
     wire_current_limit,
 )
 from harness_design_studio.core.model import Harness, Project, Wire
-from harness_design_studio.core.model.physical import LOOSE_ROLE, TBD_PART_ID
+from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
 from harness_design_studio.core.outputs.tables import (
     OPEN_END_PART,
     BomContribution,
@@ -663,7 +663,8 @@ def harness_mass_derivation(project: Project, h: Harness) -> Derivation:
     inputs: list[Input] = []
     steps: list[Step] = []
     conn_sum = 0.0
-    for c in h.connectors:
+    counted = [c for c in h.connectors if c.role != SPLICE_ROLE]  # a splice: full_bom only
+    for c in counted:
         if c.role == LOOSE_ROLE:  # an open end: no connector chosen, no mass counted (D-201)
             inputs.append(Input(f"Connector {c.id}", None, "g", open_end_missing(c)))
             continue
@@ -678,9 +679,7 @@ def harness_mass_derivation(project: Project, h: Harness) -> Derivation:
         )
         if part is not None and part.mass_g is not None:
             conn_sum += part.mass_g
-    steps.append(
-        Step(f"Connectors ({len(h.connectors)})", "sum of the connector masses", conn_sum, "g")
-    )
+    steps.append(Step(f"Connectors ({len(counted)})", "sum of the connector masses", conn_sum, "g"))
     by_part: dict[str, tuple[int, float, float]] = {}
     unknown = 0
     for w in h.wires:
@@ -717,7 +716,9 @@ def harness_mass_derivation(project: Project, h: Harness) -> Derivation:
         extra = report.total_g - conn_sum - wire_sum
         steps.append(
             Step(
-                "Contacts and accessories (model full_bom)",
+                "Contacts, splices and accessories (model full_bom)"
+                if any(c.role == SPLICE_ROLE for c in h.connectors)
+                else "Contacts and accessories (model full_bom)",
                 "the mass of each contact part for a pin with a wire, and of each accessory part",
                 extra,
                 "g",
@@ -1033,11 +1034,11 @@ def explain_harness_all(project: Project, harness_id: str) -> list[Derivation]:
 
 def explain_object(project: Project, object_id: str) -> list[Derivation]:
     """A harness, a wire, an interface, a test (HARNESS.T001), a connector, a pin (CONNECTOR.PIN), a
-    shield group, a segment (W001-L3), a branch point (W001-B2), a part used in a harness, or the
+    shield group, a segment (W001-L3), a branch point (W001-B2), a splice (W001-X1), a part used in a harness, or the
     contacts of an interface at a connector (INTERFACE.CONNECTOR, the object of a
     `current-over-contact` finding), by its ID."""
     from harness_design_studio.core import derive_build, derive_layout
-    from harness_design_studio.core.derive_routing import explain_routing_object
+    from harness_design_studio.core.derive_routing import explain_routing_object, explain_splice
 
     if object_id in project.harnesses:
         return explain_harness_all(project, object_id)
@@ -1049,6 +1050,9 @@ def explain_object(project: Project, object_id: str) -> list[Derivation]:
     if right and left in project.interfaces and right in project.connectors:
         return [contact_current_derivation(project, left, right)]
     found = derive_build.explain_test(project, object_id)
+    if found:
+        return found
+    found = explain_splice(project, object_id)  # a splice and its nets (format 3)
     if found:
         return found
     found = derive_layout.explain_connector_or_pin(project, object_id)

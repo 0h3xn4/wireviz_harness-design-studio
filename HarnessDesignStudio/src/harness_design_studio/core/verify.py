@@ -168,6 +168,7 @@ def _check_wire_ends(
     cable_use: dict[tuple[str, str], list[str]] = {}
     box_use: dict[tuple[str, str], list[str]] = {}
     for h in project.harnesses.values():
+        splices = _splices_of(h)
         for w in h.wires:
             rep.wires_checked += 1
             same_pin = (w.from_connector, w.from_pin) == (w.to_connector, w.to_pin)
@@ -181,7 +182,8 @@ def _check_wire_ends(
                 ("from", w.from_connector, w.from_pin),
                 ("to", w.to_connector, w.to_pin),
             ):
-                if not (same_pin and side == "to"):  # one pin used once, reported above
+                # one pin used once (same pin: reported above); a splice node joins its wires
+                if not (same_pin and side == "to") and cid not in splices:
                     cable_use.setdefault((cid, pid), []).append(w.id)
                 owner = cables.get(cid)
                 if owner is None or owner[0].id != h.id:
@@ -201,7 +203,7 @@ def _check_wire_ends(
                 if cable.mates_with in project.connectors:
                     if not (same_pin and side == "to"):
                         box_use.setdefault((str(cable.mates_with), pid), []).append(w.id)
-                elif h.generated:
+                elif h.generated and cable.role != "splice":
                     rep.error(
                         "mate_missing",
                         f"Cable connector {cid} does not plug into an existing device connector.",
@@ -229,49 +231,10 @@ def _wire_connection(
     i = project.interfaces[iface_id]
     ends: list[Endpoint] = []
     for cid, pid in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin)):
-        owner = cables.get(cid)
-        box = project.connectors.get(owner[1].mates_with or "") if owner else None
-        if box is None:
+        end = _end_of(project, rep, cables, i, cid, pid, w.id)
+        if end is None:
             return None
-        idx = next(
-            (
-                k
-                for k, e in enumerate(i.endpoints)
-                if e.connector_id == box.id and e.unit_id == box.unit_id
-            ),
-            None,
-        )
-        if idx is None:
-            rep.error(
-                "wrong_endpoint",
-                f"Wire {w.id} ends on {box.id}, which is not an end of interface {i.id}.",
-                w.id,
-            )
-            return None
-        pin = next((p for p in box.pins if p.id == pid), None)
-        if pin is None or pin.signal is None or pin.interface_id != i.id:
-            rep.error(
-                "pinout_mismatch",
-                f"Wire {w.id}: pin {pid} of {box.id} is not allocated to {i.id} in the pinout table.",
-                w.id,
-            )
-            return None
-        cable_pin = next((p for p in owner[1].pins if p.id == pid), None) if owner else None
-        if cable_pin is not None and (
-            cable_pin.signal not in (None, pin.signal)
-            or cable_pin.interface_id not in (None, pin.interface_id)
-        ):
-            rep.error(
-                "cable_pin_mismatch",
-                f"Wire {w.id}: pin {pid} of cable connector {cid} is marked "
-                f"{cable_pin.signal or 'no signal'} of {cable_pin.interface_id or 'no interface'}, "
-                f"but pin {pid} of {box.id} carries {pin.signal} of {pin.interface_id}.",
-                w.id,
-            )
-            return None
-        itype = project.interface_types.get(i.type_id)
-        carried = _carried(pin, [s.name for s in itype.signals] if itype else [])[0]
-        ends.append((idx, carried or pin.signal))
+        ends.append(end)
     if ends[0] == ends[1]:
         if (w.from_connector, w.from_pin) != (w.to_connector, w.to_pin):  # else reported earlier
             rep.error(
@@ -289,6 +252,148 @@ def _wire_connection(
             w.id,
         )
     return frozenset(ends)
+
+
+def _end_of(
+    project: Project,
+    rep: VerifyReport,
+    cables: dict[str, tuple[Harness, Connector]],
+    i: InterfaceInstance,
+    cid: str,
+    pid: str,
+    wire_id: str,
+    *,
+    strict: bool = True,
+) -> Endpoint | None:
+    """The (end of the interface, signal) a pin of a cable connector reaches, read from the pinout
+    table of the device connector it plugs into; None (and an error) if it reaches none. With
+    `strict` False a device connector that is not an end of the interface gives None and no
+    error (a net through a splice may reach the ends of other interfaces too)."""
+    owner = cables.get(cid)
+    box = project.connectors.get(owner[1].mates_with or "") if owner else None
+    if box is None:
+        return None
+    idx = next(
+        (
+            k
+            for k, e in enumerate(i.endpoints)
+            if e.connector_id == box.id and e.unit_id == box.unit_id
+        ),
+        None,
+    )
+    if idx is None:
+        if strict:
+            rep.error(
+                "wrong_endpoint",
+                f"Wire {wire_id} ends on {box.id}, which is not an end of interface {i.id}.",
+                wire_id,
+            )
+        return None
+    pin = next((p for p in box.pins if p.id == pid), None)
+    if pin is None or pin.signal is None or pin.interface_id != i.id:
+        rep.error(
+            "pinout_mismatch",
+            f"Wire {wire_id}: pin {pid} of {box.id} is not allocated to {i.id} in the pinout table.",
+            wire_id,
+        )
+        return None
+    cable_pin = next((p for p in owner[1].pins if p.id == pid), None) if owner else None
+    if cable_pin is not None and (
+        cable_pin.signal not in (None, pin.signal)
+        or cable_pin.interface_id not in (None, pin.interface_id)
+    ):
+        rep.error(
+            "cable_pin_mismatch",
+            f"Wire {wire_id}: pin {pid} of cable connector {cid} is marked "
+            f"{cable_pin.signal or 'no signal'} of {cable_pin.interface_id or 'no interface'}, "
+            f"but pin {pid} of {box.id} carries {pin.signal} of {pin.interface_id}.",
+            wire_id,
+        )
+        return None
+    itype = project.interface_types.get(i.type_id)
+    carried = _carried(pin, [s.name for s in itype.signals] if itype else [])[0]
+    return idx, carried or pin.signal
+
+
+# ---- nets through splices (format 3, M6a): the verifier's own copy of `core/nets.py` ------------
+
+
+def _splices_of(h: Harness) -> set[str]:
+    return {c.id for c in h.connectors if c.role == "splice"}
+
+
+def splice_nets(h: Harness) -> list[tuple[frozenset[tuple[str, str]], frozenset[str]]]:
+    """The nets of a harness as (pins, wire IDs): the pins joined by its wires, a pin joining every
+    wire on it. Worked out here by a walk over the wires, not with `core/nets.py`; a test compares
+    the two (and the output check's third copy)."""
+    by_pin: dict[tuple[str, str], list[Wire]] = {}
+    for w in h.wires:
+        by_pin.setdefault((w.from_connector, w.from_pin), []).append(w)
+        by_pin.setdefault((w.to_connector, w.to_pin), []).append(w)
+    seen: set[tuple[str, str]] = set()
+    out = []
+    for start in sorted(by_pin):
+        if start in seen:
+            continue
+        pins: set[tuple[str, str]] = set()
+        wires: set[str] = set()
+        todo = [start]
+        while todo:
+            pin = todo.pop()
+            if pin in pins:
+                continue
+            pins.add(pin)
+            for w in by_pin[pin]:
+                wires.add(w.id)
+                todo += [(w.from_connector, w.from_pin), (w.to_connector, w.to_pin)]
+        seen |= pins
+        out.append((frozenset(pins), frozenset(wires)))
+    return out
+
+
+def _splice_connections(
+    project: Project,
+    rep: VerifyReport,
+    cables: dict[str, tuple[Harness, Connector]],
+    i: InterfaceInstance,
+    wires: list[Wire],
+    spliced: list[Harness],
+) -> tuple[Counter[Connection], set[str], int]:
+    """The connections of interface `i` through splices: each net with a splice node that holds a
+    wire of the interface joins each pair of its ends (pins not on a splice) that reach two pins of
+    the interface's ends: one connection per pair (section 6.4 of the design of 2.3.0). Returns
+    the connections, the wires they cover and how many nets could not be read. `spliced` are the
+    harnesses that have a splice, by ID."""
+    found: Counter[Connection] = Counter()
+    covered: set[str] = set()
+    unreadable = 0
+    mine = {w.id for w in wires}
+    for h in spliced:
+        splices = _splices_of(h)
+        interface_of = {w.id: w.interface_id for w in h.wires}
+        for pins, ids in splice_nets(h):
+            if not (ids & mine) or not any(cid in splices for cid, _ in pins):
+                continue
+            covered |= ids & mine
+            alone = all(interface_of[x] == i.id for x in ids)  # no other interface on the net
+            first = min(ids & mine)
+            ends: list[Endpoint] = []
+            bad = False
+            for cid, pid in sorted(p for p in pins if p[0] not in splices):
+                end = _end_of(project, rep, cables, i, cid, pid, first, strict=alone)
+                if end is None:
+                    owner = cables.get(cid)
+                    box = project.connectors.get(owner[1].mates_with or "") if owner else None
+                    bad = bad or (box is not None and alone)
+                    continue
+                ends.append(end)
+            if bad:
+                unreadable += 1
+            for k, a in enumerate(ends):
+                for b in ends[k + 1 :]:
+                    if a != b:
+                        found[frozenset({a, b})] += 1
+    return found, covered, unreadable
 
 
 def _wire_label(a: str, b: str) -> set[str]:
@@ -410,6 +515,7 @@ def verify_project(project: Project) -> VerifyReport:
                 else:
                     rep.error("pin_reused", text, cid)
 
+    spliced = sorted((h for h in project.harnesses.values() if _splices_of(h)), key=lambda x: x.id)
     by_interface: dict[str, list[Wire]] = {}
     for h in project.harnesses.values():
         for w in h.wires:
@@ -427,9 +533,11 @@ def verify_project(project: Project) -> VerifyReport:
         rep.interfaces_checked += 1
         _check_ports(project, rep, i, [s.name for s in itype.signals])
         need = expected_connections([(s.name, s.direction) for s in itype.signals])
-        found: Counter[Connection] = Counter()
-        unreadable = 0
-        for w in by_interface.get(i.id, []):
+        wires = by_interface.get(i.id, [])
+        found, through, unreadable = _splice_connections(project, rep, cables, i, wires, spliced)
+        for w in wires:
+            if w.id in through:
+                continue  # counted per net, above
             conn = _wire_connection(project, rep, cables, i.id, w)
             if conn is None:
                 unreadable += 1
