@@ -80,6 +80,7 @@ Moved to [`INSTALL.md`](INSTALL.md): the `.deb`, the `.tar.gz`, a source install
 - [Naming and title block](user-manual/naming-and-title-block.md).
 - [Edit a wire](user-manual/edit-a-wire.md) (since 1.4.0) and [Build a harness by hand](user-manual/build-a-harness-by-hand.md), a harness with no interface behind it (since 1.5.0).
 - [Redundancy and zones](user-manual/redundancy-and-zones.md).
+- [Branching harnesses](user-manual/branching-harnesses.md): one harness with one plug on each device connector, branch points and segments, made by Generate (`per_connector_group`) or drawn by hand (new in 2.3.0).
 - [Enter the build data](user-manual/enter-the-build-data.md): strip lengths, contacts, crimp tools and accessories, in the app and from a file (new in 1.7.0).
 - [Use the library](user-manual/use-the-library.md): a folder your team shares with devices and subsystems, and a number of the same device (new in 1.8.0).
 - [Choose your role](user-manual/choose-your-role.md): Systems engineer, Electrical engineer or AIT engineer, the **Role** button, **Quick mode** and the Next step page (the Next step page is from 1.7.0, the roles from 1.8.0, the third role from 1.12.0, Quick mode from 1.14.0).

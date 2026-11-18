@@ -308,6 +308,15 @@ The **Checks** tab (Ctrl+4) has one row for each rule:
 - The **Accessories** tab (right of **Connectors**) lists the sleeving, heat shrink, labels and backshells of a harness with ID, kind, part, what they go on, position in words, length of one piece, quantity and note. **Add accessory** takes the next free ID (ACC-001, ...); **Change accessory**, **Delete accessory** and **New accessory** do what they say. It is off for a released harness. Nothing is computed from any of these values and the tool sets none of its own; `harness-design-studio import-build-data` reads them from a table.
 - A wire gauge stays **pending** until the derating values exist and the lengths are known (section 11, What an engineer must fill in). The tool never guesses an engineering value.
 
+### Branching harnesses
+
+Since 2.3.0 a harness can branch: one plug on each device connector, and the wires leave the main bundle at a **branch point**. A **segment** is the bundle between two nodes (a connector or a branch point); it is measured from the rear of a connector to the centre of a branch point. A wire is as long as the segments on its path; Generate adds its service loops.
+
+- **Generate:** in **Settings > Project**, **How interfaces are grouped into harnesses**, choose **Per connector group**. The next Generate joins the harnesses that plug into one device connector into one harness that branches. Connectors wired in a ring are not joined (`branch_not_built`).
+- **Routing table:** in the **Harness** tab, under the wires, one row per segment and one per branch point. Double-click a length to type it in metres; Generate keeps it. For a harness you drew, **Add branch point**, **Add segment…**, **Rename…** and **Delete** change the tree.
+- **Diagram:** a cable dragged from a port that a harness you drew plugs into is a new leg of that harness. Drag a branch point to move it; no output goes out of date. **Join into one harness…** (Expert mode, the menu of a connector) joins two harnesses you drew on one device connector; the **Problems** panel offers **Join into one harness** or **Use per_connector_group** on a connector with two plugs.
+- A shield group runs between two connectors: a group across a branch is refused. Splices come with format 3. More: `docs/user-manual/branching-harnesses.md` in the repository.
+
 ## 8. Outputs
 
 `outputs/` contains, for every harness: the build workbook (`<ID>_build.xlsx`, see below), wire list, pinouts, BOM, mass and length, continuity and isolation tests, labels, a WireViz-style YAML file and an Excel workbook of the data tables. The PDF and SVG drawings of the harnesses (SVG for the A3 sheets, PDF for A3 and A4) are written only when you ask for them.
@@ -319,6 +328,8 @@ Every file carries the tool version and a model hash. The status chip in the top
 A project that has connections (**Link connectors…**) also gets the **connection list** (`system/connections.csv` and `connections.xlsx`: one row for each pair of pins, with the device, connector, pin, signal and role at both ends, the interface type, the harness and a note); the connections are drawn with their IDs in the block diagram and listed in the traceability matrix. The list needs no harness: **Export…** works for a project with connections and no harness.
 
 The **build workbook** is the file to build a harness from. **Start here** says whether the harness is ready to build and what is missing; **Cut list** lists the wires in cut order, with their colours and strip lengths; **Connectors** has one block per connector, pin by pin, with the contact, the crimp tool and tick columns; **Parts**, **Accessories**, **Labels** and **Tests** follow, with empty columns for the result; **About** names the version and design. A missing value reads *to fill in*. Work on a copy: a changed file in `outputs/` fails the output check.
+
+A harness with a branch point also gets `segments.csv`, a **Routing** sheet in its build workbook after **Cut list** (the segments with their lengths and wires, then the branch points) and a **Segments** sheet in `<ID>.xlsx` (since 2.3.0). A straight harness keeps its files.
 
 The build data shows in the tables only where it is used: the wire list gets *Strip A (mm)* and *Strip B (mm)*, the pinouts get *Contact*, a harness with accessories gets `accessories.csv`, and the bill of materials counts the contacts used on pins and the accessory parts (pieces as *ea*, parts with a length as metres *m*).
 

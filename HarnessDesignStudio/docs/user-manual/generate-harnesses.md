@@ -114,6 +114,7 @@ By default one harness is made for each pair of device connectors. The setting i
 | `per_connector_pair` (default) | pair of device connectors |
 | `per_unit_pair` | pair of devices |
 | `per_zone_pair` | pair of zones (links between the same two lanes) |
+| `per_connector_group` (since 2.3.0) | group of device connectors joined by links: one harness that branches, with one plug on each device connector ([branching harnesses](branching-harnesses.md)) |
 
 With the `minimal-satellite` example (11 links), the default makes 11 harnesses. After changing `mode` to `per_unit_pair` and running `harness-design-studio generate` again, the report is `1 added, 9 changed, 0 unchanged, 2 removed`: ten harnesses replace the eleven. Harnesses that keep a pair of devices keep their IDs (here `W001`, `W002` and `W005` to `W011`, nine of them changed), the new one gets the next free ID (`W012`), and the files of the old ones stay in `physical/harnesses/` with the ending `.json.bak`. A second run changes nothing. (`minimal-satellite` is not in the 0.1.0 packages; see the [changelog](../../CHANGELOG.md).)
 
