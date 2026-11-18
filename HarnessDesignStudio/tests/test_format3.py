@@ -582,7 +582,6 @@ ALLOWED_SOURCE = {
     "core/outputs/exports.py",  # OLD_VERSION_KEY (Q29)
     "core/outputs/verify.py",  # checks that `revision` equals `version` in export.json
     "core/extensions/fields.py",  # `harness.revision`, the older name (Q29)
-    "core/commands.py",  # History.revision, the undo counter, never shown
     "cli/main.py",  # migrate --set-version and its words
     "cli/changes.py",  # `revise`, the older name of new-version, and the log key of Q29
 }
@@ -681,7 +680,7 @@ def test_no_message_of_the_core_says_revision() -> None:
                 and isinstance(node.value, str)
                 and id(node) not in docs
                 and not node.value.isidentifier()  # a name in `__all__`, not a message
-                and "revision" in node.value.lower()
+                and ("revision" in node.value.lower() or "'Revise'" in node.value)
             ):
                 found.append(f"{rel}:{node.lineno}: {node.value[:60]}")
     assert found == []
