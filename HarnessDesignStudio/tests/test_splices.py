@@ -404,3 +404,16 @@ def test_the_change_report_calls_it_a_splice():
         c for c in diff_flat(before, flatten_project(p)).changes if c.kind == "cable_connector"
     ]
     assert [kind_name(c) for c in changes] == ["Splice"]
+
+
+def test_the_termination_of_a_node_is_set_like_a_pin_s():
+    from harness_design_studio.core.connector_edit import plan_edit_pin
+
+    p = splice_project()
+    apply_ops(p, plan_edit_pin(p, HARNESS, f"{HARNESS}-X1", "1", termination="solder"))
+    x1 = next(c for c in p.harnesses[HARNESS].connectors if c.id == f"{HARNESS}-X1")
+    assert x1.pins[0].termination == "solder"
+    with pytest.raises(EditError, match="not a splice part"):
+        from harness_design_studio.core.connector_edit import plan_edit_connector
+
+        plan_edit_connector(p, HARNESS, x1.id, part_id="EX-MICROD-9-F")
