@@ -194,7 +194,7 @@ A segment length can come in three ways:
 - **Type it in the Routing table.** In the **Drawings** area, open the **Harness** tab of the harness. Under the wire table is **Routing**: one row per segment (segment, from, to, length, the wires through it) and one row per branch point (its name, its segments and their lengths). Double-click a length, type it in metres and press Enter. Each length is one undo step. An empty cell clears it. A segment without a length reads *to fill in*.
 - **Edit the harness file** by hand (`length_m` of the segment).
 
-On a harness that Generate made, the Routing table says that Generate keeps a length you enter: the next Generate keeps it by the two ends of its segment, as it keeps an imported one. A length whose segment is gone after a change of the design is named in a warning. A released harness locks its segments: its lengths cannot be changed until a new revision.
+On a harness that Generate made, the Routing table says that Generate keeps a length you enter: the next Generate keeps it by the two ends of its segment, as it keeps an imported one. A length whose segment is gone after a change of the design is named in a warning. A released harness locks its segments: its lengths cannot be changed until a new version.
 
 `routing` and `explain` say where each length came from: *imported from lengths.csv, row 2*, *entered*, or *not set*, and *kept by Generate* on a harness that Generate made. The source is worked out, not stored: a length that the import record lists with the same value counts as imported.
 

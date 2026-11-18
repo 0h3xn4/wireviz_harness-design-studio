@@ -65,7 +65,7 @@ wheel-link/outputs/
     block_diagram.pdf  block_diagram.svg      the devices and their links
     harness_overview.pdf  harness_overview.svg
     bom.csv  mass_length.csv  box_pinouts.csv  mating_matrix.csv  traceability.csv
-    drc_report.md  drc_findings.csv  changelog.csv  revision_report.md
+    drc_report.md  drc_findings.csv  changelog.csv  version_report.md
     export.json  provenance.json  system.xlsx
     connections.csv  connections.xlsx   the connection list: only when the project has connections (1.9)
 ```
@@ -85,7 +85,7 @@ wheel-link/outputs/
 | `connections.csv`, `connections.xlsx` | The connection list (ICD style), written only for a project that has connections (1.9): one row for each pair of pins with the device, connector, pin, signal and role at both ends, the interface type the pair belongs to, the harness made from the connection and its note. The workbook has the same rows, a summary sheet with a line for each connection, and is the file to hand over. They need no harness. Columns: [`OUTPUTS.md`](../OUTPUTS.md#connection-list-systemconnectionscsv-and-xlsx). |
 | `<ID>.xlsx` | The tables of the harness as sheets (wire list, pinouts, BOM, mass and length, tests, labels, and the accessories when it has some), as data. It is not the build workbook and has no layout for building. |
 | `drc_report.md` | The same report as `harness-design-studio drc`. |
-| `changelog.csv`, `revision_report.md` | The change log and the history of each harness ([release a harness](release-a-harness.md)). |
+| `changelog.csv`, `version_report.md` | The change log and the history of each harness ([release a harness](release-a-harness.md)). |
 | `export.json` | The whole model in one JSON file, for other tools. |
 | `provenance.json` | Which tool version and which design made the outputs, the library, and every config file with its placeholder flag. |
 
@@ -123,7 +123,7 @@ The PDF files are then `system/block_diagram.pdf`, `system/harness_overview.pdf`
 
 | Sheet | What it holds | What to do with it |
 | --- | --- | --- |
-| **Start here** | The harness and its revision and status, `Ready to build` (yes or no), a table of checks, the author, checker, approver and release date from the design, a short guide to the sheets and a sign-off block to fill in by hand. | Read it first. If the answer is no, fix what is marked. |
+| **Start here** | The harness and its version and status, `Ready to build` (yes or no), a table of checks, the author, checker, approver and release date from the design, a short guide to the sheets and a sign-off block to fill in by hand. | Read it first. If the answer is no, fix what is marked. |
 | **Cut list** | One row per wire, in cut order: AWG, part, length, **Strip A (mm)** and **Strip B (mm)**, from, to, signal or label, shield group and note. The colour is a coloured cell with its name and its IEC 60757 code beside it (`red (RD)`). The column **Cut (x)** is for a tick. The last row counts the wires and adds their lengths. | Cut the wires from the top to the bottom and tick each one. |
 | **Connectors** | One block for every connector: a heading row with its ID, part, gender, what it mates with and its label, then one row for each pin: signal, function, wire, colour, AWG, where the wire goes, termination, contact size, **Contact** (the contact part of the pin), **Tool** (the crimp tool of that part), and the tick columns **Terminated (x)**, **Inserted (x)** and **Checked (x)**. A pin with no wire is grey, and says `(spare)`. | Work through one connector at a time. |
 | **Parts** | The bill of materials of this harness: part, category, manufacturer, part number, description, approval, quantity (as in `bom.csv`), unit, wires without length, and where it is used. The approval is coloured and written in words: green for approved, amber for pending, red for anything else (for example a part that is missing from the parts list). | Take the parts from stock. A part that is not approved is easy to see. |

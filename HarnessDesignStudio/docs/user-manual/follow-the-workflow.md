@@ -31,7 +31,7 @@ This page shows the whole work of the tool in one table: the nine steps from the
 | **Record what was built** | Write down serial and lot numbers, cut and strip lengths, tools and the measured test results, and compare them with the design and the test limits. | `harnesses/<harness>/<harness>_build.xlsx`<br>*the as-built sheet (export-asbuilt) filled in*<br>`config/generation.json` | `asbuilt/records.json`<br>`imports/records.json`<br>`system/asbuilt_report.md`<br>`system/asbuilt_report.csv` | `harness-design-studio import-asbuilt` | As-built |
 <!-- workflow-table:end -->
 
-`export` writes the files of the steps *Check the design* and *Review and release* too (the findings and the revision report); `drc` prints the same report on the screen. The table names only the files that matter for a step, not every file: [what each output file holds](../OUTPUTS.md).
+`export` writes the files of the steps *Check the design* and *Review and release* too (the findings and the version report); `drc` prints the same report on the screen. The table names only the files that matter for a step, not every file: [what each output file holds](../OUTPUTS.md).
 
 ## What you can look at, and change
 
