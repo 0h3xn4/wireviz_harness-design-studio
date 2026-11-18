@@ -28,7 +28,7 @@ The examples show the form of each command with example names. They do not all w
 - Check: [`validate`](#harness-design-studio-validate), [`check`](#harness-design-studio-check), [`drc`](#harness-design-studio-drc), [`verify`](#harness-design-studio-verify)
 - Explain: [`explain`](#harness-design-studio-explain), [`routing`](#harness-design-studio-routing), [`settings`](#harness-design-studio-settings), [`workflow`](#harness-design-studio-workflow)
 - Overrides and change history: [`override`](#harness-design-studio-override), [`deviation`](#harness-design-studio-deviation), [`journal`](#harness-design-studio-journal)
-- Generate and export: [`generate`](#harness-design-studio-generate), [`export`](#harness-design-studio-export), [`export-data`](#harness-design-studio-export-data)
+- Generate and export: [`generate`](#harness-design-studio-generate), [`export`](#harness-design-studio-export), [`export-data`](#harness-design-studio-export-data), [`document`](#harness-design-studio-document)
 - Team use with Git: [`merge-fix`](#harness-design-studio-merge-fix)
 - Bring in data: [`config`](#harness-design-studio-config), [`library`](#harness-design-studio-library), [`import-parts`](#harness-design-studio-import-parts), [`import-lengths`](#harness-design-studio-import-lengths), [`import-netlist`](#harness-design-studio-import-netlist), [`import-pinout`](#harness-design-studio-import-pinout), [`import-devices`](#harness-design-studio-import-devices), [`import-subsystem`](#harness-design-studio-import-subsystem), [`import-build-data`](#harness-design-studio-import-build-data), [`imports`](#harness-design-studio-imports)
 - Write data out: [`export-pinout`](#harness-design-studio-export-pinout), [`export-devices`](#harness-design-studio-export-devices), [`export-subsystem`](#harness-design-studio-export-subsystem)
@@ -60,7 +60,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `routing` | `ok`, `harness`, `name`, `origin`, `branches`, `connectors`, `segments`, `branch_points`, `lengths_missing`, `wires_without_route`, `splices` |
 | `export-data` | `ok`, `count`, `model_hash`, `files`, `run_record` |
 | `generate` | `ok`, `saved`, `added`, `changed`, `unchanged`, `removed`, `frozen`, `kept_locks`, `findings`, `interfaces_checked`, `wires_checked`, `verify_issues` |
-| `export` | `ok`, `written`, `blocked`, `model_hash`, `drawings_removed`, `file_count`, `files`, `issues` |
+| `export` | `ok`, `written`, `blocked`, `model_hash`, `drawings_removed`, `harness_plans_removed`, `file_count`, `files`, `harness_plans`, `issues` |
 | `merge-fix` | `ok`, `result`, `conflicts`, `problem`, `generate`, `check`, `dry_run`, `renamed`, `versions` |
 | `config` | `ok`, `set_count`, `total`, `values`, `problems`, `placeholder_files`, `waiting_for_decision`, `counterpart_pairs`, `release_distinct_roles`, `comment_warnings`, `changes` |
 | `library` | `ok`, `name`, `version`, `source`, `date`, `changed` |
@@ -81,6 +81,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `export-pinout` | `ok`, `device`, `pin_rows`, `columns`, `rows`, `written` |
 | `export-devices` | `ok`, `devices`, `connectors`, `notes` |
 | `export-subsystem` | `ok`, `name`, `devices`, `connectors`, `connections` |
+| `document` | `ok`, `changed`, `harness`, `system`, `title`, `company`, `contact`, `plans` |
 | `review`, `release` | `ok`, `action`, `by`, `notes`, `blockers`, `outputs` |
 | `new-version`, `revise` | `ok`, `action`, `by`, `kind`, `notes`, `blockers`, `outputs` |
 | `diff` | `ok`, `harness`, `from`, `to`, `read_as`, `added`, `removed`, `changed`, `changes` |
@@ -433,7 +434,7 @@ harness-design-studio generate my-design --run-record
 
 ### harness-design-studio export
 
-write the build workbook of every harness, the tables and exports to <project>/outputs and verify them (add --drawings for the PDF drawings)
+write the build workbook of every harness, the tables and exports to <project>/outputs and verify them (add --drawings for the PDF drawings, --harness-plan for the harness plans)
 
 `harness-design-studio export project [options]`
 
@@ -444,6 +445,7 @@ write the build workbook of every harness, the tables and exports to <project>/o
 | `--run-record` | also write run_record.json (time in UTC, operator, tool version, platform, Python version, model hash) next to the files: it is outside every hash, and written only with this option |
 | `--author NAME` | with --run-record: who ran it (default: the environment variable HARNESS_AUTHOR, else unknown; no name is looked up) |
 | `--drawings` | also write the PDF and SVG drawings of the harnesses (off by default: the build workbook is the main output) |
+| `--harness-plan` | also write the harness plan of each harness, harnesses/<ID>/<ID>_plan.ods (a spreadsheet with formulas in the users' layout; off by default). An export without it into a folder whose last export had the plans removes them |
 | `--out OUT` | the folder to write the outputs to (default: <project>/outputs) |
 
 Examples:
@@ -451,6 +453,7 @@ Examples:
 ```
 harness-design-studio export my-design
 harness-design-studio export my-design --drawings
+harness-design-studio export my-design --harness-plan --json
 harness-design-studio export my-design --out my-outputs --json
 harness-design-studio export my-design --run-record --author "A. Engineer"
 ```
@@ -475,6 +478,30 @@ Examples:
 harness-design-studio export-data my-design --out my-design-data
 harness-design-studio export-data my-design --out my-design-data --json
 harness-design-studio export-data my-design --out my-design-data --run-record --author "A. Engineer"
+```
+
+### harness-design-studio document
+
+The document data that the harness plans (`export --harness-plan`) show on their Cover. Without an option it is shown. For the project: `--set system=…`, `--set title=…`, `--set company=…` and the contact lines `--contact LABEL=VALUE` (a line with that label gets the value, else a line is added at the end; an empty VALUE removes the line; at most eight lines). With `--harness ID`: `--set number=…`, `--set version=…` (the plan document's own version; while it is empty the Cover shows the harness version), `--set release=…` and `--set title=…` of that harness's plan. `--clear FIELD` empties a field (`--clear contact` removes every contact line). The change is one step, recorded in the change journal when the project keeps one, and a release does not lock it. The data goes into project.json, so into the project's Git history: a team that prefers it can give a role address in place of a person's name and phone.
+
+`harness-design-studio document project [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `--harness ID` | the harness whose plan the fields belong to (number, version, release, title) |
+| `--set FIELD=VALUE` | set one field: system, title or company; with --harness number, version, release or title (repeat for several) (repeatable) |
+| `--contact LABEL=VALUE` | set the contact line LABEL, for example E-mail=plans@example.org; an empty VALUE removes it (repeat for several; not with --harness) (repeatable) |
+| `--clear FIELD` | empty a field (contact: every contact line); repeat for several (repeatable) |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio document my-design
+harness-design-studio document my-design --set company="Example Ltd" --contact E-mail=plans@example.org
+harness-design-studio document my-design --harness W001 --set number=HP-W001 --json
+harness-design-studio document my-design --clear contact
 ```
 
 ## Team use with Git
@@ -632,7 +659,7 @@ harness-design-studio import-netlist my-design wheel.net --device RW1 --pin-dire
 
 ### harness-design-studio import-pinout
 
-Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Part, Gender, Port); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as a description or a voltage, are named in a warning and left out. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.
+Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Function, Direction, Level, Part, Gender, Port, Source, Source version, Source link); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as remarks or a voltage, are named in a warning and left out. The sheets of the harness plan are read in their own words: a Function column without a Signal column is the signal and Description is the function; the Direction words PWR, PWR-RET, GND, SGND, SHIELD and SPARE set the role of the pin, IN, OUT and IN/OUT its direction, and any other word (TEST) sets neither and is listed in the import record; a Pinout column is read as the pin with --column pin=Pinout. Source (also ICD), Source version and Source link say where the pinout of a connector comes from; its rows give one value. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.
 
 `harness-design-studio import-pinout project file [options]`
 
@@ -756,7 +783,7 @@ harness-design-studio imports my-design --check --library ../acme-device-library
 
 ### harness-design-studio export-pinout
 
-Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document.
+Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV, with the columns Level, Source, Source version and Source link while a pin or a connector of the device has a value for them. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document, and import-pinout reads the file back.
 
 `harness-design-studio export-pinout project [options]`
 

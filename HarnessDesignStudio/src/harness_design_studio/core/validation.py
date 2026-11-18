@@ -9,6 +9,7 @@ from pathlib import Path
 from harness_design_studio.core.io.loader import LoadResult, load_project, non_canonical_files
 from harness_design_studio.core.io.migrate import SetVersions
 from harness_design_studio.core.issues import Issue
+from harness_design_studio.core.model import Project
 
 NOT_CANONICAL = (
     "File differs from the tool's own formatting (hand-edited or merged). "
@@ -46,6 +47,7 @@ def validate_folder(
         from harness_design_studio.core.vcs.consistency import release_integrity
 
         extra.extend(release_integrity(result.project))
+        extra.extend(plan_notes(result.project))
     if not result.project.recovered:
         from harness_design_studio.core import configcheck
         from harness_design_studio.core.verify import link_issues
@@ -61,3 +63,28 @@ def validate_folder(
                 for i in result.project.extensions.issues
             )
     return result, extra
+
+
+def plan_notes(project: Project) -> list[Issue]:
+    """What `check` says about the harness plans (3.0.0, design sections 4.1 and 6): a key of the
+    document data that names no harness, and the notes on the colour codes. None of them stops
+    generation or an export, so they are not issues of `configcheck.validate`; a broken
+    `config/harness_plan.json` is reported there instead, and then these notes wait for it."""
+    from harness_design_studio.core import configcheck
+    from harness_design_studio.core.document import unknown_plan_keys
+    from harness_design_studio.core.outputs.harness_plan import colour_notes
+
+    out = [
+        Issue(
+            "warning",
+            "plan_document_unknown",
+            f"The document data has a plan of {key}, which is not a harness of the project; "
+            f"`harness-design-studio document DIR --harness ID` sets the plan of a harness.",
+            "project.json",
+            key,
+        )
+        for key in unknown_plan_keys(project)
+    ]
+    if not configcheck.validate_harness_plan(project):
+        out.extend(colour_notes(project))
+    return out

@@ -10,6 +10,7 @@ common aliases) and the meaning of the approval column is stated by you: values 
 approved, pending or rejected. A status that is not in any of your lists is an error for that
 row; the tool never guesses whether a part is approved. A column Tool or Crimp tool is read into
 the tool of a contact part (the crimp tool or its setting, 1.7.0); other categories ignore it.
+A column Link (also URL) is read into the part's web link (format 3: `https://` or `http://` only).
 A column headed with the name of a rating (`contact_current_a`, `rated_voltage_v` ...) is read into
 `Part.ratings` (D-193); a mass is read in grams unless the caller says another unit.
 Preview first, apply as one undo step.
@@ -34,7 +35,7 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("part_number", "Part number"), ("description", "Description"), ("specification", "Specification"),
     ("approval", "Approval status"), ("pin_count", "Pin count"), ("mass_g", "Mass (g)"),
     ("mass_per_m_g", "Mass per metre (g/m)"), ("mates_with", "Mating part ID"),
-    ("tool", "Crimp tool"), ("conductors", "Conductors"),
+    ("tool", "Crimp tool"), ("conductors", "Conductors"), ("link", "Link"),
 )  # fmt: skip
 _ALIASES = {
     "id": (
@@ -59,6 +60,8 @@ _ALIASES = {
     "mates_with": ("mateswith", "mate", "mating", "matingpart"),
     "tool": ("tool", "crimptool", "crimpingtool", "crimpsetting"),
     "conductors": ("conductors", "conductorcount", "cores", "numberofconductors"),
+    # a web page of the part (format 3, design of 3.0.0 section 4.1); InvenTree exports `Link`
+    "link": ("link", "url", "weblink", "partlink", "parturl"),
 }
 
 
@@ -294,7 +297,9 @@ def plan_parts_import(
             "unverified": False,
         }
         problem = ""
-        for key in ("manufacturer", "part_number", "description", "specification", "mates_with"):
+        for key in (
+            "manufacturer", "part_number", "description", "specification", "mates_with", "link",
+        ):  # fmt: skip
             if cell(key):
                 changes[key] = cell(key)
         if cell("tool") and category == "contact":  # only a contact part is crimped

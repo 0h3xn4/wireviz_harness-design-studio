@@ -24,7 +24,7 @@ from harness_design_studio.core.imports import ImportPlan
 from harness_design_studio.core.kicad import Netlist, NetlistPlan
 from harness_design_studio.core.library_import import PartsPlan, rating_columns
 from harness_design_studio.core.model import Project
-from harness_design_studio.core.pinout_import import PinoutPlan
+from harness_design_studio.core.pinout_import import DIRECTION_UNIT, NOT_SET, PinoutPlan
 
 Table = Sequence[Sequence[str]]
 Root = Path | str | None
@@ -152,6 +152,11 @@ def pinout_report(
     for r in plan.rows:
         if not r.ok:
             report.drop(r.row_number, r.message)
+    for w in plan.words:  # a Direction word that sets neither role nor direction (3.0.0)
+        report.convert(
+            row=w.row, field="direction", read=w.word, unit=DIRECTION_UNIT, stored=NOT_SET,
+            item=f"{w.connector} pin {w.pin}",
+        )  # fmt: skip
     return report
 
 

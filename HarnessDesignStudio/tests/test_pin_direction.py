@@ -197,17 +197,24 @@ def test_a_direction_goes_out_and_back_through_a_file(tmp_path: Path, capsys):
         assert [(x.id, x.direction) for x in pins][:3] == [("1", "in"), ("2", ""), ("3", "bidir")]
 
 
-def test_a_sheet_with_a_direction_column_imports_it_and_a_bad_word_refuses_the_row():
+def test_a_sheet_with_a_direction_column_imports_it_and_an_unknown_word_sets_nothing():
+    """3.0.0 (design of the harness plan, section 4.3): a Direction word the tool does not read
+    leaves role and direction unset, with a warning that names the words it reads; the row is not
+    refused (2.x refused it)."""
     p, _cid = with_connector()
     table = parse_csv("Pin,Signal,Direction\n1,PWR,Input\n2,TX,Output\n3,X,N/A\n4,Y,\n")
     plan = plan_pinout_import(p, table, guess_mapping(table[0]), unit_id="GYRO1", connector="J01")
     assert plan.importable and plan.warnings == []
     History(p).execute(plan.label, plan.ops)
     assert [x.direction for x in p.connectors["GYRO1-J01"].pins[:4]] == ["in", "out", "", ""]
-    bad = parse_csv("Pin,Signal,Direction\n1,PWR,Power\n")
-    refused = plan_pinout_import(p, bad, guess_mapping(bad[0]), unit_id="GYRO1", connector="J01")
-    assert not refused.importable
-    assert "in, out, bidirectional" in refused.rows[0].message
+    other = parse_csv("Pin,Signal,Direction\n1,PWR,Power\n")
+    read = plan_pinout_import(p, other, guess_mapping(other[0]), unit_id="GYRO1", connector="J01")
+    assert read.rows[0].ok
+    assert len(read.warnings) == 1
+    assert "'Power' is not one the tool reads" in read.warnings[0]
+    assert "PWR, PWR-RET, GND, SGND, SHIELD, SPARE, IN, OUT, IN/OUT" in read.warnings[0]
+    pin = p.connectors["GYRO1-J01"].pins[0]
+    assert pin.direction == "in"  # the pin keeps what it had
 
 
 def test_a_device_library_file_keeps_the_directions():

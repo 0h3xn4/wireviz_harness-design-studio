@@ -20,6 +20,7 @@ from harness_design_studio.core.vcs.report import changelog_rows, version_report
 from . import buildsheet, connections, drawing, exports, system, tables
 from .canvas import SHEETS, Sheet, to_pdf, to_svg
 from .errors import OutputsError
+from .harness_plan import FILE_SUFFIX as PLAN_SUFFIX
 from .harness_plan import plan_ods, plan_path
 from .provenance import provenance_bytes
 from .stamp import Stamp, Table, csv_bytes, readme_text, stamp_of, with_notice
@@ -334,6 +335,25 @@ def drawings_exported(folder: Path | str) -> bool:
     )
 
 
+def harness_plan_exported(folder: Path | str) -> bool:
+    """True when the previous export in `folder` included the harness plans,
+    `harnesses/<ID>/<ID>_plan.ods` (design of 3.0.0 section 10): an export without them then
+    removes them and says so, and the re-export at a release keeps the choice."""
+    return bool(harness_plans_in(folder))
+
+
+def harness_plans_in(folder: Path | str) -> list[str]:
+    """The harness plans the manifest of `folder` lists, in path order (none without a manifest)."""
+    old = _read_manifest(Path(folder))
+    return sorted(rel for rel in (old.files if old else {}) if is_plan_path(rel))
+
+
+def is_plan_path(rel: str) -> bool:
+    """`harnesses/<ID>/<ID>_plan.ods`, the place where the tool writes the plan of a harness."""
+    parts = rel.split("/")
+    return len(parts) == 3 and parts[0] == "harnesses" and parts[2] == f"{parts[1]}{PLAN_SUFFIX}"
+
+
 def outputs_content_state(project: Project, folder: Path | str) -> str:
     """ "none", "current" or "stale", comparing the design content (release bookkeeping ignored).
     The release gate uses this: outputs exported and reviewed before a release stay valid."""
@@ -423,6 +443,9 @@ __all__ = [
     "OutputStatus",
     "build_outputs",
     "drawings_exported",
+    "harness_plan_exported",
+    "harness_plans_in",
+    "is_plan_path",
     "outputs_status",
     "write_outputs",
 ]

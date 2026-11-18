@@ -20,6 +20,7 @@ from harness_design_studio.cli import (
     blocked_text,
     changes,
     data,
+    document_cmd,
     explain,
     extensions_cmd,
     journal_cmd,
@@ -50,6 +51,9 @@ MIGRATED_EXPORT_AGAIN = (
     "The outputs in outputs/ were written by version {old}: export them again once with this "
     "version (`harness-design-studio export DIR`), because `verify --outputs` compares them with "
     "the version that runs."
+)
+PLANS_REMOVED = (
+    "The harness plans of the earlier export were removed; add --harness-plan to write them again."
 )
 MIGRATED_CHECKED = (
     "Checked after the write: same model hash, same findings, baselines untouched, "
@@ -91,7 +95,8 @@ def build_parser() -> argparse.ArgumentParser:
         (
             "export",
             "write the build workbook of every harness, the tables and exports to "
-            "<project>/outputs and verify them (add --drawings for the PDF drawings)",
+            "<project>/outputs and verify them (add --drawings for the PDF drawings, "
+            "--harness-plan for the harness plans)",
         ),
         ("verify", "independently verify the generated harnesses against the interfaces"),
     ):
@@ -132,6 +137,13 @@ def build_parser() -> argparse.ArgumentParser:
                 "the build workbook is the main output)",
             )
             p.add_argument(
+                "--harness-plan",
+                action="store_true",
+                help="also write the harness plan of each harness, harnesses/<ID>/<ID>_plan.ods "
+                "(a spreadsheet with formulas in the users' layout; off by default). An export "
+                "without it into a folder whose last export had the plans removes them",
+            )
+            p.add_argument(
                 "--out",
                 type=Path,
                 default=None,
@@ -144,6 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
     open_data.register(sub)
     settings_cmd.register(sub)
     changes.register(sub)
+    document_cmd.register(sub)
     data.register(sub)
     library.register(sub)
     asbuilt_cmd.register(sub)
@@ -313,6 +326,7 @@ def _export(
     path: Path,
     *,
     drawings: bool = False,
+    harness_plan: bool = False,
     out: Path | None = None,
     rep: Report | None = None,
     args: argparse.Namespace | None = None,
@@ -321,6 +335,7 @@ def _export(
         DEFAULT_FOLDER,
         build_outputs,
         drawings_exported,
+        harness_plan_exported,
         write_outputs,
     )
     from harness_design_studio.core.outputs.verify import verify_outputs
@@ -335,7 +350,7 @@ def _export(
         if rep.as_json:
             rep.put(**records.export_refused("nothing_to_export").to_dict())
         return 1
-    result = build_outputs(project, drawings=drawings)
+    result = build_outputs(project, drawings=drawings, harness_plan=harness_plan)
     report = verify_outputs(project, result.files)
     for issue in report.issues:
         rep.say(f"{issue.severity}: [{issue.code}] {issue.message}")
@@ -349,6 +364,7 @@ def _export(
         return 1
     target = out if out is not None else path / DEFAULT_FOLDER
     had_drawings = drawings_exported(target)
+    had_plans = harness_plan_exported(target)
     write_outputs(project, target, result)
     rep.say(f"{len(result.files)} files written to {target} (model {result.stamp.short}).")
     if args is not None:
@@ -358,9 +374,14 @@ def _export(
             "The PDF drawings of the earlier export were removed; "
             "add --drawings to write them again."
         )
+    if had_plans and not harness_plan:
+        rep.say(PLANS_REMOVED)
     if rep.as_json:
         written = records.export_result(
-            result, report.issues, drawings_removed=had_drawings and not drawings
+            result,
+            report.issues,
+            drawings_removed=had_drawings and not drawings,
+            harness_plans_removed=had_plans and not harness_plan,
         )
         rep.put(**written.to_dict())
     return 0
@@ -559,7 +580,7 @@ NOTHING_DONE = {
     "workflow": "listed", "asbuilt": "reported", "import-asbuilt": "imported",
     "export-asbuilt": "exported",
     "libraries": "listed or changed", "add-device": "added", "update-device": "compared or changed",
-    "save-device": "saved",
+    "save-device": "saved", "document": "shown or changed",
 }  # fmt: skip
 
 MUTATING = {
@@ -576,6 +597,7 @@ def _project_lock(args: argparse.Namespace) -> Iterator[None]:
     writes = (
         args.command in MUTATING
         or (args.command in journal_cmd.COMMANDS and journal_cmd.mutates(args))
+        or (args.command in document_cmd.COMMANDS and document_cmd.mutates(args))
         or (args.command in asbuilt_cmd.COMMANDS and asbuilt_cmd.mutates(args))
         or (args.command in library.COMMANDS and library.mutates(args))
         or (
@@ -657,6 +679,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return library.run(args)
     if args.command in changes.COMMANDS:
         return changes.run(args)
+    if args.command in document_cmd.COMMANDS:
+        return document_cmd.run(args)
     if args.command in asbuilt_cmd.COMMANDS:
         return asbuilt_cmd.run(args)
     if args.command in extensions_cmd.COMMANDS:
@@ -668,7 +692,14 @@ def _dispatch(args: argparse.Namespace) -> int:
         return rep.finish(_generate(args.project, rep, args))
     if args.command == "export":
         return rep.finish(
-            _export(args.project, drawings=args.drawings, out=args.out, rep=rep, args=args)
+            _export(
+                args.project,
+                drawings=args.drawings,
+                harness_plan=args.harness_plan,
+                out=args.out,
+                rep=rep,
+                args=args,
+            )
         )
     if args.command == "drc":
         return rep.finish(_drc(args.project, rep))

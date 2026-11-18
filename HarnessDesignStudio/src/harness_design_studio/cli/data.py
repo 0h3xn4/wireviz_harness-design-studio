@@ -202,7 +202,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     pn = sub.add_parser(
         "import-pinout",
         help="import a device's pinout from a spreadsheet (CSV or XLSX)",
-        description="Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Part, Gender, Port); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as a description or a voltage, are named in a warning and left out. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.",
+        description="Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Function, Direction, Level, Part, Gender, Port, Source, Source version, Source link); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as remarks or a voltage, are named in a warning and left out. The sheets of the harness plan are read in their own words: a Function column without a Signal column is the signal and Description is the function; the Direction words PWR, PWR-RET, GND, SGND, SHIELD and SPARE set the role of the pin, IN, OUT and IN/OUT its direction, and any other word (TEST) sets neither and is listed in the import record; a Pinout column is read as the pin with --column pin=Pinout. Source (also ICD), Source version and Source link say where the pinout of a connector comes from; its rows give one value. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.",
     )
     pn.add_argument("project", type=Path)
     pn.add_argument("file", type=Path)
@@ -261,7 +261,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     xp = sub.add_parser(
         "export-pinout",
         help="write one device's pinout as CSV, TSV or XLSX",
-        description="Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document.",
+        description="Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV, with the columns Level, Source, Source version and Source link while a pin or a connector of the device has a value for them. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document, and import-pinout reads the file back.",
     )
     xp.add_argument("project", type=Path)
     xp.add_argument(
@@ -1390,7 +1390,7 @@ def _export_pinout(project, args: argparse.Namespace, rep: Report) -> int:  # ty
     from harness_design_studio.core.outputs import exports
     from harness_design_studio.core.outputs.stamp import csv_bytes, stamp_of
 
-    table = devices.pinout_table(project, args.unit)
+    table = devices.pinout_sheet(project, args.unit)
     if len(table) < 2:
         print(f"error: device '{args.unit}' has no connectors to write.", file=sys.stderr)
         return 1

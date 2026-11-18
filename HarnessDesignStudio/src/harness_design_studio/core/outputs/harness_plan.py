@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.links import effective_role
 from harness_design_studio.core.model import Connector, Harness, Pin, Project, Wire
 from harness_design_studio.core.nets import splice_ids
@@ -1243,6 +1244,61 @@ def used_codes(settings: PlanSettings, h: Harness) -> list[ColourCode]:
     return [code for code in settings.codes if code.name in names]
 
 
+PLAN_CONFIG = "config/harness_plan.json"
+
+
+def colour_notes(project: Project) -> list[Issue]:
+    """The notes of `check` on the colour codes of the harness plans (section 6): `plan_colour_example`
+    once for each code that still carries the example mark, and `plan_colour_missing` once for each
+    harness connector whose part is in a code (rule `pin_code`) and that has a wire on a pin the code
+    does not list, so that the plan reads *to fill in* for its colour. Neither stops generation or an
+    export: they are not issues of `configcheck.validate`."""
+    settings = plan_settings(project)
+    out = [
+        Issue(
+            "info",
+            "plan_colour_example",
+            f"The colour code '{code.name}' is the example from the users' template; check it "
+            'against the supplier\'s pigtail code, then take the mark off ("example": false).',
+            PLAN_CONFIG,
+            f"harness_plan.colour_codes.{code.name}",
+        )
+        for code in settings.codes
+        if code.example
+    ]
+    if settings.colour_rule != "pin_code":
+        return out
+    first: dict[str, ColourCode] = {}
+    for code in settings.codes:
+        for part in code.parts:
+            first.setdefault(part, code)
+    for h in sorted(project.harnesses.values(), key=lambda x: natural_key(x.id)):
+        ends: dict[str, set[str]] = defaultdict(set)
+        for w in h.wires:
+            ends[w.from_connector].add(w.from_pin)
+            ends[w.to_connector].add(w.to_pin)
+        for c in sorted(h.connectors, key=lambda x: natural_key(x.id)):
+            used = first.get(c.part_id)
+            if used is None:
+                continue
+            keys = dict(used.pins)
+            missing = sorted((p for p in ends.get(c.id, ()) if p not in keys), key=natural_key)
+            if missing:
+                pins = ", ".join(missing[:8]) + (f" and {len(missing) - 8} more" if len(missing) > 8 else "")  # fmt: skip
+                out.append(
+                    Issue(
+                        "warning",
+                        "plan_colour_missing",
+                        f"Harness {h.id}, connector {c.id} ({c.part_id}): the colour code "
+                        f"'{used.name}' has no colour for pin{'s' if len(missing) > 1 else ''} "
+                        f"{pins}; the harness plan reads '{TO_FILL}' there.",
+                        PLAN_CONFIG,
+                        f"{h.id}.{c.id}",
+                    )
+                )
+    return out
+
+
 def plan_workbook(
     project: Project, h: Harness, stamp: Stamp, *, drawings: bool = False
 ) -> Workbook:
@@ -1280,6 +1336,7 @@ __all__ = [
     "PlanSettings",
     "Sides",
     "cell_value",
+    "colour_notes",
     "con_sheet",
     "direction_word",
     "harness_sheet_name",

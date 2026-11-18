@@ -207,7 +207,9 @@ class ExportedFile:
 class ExportResult:
     """What `export` did. `written` is false when the outputs were refused: `blocked` then says
     why ("nothing_to_export" or "outputs_failed_check") and `issues` holds what the independent
-    check found. `model_hash` is the first 12 characters, the same as in every file's stamp."""
+    check found. `model_hash` is the first 12 characters, the same as in every file's stamp.
+    `harness_plans` are the paths of the harness plans written (3.0.0, `--harness-plan`), and
+    `harness_plans_removed` says that the earlier export's plans were removed."""
 
     ok: bool
     written: bool
@@ -216,6 +218,8 @@ class ExportResult:
     drawings_removed: bool
     files: tuple[ExportedFile, ...]
     issues: tuple[IssueRecord, ...]
+    harness_plans: tuple[str, ...] = ()
+    harness_plans_removed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -224,8 +228,10 @@ class ExportResult:
             "blocked": self.blocked,
             "model_hash": self.model_hash,
             "drawings_removed": self.drawings_removed,
+            "harness_plans_removed": self.harness_plans_removed,
             "file_count": len(self.files),
             "files": [f.to_dict() for f in self.files],
+            "harness_plans": list(self.harness_plans),
             "issues": [i.to_dict() for i in self.issues],
         }
 
@@ -512,16 +518,25 @@ def verify_result(report: VerifyReport) -> VerifyResult:
 
 
 def export_result(
-    built: OutputSet, issues: list[Issue], *, drawings_removed: bool = False
+    built: OutputSet,
+    issues: list[Issue],
+    *,
+    drawings_removed: bool = False,
+    harness_plans_removed: bool = False,
 ) -> ExportResult:
-    """An export that was written: every file with its size and SHA-256, in path order."""
+    """An export that was written: every file with its size and SHA-256, in path order, and the
+    harness plans among them."""
+    from harness_design_studio.core.outputs.build import is_plan_path
+
     files = tuple(
         ExportedFile(rel, len(data), hashlib.sha256(data).hexdigest())
         for rel, data in sorted(built.files.items())
     )
+    plans = tuple(f.path for f in files if is_plan_path(f.path))
     return ExportResult(
-        True, True, "", built.stamp.short, drawings_removed, files, issue_records(issues)
-    )
+        True, True, "", built.stamp.short, drawings_removed, files, issue_records(issues),
+        plans, harness_plans_removed,
+    )  # fmt: skip
 
 
 def export_refused(
