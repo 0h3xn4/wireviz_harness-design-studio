@@ -173,7 +173,8 @@ def test_format_3_is_format_1_with_versions_and_another_number(tmp_path: Path) -
     assert versions == ("1.17.1", __version__)
     for rel in V1_VERSIONED - {"config/titleblock.json"}:
         x, y = json.loads(old[rel]), json.loads(new[rel])
-        assert (x.pop("revision"), y.pop("version")) == ("A", "1.0.0") and x == y
+        pair = (x.pop("revision"), y.pop("version"))
+        assert pair == ("A", "1.0.0") and x == y
     assert model_hash(load_project(out).project) == V1_HASH_3
 
 
