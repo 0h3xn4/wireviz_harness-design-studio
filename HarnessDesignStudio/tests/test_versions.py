@@ -699,19 +699,22 @@ def _as_merged_from_format_2(root, hid: str) -> None:
 
     path = root / "physical" / "harnesses" / f"{hid}.json"
     doc = json.loads(path.read_bytes())
-    assert doc.pop("version") == "1.0.0"
+    popped = doc.pop("version")
+    assert popped == "1.0.0"
     doc["revision"] = "A"
     path.write_bytes(canonical.dumps(doc))
     log = root / "changelog.json"
     doc = json.loads(log.read_bytes())
     for e in doc["changelog"]:
         if e["harness_id"] == hid:
-            assert e.pop("version") == "1.0.0"
+            popped = e.pop("version")
+            assert popped == "1.0.0"
             e["revision"] = "A"
     log.write_bytes(canonical.dumps(doc))
     old = root / "baselines" / hid / f"{hid}.1.0.0.json"
     doc = json.loads(old.read_bytes())
-    assert doc.pop("version") == "1.0.0"
+    popped = doc.pop("version")
+    assert popped == "1.0.0"
     doc["id"], doc["revision"] = f"{hid}.A", "A"
     for h in doc["snapshot"]["harnesses"]:
         h["version"] = "A"  # a letter under the new key, as a hand-resolved conflict leaves it
