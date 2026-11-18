@@ -39,6 +39,7 @@ from harness_design_studio.core.verify import VerifyReport, link_issues
 
 from .export_units import missing_units
 from .stamp import parse_csv
+from .verify_plan import plan_stamp, verify_plans
 
 # A loose cable end, worded independently of tables.py, drawing.py and buildsheet.py (D-201).
 _OPEN_END = "open end"
@@ -147,6 +148,8 @@ def verify_outputs(project: Project, files: dict[str, bytes]) -> VerifyReport:
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
         _guard(r, f"harnesses/{h.id}", lambda h=h: _harness(r, project, h, files))  # type: ignore[misc]
     _guard(r, "system", lambda: _system(r, project, files))
+    # the harness plans (3.0.0, D-242): each plan the manifest lists, worked out on its own
+    verify_plans(r, project, files, lambda what, fn: _guard(r, what, fn))
     # a harness made from a link must still carry the link's pairs: outputs of a harness that
     # drifted from its link would describe something else than the agreed pinout
     r.issues.extend(link_issues(project))
@@ -199,6 +202,8 @@ def _stamp(r: VerifyReport, rel: str, data: bytes, short: str) -> None:
         ok = f'"model_hash": "{short}'.encode() in data
     elif rel.endswith(".xlsx"):
         ok = _xlsx_hash(data) == short
+    elif rel.endswith(".ods"):  # the harness plan: the model hash on its About sheet
+        ok = plan_stamp(data) == short
     else:
         return
     if not ok:
