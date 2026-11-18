@@ -114,6 +114,7 @@ from harness_design_studio.core.vcs.release import (
 )
 from harness_design_studio.core.vcs.report import baselines_of, changelog_rows, working_diff
 from harness_design_studio.core.vcs.roles import distinct_roles_on
+from harness_design_studio.core.vcs.versions import sort_versions
 from harness_design_studio.core.verify import VerifyReport
 from harness_design_studio.gui import areas, diagram_export, recent, strings
 from harness_design_studio.gui.asbuilt_page import AsBuiltPage
@@ -3133,7 +3134,9 @@ class MainWindow(QMainWindow):
         }
 
     def _revision_text(self) -> str:
-        revs = sorted({h.revision for h in self.ctl.project.harnesses.values()})
+        """The lowest and the highest revision of the project, in the order of
+        `versions.version_key` (the letter order: Z before AA)."""
+        revs = sort_versions({h.revision for h in self.ctl.project.harnesses.values()})
         if not revs:
             return ""
         return revs[0] if len(revs) == 1 else f"{revs[0]}-{revs[-1]}"

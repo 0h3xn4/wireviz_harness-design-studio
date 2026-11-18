@@ -6,6 +6,7 @@ from harness_design_studio.core.model import Baseline, Harness, Project
 
 from .diff import Diff, diff_snapshots, render_markdown
 from .snapshot import snapshot_for
+from .versions import version_key
 
 LOG_HEADER = ["Entry", "Harness", "Revision", "Event", "By", "Date", "Comment"]
 EVENTS = {
@@ -40,9 +41,11 @@ def changelog_rows(project: Project, harness_id: str | None = None) -> list[list
 
 
 def baselines_of(project: Project, hid: str) -> list[Baseline]:
+    """The baselines of one harness, oldest revision first, in the order of
+    `versions.version_key` (the letter order: A, B … Z, AA)."""
     return sorted(
         (b for b in project.baselines.values() if b.harness_id == hid),
-        key=lambda b: (len(b.revision), b.revision),
+        key=lambda b: version_key(b.revision),
     )
 
 
