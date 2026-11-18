@@ -301,7 +301,7 @@ def test_on_the_baseline_dates_count_too() -> None:
     hid = releasable(p)
     switch(p)
     assert roles.latest_date(p) is None
-    p.baselines["X.A"] = type("B", (), {"released_on": "2026-04-01", "harness_id": hid})()  # type: ignore[assignment]
+    p.baselines["X.1.0.0"] = type("B", (), {"released_on": "2026-04-01", "harness_id": hid})()  # type: ignore[assignment]
     assert roles.latest_date(p) == ("2026-04-01", hid)
 
 

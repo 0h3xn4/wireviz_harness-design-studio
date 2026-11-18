@@ -55,7 +55,7 @@ def test_released_harness_locks_its_wires_interfaces_pins_parts_types_and_config
     p, hid = released(tmp_path)
     h = p.harnesses[hid]
     locked = lockview.locked_objects(p)
-    owner = [lockview.LockRef(hid, h.revision)]
+    owner = [lockview.LockRef(hid, h.version)]
     assert locked[("harness", hid)] == owner
     for w in h.wires:
         assert locked[("wire", w.id)] == owner
@@ -92,7 +92,7 @@ def test_two_released_harnesses_are_both_listed_sorted_by_id(tmp_path: Path) -> 
     p2 = edit.clone_with(p, [])
     p2.harnesses[other] = evolve(p2.harnesses[other], status="released")
     locked = lockview.locked_objects(p2)
-    assert locked[("harness", other)] == [lockview.LockRef(other, p2.harnesses[other].revision)]
+    assert locked[("harness", other)] == [lockview.LockRef(other, p2.harnesses[other].version)]
     owners = [r.harness_id for r in locked[("config", "derating")]]
     assert owners == sorted({hid, other})
     for iid in carried_interfaces(p2.harnesses[other]):
@@ -154,7 +154,7 @@ def test_reason_for_wires_is_the_harness_sentence(tmp_path: Path) -> None:
     w = p.harnesses[hid].wires[0]
     [msg] = refusal(p, Delete("harnesses", hid))
     assert lockview.lock_reason(p, "wire", w.id) == msg
-    assert msg.startswith(f"{hid} is released (revision {p.harnesses[hid].revision});")
+    assert msg.startswith(f"{hid} is released (revision {p.harnesses[hid].version});")
 
 
 def test_reason_for_a_config_file_names_the_harnesses(tmp_path: Path) -> None:

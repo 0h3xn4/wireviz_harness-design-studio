@@ -119,7 +119,7 @@ def test_full_cycle_release_lock_new_revision_changes_and_log(win, qtbot) -> Non
     # new revision unlocks
     DialogScript(win, fill(comment="Rework the colours"))
     win.change_flow("revise", hid)
-    assert win.ctl.project.harnesses[hid].revision == "B"
+    assert win.ctl.project.harnesses[hid].version == "2.0.0"
     w = win.ctl.project.harnesses[hid].wires[0]
     h2 = win.ctl.project.harnesses[hid]
     assert win.ctl.run(

@@ -41,14 +41,14 @@ def loose_root(tmp_path_factory) -> Path:
 
 
 def test_the_step_writes_the_number_and_runs_for_a_format_1_project() -> None:
-    assert SCHEMA_VERSION == 2 and migrate.current_version() == 2  # in force (D-226)
-    assert sorted(migrate.MIGRATIONS) == [0, 1]
+    assert SCHEMA_VERSION == 3 and migrate.current_version() == 3  # format 3 since D-242
+    assert sorted(migrate.MIGRATIONS) == [0, 1, 2]
     files = {"project.json": {"name": "x", "schema_version": 1}, "logical/units/u.json": {"a": 1}}
     out = migrate.MIGRATIONS[1](files)
     assert out["project.json"] == {"name": "x", "schema_version": 2}
     assert out["logical/units/u.json"] == {"a": 1} and files["project.json"]["schema_version"] == 1
-    assert migrate.migrate_raw(copy.deepcopy(files), 1) == out
-    assert migrate.migrate_raw(copy.deepcopy(out), 2) == out  # nothing runs at format 2
+    assert migrate.migrate_raw(copy.deepcopy(files), 1, to_version=2) == out
+    assert migrate.migrate_raw(copy.deepcopy(out), 2, to_version=2) == out  # nothing at format 2
 
 
 def test_the_step_changes_only_the_number_of_a_project_that_holds_loose_ends(loose_root) -> None:
@@ -63,7 +63,7 @@ def test_the_step_changes_only_the_number_of_a_project_that_holds_loose_ends(loo
     assert {**out["project.json"], "schema_version": 1} == raw["project.json"]
 
 
-def test_the_net_upgrades_a_project_that_holds_loose_ends_with_only_the_number(
+def test_the_net_upgrades_a_project_that_holds_loose_ends_with_only_the_number_and_versions(
     loose_root, tmp_path
 ) -> None:
     root = as_format(copy_project(loose_root, tmp_path / "p"), 1)
@@ -71,14 +71,17 @@ def test_the_net_upgrades_a_project_that_holds_loose_ends_with_only_the_number(
     before = (model_hash(before_project), content_hash(before_project))
     old_export = full_export(root)
     plan = upgrade.plan_upgrade(root)
-    assert plan.ok and plan.hash_equal and plan.exports_equal, plan.lost
+    assert plan.ok and plan.nothing_but_versions and plan.versions_mapped, plan.lost
     assert plan.baselines_intact is not False
-    assert sorted(plan.files) == ["project.json"]  # no harness file is rewritten
+    # the harness files change only by their versions (A is 1.0.0), the title block by its field
+    assert set(plan.files) - {"config/titleblock.json"} == {"project.json"} | {
+        f"physical/harnesses/{h}.json" for h in before_project.harnesses
+    }
     done = upgrade.upgrade_project(root)
     assert done is not None and (root / done.backup / "project.json").is_file()
     after = load_project(root).project
     assert (model_hash(after), content_hash(after)) == before
-    assert after.meta.schema_version == 2
+    assert after.meta.schema_version == 3
     assert len(loose_ends(after.harnesses["W009"])) == 1 and len(loose_ends(after.harnesses["W011"])) == 2  # fmt: skip
     assert full_export(root) == old_export  # byte for byte, the stamp included
     assert upgrade.upgrade_project(root) is None  # now current
@@ -102,15 +105,23 @@ def test_the_net_keeps_the_baseline_of_a_harness_released_with_a_loose_end(
 
     History(p).execute(plan.label, plan.ops)
     save_project(p, root)
-    baselines = {k: v for k, v in folder_bytes(root).items() if k.startswith("baselines/")}
+    baselines = {
+        k: v
+        for k, v in folder_bytes(root).items()
+        if k.startswith("baselines/") and k.endswith(".json")
+    }
     assert baselines
     as_format(root, 1)
     plan_up = upgrade.plan_upgrade(root)
-    assert plan_up.ok and plan_up.baselines_intact is True, plan_up.lost
+    assert plan_up.ok and plan_up.nothing_but_versions and plan_up.versions_mapped, plan_up.lost
     upgrade.upgrade_project(root)
-    assert {k: v for k, v in folder_bytes(root).items() if k.startswith("baselines/")} == baselines
+    assert {
+        k: v
+        for k, v in folder_bytes(root).items()
+        if k.startswith("baselines/") and k.endswith(".json")
+    } == baselines  # the files of format 3 again (the old ones are kept as .bak)
     q = load_project(root).project
-    assert q.baselines["W013.A"].content_hash == content_hash(q)
+    assert q.baselines["W013.1.0.0"].content_hash == content_hash(q)
 
 
 def test_the_origin_of_a_hand_made_and_a_linked_harness_needs_no_stored_value(tmp_path) -> None:
@@ -131,8 +142,10 @@ def test_the_origin_of_a_hand_made_and_a_linked_harness_needs_no_stored_value(tm
     assert not any(b'"origin"' in data for data in folder_bytes(root).values())
     as_format(root, 1)
     plan = upgrade.plan_upgrade(root)
-    assert plan.ok and plan.hash_equal and plan.exports_equal, plan.lost
-    assert sorted(plan.files) == ["project.json"]
+    assert plan.ok and plan.nothing_but_versions and plan.versions_mapped, plan.lost
+    assert set(plan.files) - {"config/titleblock.json"} == {"project.json"} | {
+        f"physical/harnesses/{h}.json" for h in origins
+    }  # the versions only
 
 
 def test_a_tool_that_does_not_know_the_role_sets_the_whole_harness_aside(

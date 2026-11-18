@@ -116,13 +116,13 @@ def test_a_frozen_baseline_still_matches_after_a_loose_end_is_released(loose_roo
     History(p).execute(plan.label, plan.ops)
     save_project(p, root)
     q = load_project(root).project
-    assert q.baselines["W013.A"].content_hash == content_hash(q)
-    snap = q.baselines["W013.A"].snapshot.harnesses[0]
+    assert q.baselines["W013.1.0.0"].content_hash == content_hash(q)
+    snap = q.baselines["W013.1.0.0"].snapshot.harnesses[0]
     assert [c.role for c in snap.connectors if c.id == "W013-P2"] == [LOOSE]
-    assert TBD_PART_ID in {x.id for x in q.baselines["W013.A"].snapshot.parts}  # frozen with it
+    assert TBD_PART_ID in {x.id for x in q.baselines["W013.1.0.0"].snapshot.parts}  # frozen with it
     entry = next(e for e in q.changelog.values() if e.kind == "release")
     assert "Released with a loose end (W013-P2)" in entry.comment
-    assert q.baselines["W013.A"].comment == entry.comment
+    assert q.baselines["W013.1.0.0"].comment == entry.comment
 
 
 def _args(folder: Path, *more: str) -> list[str]:

@@ -18,6 +18,8 @@ from .base import (
     Reason,
     SparseEntity,
     Text,
+    Version,
+    WebLink,
 )
 
 Gender = Literal["male", "female", "unspecified"]
@@ -37,13 +39,16 @@ ShieldEnd = Literal["backshell_360", "pigtail", "floating"]
 # The outer conductor of a coax carries the signal return, so it is bonded at both ends whatever the
 # grounding concept of the project says about other shields (release 1.10, D-182).
 COAX_SHIELD_END: ShieldEnd = "backshell_360"
-PinRole = Literal["", "power", "return", "ground", "signal", "shield", "spare"]
+PinRole = Literal["", "power", "return", "ground", "signal", "shield", "spare", "signal_ground"]
+# `signal_ground` (format 3, D-242, design of 3.0.0 section 4.3): a pin that carries the ground
+# reference of a signal interface (SGND). It is set by a person or an import only, never derived
+# from a pin name, and the link checks treat it as they treat `ground`.
 PinDirection = Literal["", "in", "out", "bidir"]  # "" = not set: the name and the type decide
 
 
 class Pin(SparseEntity):
     OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
-        {"function", "contact_part", "role", "direction"}
+        {"function", "contact_part", "role", "direction", "level"}
     )
 
     id: PinId
@@ -66,10 +71,13 @@ class Pin(SparseEntity):
         ""  # which way the signal runs at this pin, seen from the device (1.9.0); empty = not set:
         # the link checks and the pairing proposal then take it from the interface types
     )
+    level: Name | None = None  # the signal level from the device's ICD (`RS422-3V3`; format 3)
 
 
 class Connector(SparseEntity):
-    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"label", "locked"})
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
+        {"label", "locked", "source_doc", "source_version", "source_link"}
+    )
 
     id: Id
     name: Name
@@ -89,6 +97,11 @@ class Connector(SparseEntity):
         False  # a cable connector of a generated harness that a person edited: generation keeps
         # its part, gender, keying and pin details (workshop M3)
     )
+    # Where the pinout of a box connector comes from (format 3, design of 3.0.0 section 4.1): the
+    # interface control document by name, its version and a web link to it.
+    source_doc: Name | None = None
+    source_version: Name | None = None
+    source_link: WebLink | None = None
 
 
 # The four values of a generated wire that a person can set in place of the one generation chooses.
@@ -188,7 +201,7 @@ class Harness(SparseEntity):
 
     id: Id
     name: Name
-    revision: Name = "A"
+    version: Version = "1.0.0"  # MAJOR.MINOR.PATCH (format 3; `revision`, a letter, in format 2)
     status: HarnessStatus = "draft"
     connectors: list[Connector] = []
     wires: list[Wire] = []

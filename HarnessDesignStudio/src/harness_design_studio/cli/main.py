@@ -55,6 +55,11 @@ MIGRATED_CHECKED = (
     "Checked after the write: same model hash, same findings, baselines untouched, "
     "identical export."
 )
+MIGRATED_CHECKED_VERSIONS = (
+    "Checked: only the harness revisions changed, into versions (the same design, findings and "
+    "released harnesses with each version read as its place; each version the mapping of its "
+    "revision); after the write the same model hash, findings and export as the upgrade in memory."
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -107,6 +112,15 @@ def build_parser() -> argparse.ArgumentParser:
                 "that would change, the objects by kind before and after, the model hash before "
                 "and after and anything that could not be carried over; exit 0 only if nothing "
                 "would be lost",
+            )
+            p.add_argument(
+                "--set-version",
+                action="append",
+                default=[],
+                metavar="HARNESS:OLD=VERSION",
+                help="the version of an old harness revision that the upgrade to format 3 cannot "
+                "map by itself (it maps a letter to N.0.0: A is 1.0.0, B is 2.0.0); for example "
+                "W001:A1=1.1.0; can be given more than once",
             )
         if name in ("generate", "export"):
             open_data.add_run_record_options(p)
@@ -161,11 +175,62 @@ def _validate(path: Path, *, merge_check: bool, rep: Report | None = None) -> in
     return _print_report(result, extra)
 
 
-def _migrate(path: Path, rep: Report, *, dry_run: bool) -> int:
+def parse_set_versions(items: list[str]) -> dict[str, dict[str, str]]:
+    """`--set-version HARNESS:OLD=VERSION`, given any number of times, as harness -> old revision
+    -> version. `ValueError` names an item that is not written that way or gives one revision two
+    versions."""
+    out: dict[str, dict[str, str]] = {}
+    for item in items:
+        head, eq, version = item.partition("=")
+        harness, colon, old = head.partition(":")
+        if not (eq and colon and harness.strip() and old.strip() and version.strip()):
+            raise ValueError(
+                f"--set-version {item}: write it as HARNESS:OLD=VERSION, for example W001:A1=1.1.0"
+            )
+        harness, old, version = harness.strip(), old.strip(), version.strip()
+        if out.get(harness, {}).get(old, version) != version:
+            raise ValueError(f"--set-version gives {harness}:{old} two versions")
+        out.setdefault(harness, {})[old] = version
+    return out
+
+
+def _given_versions(args: argparse.Namespace) -> dict[str, dict[str, str]] | None:
+    """The `--set-version` items of `migrate`, or None (another command, or not written right:
+    `_migrate` says so)."""
+    try:
+        return parse_set_versions(getattr(args, "set_version", None) or [])
+    except ValueError:
+        return None
+
+
+def _versions_to_give(folder: Path, given: dict[str, dict[str, str]] | None) -> bool:
+    """True when the project's revisions cannot all be mapped to versions by the step to format 3
+    without a `--set-version` (or with the ones given)."""
+    import copy
+
+    from harness_design_studio.core.io import migrate as steps
+    from harness_design_studio.core.io.loader import read_tree
+
+    version = upgrade.format_of(folder)
+    if version is None or version >= upgrade.VERSIONS_FORMAT:
+        return False
+    files, _broken, _issues = read_tree(folder)
+    two = steps.migrate_raw(copy.deepcopy(files), version, to_version=upgrade.VERSIONS_FORMAT - 1)
+    return bool(steps.version_problems(two, given))
+
+
+def _migrate(
+    path: Path, rep: Report, *, dry_run: bool, set_version: list[str] | None = None
+) -> int:
     """`migrate`: the dry run (`--dry-run`, writes nothing) or the upgrade with its record and its
-    check after the write (`core.io.upgrade`)."""
+    check after the write (`core.io.upgrade`). `set_version` are the `--set-version` items."""
+    try:
+        given = parse_set_versions(set_version or [])
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     if dry_run:
-        plan = upgrade.plan_upgrade(path)
+        plan = upgrade.plan_upgrade(path, set_versions=given)
         if plan is None:
             version = current_version()
             rep.say("Already up to date.")
@@ -178,7 +243,7 @@ def _migrate(path: Path, rep: Report, *, dry_run: bool) -> int:
         rep.put(dry_run=True, up_to_date=False, **plan.to_dict())
         return rep.finish(0 if plan.ok else 1)
     try:
-        done = upgrade.upgrade_project(path)
+        done = upgrade.upgrade_project(path, set_versions=given)
     except upgrade.UpgradeError as exc:  # refused, or written, found wrong and put back
         print(f"error: {exc}", file=sys.stderr)
         for reason in exc.reasons:
@@ -187,7 +252,11 @@ def _migrate(path: Path, rep: Report, *, dry_run: bool) -> int:
     rep.say("Already up to date." if done is None else MIGRATED)
     if done is not None:
         rep.say(f"Format {done.from_version} to {done.to_version}. Record: {done.record}.")
-        rep.say(MIGRATED_CHECKED)
+        rep.say(
+            MIGRATED_CHECKED_VERSIONS if done.plan.versions_mapped is not None else MIGRATED_CHECKED
+        )
+        for line in done.plan.versions:
+            rep.say(f"  {line}")
         if done.gitattributes in ("written", "updated", "added"):
             rep.say(GITATTRIBUTES_JOURNAL)
         if done.outputs_version is not None:
@@ -549,9 +618,12 @@ def _dispatch(args: argparse.Namespace) -> int:
         return merge.run(args)
     if args.command in NOTHING_DONE:
         for folder in (args.old, args.new) if args.command == "compare" else (args.project,):
-            loaded = load_project(folder)
+            given = _given_versions(args) if args.command == "migrate" else None
+            loaded = load_project(folder, set_versions=given) if given else load_project(folder)
             probe = loaded.project
-            if loaded.has_errors or probe.recovered:
+            if args.command == "migrate" and _versions_to_give(folder, given):
+                pass  # the revisions that need a version are what `migrate` reports, not damage
+            elif loaded.has_errors or probe.recovered:
                 first = (
                     errors(loaded.issues)[0].render() if loaded.has_errors else "parts set aside"
                 )
@@ -591,7 +663,7 @@ def _dispatch(args: argparse.Namespace) -> int:
         return extensions_cmd.run(args)
     rep = Report(args.json)
     if args.command == "migrate":
-        return _migrate(args.project, rep, dry_run=args.dry_run)
+        return _migrate(args.project, rep, dry_run=args.dry_run, set_version=args.set_version)
     if args.command == "generate":
         return rep.finish(_generate(args.project, rep, args))
     if args.command == "export":

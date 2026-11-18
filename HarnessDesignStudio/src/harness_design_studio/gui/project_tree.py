@@ -372,7 +372,7 @@ class ProjectTreeModel(QAbstractItemModel):
                 strings.TREE_TIP_HARNESS.format(
                     h.id,
                     h.name,
-                    h.revision,
+                    h.version,
                     strings.STATE_LABELS[describe.harness_state(h)].lower(),
                 )
             )
@@ -523,7 +523,7 @@ class ProjectTreeModel(QAbstractItemModel):
             node.state = describe.harness_state(obj)
             word = strings.STATE_LABELS[node.state]
             node.state_text = (
-                f"{word} {obj.revision}" if node.state in ("released", "revised") else word
+                f"{word} {obj.version}" if node.state in ("released", "revised") else word
             )
         elif kind == "part":
             node.name = obj.description or obj.part_number or ""
@@ -770,7 +770,7 @@ class ProjectTreeModel(QAbstractItemModel):
         p = self.ctl.project
         sig = (
             id(p),
-            tuple((h.id, h.revision) for h in p.harnesses.values() if h.status == "released"),
+            tuple((h.id, h.version) for h in p.harnesses.values() if h.status == "released"),
         )
         if sig == self._lock_sig:
             return

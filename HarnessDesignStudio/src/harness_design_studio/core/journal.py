@@ -173,11 +173,16 @@ def extended(journal: Journal, rows: Iterable[Row]) -> Journal:
     )
 
 
-def migration_rows(from_version: int, to_version: int) -> list[Row]:
+def migration_rows(from_version: int, to_version: int, versions: Iterable[str] = ()) -> list[Row]:
     """The one entry a migration of the project adds (plan 2.3): "migrated from format N". It is an
     `edit` of the object `project` and not a kind of its own, because a journal that holds a kind
     this tool's earlier versions do not know is read by them as damaged; nothing about the entry
-    needs a new file format."""
+    needs a new file format. `versions` are the lines of the mapping of the revisions to versions
+    of the step to format 3 (`W001: revision B → version 2.0.0`, D-242), named in its reason."""
+    lines = list(versions)
+    reason = f"migrated from format {from_version}"
+    if lines:
+        reason += "; " + "; ".join(lines)
     return [
         _row(
             "edit",
@@ -185,7 +190,7 @@ def migration_rows(from_version: int, to_version: int) -> list[Row]:
             "format",
             from_version,
             to_version,
-            f"migrated from format {from_version}",
+            reason,
         )
     ]
 
@@ -495,7 +500,7 @@ def _harness_rows(
     for p, o, n in scalars:
         kind = (
             "release"
-            if p in ("status", "revision", "released_on", "checker", "approver", "author")
+            if p in ("status", "version", "released_on", "checker", "approver", "author")
             else "edit"
         )
         rows.append(_row(kind, f"harness:{hid}", p, o, n))
@@ -689,7 +694,7 @@ def _changelog_rows(cid: str, old: dict[str, Any] | None, new: dict[str, Any] | 
             f"harness:{new.get('harness_id')}",
             str(new.get("kind", "")),
             None,
-            {"revision": new.get("revision"), "by": new.get("by"), "date": new.get("when")},
+            {"version": new.get("version"), "by": new.get("by"), "date": new.get("when")},
             str(new.get("comment", "")),
         )
     ]

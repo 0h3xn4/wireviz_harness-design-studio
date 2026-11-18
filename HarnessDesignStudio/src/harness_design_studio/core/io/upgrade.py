@@ -29,6 +29,7 @@ The record is outside the project hash and every written output: it lives in the
 which no loader, hash or output reads.
 """
 
+import copy
 import hashlib
 import json
 import os
@@ -46,16 +47,19 @@ from harness_design_studio.core.model import Project
 
 from . import canonical, migrate
 from .fs import atomic_write_bytes, escapes_root, long_path
-from .layout import JOURNAL_FILE, model_hash, parse_file, serialize
+from .layout import JOURNAL_FILE, JOURNAL_FILES, model_hash, parse_file, serialize
 from .loader import (
     UNREAD_CODES,
     LoadResult,
     disk_fingerprint,
+    load_from_files,
     load_project,
     read_tree,
 )
+from .migrate import SetVersions
 from .saver import _managed_on_disk, _migration_backup, save_project
 
+VERSIONS_FORMAT = 3  # the first format whose harnesses carry versions MAJOR.MINOR.PATCH (D-242)
 RECORD_NAME = "MIGRATION.json"
 RECORD_VERSION = 1
 BACKUP_PREFIX = ".migration-backup-v"
@@ -249,10 +253,12 @@ def project_findings(
     )
 
 
-def _folder_findings(root: Path) -> list[tuple[str, str, str, str, str]]:
+def _folder_findings(
+    root: Path, set_versions: SetVersions | None = None
+) -> list[tuple[str, str, str, str, str]]:
     from harness_design_studio.core.validation import validate_folder
 
-    result, extra = validate_folder(root, merge_check=True)
+    result, extra = validate_folder(root, merge_check=True, set_versions=set_versions)
     return project_findings(result, extra)
 
 
@@ -281,6 +287,244 @@ def _baseline_files(files: Mapping[str, Any]) -> dict[str, Any]:
     return {rel: data for rel, data in files.items() if rel.startswith("baselines/")}
 
 
+# ---- the proof of the step to format 3 (design of 3.0.0 section 5.6) -----------------------------
+#
+# The step from 1 to 2 changed no hash. The step from 2 to 3 changes the model hash once, because
+# the revisions and their keys are in the design files. What is proved instead, on the files and
+# before anything is written: (1) the format 2 files as saved and the format 3 files the upgrade
+# would write are the same design once the renamed keys are read as one, every revision value and
+# baseline ID is replaced by its place in its harness's order and the format number is set aside:
+# the same model hash, the same findings of loading them and the same consistency of the released
+# harnesses; (2) every version is the mapping of its old revision, one by one. A full export of the
+# old project cannot be made (format 3 refuses a letter), so the exports are not compared with the
+# old reading; a test compares them with the record of the outputs of 2.x (`tests/test_format3.py`).
+
+
+def mapping_lines(mapping: Mapping[str, Mapping[str, str]]) -> list[str]:
+    """The mapping in the words of the journal entry and the record: `W001: revision B → version
+    2.0.0` (a revision that is already a version is not named)."""
+    from harness_design_studio.core.vcs.versions import version_key
+
+    return [
+        f"{hid}: revision {old} → version {values[old]}"
+        for hid, values in sorted(mapping.items())
+        for old in sorted(values, key=version_key)
+        if values[old] != old
+    ]
+
+
+def _places(values: set[str], key: Callable[[str], Any]) -> dict[str, str]:
+    """Each value by its place in the order of `key`, written as a version (`1.0.0` the lowest),
+    so that both sides of the comparison stay valid project files."""
+    return {v: f"{n}.0.0" for n, v in enumerate(sorted(values, key=key), start=1)}
+
+
+def neutral_tree(
+    files: Mapping[str, Any], key: str, order: Callable[[str, str], Any]
+) -> dict[str, Any]:
+    """A copy of a project's files in which the version of a harness, of its baselines, of the
+    harness in their snapshots and of its change-log entries is read under one key (`version`) as
+    its place in the harness's order (`order(harness, value)`), the baseline IDs and file names
+    follow, the change-log kind `new_revision` is read as `new_version`, the title block field
+    `revision` as `version`, and the format number as 3. `key` is the key the files hold the
+    revision under (`revision` in format 2, `version` in format 3). The journal is left out: it is
+    outside the model hash and keeps its old lines as they were written."""
+    from harness_design_studio.core.vcs.versions import version_key
+
+    tree = {r: copy.deepcopy(d) for r, d in files.items() if r not in JOURNAL_FILES}
+    found: dict[str, set[str]] = {}
+
+    def note(hid: object, value: object) -> None:
+        if isinstance(hid, str) and isinstance(value, str):
+            found.setdefault(hid, set()).add(value)
+
+    harness_files = [r for r in tree if r.startswith("physical/harnesses/")]
+    baseline_files = [r for r in tree if r.startswith("baselines/")]
+    log = tree.get("changelog.json")
+    entries = log.get("changelog", []) if isinstance(log, dict) else []
+    for rel in harness_files:
+        if isinstance(tree[rel], dict):
+            note(tree[rel].get("id"), tree[rel].get(key))
+    for e in entries:
+        if isinstance(e, dict):
+            note(e.get("harness_id"), e.get(key))
+    for rel in baseline_files:
+        data = tree[rel]
+        if isinstance(data, dict):
+            note(data.get("harness_id"), data.get(key))
+            snap = data.get("snapshot")
+            for h in snap.get("harnesses", []) if isinstance(snap, dict) else []:
+                if isinstance(h, dict):
+                    note(h.get("id"), h.get(key))
+
+    def keyed(hid: str) -> Callable[[str], Any]:
+        return lambda v: (order(hid, v), version_key(v))
+
+    places = {hid: _places(values, keyed(hid)) for hid, values in found.items()}
+
+    def put(data: dict[str, Any], hid: object) -> None:
+        if key in data:
+            value = data.pop(key)
+            data["version"] = places.get(str(hid), {}).get(value, value)
+
+    for rel in harness_files:
+        if isinstance(tree[rel], dict):
+            put(tree[rel], tree[rel].get("id"))
+    for e in entries:
+        if isinstance(e, dict):
+            put(e, e.get("harness_id"))
+            if e.get("kind") == migrate.OLD_KIND:
+                e["kind"] = migrate.NEW_KIND
+    for rel in baseline_files:
+        data = tree.pop(rel)
+        if not isinstance(data, dict):
+            tree[rel] = data
+            continue
+        hid, old = data.get("harness_id"), data.get(key)
+        put(data, hid)
+        snap = data.get("snapshot")
+        for h in snap.get("harnesses", []) if isinstance(snap, dict) else []:
+            if isinstance(h, dict):
+                put(h, h.get("id"))
+        if isinstance(snap, dict) and isinstance(snap.get("config"), dict):
+            _neutral_fields(snap["config"].get("titleblock"))
+        if data.get("id") == f"{hid}.{old}":
+            data["id"] = f"{hid}.{data['version']}"
+            rel = f"{rel.rpartition('/')[0]}/{data['id']}.json"
+        tree[rel] = data
+    cfg = tree.get("config/titleblock.json")
+    if isinstance(cfg, dict):
+        _neutral_fields(cfg.get("values"))
+    meta = tree.get("project.json")
+    if isinstance(meta, dict):
+        meta["schema_version"] = VERSIONS_FORMAT
+    return tree
+
+
+def _neutral_fields(values: object) -> None:
+    if isinstance(values, dict) and isinstance(values.get("fields"), list):
+        values["fields"] = [
+            migrate.TITLEBLOCK_NEW if f == migrate.TITLEBLOCK_OLD else f for f in values["fields"]
+        ]
+
+
+def _neutral_reading(
+    tree: Mapping[str, Any],
+) -> tuple[str, list[tuple[str, str, str, str, str]]] | None:
+    """The model hash of a neutral tree and what loading it finds (the findings of `validate` on
+    the files and the consistency of the released harnesses); None when it does not load."""
+    from harness_design_studio.core.vcs.consistency import release_integrity
+
+    result = load_from_files(dict(tree), migrate=False)
+    if not _usable(result):
+        return None
+    found: list[tuple[str, str, str, str, str]] = sorted(
+        (i.severity, i.code, i.message, i.location or "", i.object_id or "")
+        for i in [*result.issues, *release_integrity(result.project)]
+        if i.code not in FORM_CODES
+    )
+    return model_hash(result.project), found
+
+
+def prove_versions_step(
+    before: Mapping[str, Any], after: Mapping[str, Any], set_versions: SetVersions | None
+) -> tuple[bool, bool, list[str]]:
+    """The run-time proof of section 5.6 for the step from format 2 to 3. `before` is the project's
+    files in format 2 (as saved, or brought to format 2 by the earlier steps), `after` the files of
+    format 3 that the upgrade would write. Returns (nothing but the versions changed, every version
+    is the mapping of its revision, the problems found)."""
+    from harness_design_studio.core.vcs.versions import version_key
+
+    problems: list[str] = []
+
+    def old_order(hid: str, value: str) -> Any:
+        new = migrate.version_of(hid, value, set_versions)
+        return version_key(new if new is not None else value)
+
+    old = _neutral_reading(neutral_tree(before, migrate.OLD_KEY, old_order))
+    new = _neutral_reading(neutral_tree(after, migrate.NEW_KEY, lambda _h, v: version_key(v)))
+    same = old is not None and new is not None
+    if old is None or new is None:
+        problems.append("The files before and after the step to format 3 could not be compared.")
+    else:
+        if old[0] != new[0]:
+            same = False
+            problems.append(
+                "The step to format 3 changes more than the versions: with the versions read as "
+                "their places, the model hash differs."
+            )
+        if old[1] != new[1]:
+            same = False
+            problems.append(
+                "The step to format 3 changes the findings or the consistency of the released "
+                "harnesses."
+            )
+    wrong = _unmapped_versions(before, after, set_versions)
+    problems += wrong
+    return same, not wrong, problems
+
+
+def _unmapped_versions(
+    before: Mapping[str, Any], after: Mapping[str, Any], set_versions: SetVersions | None
+) -> list[str]:
+    """Each place of `after` whose version is not the mapping of the revision of `before`, and each
+    old key or kind that is left in `after` (section 5.6, part 2)."""
+    out: list[str] = []
+
+    def want(hid: object, old: object) -> str | None:
+        if not isinstance(hid, str) or not isinstance(old, str):
+            return None
+        return migrate.version_of(hid, old, set_versions)
+
+    def holds_old(data: object) -> bool:
+        return isinstance(data, dict) and migrate.OLD_KEY in data
+
+    for rel, data in sorted(before.items()):
+        if not isinstance(data, dict):
+            continue
+        if rel.startswith("physical/harnesses/"):
+            new = after.get(rel)
+            expected = want(data.get("id"), data.get(migrate.OLD_KEY))
+            if not isinstance(new, dict) or holds_old(new) or new.get("version") != expected:
+                out.append(
+                    f"{rel}: the version is not the mapping of revision {data.get('revision')}."
+                )
+        elif rel.startswith("baselines/"):
+            hid, old = data.get("harness_id"), data.get(migrate.OLD_KEY)
+            expected = want(hid, old)
+            name = f"{rel.rpartition('/')[0]}/{hid}.{expected}.json"
+            new = after.get(name) if data.get("id") == f"{hid}.{old}" else after.get(rel)
+            if not isinstance(new, dict) or holds_old(new) or new.get("version") != expected:
+                out.append(f"{rel}: the baseline does not carry the mapping of revision {old}.")
+                continue
+            snap_old = data.get("snapshot", {}).get("harnesses", [])
+            snap_new = new.get("snapshot", {}).get("harnesses", [])
+            if [want(h.get("id"), h.get(migrate.OLD_KEY)) for h in snap_old] != [
+                None if holds_old(h) else h.get("version") for h in snap_new
+            ]:
+                out.append(f"{rel}: the harness of its snapshot does not carry the mapping.")
+    old_log = before.get("changelog.json")
+    new_log = after.get("changelog.json")
+    if isinstance(old_log, dict):
+        new_entries = {
+            e.get("id"): e
+            for e in (new_log.get("changelog", []) if isinstance(new_log, dict) else [])
+            if isinstance(e, dict)
+        }
+        for e in old_log.get("changelog", []):
+            if not isinstance(e, dict):
+                continue
+            n = new_entries.get(e.get("id"), {})
+            kind = migrate.NEW_KIND if e.get("kind") == migrate.OLD_KIND else e.get("kind")
+            if (
+                holds_old(n)
+                or n.get("version") != want(e.get("harness_id"), e.get(migrate.OLD_KEY))
+                or n.get("kind") != kind
+            ):
+                out.append(f"changelog.json: entry {e.get('id')} does not carry the mapping.")
+    return out
+
+
 # ---- the dry run ---------------------------------------------------------------------------------
 
 
@@ -301,12 +545,18 @@ class UpgradePlan:
     journal_entry: bool = False  # the project keeps a journal, so the upgrade adds an entry
     lost: list[str] = field(default_factory=list)  # anything the upgrade could not carry over
     notes: list[str] = field(default_factory=list)
+    # the step to format 3 (D-242): the mapping of the revisions to versions, in words, and the two
+    # parts of its proof (section 5.6); None: the upgrade does not cross that step
+    versions: list[str] = field(default_factory=list)
+    nothing_but_versions: bool | None = None
+    versions_mapped: bool | None = None
     # kept for `upgrade_project`; not part of what is reported
     project: Project | None = field(default=None, repr=False)
     reference: Project | None = field(default=None, repr=False)
     reference_exports: dict[str, str] = field(default_factory=dict, repr=False)
     raw_baselines: dict[str, Any] = field(default_factory=dict, repr=False)
     fingerprint: str = field(default="", repr=False)
+    set_versions: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
 
     @property
     def ok(self) -> bool:
@@ -328,6 +578,9 @@ class UpgradePlan:
             "journal_entry": self.journal_entry,
             "lost": self.lost,
             "notes": self.notes,
+            "versions": self.versions,
+            "nothing_but_versions": self.nothing_but_versions,
+            "versions_mapped": self.versions_mapped,
         }
 
 
@@ -357,15 +610,18 @@ def _count_differences(
     return lost, notes
 
 
-def _journal_ahead(project: Project, from_version: int, to_version: int) -> bool:
-    """Add the entry "migrated from format N" to the journal of the project in memory; False when
-    the project has no journal (it is not given one)."""
+def _journal_ahead(
+    project: Project, from_version: int, to_version: int, versions: list[str] | None = None
+) -> bool:
+    """Add the entry "migrated from format N" to the journal of the project in memory, with the
+    mapping of the revisions to versions when the upgrade crosses format 3; False when the project
+    has no journal (it is not given one)."""
     if project.journal is None:
         return False
     from harness_design_studio.core import journal as journal_module
 
     project.journal = journal_module.extended(
-        project.journal, journal_module.migration_rows(from_version, to_version)
+        project.journal, journal_module.migration_rows(from_version, to_version, versions or [])
     )
     return True
 
@@ -374,12 +630,16 @@ def _usable(result: LoadResult) -> bool:
     return not result.has_errors and not result.project.recovered and not result.project.read_only
 
 
-def plan_upgrade(root: Path | str, *, exports: bool = True) -> UpgradePlan | None:
+def plan_upgrade(
+    root: Path | str, *, exports: bool = True, set_versions: SetVersions | None = None
+) -> UpgradePlan | None:
     """The dry run: what upgrading the project in `root` to the format of this tool would do,
     found out without writing a byte. None when the project is in the current format. Raises
     `UpgradeError` when it cannot be upgraded at all (saved by a newer tool). A project that would
     lose something is returned with `lost` filled in; `exports=False` skips the in-memory export of
-    the old and the upgraded project (the slowest step)."""
+    the old and the upgraded project (the slowest step). `set_versions` (harness -> old revision ->
+    version) gives the versions of revisions that the step to format 3 cannot map
+    (`migrate --set-version`); a revision with no version is a reason in `lost`."""
     root = Path(root)
     base = long_path(root)
     fingerprint = disk_fingerprint(root)
@@ -394,9 +654,26 @@ def plan_upgrade(root: Path | str, *, exports: bool = True) -> UpgradePlan | Non
     if from_version == to_version:
         return None
     plan = UpgradePlan(from_version, to_version, fingerprint=fingerprint)
+    plan.set_versions = {h: dict(v) for h, v in (set_versions or {}).items()}
     plan.counts_before = count_raw(files)
     plan.raw_baselines = _baseline_files(files)
-    loaded = load_project(root)
+    crosses = from_version < VERSIONS_FORMAT <= to_version
+    as_two: dict[str, Any] = {}
+    if crosses:
+        as_two = migrate.migrate_raw(
+            copy.deepcopy(files), from_version, to_version=VERSIONS_FORMAT - 1
+        )
+        refused = migrate.version_problems(as_two, set_versions)
+        mapping, _missing = migrate.version_map(as_two, set_versions)
+        plan.versions = mapping_lines(mapping)
+        if refused:
+            plan.lost = refused
+            return plan
+        # the baselines as the step writes them: the self-check holds the written ones against them
+        plan.raw_baselines = _baseline_files(
+            migrate.migrate_raw(copy.deepcopy(files), from_version, set_versions=set_versions)
+        )
+    loaded = load_project(root, set_versions=set_versions)
     problems = [i.render() for i in errors(loaded.issues)]
     if loaded.project.recovered and not problems:
         problems = ["parts of the project could not be loaded"]
@@ -415,16 +692,31 @@ def plan_upgrade(root: Path | str, *, exports: bool = True) -> UpgradePlan | Non
     ]
     project = loaded.project
     plan.project = project
-    plan.journal_entry = _journal_ahead(project, from_version, to_version)
+    plan.journal_entry = _journal_ahead(project, from_version, to_version, plan.versions)
     would_write = serialize(project, tool_version=__version__)
     plan.counts_after = count_raw(parsed_files(would_write))
     lost, plan.notes = _count_differences(plan.counts_before, plan.counts_after, plan.journal_entry)
     plan.lost += lost
     plan.files = _files_that_change(base, project, would_write)
-    # the project as it was saved, read without the steps; only a reading that is clean counts
-    as_saved = load_project(root, migrate=False)
-    plan.reference = as_saved.project if _usable(as_saved) else project
-    if plan.reference is project:
+    # the project as it was saved, read without the steps; only a reading that is clean counts.
+    # Across the step to format 3 the old reading is not used: its revisions are letters under the
+    # key `revision`, which format 3 refuses, and the hash changes by design (section 5.6).
+    as_saved = None if crosses else load_project(root, migrate=False)
+    plan.reference = as_saved.project if as_saved is not None and _usable(as_saved) else project
+    if crosses:
+        plan.notes.append(
+            f"Format {from_version} cannot be read as it is by this version: its harness "
+            "revisions become versions, which changes the model hash once. The step is checked "
+            "on the files instead, with each version read as its place (the same design, findings "
+            "and released harnesses) and each version against the mapping; the exports are not "
+            "compared with the old reading."
+        )
+        same, mapped, problems = prove_versions_step(
+            as_two, parsed_files(would_write), set_versions
+        )
+        plan.nothing_but_versions, plan.versions_mapped = same, mapped
+        plan.lost += problems
+    elif plan.reference is project:
         plan.notes.append(
             f"Format {from_version} cannot be read as it is by this version, so the project is "
             "compared with its own upgrade after the write, not with the old reading."
@@ -504,6 +796,19 @@ def render_plan(plan: UpgradePlan) -> list[str]:
     if plan.exports_equal is not None:
         same = "identical" if plan.exports_equal else "DIFFERENT"
         lines.append(f"A full export before and after: {same}.")
+    if plan.versions:
+        lines.append("Harness revisions that become versions (format 3):")
+        lines += [f"  {x}" for x in plan.versions]
+    if plan.nothing_but_versions is not None:
+        lines.append(
+            "Only the versions change (each read as its place: the same design, findings and "
+            f"released harnesses): {'yes' if plan.nothing_but_versions else 'NO'}."
+        )
+    if plan.versions_mapped is not None:
+        lines.append(
+            "Each version is the mapping of its revision: "
+            f"{'yes' if plan.versions_mapped else 'NO'}."
+        )
     if plan.journal_entry:
         lines.append(f'The journal gets one entry: "migrated from format {plan.from_version}".')
     lines += [f"Note: {n}" for n in plan.notes]
@@ -570,6 +875,16 @@ def _record(
         "journal_entry": plan.journal_entry,
         "gitignore_existed": gitignore_existed,
         "self_check": dict(check) if check is not None else None,
+        # the step to format 3 (D-242): the mapping in the words of both formats and its proof
+        "versions": list(plan.versions),
+        "set_versions": plan.set_versions,
+        "proof": {
+            "nothing_but_versions": plan.nothing_but_versions,
+            "versions_mapped": plan.versions_mapped,
+        },
+        "exports": "compared"
+        if plan.exports_equal is not None
+        else "not compared with the old reading: this version cannot read its format as it is",
     }
 
 
@@ -724,7 +1039,10 @@ def _read_baselines(base: Path) -> dict[str, bytes]:
 
 
 def upgrade_project(
-    root: Path | str, *, on_written: Callable[[], None] | None = None
+    root: Path | str,
+    *,
+    on_written: Callable[[], None] | None = None,
+    set_versions: SetVersions | None = None,
 ) -> UpgradeResult | None:
     """Upgrade the project in `root` to the format of this tool, safely (see the module text).
     None when it is in the current format. Raises `UpgradeError` when it was refused and nothing
@@ -734,7 +1052,7 @@ def upgrade_project(
     root = Path(root)
     base = long_path(root)
     recover_interrupted(root)
-    plan = plan_upgrade(root)
+    plan = plan_upgrade(root, set_versions=set_versions)
     if plan is None:
         return None
     if plan.lost or plan.project is None or plan.reference is None:
@@ -742,7 +1060,7 @@ def upgrade_project(
         raise UpgradeError(
             f"The project was not upgraded and nothing was changed: {why}", plan.lost
         )
-    findings_before = _folder_findings(root)
+    findings_before = _folder_findings(root, set_versions)
     gitignore_existed = (base / ".gitignore").exists()
     backup, before = _make_backup(base, plan)
     record = f"{backup.name}/{RECORD_NAME}"

@@ -110,7 +110,7 @@ def test_the_revise_dialog_explains_what_becomes_editable(qtbot, ctl) -> None:
     qtbot.addWidget(dlg)
     dlg.show()
     assert strings.READY_TO_RELEASE not in dlg.status.text()
-    assert "revision B" in dlg.status.text() and "revision A" in dlg.status.text()
+    assert "revision 2.0.0" in dlg.status.text() and "revision 1.0.0" in dlg.status.text()
     assert "What becomes editable:" in dlg.locks_summary.text()
     # W003 is released too and shares parts and config with W001: those stay locked, and the
     # dialog says so instead of promising they become editable

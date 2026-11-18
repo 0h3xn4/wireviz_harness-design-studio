@@ -86,7 +86,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `compare` | `ok`, `added`, `removed`, `changed`, `changes`, `not_compared` |
 | `log` | `ok`, `harness`, `entries` |
 | `migrate` | `ok`, `migrated`, `from_version`, `to_version`, `backup`, `record`, `self_check`, `gitattributes`, `outputs_version` |
-| `migrate --dry-run` | `ok`, `dry_run`, `up_to_date`, `from_version`, `to_version`, `files`, `counts_before`, `counts_after`, `model_hash_before`, `model_hash_after`, `hash_equal`, `exports_equal`, `baselines_intact`, `journal_entry`, `lost`, `notes` |
+| `migrate --dry-run` | `ok`, `dry_run`, `up_to_date`, `from_version`, `to_version`, `files`, `counts_before`, `counts_after`, `model_hash_before`, `model_hash_after`, `hash_equal`, `exports_equal`, `baselines_intact`, `journal_entry`, `lost`, `notes`, `versions`, `nothing_but_versions`, `versions_mapped` |
 | `journal` | `ok`, `has_journal`, `count`, `entries` |
 | `journal --start` | `ok`, `started`, `file` |
 | `override` | `ok`, `wire`, `action`, `changed`, `overrides`, `derivation` |
@@ -1202,6 +1202,7 @@ upgrade an old-format project in place (originals are kept, the upgrade is recor
 | `project` | project folder |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
 | `--dry-run` | load the project, upgrade it in memory and write nothing: print the files that would change, the objects by kind before and after, the model hash before and after and anything that could not be carried over; exit 0 only if nothing would be lost |
+| `--set-version HARNESS:OLD=VERSION` | the version of an old harness revision that the upgrade to format 3 cannot map by itself (it maps a letter to N.0.0: A is 1.0.0, B is 2.0.0); for example W001:A1=1.1.0; can be given more than once (repeatable) |
 
 Examples:
 

@@ -416,7 +416,7 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     title = f"{h.id}  {h.label or h.name}"
     body.append([_cell(ws, title, bold=True, size=16, box=False, wrap=False)])
     body.append([
-        _cell(ws, f"Revision {h.revision}   ·   status {h.status}   ·   {stamp.line}   ·   {stamp.notice}",
+        _cell(ws, f"Revision {h.version}   ·   status {h.status}   ·   {stamp.line}   ·   {stamp.notice}",
               box=False, wrap=False, colour=_GREY_TEXT)
     ])  # fmt: skip
     body.append([])

@@ -547,7 +547,7 @@ def released(hid: str):
         h = evolve(p.harnesses[hid], status="released", released_on="2026-11-16", approver="Bea")
         p.harnesses[hid] = h
         b = Baseline(
-            id=f"{hid}.A", harness_id=hid, revision="A", released_on="2026-11-16", by="Bea",
+            id=f"{hid}.1.0.0", harness_id=hid, version="1.0.0", released_on="2026-11-16", by="Bea",
             comment="First release for the merge test.", content_hash=content_hash(p),
             snapshot=snapshot_for(p, h),
         )  # fmt: skip

@@ -691,7 +691,7 @@ class WireEditor(QWidget):
             for wid in self._ids:
                 h, _w = find_wire(p, wid)
                 if h.status == "released":
-                    reason = strings.WIRE_STATE_RELEASED.format(h.id, h.revision)
+                    reason = strings.WIRE_STATE_RELEASED.format(h.id, h.version)
                     break
         on = bool(self._ids) and not reason
         self._form_on = on
@@ -728,7 +728,7 @@ class WireEditor(QWidget):
         if self.ctl.read_only:
             reason = strings.WIRE_STATE_READ_ONLY
         elif h is not None and h.status == "released":
-            reason = strings.WIRE_STATE_RELEASED.format(h.id, h.revision)
+            reason = strings.WIRE_STATE_RELEASED.format(h.id, h.version)
         self.strip_all.setEnabled(h is not None and not reason and bool(h.wires))
         self.bulk_btn.setEnabled(h is not None and not reason and bool(h.wires))
         self.bulk_btn.setToolTip(reason or strings.WIRE_BULK_TIP)

@@ -46,7 +46,7 @@ from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.vcs.diff import SCREEN_KIND_NAMES, Diff
 from harness_design_studio.core.vcs.lockview import ReleaseLocks, release_locks
-from harness_design_studio.core.vcs.release import ReleaseError, next_revision
+from harness_design_studio.core.vcs.release import ReleaseError, next_version
 from harness_design_studio.core.wirecolours import COLOURS, name_of
 from harness_design_studio.gui import lock_tree, strings
 from harness_design_studio.gui.dialog_base import Dialog
@@ -117,7 +117,8 @@ class UpgradeDialog(Dialog):
         self.body = QLabel(strings.UPGRADE_BODY.format(old=old, backup=f".migration-backup-v{old}"))
         self.body.setWordWrap(True)
         lay.addWidget(self.body)
-        self.detail = QLabel(strings.UPGRADE_DETAIL)
+        crosses = old < 3 <= new  # the revisions become versions (format 3, D-242)
+        self.detail = QLabel(strings.UPGRADE_DETAIL_VERSIONS if crosses else strings.UPGRADE_DETAIL)
         self.detail.setWordWrap(True)
         lay.addWidget(self.detail)
         row = QHBoxLayout()
@@ -807,7 +808,7 @@ class ChangeDialog(Dialog):
         unlocks = lock_tree.revision_unlocks(project, harness_id)
         h = project.harnesses.get(harness_id)
         try:
-            new = next_revision(h.revision) if h is not None else "?"
+            new = next_version(h.version) if h is not None else "?"
         except ReleaseError:  # a revision that is not letters: the plan itself will refuse
             new = "?"
         return cls(
@@ -816,7 +817,7 @@ class ChangeDialog(Dialog):
             by=by,
             blockers=[],
             ok_text=strings.NEW_REV_CONFIRM,
-            explain=strings.REVISE_EXPLAIN.format(harness_id, unlocks.revision, new),
+            explain=strings.REVISE_EXPLAIN.format(harness_id, unlocks.version, new),
             unlocks=unlocks,
         )
 

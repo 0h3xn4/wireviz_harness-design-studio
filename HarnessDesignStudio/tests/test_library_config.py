@@ -39,7 +39,7 @@ def test_starter_interface_types_cover_spec_list() -> None:
 def test_config_set_complete_and_placeholders_flagged() -> None:
     cfg = default_configs()
     # `model` is optional (D-193): a new project has no model.json and behaves as before
-    assert set(cfg) == set(CONFIG_NAMES) - {"model"}
+    assert set(cfg) == set(CONFIG_NAMES) - {"model", "harness_plan"}  # (optional files)
     assert {n for n, c in cfg.items() if c.placeholder} == {
         "segmentation", "segregation", "derating", "emc", "titleblock", "generation"
     }  # fmt: skip

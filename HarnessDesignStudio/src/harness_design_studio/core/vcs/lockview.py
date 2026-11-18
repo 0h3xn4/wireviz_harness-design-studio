@@ -50,10 +50,10 @@ KIND_LABELS = {**SCREEN_KIND_NAMES, "config": "Configuration file"}
 
 
 class LockRef(NamedTuple):
-    """A released harness and its revision; it compares equal to `(harness_id, revision)`."""
+    """A released harness and its version; it compares equal to `(harness_id, version)`."""
 
     harness_id: str
-    revision: str
+    version: str
 
 
 def _released(project: Project) -> list[Harness]:
@@ -76,7 +76,7 @@ def locked_objects(project: Project) -> dict[tuple[str, str], list[LockRef]]:
     A box connector and a unit are locked in their design fields only (see `cosmetic_fields`)."""
     out: dict[tuple[str, str], list[LockRef]] = defaultdict(list)
     for h in _released(project):
-        ref = LockRef(h.id, h.revision)
+        ref = LockRef(h.id, h.version)
 
         def add(kind: str, oid: str, ref: LockRef = ref) -> None:
             if ref not in out[(kind, oid)]:
@@ -113,7 +113,9 @@ def locked_objects(project: Project) -> dict[tuple[str, str], list[LockRef]]:
 
 
 def _why(ref: LockRef) -> str:
-    return f"{ref.harness_id} is released (revision {ref.revision}); start a new revision to change it."
+    return (
+        f"{ref.harness_id} is released (revision {ref.version}); start a new revision to change it."
+    )
 
 
 Locked = dict[tuple[str, str], list[LockRef]]
@@ -212,7 +214,7 @@ class ConfigLock:
 @dataclass(frozen=True)
 class ReleaseLocks:
     harness_id: str
-    revision: str
+    version: str
     wires: tuple[str, ...]
     cable_connectors: tuple[str, ...]
     cable_pins: tuple[str, ...]  # "connector.pin"
@@ -261,7 +263,7 @@ def release_locks(project: Project, harness_id: str) -> ReleaseLocks:
             )
     return ReleaseLocks(
         harness_id=h.id,
-        revision=h.revision,
+        version=h.version,
         wires=tuple(sorted(w.id for w in h.wires)),
         cable_connectors=tuple(sorted(c.id for c in h.connectors)),
         cable_pins=tuple(sorted(f"{c.id}.{p.id}" for c in h.connectors for p in c.pins)),

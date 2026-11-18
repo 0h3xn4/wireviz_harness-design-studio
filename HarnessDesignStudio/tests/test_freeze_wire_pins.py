@@ -113,7 +113,7 @@ def test_the_other_pins_of_the_same_connector_stay_editable(tmp_path: Path) -> N
 def test_the_lock_view_lists_the_pins_the_wires_reach(tmp_path: Path) -> None:
     p, hid, _hist = released(tmp_path)
     locked = lockview.locked_objects(p)
-    ref = lockview.LockRef(hid, "A")
+    ref = lockview.LockRef(hid, "1.0.0")
     for box in (A, B):
         assert locked[("box_pin", f"{box}.1")] == [ref]
         assert locked[("box_pin", f"{box}.2")] == [ref]

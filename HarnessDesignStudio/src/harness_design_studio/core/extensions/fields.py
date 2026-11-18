@@ -192,7 +192,7 @@ def _build() -> list[FieldDef]:
         f("interface", "wires", "", "number", "The number of wires that implement it, in every harness.", _wires_of_interface),
         f("harness", "id", "", "text", "The harness's ID.", lambda c: c.harness.id if c.harness else None),
         f("harness", "name", "", "text", "The harness's name.", lambda c: c.harness.name if c.harness else None),
-        f("harness", "revision", "", "text", "The revision letter.", lambda c: c.harness.revision if c.harness else None),
+        f("harness", "revision", "", "text", "The revision letter.", lambda c: c.harness.version if c.harness else None),
         f("harness", "status", "", "text", "draft, in_review or released.", lambda c: c.harness.status if c.harness else None),
         f("harness", "wires", "", "number", "The number of wires.", lambda c: len(c.harness.wires) if c.harness else None),
         f("harness", "connectors", "", "number", "The number of cable connectors.", lambda c: len(c.harness.connectors) if c.harness else None),

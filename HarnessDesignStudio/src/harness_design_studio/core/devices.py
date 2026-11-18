@@ -225,7 +225,7 @@ def _released(project: Project) -> list[Harness]:
 
 
 def _ref(h: Harness) -> list[LockRef]:
-    return [LockRef(h.id, h.revision)]
+    return [LockRef(h.id, h.version)]
 
 
 def pin_set_frozen(project: Project, connector_id: str) -> str | None:

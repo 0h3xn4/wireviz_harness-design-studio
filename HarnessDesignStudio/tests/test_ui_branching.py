@@ -224,7 +224,7 @@ def test_a_generated_harness_shows_kept_by_generate_and_only_the_length_changes(
 
 def test_a_released_harness_is_read_only_with_the_reason(qtbot, tmp_path):
     p = generated_mini3()
-    p.harnesses["W002"] = evolve(p.harnesses["W002"], status="released", revision="A")
+    p.harnesses["W002"] = evolve(p.harnesses["W002"], status="released", version="1.0.0")
     win = window_with(tmp_path, p)
     qtbot.addWidget(win)
     panel = routing_of(win, "W002")

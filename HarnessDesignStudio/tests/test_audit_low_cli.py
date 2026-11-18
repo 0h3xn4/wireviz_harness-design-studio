@@ -33,7 +33,7 @@ def _draft(p: Project) -> str:
 def _with_entry(p: Project, hid: str, when: str) -> None:
     h = p.harnesses[hid]
     p.changelog["C0001"] = ChangeEntry(
-        id="C0001", harness_id=hid, revision=h.revision, kind="review", by="Ada", when=when
+        id="C0001", harness_id=hid, version=h.version, kind="review", by="Ada", when=when
     )
 
 

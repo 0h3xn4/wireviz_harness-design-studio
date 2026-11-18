@@ -172,7 +172,7 @@ def test_a_change_of_a_release_is_recorded_with_its_comment(folder, clock):
     entry = ChangeEntry(
         id="C0001",
         harness_id="W001",
-        revision="A",
+        version="1.0.0",
         kind="release",
         by="B. Boss",
         when="2026-11-03",

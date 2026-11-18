@@ -62,7 +62,12 @@ AUTHOR_SECONDS = 5.0  # the last commit is looked up again after this long
 REFRESH_MS = 150  # a visible panel reads the project this long after the last change
 ALL = ""  # the combo box entry "All harnesses"
 WORKING = ""  # the "with" entry "Working design"
-_EVENT_STATE = {"review": "in-review", "release": "released", "new_revision": "revised"}
+_EVENT_STATE = {
+    "review": "in-review",
+    "release": "released",
+    "new_version": "revised",
+    "version_changed": "revised",
+}
 
 
 def harness_state(project: Project, harness_id: str) -> str:
@@ -93,14 +98,14 @@ def _timeline_dict(r: TimelineRow) -> dict[str, Any]:
     return {
         "id": r.id,
         "harness": r.harness_id,
-        "revision": r.revision,
+        "revision": r.version,
         "kind": r.kind,
         "event": r.event,
         "by": r.by,
         "when": r.when,
         "comment": r.comment,
         "has_baseline": r.has_baseline,
-        "baseline": strings.REL_BASELINE_CHIP.format(r.revision) if r.has_baseline else "",
+        "baseline": strings.REL_BASELINE_CHIP.format(r.version) if r.has_baseline else "",
     }
 
 
@@ -402,7 +407,7 @@ class ReleasesPanel(QWidget):
             for hid in sorted(project.harnesses):
                 h = project.harnesses[hid]
                 state = STATES[harness_state(project, hid)].label
-                self.harness.addItem(strings.REL_HARNESS_ITEM.format(hid, state, h.revision), hid)
+                self.harness.addItem(strings.REL_HARNESS_ITEM.format(hid, state, h.version), hid)
             index = self.harness.findData(keep or ALL)
             self.harness.setCurrentIndex(max(0, index))
         finally:
@@ -545,7 +550,7 @@ class ReleasesPanel(QWidget):
         if h is None:
             self.state.hide()
         else:
-            self.state.set_state(harness_state(project, h.id), strings.REL_REVISION.format(h.revision))  # fmt: skip
+            self.state.set_state(harness_state(project, h.id), strings.REL_REVISION.format(h.version))  # fmt: skip
             self.state.show()
         status = h.status if h is not None else ""
         wanted = {"review": ("draft",), "release": ("draft", "in_review"), "revise": ("released",)}
@@ -580,7 +585,7 @@ class ReleasesPanel(QWidget):
 
     def _fill_pickers(self, prefer: str | None = None) -> None:
         hid = self.current_harness()
-        revs = [b.revision for b in baselines_of(self.ctl.project, hid)] if hid else []
+        revs = [b.version for b in baselines_of(self.ctl.project, hid)] if hid else []
         before_now = prefer or self.before.currentData()
         after_now = self.after.currentData()
         self._building = True
@@ -625,7 +630,7 @@ class ReleasesPanel(QWidget):
         if not hid:
             self._no_diff(strings.REL_DIFF_NEED_HARNESS)
             return
-        revs = [b.revision for b in baselines_of(self.ctl.project, hid)]
+        revs = [b.version for b in baselines_of(self.ctl.project, hid)]
         if not revs:
             self._no_diff(strings.REL_DIFF_NO_BASE.format(hid))
             return
@@ -681,7 +686,7 @@ class ReleasesPanel(QWidget):
             for k, n in counts.items()
             if k in strings.REL_LOCK_KINDS
         ]
-        self.locks.setText(strings.REL_LOCKS.format(h.id, h.revision, ", ".join(parts)))
+        self.locks.setText(strings.REL_LOCKS.format(h.id, h.version, ", ".join(parts)))
         self.locks.setVisible(True)
 
     def _no_diff(self, message: str) -> None:

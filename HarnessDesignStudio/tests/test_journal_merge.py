@@ -344,7 +344,7 @@ def test_the_upgrade_moves_the_journal_keeps_every_chain_and_adds_one_entry(fold
     assert now[:3] == old  # carried over as they were: number, chain, no parent
     migrated = now[3]
     assert migrated["parent"] == old[-1]["chain"] and "seq" not in migrated
-    assert migrated["reason"] == "migrated from format 1"
+    assert migrated["reason"].startswith("migrated from format 1; W001: revision A → version 1.0.0")
     result = load_project(root)
     assert not result.has_errors and [e.seq for e in result.project.journal] == [1, 2, 3, 4]
     assert (root / ".gitattributes").read_text(encoding="utf-8") == GITATTRIBUTES

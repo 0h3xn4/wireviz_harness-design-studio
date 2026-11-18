@@ -15,25 +15,25 @@ def release_integrity(project: Project) -> list[Issue]:
     out: list[Issue] = []
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
         if h.status != "released":
-            stale = project.baselines.get(f"{h.id}.{h.revision}")
+            stale = project.baselines.get(f"{h.id}.{h.version}")
             if stale is not None:
                 out.append(
                     Issue(
                         "error",
                         "released_modified",
-                        f"{h.id} has a baseline for revision {h.revision} but is no longer released; it was set back to {h.status} by hand. Start a new revision instead.",
+                        f"{h.id} has a baseline for revision {h.version} but is no longer released; it was set back to {h.status} by hand. Start a new revision instead.",
                         None,
                         h.id,
                     )
                 )
             continue
-        b = project.baselines.get(f"{h.id}.{h.revision}")
+        b = project.baselines.get(f"{h.id}.{h.version}")
         if b is None:
             out.append(
                 Issue(
                     "error",
                     "released_without_baseline",
-                    f"{h.id} is released (revision {h.revision}) but has no baseline.",
+                    f"{h.id} is released (revision {h.version}) but has no baseline.",
                     None,
                     h.id,
                 )
@@ -114,7 +114,7 @@ def _modified(h: Harness, what: str = "", how: str = "") -> Issue:
     return Issue(
         "error",
         "released_modified",
-        f"{h.id} was changed after its release (revision {h.revision}){detail}; it no longer matches its baseline.{tail}",
+        f"{h.id} was changed after its release (revision {h.version}){detail}; it no longer matches its baseline.{tail}",
         None,
         h.id,
     )

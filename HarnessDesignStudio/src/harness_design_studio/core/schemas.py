@@ -66,7 +66,10 @@ def _device_file() -> type[BaseModel]:
     device = create_model("DeviceRecord", __config__=_STRICT, **record)
     fields: dict[str, Any] = {
         "format": (str, _const(device_library.FORMAT)),
-        "version": (int, _const(device_library.VERSION)),
+        "version": (
+            int,
+            Field(ge=device_library.FIRST_VERSION, le=device_library.VERSION),
+        ),
         "devices": (list[device], Field(min_length=1, max_length=1)),
         "parts": (list[Part], []),
         "interface_types": (list[InterfaceType], []),

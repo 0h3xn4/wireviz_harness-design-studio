@@ -371,6 +371,8 @@ UPGRADE_TITLE = "Older project format"
 UPGRADE_BODY = "This project is in format {old}. Upgrade? A copy of the original stays in {backup}. Older tools can no longer edit it."
 UPGRADE_DETAIL = "Nothing is generated and no ID changes. After the upgrade the tool reloads the project and checks that the model hash, the findings, the released baselines and a full export are the same; if any differ, the original files are put back."
 UPGRADE = "Upgrade"
+# the upgrade to format 3 (D-242): the revisions become versions, so the model hash changes once
+UPGRADE_DETAIL_VERSIONS = "The harness revisions become versions: A becomes 1.0.0, B becomes 2.0.0, and so on; a revision that is not a letter is given its version with `harness-design-studio migrate DIR --set-version`. Nothing is generated. After the upgrade the tool reloads the project and checks that only the versions changed: the same design, findings and released harnesses, and the same full export; if anything differs, the original files are put back."
 UPGRADE_ASK = "Upgrade…"
 UPGRADED = "Upgraded from format {old} to {new}. The original files are in {backup}."
 UPGRADED_EXPORT_AGAIN = (
@@ -1968,7 +1970,7 @@ RAIL_COLLAPSE = "Show icons only"
 RAIL_EXPAND = "Show the names"
 CRUMB_SEPARATOR = "  ›  "
 CRUMBS_NAME = "Where you are"
-TB_REVISION = "Revision {}"
+TB_REVISION = "v{}"  # the short form of Q32 (D-242): a version is longer than a letter
 TB_REVISION_TIP = "The revision of the released harnesses ({})"
 GO_HOME = "Go to Home"
 GO_SETTINGS = "Go to Settings"

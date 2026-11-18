@@ -301,7 +301,7 @@ def _diff(project: object, args: argparse.Namespace, rep: Report) -> int:
     if h is None:
         print(f"error: harness {args.harness} does not exist.", file=sys.stderr)
         return 2
-    bases = {b.revision: b for b in baselines_of(project, h.id)}
+    bases = {b.version: b for b in baselines_of(project, h.id)}
     if not bases:
         print(f"error: {h.id} has no baseline yet; release it first.", file=sys.stderr)
         return 2
@@ -316,18 +316,16 @@ def _diff(project: object, args: argparse.Namespace, rep: Report) -> int:
             return 2
         diff = vdiff.diff_snapshots(start.snapshot, end.snapshot)
         rep.say(
-            vdiff.render_markdown(f"{h.id}: revision {start.revision} to {end.revision}", diff),
+            vdiff.render_markdown(f"{h.id}: revision {start.version} to {end.version}", diff),
             end="",
         )
-        to = end.revision
+        to = end.version
     else:
         diff = working_diff(project, h, start)
         rep.say(
-            vdiff.render_markdown(
-                f"{h.id}: working design against revision {start.revision}", diff
-            ),
+            vdiff.render_markdown(f"{h.id}: working design against revision {start.version}", diff),
             end="",
         )
         to = "working"
-    rep.put(harness=h.id, **{"from": start.revision, "to": to}, **_diff_doc(diff))
+    rep.put(harness=h.id, **{"from": start.version, "to": to}, **_diff_doc(diff))
     return 0

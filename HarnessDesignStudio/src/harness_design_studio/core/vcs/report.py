@@ -12,7 +12,8 @@ LOG_HEADER = ["Entry", "Harness", "Revision", "Event", "By", "Date", "Comment"]
 EVENTS = {
     "review": "submitted for review",
     "release": "released",
-    "new_revision": "new revision started",
+    "new_version": "new revision started",
+    "version_changed": "version changed",
 }
 
 
@@ -30,7 +31,7 @@ def changelog_rows(project: Project, harness_id: str | None = None) -> list[list
                 [
                     e.id,
                     e.harness_id,
-                    e.revision,
+                    e.version,
                     EVENTS[e.kind],
                     one_line(e.by),
                     e.when,
@@ -45,7 +46,7 @@ def baselines_of(project: Project, hid: str) -> list[Baseline]:
     `versions.version_key` (the letter order: A, B … Z, AA)."""
     return sorted(
         (b for b in project.baselines.values() if b.harness_id == hid),
-        key=lambda b: version_key(b.revision),
+        key=lambda b: version_key(b.version),
     )
 
 
@@ -68,7 +69,7 @@ def revision_report(project: Project, stamp_line: str) -> str:
     for hid in hids:
         h = project.harnesses.get(hid)
         state = (
-            f"revision {h.revision}, {h.status.replace('_', ' ')}"
+            f"revision {h.version}, {h.status.replace('_', ' ')}"
             if h
             else "no longer in the design"
         )
@@ -83,14 +84,14 @@ def revision_report(project: Project, stamp_line: str) -> str:
         ):
             tail = f": {one_line(e.comment)}" if e.comment else ""
             lines.append(
-                f"- {e.when}, {one_line(e.by)}: revision {e.revision} {EVENTS[e.kind]}{tail} (`{e.id}`)"
+                f"- {e.when}, {one_line(e.by)}: revision {e.version} {EVENTS[e.kind]}{tail} (`{e.id}`)"
             )
         bases = baselines_of(project, hid)
         for a, b in zip(bases, bases[1:], strict=False):
             diff = diff_snapshots(a.snapshot, b.snapshot)
             lines += [
                 "",
-                render_markdown(f"{hid}: revision {a.revision} to {b.revision}", diff)
+                render_markdown(f"{hid}: revision {a.version} to {b.version}", diff)
                 .replace("# ", "### ", 1)
                 .rstrip(),
             ]
@@ -100,7 +101,7 @@ def revision_report(project: Project, stamp_line: str) -> str:
                 lines += [
                     "",
                     render_markdown(
-                        f"{hid}: working design against revision {bases[-1].revision}", diff
+                        f"{hid}: working design against revision {bases[-1].version}", diff
                     )
                     .replace("# ", "### ", 1)
                     .rstrip(),

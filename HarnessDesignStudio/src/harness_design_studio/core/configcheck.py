@@ -160,6 +160,7 @@ def validate(project: Project) -> list[Issue]:
             out.extend(_validate_ampacity(n, v))
     out.extend(validate_model(project))
     out.extend(validate_titleblock(project))
+    out.extend(validate_harness_plan(project))
     out.extend(validate_counterparts(project))
     out.extend(validate_distinct_roles(project))
     out.extend(validate_asbuilt(project))
@@ -372,10 +373,10 @@ def report(project: Project) -> tuple[str, bool]:
 
 
 TITLEBLOCK_FIELDS = (
-    "project", "harness_id", "title", "revision", "date", "author", "checker", "approver",
+    "project", "harness_id", "title", "version", "date", "author", "checker", "approver",
     "sheet", "status",
 )  # fmt: skip
-TITLEBLOCK_DEFAULT = ("project", "harness_id", "title", "revision", "status", "sheet")
+TITLEBLOCK_DEFAULT = ("project", "harness_id", "title", "version", "status", "sheet")
 
 
 def validate_titleblock(project: Project) -> list[Issue]:
@@ -410,6 +411,71 @@ def validate_titleblock(project: Project) -> list[Issue]:
     if twice:
         return err(f"lists '{twice[0]}' more than once")
     return []
+
+
+HARNESS_PLAN_KEYS = ("colour_rule", "colour_codes", "notes")
+COLOUR_RULES = ("wire", "pin_code")
+_CODE_KEYS = frozenset({"name", "parts", "pins", "example"})
+
+
+def _colour_code_problem(code: object) -> str | None:
+    """Why one entry of `colour_codes` is not a code: a name, the connector parts it applies to,
+    the table of pins and colours, and the optional mark `example` (design of 3.0.0 section 6)."""
+    if not isinstance(code, dict):
+        return "must hold codes written as objects"
+    if set(code) - _CODE_KEYS:
+        return f"has a code with a key that is not {', '.join(sorted(_CODE_KEYS))}"
+    if not isinstance(code.get("name"), str) or not code["name"].strip():
+        return "has a code without a name"
+    parts = code.get("parts", [])
+    if not isinstance(parts, list) or not all(isinstance(x, str) for x in parts):
+        return f"code '{code['name'][:30]}': parts must be a list of part IDs"
+    pins = code.get("pins", {})
+    if not isinstance(pins, dict) or not all(isinstance(v, str) for v in pins.values()):
+        return f"code '{code['name'][:30]}': pins must map each pin to a colour written as text"
+    if not isinstance(code.get("example", False), bool):
+        return f"code '{code['name'][:30]}': example must be true or false"
+    return None
+
+
+def validate_harness_plan(project: Project) -> list[Issue]:
+    """The optional `config/harness_plan.json` (format 3, design of 3.0.0 section 4.1): the colour
+    rule (`wire` or `pin_code`), the colour codes and the note lines. No file: nothing to check."""
+    if "harness_plan" not in project.config:
+        return []
+    values = _cfg(project, "harness_plan")
+    where = "config/harness_plan.json"
+    out: list[Issue] = []
+
+    def bad(key: str, why: str) -> None:
+        out.append(
+            Issue("error", "config_invalid", f"{where}: {key} {why}.", where, f"harness_plan.{key}")
+        )
+
+    for key, v in values.items():
+        if key not in HARNESS_PLAN_KEYS:
+            bad(key, f"is not a setting of the harness plan ({', '.join(HARNESS_PLAN_KEYS)})")
+        elif v is None:
+            continue
+        elif key == "colour_rule" and v not in COLOUR_RULES:
+            bad(key, f"must be one of {', '.join(COLOUR_RULES)}")
+        elif key == "colour_codes":
+            if not isinstance(v, list):
+                bad(key, "must be a list of colour codes")
+                continue
+            names = [c.get("name") for c in v if isinstance(c, dict)]
+            for code in v:
+                why = _colour_code_problem(code)
+                if why is not None:
+                    bad(key, why)
+                    break
+            else:
+                twice = sorted({str(n) for n in names if names.count(n) > 1})
+                if twice:
+                    bad(key, f"names the code '{twice[0][:30]}' more than once")
+        elif key == "notes" and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
+            bad(key, "must be a list of lines of text")
+    return out
 
 
 def validate_counterparts(project: Project) -> list[Issue]:

@@ -193,7 +193,7 @@ def test_strip_all_sets_every_wire_of_the_harness(generated):
 
 def test_every_plan_refuses_a_released_harness(generated):
     h = first_harness(generated)
-    apply_ops(generated, [Put("harnesses", evolve(h, status="released", revision="A"))])
+    apply_ops(generated, [Put("harnesses", evolve(h, status="released", version="1.0.0"))])
     box = generated.connectors[h.connectors[0].mates_with]
     for call in (
         lambda: build_data.plan_set_strip(generated, h.id, [h.wires[0].id], strip_a_mm=6),

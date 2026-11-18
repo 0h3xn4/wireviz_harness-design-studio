@@ -235,7 +235,7 @@ def test_the_command_is_blocked_then_released_with_a_reason_kept_in_the_change_l
     entry = next(e for e in project.changelog.values() if e.kind == "release")
     assert "[Released although the as-built records of W001 are incomplete (no records);" in entry.comment  # fmt: skip
     assert f"accepted by Ada: {reason}]" in entry.comment
-    assert project.baselines["W001.A"].comment == entry.comment
+    assert project.baselines["W001.1.0.0"].comment == entry.comment
 
 
 def test_the_command_releases_without_the_option_when_the_gate_is_off(

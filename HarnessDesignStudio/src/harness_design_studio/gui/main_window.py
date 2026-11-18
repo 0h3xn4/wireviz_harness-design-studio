@@ -3136,7 +3136,7 @@ class MainWindow(QMainWindow):
     def _revision_text(self) -> str:
         """The lowest and the highest revision of the project, in the order of
         `versions.version_key` (the letter order: Z before AA)."""
-        revs = sort_versions({h.revision for h in self.ctl.project.harnesses.values()})
+        revs = sort_versions({h.version for h in self.ctl.project.harnesses.values()})
         if not revs:
             return ""
         return revs[0] if len(revs) == 1 else f"{revs[0]}-{revs[-1]}"
@@ -3367,9 +3367,7 @@ class MainWindow(QMainWindow):
         """(harness, revision) of the released harnesses that lock what is in front of you: the
         harness shown in Drawings, the one chosen in Revisions, or the selected unit or link."""
         c = self.ctl
-        released = {
-            h.id: h.revision for h in c.project.harnesses.values() if h.status == "released"
-        }
+        released = {h.id: h.version for h in c.project.harnesses.values() if h.status == "released"}
         if not released:
             return []
         hid: str | None = None
@@ -4729,7 +4727,7 @@ class MainWindow(QMainWindow):
         if h is None or not bases:
             self.toasts.show_message(strings.NO_BASELINE.format(hid), None)
             return
-        revs = [b.revision for b in bases]
+        revs = [b.version for b in bases]
         dlg = DiffDialog(
             self,
             strings.CHANGES_TITLE.format(hid),
@@ -4739,7 +4737,7 @@ class MainWindow(QMainWindow):
         )
 
         def recompute() -> None:
-            base = next(b for b in bases if b.revision == dlg.baseline.currentText())
+            base = next(b for b in bases if b.version == dlg.baseline.currentText())
             dlg.set_diff(working_diff(project, h, base))
 
         dlg.baseline.currentTextChanged.connect(lambda _t: recompute())

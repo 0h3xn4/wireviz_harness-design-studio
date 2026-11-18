@@ -18,6 +18,8 @@ from collections.abc import Iterable
 from typing import Literal
 
 from harness_design_studio.core.model import Snapshot
+from harness_design_studio.core.model.base import FIRST_VERSION as FIRST_VERSION_OF_MODEL
+from harness_design_studio.core.model.base import VERSION_RE
 
 from .diff import Flat, ObjectChange, diff_flat, flatten_snapshot
 
@@ -27,13 +29,13 @@ KINDS: tuple[VersionKind, ...] = ("major", "minor", "patch")
 # The revision a new harness gets in format 2 (the model's default and generation's value); a
 # harness at any other revision is a later one (`describe.harness_state`).
 FIRST_REVISION = "A"
+FIRST_VERSION = FIRST_VERSION_OF_MODEL  # the version a new harness starts at in format 3
 
 MAX_PART = 9999  # each of the three numbers of a version, section 5.2
 
 # Section 5.2: three whole numbers from 0 to 9999, without a leading zero and without a prefix, so
 # there is one way to write each version and two equal versions are equal text.
-_PART = r"(0|[1-9][0-9]{0,3})"
-_VERSION = re.compile(rf"{_PART}\.{_PART}\.{_PART}")
+_VERSION = VERSION_RE  # the type `Version` of the model checks the same pattern
 _LETTERS = re.compile(r"[A-Z]+")
 
 type VersionKey = tuple[int, tuple[int, int, int], str]
@@ -97,11 +99,11 @@ def sort_versions(texts: Iterable[str]) -> list[str]:
     return sorted(texts, key=version_key)
 
 
-def is_first(revision: str) -> bool:
-    """True for the revision a new harness starts at in format 2 (`FIRST_REVISION`, "A"). Any other
-    text, also a hand-written `1.0.0`, is a later revision, as `describe.harness_state` has read it
-    since 1.x; format 3 decides by the baseline instead (section 5.7)."""
-    return version_key(revision) == version_key(FIRST_REVISION)
+def is_first(version: str) -> bool:
+    """True for the version a new harness starts at (`FIRST_VERSION`, `1.0.0`, format 3; it was the
+    letter `A` in format 2, which the migration maps to `1.0.0`). Any other version is a later one,
+    as `describe.harness_state` reads it."""
+    return version_key(version) == version_key(FIRST_VERSION)
 
 
 def letter_to_version(revision: str) -> str | None:
@@ -228,6 +230,7 @@ def pinout_note_due(kind: VersionKind, changes: list[ObjectChange]) -> bool:
 
 __all__ = [
     "FIRST_REVISION",
+    "FIRST_VERSION",
     "KINDS",
     "MAX_PART",
     "PINOUT_FIELDS",

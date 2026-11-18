@@ -85,4 +85,4 @@ def test_harness_state_has_a_word_for_each_stage_of_change_control() -> None:
     assert describe.harness_state(h) == "draft"
     assert describe.harness_state(evolve(h, status="in_review")) == "in-review"
     assert describe.harness_state(evolve(h, status="released")) == "released"
-    assert describe.harness_state(evolve(h, status="draft", revision="B")) == "revised"
+    assert describe.harness_state(evolve(h, status="draft", version="2.0.0")) == "revised"

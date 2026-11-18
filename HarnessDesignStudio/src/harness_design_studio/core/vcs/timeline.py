@@ -32,8 +32,8 @@ __all__ = [
 class TimelineRow:
     id: str  # the change log entry, "C0001"
     harness_id: str
-    revision: str
-    kind: str  # "review" | "release" | "new_revision"
+    version: str
+    kind: str  # "review" | "release" | "new_version" | "version_changed"
     event: str  # the same words as the change log table
     by: str
     when: str
@@ -43,18 +43,18 @@ class TimelineRow:
 
 def timeline(project: Project, harness_id: str | None = None) -> list[TimelineRow]:
     """The change log in the order of its entries, for all harnesses or one."""
-    have = {(b.harness_id, b.revision) for b in project.baselines.values()}
+    have = {(b.harness_id, b.version) for b in project.baselines.values()}
     return [
         TimelineRow(
             e.id,
             e.harness_id,
-            e.revision,
+            e.version,
             e.kind,
             EVENTS[e.kind],
             one_line(e.by),
             e.when,
             one_line(e.comment),
-            (e.harness_id, e.revision) in have,
+            (e.harness_id, e.version) in have,
         )  # fmt: skip
         for e in sorted(project.changelog.values(), key=lambda x: x.id)
         if harness_id is None or e.harness_id == harness_id
@@ -66,7 +66,7 @@ def compare_revisions(
 ) -> Diff:
     """What changed in `harness_id` from revision `before` to revision `after`, or to the working
     design when `after` is None."""
-    bases = {b.revision: b for b in baselines_of(project, harness_id)}
+    bases = {b.version: b for b in baselines_of(project, harness_id)}
     for rev in (before, after):
         if rev is not None and rev not in bases:
             raise ReleaseError(f"There is no revision {rev} of {harness_id} to compare with.")

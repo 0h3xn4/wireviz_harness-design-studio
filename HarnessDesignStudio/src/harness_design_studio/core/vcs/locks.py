@@ -25,7 +25,7 @@ from .snapshot import (
     used_part_ids,
 )
 
-_META = {"status", "revision", "checker", "approver", "released_on"}
+_META = {"status", "version", "checker", "approver", "released_on"}
 COSMETIC_INTERFACE_FIELDS = {"name", "notes", "requirement_id"}  # may change after release
 COSMETIC_UNIT_FIELDS = {"name", "notes", "zone", "kind"}  # may change after release
 COSMETIC_PART_FIELDS = {"notes"}  # may change after release
@@ -37,10 +37,13 @@ def interface_design(i: InterfaceInstance) -> dict[str, object]:
     return i.model_dump(exclude=COSMETIC_INTERFACE_FIELDS)
 
 
-def _is_new_revision(old: Harness, new: Harness) -> bool:
-    """A released harness may only be replaced by its next revision: same content, status draft."""
+def _is_new_version(old: Harness, new: Harness) -> bool:
+    """A released harness may only be replaced by its next version: a higher version, status draft,
+    the same content (design of 3.0.0 section 5.4)."""
+    from .versions import version_key
+
     return (
-        new.revision != old.revision
+        version_key(new.version) > version_key(old.version)
         and new.status == "draft"
         and new.model_dump(exclude=_META) == old.model_dump(exclude=_META)
     )
@@ -127,7 +130,7 @@ def check_locks(project: Project, ops: list[Op]) -> None:
     problems: list[str] = []
 
     def why(hid: str) -> str:
-        return f"{hid} is released (revision {released[hid].revision}); start a new revision to change it."
+        return f"{hid} is released (revision {released[hid].version}); start a new revision to change it."
 
     for op in ops:
         if isinstance(op, SetConfig | DeleteConfig):
@@ -145,7 +148,7 @@ def check_locks(project: Project, ops: list[Op]) -> None:
         key = op.key if isinstance(op, Delete) else str(getattr(op.obj, "id", ""))
         new = None if isinstance(op, Delete) else op.obj
         if op.collection == "harnesses" and key in released:
-            if not (isinstance(new, Harness) and _is_new_revision(released[key], new)):
+            if not (isinstance(new, Harness) and _is_new_version(released[key], new)):
                 problems.append(why(key))
         elif op.collection == "interfaces" and key in locked_ifaces:
             old_i = project.interfaces.get(key)

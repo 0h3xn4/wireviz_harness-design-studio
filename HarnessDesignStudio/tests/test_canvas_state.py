@@ -172,7 +172,7 @@ def test_a_pass_is_not_the_same_as_not_checked(project) -> None:
 
 def test_a_release_locks_units_links_and_connectors_with_harness_and_revision(tmp_path) -> None:
     p, hid = released(tmp_path)
-    rev = p.harnesses[hid].revision
+    rev = p.harnesses[hid].version
     locked = lockview.locked_objects(p)
     idx = build_index(p, [], locked)
     assert locked

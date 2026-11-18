@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 # mypy: disable-error-code="no-untyped-def,no-untyped-call,no-any-return,arg-type,attr-defined,index,union-attr"
-"""REQ-MIGRATE-05: format 2 is in force (M4 of the 2.0 programme, D-226).
+"""REQ-MIGRATE-05: format 2 (M4 of the 2.0 programme, D-226), and the projects of format 1.
 
-This tool writes `schema_version` 2. Format 2 is format 1 plus the number: the step from 1 to 2
-(`core/io/migrate.py`) writes the number and nothing else, because a loose cable end is new content
-(a connector with the role `loose` and the part `TBD-CONNECTOR`), the origin of a harness is worked
-out and never stored (D-201), and the place of a loose end on the diagram is the mark
-`pos:<connector id>` in `diagram/marks.json`, outside the model hash. A version 1.x tool opens a
-format 2 project read-only.
+Format 2 is format 1 plus the number: the step from 1 to 2 (`core/io/migrate.py`) writes the number
+and nothing else, because a loose cable end is new content (a connector with the role `loose` and
+the part `TBD-CONNECTOR`), the origin of a harness is worked out and never stored (D-201), and the
+place of a loose end on the diagram is the mark `pos:<connector id>` in `diagram/marks.json`,
+outside the model hash. A version 1.x tool opens a format 2 project read-only. This tool writes
+format 3 since D-242 (`tests/test_format3.py`): a format 1 project is brought up by both steps, and
+the step from 2 to 3 maps its revision letters to versions.
 
 `tests/fixtures/v1_project` is a format 1 project written by the tool of version 1.17.1 (the code of
 `master` before this change): the `mini3` fixture with a cable drawn from the port `OBC-J01` whose far
-end `W002-P2` is loose, and the mark `pos:W002-P2`. `V1_HASH` is its model hash as 1.17.1 computed it.
+end `W002-P2` is loose, and the mark `pos:W002-P2`. `V1_HASH` is its model hash as 1.17.1 computed it,
+and `V1_HASH_3` its model hash once its revisions are versions (format 3, D-242).
 """
 
 import contextlib
@@ -42,39 +44,31 @@ from tests.migration_support import as_format, build, folder_bytes, full_export
 V1 = FIXTURES / "v1_project"
 # the model hash (and the content hash) of `v1_project` as the tool of version 1.17.1 computed it
 V1_HASH = "268eab67114456c27afdb90209a9d86efb1dac6679def48b9abf2c6fb0e2acbf"
-# kept in an older format on purpose: format 0; 1.17.1 with a loose end; written by 0.0.1 (M1)
-OLD_FIXTURES = {"v0_project": None, "v1_project": 1, "m1_project": 1}
+# the same project read by this tool: its revisions A are versions 1.0.0 (format 3, D-242), so the
+# hash changed once; everything else of the design is the same (`tests/test_format3.py`)
+V1_HASH_3 = "86e70dd71624a94139390d812bbb96992f5d922e85f2df9cdf4b335d134f8aee"
+# the files of the project of 1.17.1 that the step to format 3 changes: the harnesses (their
+# revision becomes a version) and the title block (its field `revision` becomes `version`)
+V1_VERSIONED = {
+    "physical/harnesses/W001.json",
+    "physical/harnesses/W002.json",
+    "config/titleblock.json",
+}
 
 
 def managed(root: Path) -> dict[str, bytes]:
     return {k: v for k, v in folder_bytes(root).items() if is_managed(k)}
 
 
-def project_roots() -> list[Path]:
-    examples = examples_path()
-    assert examples is not None
-    roots = [p.parent for p in FIXTURES.rglob("project.json")]
-    roots += [p.parent for p in (examples / "projects").glob("*/project.json")]
-    return sorted(roots)
-
-
 # ---- the number ----------------------------------------------------------------------------------------
 
 
-def test_this_tool_writes_format_2_and_has_a_step_for_every_older_format() -> None:
-    assert SCHEMA_VERSION == 2 and migrate.current_version() == 2
-    assert sorted(migrate.MIGRATIONS) == [0, 1]
+def test_the_step_from_1_to_2_is_still_a_step_of_this_tool() -> None:
+    assert SCHEMA_VERSION == 3 and migrate.current_version() == 3  # format 3 since D-242
+    assert sorted(migrate.MIGRATIONS) == [0, 1, 2]
+    assert migrate.MIGRATIONS[1] is migrate._v1_to_v2
     assert layout.HASH_SCHEMA_VERSION == 1  # the hash is of the design, never of the format
     assert V1.is_dir() and (FIXTURES / "v0_project").is_dir()
-
-
-def test_every_fixture_and_every_shipped_example_is_in_format_2() -> None:
-    roots = project_roots()
-    assert len(roots) >= 10
-    for root in roots:
-        doc = json.loads((root / "project.json").read_text(encoding="utf-8"))
-        want = OLD_FIXTURES.get(root.name, SCHEMA_VERSION)
-        assert doc.get("schema_version") == want, root
 
 
 def test_the_step_from_1_to_2_is_a_list_of_parts_that_can_take_one_more_before_2_0_0(
@@ -84,7 +78,7 @@ def test_the_step_from_1_to_2_is_a_list_of_parts_that_can_take_one_more_before_2
     is frozen since the tag of 2.0.0 (D-230), so no part is added now."""
     assert (migrate._v2_number, migrate._v2_journal_lines) == migrate.V1_TO_V2_PARTS
     files = {"project.json": {"name": "x", "schema_version": 1}, "journal.json": {"journal": []}}
-    out = migrate.migrate_raw(files, 1)
+    out = migrate.migrate_raw(files, 1, to_version=2)
     assert out == {"project.json": {"name": "x", "schema_version": 2}, "journal.jsonl": {"journal": []}}  # fmt: skip
     assert files == {"project.json": {"name": "x", "schema_version": 1}, "journal.json": {"journal": []}}  # fmt: skip
 
@@ -93,7 +87,7 @@ def test_the_step_from_1_to_2_is_a_list_of_parts_that_can_take_one_more_before_2
         return tree
 
     monkeypatch.setattr(migrate, "V1_TO_V2_PARTS", (*migrate.V1_TO_V2_PARTS, later_part))
-    assert migrate.migrate_raw(files, 1)["project.json"]["later"] is True
+    assert migrate.migrate_raw(files, 1, to_version=2)["project.json"]["later"] is True
 
 
 # ---- a format 1 project of 1.17.1 -------------------------------------------------------------------------
@@ -106,11 +100,12 @@ def test_the_project_of_1_17_1_opens_upgraded_in_memory_and_the_disk_is_untouche
     before = folder_bytes(root)
     r = load_project(root)
     p = r.project
-    assert p.migrated_from == 1 and p.meta.schema_version == 2 and not r.has_errors
+    assert p.migrated_from == 1 and p.meta.schema_version == 3 and not r.has_errors
     assert any(i.code == "migrated" for i in r.issues)
     assert [c.id for c in loose_ends(p.harnesses["W002"])] == ["W002-P2"]
     assert "pos:W002-P2" in p.diagram_marks
-    assert model_hash(p) == content_hash(p) == V1_HASH  # what 1.17.1 computed
+    assert model_hash(p) == content_hash(p) == V1_HASH_3  # 1.17.1's design, with versions
+    assert {h.version for h in p.harnesses.values()} == {"1.0.0"}  # (revision A)
     assert folder_bytes(root) == before
 
 
@@ -120,7 +115,9 @@ def test_check_finds_nothing_to_rewrite_in_the_untouched_project_of_1_17_1(
     """1.17.1's `check` of these files gives no `not_canonical`; neither does this tool's. The
     project is read from format 1, so `project.json` is held against the bytes of format 1 (the
     tool's own formatting with that number), not against what a save would write now, which is
-    format 2 (end-to-end test of 2.0.0rc1). A hand edit of the file is still found."""
+    format 3 (end-to-end test of 2.0.0rc1). The files whose revisions the step to format 3 maps are
+    held against the tool's formatting of their own content. A hand edit of the file is still
+    found."""
     root = copy_project(V1, tmp_path / "p")
     before = folder_bytes(root)
     assert main(["check", str(root), "--json"]) == 0
@@ -159,22 +156,25 @@ def test_validate_of_a_format_1_project_says_how_to_upgrade_it(tmp_path: Path, c
     assert "`harness-design-studio migrate DIR`" in line and "choose Upgrade" in line
 
 
-def test_format_2_is_format_1_with_another_number(tmp_path: Path) -> None:
+def test_format_3_is_format_1_with_versions_and_another_number(tmp_path: Path) -> None:
     """Saved again by this tool (to a new folder, the way *Save as* does), the project of 1.17.1 is
-    the same bytes in every file but `project.json`, and there only the number differs (and the
-    version of the tool that saved it, once this tool is no longer 1.17.1)."""
+    the same bytes in every file but `project.json` (the number, and the version of the tool that
+    saved it) and the files whose revisions became versions (D-242)."""
     p = load_project(V1).project
     out = tmp_path / "copy"
     save_project(p, out)
     old, new = folder_bytes(V1), folder_bytes(out)
     assert set(old) == set(new)
-    assert {k for k in old if old[k] != new[k]} == {"project.json"}
+    assert {k for k in old if old[k] != new[k]} == {"project.json"} | V1_VERSIONED
     a, b = json.loads(old["project.json"]), json.loads(new["project.json"])
     numbers = (a.pop("schema_version"), b.pop("schema_version"))
     versions = (a.pop("tool_version"), b.pop("tool_version"))
-    assert numbers == (1, 2) and a == b
+    assert numbers == (1, 3) and a == b
     assert versions == ("1.17.1", __version__)
-    assert model_hash(load_project(out).project) == V1_HASH
+    for rel in V1_VERSIONED - {"config/titleblock.json"}:
+        x, y = json.loads(old[rel]), json.loads(new[rel])
+        assert (x.pop("revision"), y.pop("version")) == ("A", "1.0.0") and x == y
+    assert model_hash(load_project(out).project) == V1_HASH_3
 
 
 def test_the_dry_run_of_the_project_of_1_17_1_writes_nothing(tmp_path: Path, capsys) -> None:
@@ -182,13 +182,16 @@ def test_the_dry_run_of_the_project_of_1_17_1_writes_nothing(tmp_path: Path, cap
     before = folder_bytes(root)
     assert main(["migrate", str(root), "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "Project format 1; this tool writes format 2." in out and "Nothing is lost" in out
+    assert "Project format 1; this tool writes format 3." in out and "Nothing is lost" in out
+    assert "W001: revision A → version 1.0.0" in out
     assert main(["migrate", str(root), "--dry-run", "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
-    assert (doc["from_version"], doc["to_version"], doc["up_to_date"]) == (1, 2, False)
-    assert doc["ok"] and doc["hash_equal"] and doc["exports_equal"] and doc["lost"] == []
-    assert doc["model_hash_before"] == doc["model_hash_after"] == V1_HASH
-    assert doc["files"] == [{"file": "project.json", "change": "changed"}]
+    assert (doc["from_version"], doc["to_version"], doc["up_to_date"]) == (1, 3, False)
+    assert doc["ok"] and doc["lost"] == [] and doc["model_hash_after"] == V1_HASH_3
+    assert doc["nothing_but_versions"] and doc["versions_mapped"]
+    assert doc["files"] == [
+        {"file": f, "change": "changed"} for f in sorted({"project.json"} | V1_VERSIONED)
+    ]
     assert folder_bytes(root) == before
 
 
@@ -198,19 +201,19 @@ def test_migrate_upgrades_the_project_of_1_17_1_with_a_backup_and_a_record(
     root = copy_project(V1, tmp_path / "p")
     before = managed(root)
     assert main(["migrate", str(root)]) == 0
-    assert "Format 1 to 2." in capsys.readouterr().out
+    assert "Format 1 to 3." in capsys.readouterr().out
     backup = root / ".migration-backup-v1"
     for rel, data in before.items():
         assert (backup / rel).read_bytes() == data  # the original is kept, every file
     record = json.loads((backup / upgrade.RECORD_NAME).read_text(encoding="utf-8"))
-    assert (record["from_version"], record["to_version"], record["status"]) == (1, 2, "complete")
+    assert (record["from_version"], record["to_version"], record["status"]) == (1, 3, "complete")
     after = managed(root)
-    assert {k for k in after if after[k] != before.get(k)} == {"project.json"}
-    assert json.loads(after["project.json"])["schema_version"] == 2
+    assert {k for k in after if after[k] != before.get(k)} == {"project.json"} | V1_VERSIONED
+    assert json.loads(after["project.json"])["schema_version"] == 3
     r = load_project(root)
     p = r.project
     assert p.migrated_from is None and not any(i.code == "migrated" for i in r.issues)
-    assert model_hash(p) == content_hash(p) == V1_HASH
+    assert model_hash(p) == content_hash(p) == V1_HASH_3
     assert [c.id for c in loose_ends(p.harnesses["W002"])] == ["W002-P2"]
     assert p.diagram_marks["pos:W002-P2"].dx == 120.0
     assert not (root / "journal.json").exists()  # a migration does not start a journal
@@ -259,9 +262,8 @@ def test_a_journal_gets_one_migrated_entry_and_still_reads(tmp_path: Path) -> No
     entries = list(after.project.journal)
     assert entries[: len(before)] == list(before) and len(entries) == len(before) + 1
     last = entries[-1]
-    assert (last.kind, last.object, last.reason, last.old, last.new) == (
-        "edit", "project", "migrated from format 1", 1, 2,
-    )  # fmt: skip
+    assert (last.kind, last.object, last.old, last.new) == ("edit", "project", 1, 3)
+    assert last.reason.startswith("migrated from format 1; W001: revision A → version 1.0.0")
 
 
 def test_the_editor_question_is_the_one_of_1_17_0() -> None:
@@ -278,7 +280,7 @@ def test_a_command_that_saves_refuses_a_format_1_project_and_names_migrate(
     tmp_path: Path, capsys
 ) -> None:
     """No silent upgrade (plan 2.3, point 5): `migrate` is the one way to write a format 1 project
-    in format 2 in place; a command that would save it says so and writes nothing (D-226)."""
+    in format 3 in place; a command that would save it says so and writes nothing (D-226)."""
     root = copy_project(V1, tmp_path / "p")
     before = folder_bytes(root)
     assert main(["generate", str(root)]) != 0
@@ -296,14 +298,14 @@ def test_a_format_1_project_can_be_saved_to_a_new_folder(tmp_path: Path) -> None
     before = folder_bytes(root)
     out = tmp_path / "copy"
     save_project(load_project(root).project, out)
-    assert json.loads((out / "project.json").read_text())["schema_version"] == 2
+    assert json.loads((out / "project.json").read_text())["schema_version"] == 3
     assert folder_bytes(root) == before
 
 
 # ---- newer than this tool ----------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("version", [3, 99])
+@pytest.mark.parametrize("version", [4, 99])
 def test_a_project_of_a_newer_format_is_read_only(version: int, tmp_path: Path, capsys) -> None:
     root = as_format(copy_project(FIXTURES / "projects" / "mini3", tmp_path / "p"), version)
     before = folder_bytes(root)
@@ -311,7 +313,7 @@ def test_a_project_of_a_newer_format_is_read_only(version: int, tmp_path: Path, 
     assert r.project.read_only
     (warning,) = [i for i in r.issues if i.code == "newer_version"]
     assert warning.severity == "warning"
-    assert f"format {version}; this tool understands up to 2" in warning.message
+    assert f"format {version}; this tool understands up to 3" in warning.message
     with pytest.raises(SaveError):
         save_project(r.project, root)
     for command in (["generate"], ["export"], ["migrate"], ["migrate", "--dry-run"]):
@@ -324,23 +326,16 @@ def test_a_project_of_a_newer_format_is_read_only(version: int, tmp_path: Path, 
 
 
 def test_no_written_file_holds_the_format_number(tmp_path: Path) -> None:
-    """The format number is in `project.json` and nowhere else: a full export of a project in
-    format 1 and of the same project in format 2 is the same, byte for byte, and no written file
-    names `schema_version`."""
-    root = copy_project(V1, tmp_path / "p")
-    old = full_export(root, migrate_old=False)  # read as 1.17.1 read it (no step)
+    """The format number is in `project.json` and nowhere else: a full export of a project, written
+    back as format 1 and upgraded again, is the same byte for byte, and no written file names
+    `schema_version`."""
+    root = build("mini3", tmp_path / "p")
+    old = full_export(root)
+    as_format(root, 1)
     upgrade.upgrade_project(root)
     new = full_export(root)
     assert new == old
     assert not [rel for rel, data in new.items() if b"schema_version" in data]
-
-
-def test_a_format_2_project_without_a_loose_end_writes_what_format_1_wrote(tmp_path: Path) -> None:
-    root = copy_project(FIXTURES / "projects" / "mini3", tmp_path / "p2")
-    p = load_project(root).project
-    assert p.meta.schema_version == 2 and not any(loose_ends(h) for h in p.harnesses.values())
-    old = as_format(copy_project(root, tmp_path / "p1"), 1)
-    assert full_export(root) == full_export(old, migrate_old=False)
 
 
 # ---- save, reload, same hash (property) --------------------------------------------------------------------
@@ -380,7 +375,7 @@ def test_save_reload_and_upgrade_keep_the_model_hash(base, ports, plug) -> None:
         save_project(p, root)
         first = managed(root)
         q = load_project(root).project
-        assert q.meta.schema_version == 2
+        assert q.meta.schema_version == 3
         h = model_hash(q)
         assert h == model_hash(p)
         save_project(q, root)
@@ -397,6 +392,6 @@ def test_the_outputs_of_the_shipped_examples_name_no_format() -> None:
     examples = examples_path()
     assert examples is not None
     p = load_project(examples / "projects" / "first-steps").project
-    assert p.meta.schema_version == 2 and p.migrated_from is None
+    assert p.meta.schema_version == 3 and p.migrated_from is None
     files = build_outputs(p).files
     assert files and not [rel for rel, data in files.items() if b"schema_version" in data]

@@ -86,7 +86,7 @@ def wire_part_choices(project: Project) -> list[str]:
 
 
 def released_text(h: Harness) -> str:
-    return f"{h.id} is released (revision {h.revision}); start a new revision to change it."
+    return f"{h.id} is released (revision {h.version}); start a new revision to change it."
 
 
 def _gauge(value: object) -> int:

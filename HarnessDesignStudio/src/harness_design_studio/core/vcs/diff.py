@@ -145,7 +145,7 @@ def flatten_project(p: Project) -> Flat:
     flat[("library", "info")] = _dump(p.library_info)
     for b in p.baselines.values():
         flat[("baseline", b.id)] = {
-            "revision": b.revision, "released_on": b.released_on, "by": b.by,
+            "version": b.version, "released_on": b.released_on, "by": b.by,
             "comment": b.comment, "content_hash": b.content_hash,
         }  # fmt: skip
     for e in p.changelog.values():

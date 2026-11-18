@@ -171,7 +171,7 @@ class RevisionUnlocks:
     """What starting a new revision of a harness changes in the locks."""
 
     harness_id: str
-    revision: str  # the released revision
+    version: str  # the released version
     editable: tuple[LockGroup, ...]  # locked by this harness only: editable after the revision
     still_locked: tuple[LockGroup, ...]  # also locked by another released harness: stays locked
 
@@ -184,7 +184,7 @@ def revision_unlocks(project: Project, harness_id: str) -> RevisionUnlocks:
     """The objects that become editable when `harness_id` gets a new revision (those only it
     locks) and those that stay locked because another released harness also locks them."""
     h = project.harnesses.get(harness_id)
-    revision = h.revision if h is not None else ""
+    revision = h.version if h is not None else ""
     editable: dict[str, list[LockItem]] = defaultdict(list)
     kept: dict[str, list[LockItem]] = defaultdict(list)
     for (kind, oid), refs in sorted(locked_objects(project).items()):

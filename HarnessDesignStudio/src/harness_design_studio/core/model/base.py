@@ -125,3 +125,43 @@ MAX_LENGTH_MM = 100_000.0  # a guard against a typing slip (10 m in millimetres)
 LengthMm = Annotated[float, Field(ge=0, le=MAX_LENGTH_MM)]
 Positive = Annotated[float, Field(gt=0)]
 NonNegative = Annotated[float, Field(ge=0)]
+
+# A harness version (format 3, D-242, design of 3.0.0 section 5.2): MAJOR.MINOR.PATCH, three whole
+# numbers from 0 to 9999 written without a leading zero and without a prefix, so that there is one
+# way to write each version (`1.0.0`, `1.10.2`; not `01.0.0`, `v1.0.0` or `1.0`). Versions are put
+# in order by `core.vcs.versions.version_key`, never as text.
+FIRST_VERSION = "1.0.0"  # the version a new harness starts at (section 5.2)
+VERSION_PART = r"(0|[1-9][0-9]{0,3})"
+VERSION_RE = re.compile(rf"{VERSION_PART}\.{VERSION_PART}\.{VERSION_PART}")
+
+
+def _version(value: str) -> str:
+    if VERSION_RE.fullmatch(value) is None:
+        raise ValueError(
+            "must be a version MAJOR.MINOR.PATCH such as 1.0.0 (three whole numbers from 0 to "
+            "9999, no leading zero, no prefix)"
+        )
+    return value
+
+
+Version = Annotated[str, AfterValidator(_version)]
+
+# A link to a web page (format 3, section 4.1): `https://` or `http://`, at most 2000 characters, no
+# space and no control character. Any other link (a `file:` URL, a path on a share) is refused: a
+# written file that opens a link to a local path is a risk the tool does not take.
+MAX_WEB_LINK = 2000
+_WEB_LINK = re.compile(r"https?://[^\s]+")
+
+
+def _web_link(value: str) -> str:
+    if len(value) > MAX_WEB_LINK or _WEB_LINK.fullmatch(value) is None:
+        raise ValueError(
+            f"must be a web link that starts with https:// or http://, without spaces, at most "
+            f"{MAX_WEB_LINK} characters"
+        )
+    if any(unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp", "Zs") for ch in value):
+        raise ValueError("must not contain spaces or control characters")
+    return value
+
+
+WebLink = Annotated[str, AfterValidator(_web_link)]

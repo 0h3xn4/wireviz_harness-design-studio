@@ -36,6 +36,7 @@ from .consistency import release_integrity
 from .hashing import content_hash
 from .roles import date_problem, distinct_roles_on, same_person
 from .snapshot import carried_interfaces, normalize, related_ids, snapshot_for
+from .versions import VersionKind, bump
 
 MIN_COMMENT = 10
 MAX_COMMENT = 2000  # the baseline keeps the comment; its limit is in core/model/review.py
@@ -81,21 +82,13 @@ class ReleasePlan:
         return not self.blockers
 
 
-def next_revision(rev: str) -> str:
-    """A -> B ... Z -> AA -> AB (spreadsheet-style letters)."""
-    if not re.fullmatch(r"[A-Z]+", rev):
-        raise ReleaseError(
-            f"Revision '{rev}' is not letters; rename it before starting a new revision."
-        )
-    chars = list(rev)
-    k = len(chars) - 1
-    while k >= 0:
-        if chars[k] != "Z":
-            chars[k] = chr(ord(chars[k]) + 1)
-            return "".join(chars)
-        chars[k] = "A"
-        k -= 1
-    return "A" + "".join(chars)
+def next_version(version: str, kind: VersionKind = "major") -> str:
+    """The version after a released `version` (design of 3.0.0 section 5.3): from `1.4.2`, major
+    gives `2.0.0`, minor `1.5.0`, patch `1.4.3`."""
+    try:
+        return bump(version, kind)
+    except ValueError as exc:
+        raise ReleaseError(str(exc)) from exc
 
 
 def _next_entry_id(project: Project) -> str:
@@ -109,7 +102,7 @@ def _entry(
     return ChangeEntry(
         id=_next_entry_id(project),
         harness_id=h.id,
-        revision=h.revision,
+        version=h.version,
         kind=kind,
         by=by,
         when=when,
@@ -547,7 +540,7 @@ def release_blockers(
         out.append(
             Blocker(
                 "already_released",
-                f"{hid} is already released (revision {h.revision}). Start a new revision to change it.",
+                f"{hid} is already released (revision {h.version}). Start a new revision to change it.",
                 hid,
             )
         )
@@ -597,12 +590,12 @@ def release_blockers(
             )
         )
     out.extend(outputs_blockers(project, outputs_folder, hid))
-    existing = f"{hid}.{h.revision}"
+    existing = f"{hid}.{h.version}"
     if existing in project.baselines:
         out.append(
             Blocker(
                 "baseline_exists",
-                f"Revision {h.revision} of {hid} already has a baseline; start a new revision.",
+                f"Revision {h.version} of {hid} already has a baseline; start a new revision.",
                 hid,
             )
         )
@@ -725,11 +718,11 @@ def plan_release(
     )
     entry = _entry(project, released, "release", by.strip(), when, full_comment)
     baseline = Baseline(
-        id=f"{hid}.{h.revision}", harness_id=hid, revision=h.revision, released_on=when, by=by.strip(),
+        id=f"{hid}.{h.version}", harness_id=hid, version=h.version, released_on=when, by=by.strip(),
         comment=full_comment, content_hash=content_hash(project), snapshot=snapshot,
     )  # fmt: skip
     plan.ops = [Put("harnesses", released), Put("baselines", baseline), Put("changelog", entry)]
-    plan.label = f"Release {hid} revision {h.revision}"
+    plan.label = f"Release {hid} revision {h.version}"
     return plan
 
 
@@ -747,15 +740,15 @@ def plan_new_revision(
         return plan
     new = evolve(
         h,
-        revision=next_revision(h.revision),
+        version=next_version(h.version),
         status="draft",
         checker=None,
         approver=None,
         released_on=None,
     )
-    entry = _entry(project, new, "new_revision", by.strip(), when, comment.strip())
+    entry = _entry(project, new, "new_version", by.strip(), when, comment.strip())
     plan.ops = [Put("harnesses", new), Put("changelog", entry)]
-    plan.label = f"New revision {new.revision} of {hid}"
+    plan.label = f"New revision {new.version} of {hid}"
     return plan
 
 
@@ -787,7 +780,7 @@ __all__ = [
     "Blocker",
     "ReleaseError",
     "ReleasePlan",
-    "next_revision",
+    "next_version",
     "plan_new_revision",
     "part_blockers",
     "part_note",

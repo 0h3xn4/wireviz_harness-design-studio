@@ -28,6 +28,15 @@ def _config_dump(c: ConfigFile) -> dict[str, Any]:
     file (`_about`) are not an input either."""
     d = c.model_dump(mode="json")
     d.pop(ABOUT_KEY, None)
+    fields = d["values"].get("fields") if c.name == "titleblock" else None
+    if isinstance(fields, list) and "version" in fields:
+        # the title block field `version` was `revision` in format 2 (D-242): it is read under its
+        # old name, so that the upgrade to format 3 leaves the harness plans current (generation
+        # does not read the title block; the hash of its inputs is what it was)
+        d["values"] = {
+            **d["values"],
+            "fields": ["revision" if f == "version" else f for f in fields],
+        }
     skip = NOT_READ_BY_GENERATION.get(c.name, ())
     if any(k in c.values for k in skip):
         d["values"] = {k: v for k, v in d["values"].items() if k not in skip}

@@ -109,7 +109,8 @@ SHAPES: dict[str, tuple[str, ...]] = {
     "migrate --dry-run": (
         "ok", "dry_run", "up_to_date", "from_version", "to_version", "files", "counts_before",
         "counts_after", "model_hash_before", "model_hash_after", "hash_equal", "exports_equal",
-        "baselines_intact", "journal_entry", "lost", "notes",
+        "baselines_intact", "journal_entry", "lost", "notes", "versions", "nothing_but_versions",
+        "versions_mapped",
     ),
     "journal": ("ok", "has_journal", "count", "entries"),
     "journal --start": ("ok", "started", "file"),
