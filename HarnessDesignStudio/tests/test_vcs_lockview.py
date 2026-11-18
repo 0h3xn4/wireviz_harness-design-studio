@@ -105,7 +105,7 @@ def test_reason_for_an_interface_is_the_sentence_the_refusal_uses(tmp_path: Path
     changed = evolve(p.interfaces[iid], max_current_a=(p.interfaces[iid].max_current_a or 0) + 1)
     [msg] = refusal(p, Put("interfaces", changed))
     assert lockview.lock_reason(p, "interface", iid) == msg
-    assert "is carried by" in msg and "released" in msg and "start a new revision" in msg
+    assert "is carried by" in msg and "released" in msg and "start a new version" in msg
 
 
 @pytest.mark.parametrize("kind", ["part", "interface_type", "unit", "harness"])
@@ -154,7 +154,7 @@ def test_reason_for_wires_is_the_harness_sentence(tmp_path: Path) -> None:
     w = p.harnesses[hid].wires[0]
     [msg] = refusal(p, Delete("harnesses", hid))
     assert lockview.lock_reason(p, "wire", w.id) == msg
-    assert msg.startswith(f"{hid} is released (revision {p.harnesses[hid].version});")
+    assert msg.startswith(f"{hid} is released (version {p.harnesses[hid].version});")
 
 
 def test_reason_for_a_config_file_names_the_harnesses(tmp_path: Path) -> None:

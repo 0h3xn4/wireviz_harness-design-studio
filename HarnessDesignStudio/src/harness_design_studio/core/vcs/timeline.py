@@ -69,7 +69,7 @@ def compare_revisions(
     bases = {b.version: b for b in baselines_of(project, harness_id)}
     for rev in (before, after):
         if rev is not None and rev not in bases:
-            raise ReleaseError(f"There is no revision {rev} of {harness_id} to compare with.")
+            raise ReleaseError(f"There is no version {rev} of {harness_id} to compare with.")
     if after is not None:
         return diff_snapshots(bases[before].snapshot, bases[after].snapshot)
     h = project.harnesses.get(harness_id)

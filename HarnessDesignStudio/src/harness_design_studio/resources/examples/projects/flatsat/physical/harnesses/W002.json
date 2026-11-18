@@ -4697,7 +4697,6 @@
   "name": "aocs to bus",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W002-B1",
@@ -5032,6 +5031,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": "red",

@@ -485,7 +485,7 @@ def test_a_pin_that_a_released_harness_locks_refuses_the_device_and_names_it(tmp
     before = (dict(p.connectors), dict(p.import_records))
     with pytest.raises(ll.LinkError) as exc:
         ll.plan_update_device(p, libs, uid)
-    assert hid in str(exc.value) and "start a new revision" in str(exc.value)
+    assert hid in str(exc.value) and "start a new version" in str(exc.value)
     assert (dict(p.connectors), dict(p.import_records)) == before
 
 

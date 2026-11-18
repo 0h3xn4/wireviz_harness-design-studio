@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""Change log table and the revision report (history plus differences between baselines)."""
+"""Change log table and the version report (history plus differences between baselines)."""
 
 from harness_design_studio.core.model import Baseline, Harness, Project
 
@@ -8,11 +8,11 @@ from .diff import Diff, diff_snapshots, render_markdown
 from .snapshot import snapshot_for
 from .versions import version_key
 
-LOG_HEADER = ["Entry", "Harness", "Revision", "Event", "By", "Date", "Comment"]
+LOG_HEADER = ["Entry", "Harness", "Version", "Event", "By", "Date", "Comment"]
 EVENTS = {
     "review": "submitted for review",
     "release": "released",
-    "new_version": "new revision started",
+    "new_version": "new version started",
     "version_changed": "version changed",
 }
 
@@ -42,7 +42,7 @@ def changelog_rows(project: Project, harness_id: str | None = None) -> list[list
 
 
 def baselines_of(project: Project, hid: str) -> list[Baseline]:
-    """The baselines of one harness, oldest revision first, in the order of
+    """The baselines of one harness, oldest version first, in the order of
     `versions.version_key` (the letter order: A, B … Z, AA)."""
     return sorted(
         (b for b in project.baselines.values() if b.harness_id == hid),
@@ -54,10 +54,10 @@ def working_diff(project: Project, h: Harness, base: Baseline) -> Diff:
     return diff_snapshots(base.snapshot, snapshot_for(project, h))
 
 
-def revision_report(project: Project, stamp_line: str) -> str:
+def version_report(project: Project, stamp_line: str) -> str:
     lines = [
         f"<!-- {stamp_line} -->",
-        f"# Revision report: {' '.join(project.meta.name.split())}",
+        f"# Version report: {' '.join(project.meta.name.split())}",
         "",
     ]
     hids = sorted(
@@ -69,9 +69,7 @@ def revision_report(project: Project, stamp_line: str) -> str:
     for hid in hids:
         h = project.harnesses.get(hid)
         state = (
-            f"revision {h.version}, {h.status.replace('_', ' ')}"
-            if h
-            else "no longer in the design"
+            f"version {h.version}, {h.status.replace('_', ' ')}" if h else "no longer in the design"
         )
         lines += [f"## {hid} ({state})", ""]
         if h is not None and (h.approver or h.checker or h.author):
@@ -84,14 +82,14 @@ def revision_report(project: Project, stamp_line: str) -> str:
         ):
             tail = f": {one_line(e.comment)}" if e.comment else ""
             lines.append(
-                f"- {e.when}, {one_line(e.by)}: revision {e.version} {EVENTS[e.kind]}{tail} (`{e.id}`)"
+                f"- {e.when}, {one_line(e.by)}: version {e.version} {EVENTS[e.kind]}{tail} (`{e.id}`)"
             )
         bases = baselines_of(project, hid)
         for a, b in zip(bases, bases[1:], strict=False):
             diff = diff_snapshots(a.snapshot, b.snapshot)
             lines += [
                 "",
-                render_markdown(f"{hid}: revision {a.version} to {b.version}", diff)
+                render_markdown(f"{hid}: version {a.version} to {b.version}", diff)
                 .replace("# ", "### ", 1)
                 .rstrip(),
             ]
@@ -101,7 +99,7 @@ def revision_report(project: Project, stamp_line: str) -> str:
                 lines += [
                     "",
                     render_markdown(
-                        f"{hid}: working design against revision {bases[-1].version}", diff
+                        f"{hid}: working design against version {bases[-1].version}", diff
                     )
                     .replace("# ", "### ", 1)
                     .rstrip(),

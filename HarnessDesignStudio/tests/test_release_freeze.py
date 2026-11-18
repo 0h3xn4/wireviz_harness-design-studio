@@ -56,7 +56,7 @@ def test_editing_a_used_part_is_refused_and_says_how_to_proceed(tmp_path: Path) 
     with pytest.raises(TransactionError) as err:
         hist.execute("edit", [Put("parts", evolve(part, approval="not_approved"))])
     text = " ".join([str(err.value), *err.value.problems])
-    assert pid in text and hid in text and "new revision" in text
+    assert pid in text and hid in text and "new version" in text
     with pytest.raises(TransactionError):
         hist.execute("edit", [Put("parts", evolve(part, mass_g=123.0))])
     with pytest.raises(TransactionError):
@@ -133,7 +133,7 @@ def test_hand_edits_after_release_are_reported(tmp_path: Path) -> None:
     p.parts[pid] = evolve(p.parts[pid], mass_g=999.0)
     issues = release_integrity(p)
     assert [i.code for i in issues] == ["released_modified"]
-    assert pid in issues[0].message and "new revision" in issues[0].message
+    assert pid in issues[0].message and "new version" in issues[0].message
     p.parts[pid] = evolve(p.parts[pid], mass_g=p.baselines[f"{hid}.1.0.0"].snapshot.parts[0].mass_g)  # type: ignore[index]
 
     tid = sorted(used_interface_type_ids(p, p.harnesses[hid]))[0]

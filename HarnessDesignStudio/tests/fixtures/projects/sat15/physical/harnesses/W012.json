@@ -510,7 +510,6 @@
   "name": "OBC1-J07 to RW2-J02",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W012-P1",
@@ -543,6 +542,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

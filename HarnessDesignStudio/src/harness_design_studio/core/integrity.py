@@ -378,7 +378,7 @@ def _check_parts_and_records(project: Project) -> list[Issue]:
         if b.harness_id not in project.harnesses:
             out.append(_err("unknown_harness", f"Baseline '{b.id}' belongs to harness '{b.harness_id}', which does not exist.", b.id))  # fmt: skip
         if b.id != f"{b.harness_id}.{b.version}":
-            out.append(_err("baseline_id_mismatch", f"Baseline '{b.id}' is not called '{b.harness_id}.{b.version}', as its harness and revision say.", b.id))  # fmt: skip
+            out.append(_err("baseline_id_mismatch", f"Baseline '{b.id}' is not called '{b.harness_id}.{b.version}', as its harness and version say.", b.id))  # fmt: skip
     out.extend(
         Issue(
             "warning",

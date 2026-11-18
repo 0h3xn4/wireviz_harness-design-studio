@@ -105,7 +105,7 @@ from harness_design_studio.core.outputs.verify import verify_outputs
 from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.core.vcs.release import (
     loose_ends_of,
-    plan_new_revision,
+    plan_new_version,
     plan_release,
     plan_submit_review,
     release_blockers,
@@ -3936,7 +3936,9 @@ class MainWindow(QMainWindow):
             )
             msg = strings.RELEASE_DONE.format(hid)
         else:
-            plan = plan_new_revision(project, hid, by=by, comment=comment, when=today)
+            plan = plan_new_version(
+                project, hid, kind=dlg.kind() or "", by=by, comment=comment, when=today
+            )
             msg = strings.NEW_REV_STARTED.format(hid)
         self.ctl.apply_change(plan, msg)
 

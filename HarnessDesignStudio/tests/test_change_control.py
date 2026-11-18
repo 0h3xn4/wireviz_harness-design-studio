@@ -43,7 +43,7 @@ from harness_design_studio.core.vcs.release import (
 from harness_design_studio.core.vcs.report import (
     baselines_of,
     changelog_rows,
-    revision_report,
+    version_report,
     working_diff,
 )
 from tests._state_cache import copy_state
@@ -733,7 +733,7 @@ def test_title_block_and_revision_outputs_after_a_release(tmp_path: Path) -> Non
     assert log[1][:4] == ["C0001", hid, "1.0.0", "released"] and log[1][6].startswith(
         "First release for the CDR"
     )
-    report = built.files["system/revision_report.md"].decode()
+    report = built.files["system/version_report.md"].decode()
     assert hid in report and "First release for the CDR" in report
     assert verify_outputs(p, built.files).ok
 
@@ -748,13 +748,13 @@ def test_verifier_catches_changelog_problems(tmp_path: Path) -> None:
     files["system/changelog.csv"] = csv_bytes(table, stamp_of(p))
     assert "out_changelog" in {i.code for i in verify_outputs(p, files).errors}
     files = build_outputs(p).files
-    files["system/revision_report.md"] = files["system/revision_report.md"].replace(
+    files["system/version_report.md"] = files["system/version_report.md"].replace(
         hid.encode(), b"XXXX"
     )
     assert "out_changelog" in {i.code for i in verify_outputs(p, files).errors}
 
 
-def test_revision_report_shows_differences_between_revisions(tmp_path: Path) -> None:
+def test_version_report_shows_differences_between_revisions(tmp_path: Path) -> None:
     p = full()
     hid = releasable(p)
     folder = exported(p, tmp_path)
@@ -765,13 +765,13 @@ def test_revision_report_shows_differences_between_revisions(tmp_path: Path) -> 
     hist.execute(
         "c", [Put("harnesses", evolve(h, wires=[evolve(h.wires[0], colour="WHT"), *h.wires[1:]]))]
     )
-    text = revision_report(p, stamp_of(p).line)
-    assert "working design against revision A" in text and "colour: (none) -> WHT" in text
+    text = version_report(p, stamp_of(p).line)
+    assert "working design against version 1.0.0" in text and "colour: (none) -> WHT" in text
     assert len(baselines_of(p, hid)) == 1 and len(changelog_rows(p, hid)) == 3
 
 
-def test_empty_revision_report() -> None:
-    assert "No harness has been put into review" in revision_report(full(), "x")
+def test_empty_version_report() -> None:
+    assert "No harness has been put into review" in version_report(full(), "x")
 
 
 # ---- CLI ------------------------------------------------------------------------------------------
@@ -823,8 +823,10 @@ def test_cli_full_change_control_cycle(tmp_path: Path, capsys: pytest.CaptureFix
     assert (
         cli_main(
             [
-                "revise",
+                "new-version",
                 *args,
+                "--kind",
+                "major",
                 "--by",
                 "Ada",
                 "--comment",
@@ -841,7 +843,7 @@ def test_cli_full_change_control_cycle(tmp_path: Path, capsys: pytest.CaptureFix
     assert cli_main(["diff", *args, "--from", "1.0.0", "--to", "1.0.0"]) == 0
     assert cli_main(["diff", *args, "--from", "Q"]) == 2
     assert cli_main(["log", str(proj)]) == 0
-    assert "new revision started" in capsys.readouterr().out
+    assert "new version started" in capsys.readouterr().out
     assert cli_main(["review", *args, "--by", "Ada", "--date", "2026-04-02"]) == 0
 
 

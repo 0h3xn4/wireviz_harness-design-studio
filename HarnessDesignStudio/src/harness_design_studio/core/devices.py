@@ -319,7 +319,7 @@ def _pairing_text(links: Sequence[str]) -> str:
 def _blocked_by_text(hids: Sequence[str]) -> str:
     return (
         f"{', '.join(hids)} (made by hand or released) has wires on it. "
-        "Delete that harness, or start a new revision of it, first."
+        "Delete that harness, or start a new version of it, first."
     )
 
 

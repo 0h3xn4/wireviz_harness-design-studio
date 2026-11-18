@@ -72,7 +72,7 @@ def test_unknown_revisions_are_a_plain_error(tmp_path: Path) -> None:
     import pytest
 
     p, hid = two_revisions(tmp_path)
-    with pytest.raises(timeline.ReleaseError, match="revision Z"):
+    with pytest.raises(timeline.ReleaseError, match="version Z"):
         timeline.compare_revisions(p, hid, "Z")
 
 

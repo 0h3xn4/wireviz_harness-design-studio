@@ -286,7 +286,7 @@ def plan_generation(
                 ctx.finding(
                     "warning",
                     "frozen_changed",
-                    f"{iid} is carried by {frozen_owned[iid]}, which is released, so it was not wired again. A new revision of {frozen_owned[iid]} is needed.",
+                    f"{iid} is carried by {frozen_owned[iid]}, which is released, so it was not wired again. A new version of {frozen_owned[iid]} is needed.",
                     iid,
                 )
         if mine:
@@ -312,7 +312,7 @@ def plan_generation(
                 ctx.finding(
                     "warning",
                     "frozen_changed",
-                    f"{old.id} is released, so it was not updated although its interfaces changed. A new revision is needed.",
+                    f"{old.id} is released, so it was not updated although its interfaces changed. A new version is needed.",
                     old.id,
                 )
     kept_keys = {g.key for g in seg.groups}

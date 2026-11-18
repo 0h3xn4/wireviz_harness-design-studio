@@ -97,6 +97,18 @@ def test_this_tool_writes_format_3_and_has_a_step_for_every_older_format() -> No
     assert layout.HASH_SCHEMA_VERSION == 1  # the hash is of the design, never of the format
 
 
+def test_every_fixture_and_every_shipped_example_is_in_format_3() -> None:
+    roots = project_roots()
+    assert len(roots) >= 10
+    for root in roots:
+        doc = json.loads((root / "project.json").read_text(encoding="utf-8"))
+        assert doc.get("schema_version") == OLD_FIXTURES.get(root.name, SCHEMA_VERSION), root
+        if OLD_FIXTURES.get(root.name, SCHEMA_VERSION) == SCHEMA_VERSION:
+            for path in (root / "physical" / "harnesses").glob("*.json"):
+                harness = json.loads(path.read_bytes())
+                assert "revision" not in harness and "version" in harness, path
+
+
 # ---- the step on the files -------------------------------------------------------------------------------
 
 
@@ -535,6 +547,15 @@ def test_a_device_file_stays_version_1_until_a_device_uses_a_field_of_format_3()
         device_library.check_library(future)
 
 
+def test_the_shipped_examples_are_format_3_with_versions() -> None:
+    examples = examples_path()
+    assert examples is not None
+    p = load_project(examples / "projects" / "flatsat").project
+    assert p.meta.schema_version == 3 and p.migrated_from is None
+    assert {h.version for h in p.harnesses.values()} == {"1.0.0"}
+    assert generation_status(p) == "current"
+
+
 def test_an_export_is_the_same_before_and_after_a_round_trip_through_format_2(
     tmp_path: Path,
 ) -> None:
@@ -544,3 +565,133 @@ def test_an_export_is_the_same_before_and_after_a_round_trip_through_format_2(
     assert full_export(root) == want  # read in memory through the step
     upgrade.upgrade_project(root)
     assert full_export(root) == want
+
+
+# ---- the word guard (section 5.6) ----------------------------------------------------------------------
+
+# The places that may still say *revision*: the key of `export.json` that Q29 keeps beside `version`
+# through 3.0.x, and the sentences that name the word of 2.x (the migration, the older names).
+EXPORT_KEY = b'"revision": '
+ALLOWED_SOURCE = {
+    "core/io/migrate.py",  # the step from 2 to 3 reads the old key and names it
+    "core/io/upgrade.py",  # its proof and its words: "revision B → version 2.0.0"
+    "core/vcs/versions.py",  # the mapping of an old letter
+    "core/journal.py",  # the reason of the migration entry names the mapping
+    "core/generation_status.py",  # the title block field under its old name
+    "core/outputs/exports.py",  # OLD_VERSION_KEY (Q29)
+    "core/outputs/verify.py",  # checks that `revision` equals `version` in export.json
+    "core/extensions/fields.py",  # `harness.revision`, the older name (Q29)
+    "core/commands.py",  # History.revision, the undo counter, never shown
+    "cli/main.py",  # migrate --set-version and its words
+    "cli/changes.py",  # `revise`, the older name of new-version, and the log key of Q29
+}
+ALLOWED_HELP = (
+    "harness revision",  # migrate --set-version: the old revision it maps
+    "`revise` is the older name",
+    "older name of `new-version`",
+)
+
+
+def _export_texts(project) -> dict[str, str]:
+    import io
+    import zipfile
+
+    from harness_design_studio.core.outputs.build import build_outputs
+
+    out: dict[str, str] = {}
+    for rel, data in build_outputs(project, drawings=True).files.items():
+        if rel.endswith(".xlsx"):
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                for n in z.namelist():
+                    out[f"{rel}:{n}"] = z.read(n).decode("utf-8", "replace")
+        else:
+            if rel.endswith("export.json"):
+                data = data.replace(EXPORT_KEY, b'"version_q29": ')
+            out[rel] = data.decode("latin-1")
+    return out
+
+
+@pytest.mark.parametrize("name", ["example-first-steps", "example-flatsat", "released"])
+def test_no_written_file_says_revision(name: str, tmp_path: Path) -> None:
+    from harness_design_studio.core.generate.engine import generate_project
+
+    root = build(name, tmp_path / "p")
+    p = load_project(root).project
+    if not p.harnesses:
+        generate_project(p)
+    data = b"".join(v for k, v in managed(root).items() if not k.startswith("journal"))
+    assert b"revision" not in data.lower()  # the data hold no such word: a match is the tool's
+    texts = _export_texts(p)
+    assert "system/version_report.md" in texts and "system/revision" + "_report.md" not in texts
+    found = sorted(rel for rel, text in texts.items() if "revision" in text.lower())
+    assert found == [], found
+    doc = json.loads(build_outputs_json(p))
+    assert all(h["version"] == h["revision"] for h in doc["harnesses"])  # Q29
+
+
+def build_outputs_json(project) -> bytes:
+    from harness_design_studio.core.outputs.build import build_outputs
+
+    return build_outputs(project, drawings=False).files["system/export.json"]
+
+
+def test_no_help_text_says_revision_but_the_older_names() -> None:
+    from harness_design_studio.cli.main import build_parser
+
+    parser = build_parser()
+    sub = next(a for a in parser._actions if a.__class__.__name__ == "_SubParsersAction")
+    texts = {"": parser.format_help()}
+    texts.update({name: p.format_help() for name, p in sub.choices.items()})
+    for name, text in texts.items():
+        flat = " ".join(text.split())
+        for allowed in ALLOWED_HELP:
+            flat = flat.replace(allowed, "")
+        if name == "revise":
+            continue  # the older name itself
+        assert "revision" not in flat.lower().replace("revise", ""), (name, flat)
+
+
+def test_no_message_of_the_core_says_revision() -> None:
+    """Every text in the source of `core/` and `cli/` (string literals that are not docstrings), so
+    that a message built from parts is found too; the places that name the word of 2.x are
+    listed in `ALLOWED_SOURCE`."""
+    import ast
+
+    import harness_design_studio
+
+    base = Path(harness_design_studio.__file__).parent
+    found = []
+    for path in sorted([*(base / "core").rglob("*.py"), *(base / "cli").rglob("*.py")]):
+        rel = path.relative_to(base).as_posix()
+        if rel in ALLOWED_SOURCE:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        docs = {
+            id(n.body[0].value)
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+            and n.body
+            and isinstance(n.body[0], ast.Expr)
+            and isinstance(n.body[0].value, ast.Constant)
+        }
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and id(node) not in docs
+                and not node.value.isidentifier()  # a name in `__all__`, not a message
+                and "revision" in node.value.lower()
+            ):
+                found.append(f"{rel}:{node.lineno}: {node.value[:60]}")
+    assert found == []
+
+
+def test_the_change_log_and_the_report_say_version(tmp_path: Path) -> None:
+    from harness_design_studio.core.vcs.report import LOG_HEADER, version_report
+
+    root = build("released", tmp_path / "p")
+    p = load_project(root).project
+    assert LOG_HEADER[2] == "Version"
+    report = version_report(p, "stamp")
+    assert "\n# Version report: " in report
+    assert "version 2.0.0 new version started" in report

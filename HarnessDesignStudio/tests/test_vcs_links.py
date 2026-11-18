@@ -74,7 +74,7 @@ def test_the_link_of_a_released_harness_is_locked_with_the_reason(tmp_path: Path
     why = lockview.lock_reason(p, "link", "L1")
     assert (
         why
-        == f"Link L1 belongs to {hid}, which is released. {hid} is released (revision A); start a new revision to change it."
+        == f"Link L1 belongs to {hid}, which is released. {hid} is released (version 1.0.0); start a new version to change it."
     )
     assert lockview.field_lock_reason(p, "link", "L1", "pairs") == why
     assert lockview.release_locks(p, hid).links == ("L1",)

@@ -126,7 +126,7 @@ def test_a_missing_name_is_never_taken_from_git(
     for command in (
         ["release", str(folder), hid, "--comment", "a long enough comment"],
         ["review", str(folder), hid, "--date", WHEN],
-        ["revise", str(folder), hid, "--comment", "a long enough comment"],
+        ["revise", str(folder), hid, "--comment", "a long enough comment", "--kind", "minor"],
     ):
         with pytest.raises(SystemExit) as exc:
             cli_main(command)

@@ -752,7 +752,7 @@ def _sheet_head(h: Harness, w_mm: float, h_mm: float, head_h: float) -> Sheet:
         )
     )
     sh.add(
-        Text(MARGIN, MARGIN + 9.0, f"Revision {h.version}  status {h.status}", size=2.8, color=GREY)
+        Text(MARGIN, MARGIN + 9.0, f"Version {h.version}  status {h.status}", size=2.8, color=GREY)
     )
     return sh
 

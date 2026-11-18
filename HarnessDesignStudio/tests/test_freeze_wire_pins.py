@@ -120,7 +120,7 @@ def test_the_lock_view_lists_the_pins_the_wires_reach(tmp_path: Path) -> None:
         assert ("box_pin", f"{box}.3") not in locked
     why = lockview.lock_reason(p, "box_pin", f"{A}.1")
     assert why == f"Connector {A} is used by {hid}, which is released. " + (
-        f"{hid} is released (revision A); start a new revision to change it."
+        f"{hid} is released (version 1.0.0); start a new version to change it."
     )
     assert lockview.field_lock_reason(p, "box_pin", f"{A}.1", "signal") == why
     rl = lockview.release_locks(p, hid)

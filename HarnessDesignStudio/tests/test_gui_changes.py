@@ -38,8 +38,16 @@ def releasable(win) -> str:  # type: ignore[no-untyped-def]
     )
 
 
-def fill(by: str = "Ada", comment: str = "First release for the CDR", checker: str = "Bob"):  # type: ignore[no-untyped-def]
+def fill(
+    by: str = "Ada",
+    comment: str = "First release for the CDR",
+    checker: str = "Bob",
+    kind: str | None = None,
+):  # type: ignore[no-untyped-def]
     def fn(d: ChangeDialog) -> None:
+        if kind is not None:  # a new version: the person chooses the kind (D-242)
+            assert d.kind() is None and not d.ok.isEnabled() or d.blockers
+            d.kind_buttons[kind].setChecked(True)
         d.by.setText(by)
         d.checker.setText(checker)
         d.comment.setPlainText(comment)
@@ -117,9 +125,9 @@ def test_full_cycle_release_lock_new_revision_changes_and_log(win, qtbot) -> Non
     assert not win.ctl.run("edit", [Put("harnesses", evolve(h, name="Nope"))])
     assert "released" in win.toasts.messages[-1]
     # new revision unlocks
-    DialogScript(win, fill(comment="Rework the colours"))
+    DialogScript(win, fill(comment="Rework the colours", kind="minor"))
     win.change_flow("revise", hid)
-    assert win.ctl.project.harnesses[hid].version == "2.0.0"
+    assert win.ctl.project.harnesses[hid].version == "1.1.0"
     w = win.ctl.project.harnesses[hid].wires[0]
     h2 = win.ctl.project.harnesses[hid]
     assert win.ctl.run(

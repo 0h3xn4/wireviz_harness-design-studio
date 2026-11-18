@@ -692,7 +692,7 @@ def test_the_hole_exists_in_check_locks_and_is_closed_in_the_planner(tmp_path: P
     )
     check_locks(p, [raw])  # CD-G15: the old rule lets this through (and is not changed)
     why = devices.pin_set_frozen(p, cid)
-    assert why and hid in why and "start a new revision" in why
+    assert why and hid in why and "start a new version" in why
     assert why.startswith(f"Connector {cid} is used by {hid}, which is released.")
     msg = refused(devices.ops_delete_pins, p, cid, [spare.id])
     assert why in msg

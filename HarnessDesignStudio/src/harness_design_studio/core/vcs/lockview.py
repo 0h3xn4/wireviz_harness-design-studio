@@ -114,7 +114,7 @@ def locked_objects(project: Project) -> dict[tuple[str, str], list[LockRef]]:
 
 def _why(ref: LockRef) -> str:
     return (
-        f"{ref.harness_id} is released (revision {ref.version}); start a new revision to change it."
+        f"{ref.harness_id} is released (version {ref.version}); start a new version to change it."
     )
 
 
@@ -154,7 +154,7 @@ def lock_reason(
         names += f" and {len(refs) - 3} more" if len(refs) > 3 else ""
         return (
             f"Configuration '{object_id}' is used by the checks of the released harness(es) "
-            f"{names}. Start a new revision of them to change it."
+            f"{names}. Start a new version of them to change it."
         )
     return _why(ref)  # the harness, and everything inside it (wires, cable connectors, pins ...)
 

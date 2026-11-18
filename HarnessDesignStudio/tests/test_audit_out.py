@@ -138,7 +138,7 @@ def _commands(project: Path, tmp_path: Path) -> list[list[str]]:
         ["import-netlist", p, str(netlist), "--unit", "AOCS"],
         ["review", p, "W001", "--by", "Ada"],
         ["release", p, "W001", "--by", "Ada", "--comment", "long enough text"],
-        ["revise", p, "W001", "--by", "Ada", "--comment", "long enough text"],
+        ["revise", p, "W001", "--by", "Ada", "--comment", "long enough text", "--kind", "major"],
     ]
 
 

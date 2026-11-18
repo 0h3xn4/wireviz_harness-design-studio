@@ -759,6 +759,14 @@ REVISE_EXPLAIN = (
     "a frozen baseline that you can compare with. What only {0} locks becomes editable again, "
     "and the change log records who started the revision and why."
 )
+# the kind of a new version (D-242, design of 3.0.0 section 5.3): none is chosen at the start
+NV_KIND_HEAD = "Kind of the new version"
+NV_KINDS = {
+    "major": "Major: not compatible with the versions before it ({} → {})",
+    "minor": "Minor: adds something and stays compatible ({} → {})",
+    "patch": "Patch: a fix that stays compatible ({} → {})",
+}
+HINT_KIND = "choose major, minor or patch"
 REVISE_EDITABLE_HEAD = "What becomes editable: {}."
 REVISE_EDITABLE_NONE = "What becomes editable: nothing besides the harness itself."
 REVISE_EDITABLE_TREE = "What becomes editable"

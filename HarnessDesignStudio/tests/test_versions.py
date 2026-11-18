@@ -7,6 +7,7 @@ of an old letter and the pinout test of section 5.3.
 R1 changes nothing visible in 2.x: the baselines, the editor's top bar and the state of a harness
 keep the letter order they had, which the tests below prove on every letter up to ZZZ."""
 
+import json
 import random
 from types import SimpleNamespace
 from typing import Any
@@ -371,3 +372,147 @@ def test_the_note_is_due_for_minor_and_patch_only() -> None:
         assert not pinout_note_due(kind, [])  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         pinout_note_due("breaking", changes)  # type: ignore[arg-type]
+
+
+# ---- a new version: the person chooses the kind (section 5.3, format 3) --------------------------------
+
+
+def _released_project(tmp_path):
+    from harness_design_studio.core.commands import History
+    from harness_design_studio.core.outputs.build import write_outputs
+    from harness_design_studio.core.samples import sat15_full
+    from harness_design_studio.core.vcs.release import plan_release
+
+    p = sat15_full()
+    hid = next(
+        h.id
+        for h in sorted(p.harnesses.values(), key=lambda x: x.id)
+        if all(w.gauge_awg and w.length_m for w in h.wires)
+    )
+    folder = tmp_path / "outputs"
+    write_outputs(p, folder)
+    reason = "Test project: values are placeholders"
+    plan = plan_release(
+        p, hid, by="Ada", checker="Bob", comment="First release for the CDR", when="2026-03-01",
+        outputs_folder=folder, accept_placeholders=reason, accept_unapproved_parts=reason,
+    )  # fmt: skip
+    assert plan.ok, [b.message for b in plan.blockers]
+    History(p).execute(plan.label, plan.ops)
+    return p, hid
+
+
+@pytest.mark.parametrize(
+    ("kind", "after"), [("major", "2.0.0"), ("minor", "1.1.0"), ("patch", "1.0.1")]
+)
+def test_a_new_version_of_each_kind(kind: str, after: str, tmp_path) -> None:
+    from harness_design_studio.core.commands import History
+    from harness_design_studio.core.vcs.release import plan_new_version
+
+    p, hid = _released_project(tmp_path)
+    plan = plan_new_version(p, hid, kind=kind, by="Ada", comment="A change of the harness", when="2026-03-02")  # fmt: skip
+    assert plan.ok and plan.label == f"New version {after} of {hid}"
+    History(p).execute(plan.label, plan.ops)
+    h = p.harnesses[hid]
+    assert (h.version, h.status) == (after, "draft")
+    entry = max(p.changelog.values(), key=lambda e: e.id)
+    assert (entry.kind, entry.version) == ("new_version", after)
+    assert f"{hid}.1.0.0" in p.baselines  # the released version stays on record
+
+
+def test_a_new_version_needs_a_kind_and_a_released_harness(tmp_path) -> None:
+    from harness_design_studio.core.samples import mini3
+    from harness_design_studio.core.vcs.release import plan_new_version
+
+    p, hid = _released_project(tmp_path)
+    plan = plan_new_version(p, hid, kind="huge", by="Ada", comment="A change of the harness", when="2026-03-02")  # fmt: skip
+    assert [b.code for b in plan.blockers] == ["kind_unknown"]
+    q = mini3()
+    plan = plan_new_version(q, "W001", kind="minor", by="Ada", comment="A change of it", when="2026-03-02")  # fmt: skip
+    assert [b.code for b in plan.blockers] == ["not_released"]
+
+
+def test_a_step_back_is_refused(tmp_path) -> None:
+    """A version must be higher than every baseline of the harness, also one a merge brought in."""
+    from harness_design_studio.core.vcs.release import plan_new_version
+
+    p, hid = _released_project(tmp_path)
+    base = p.baselines[f"{hid}.1.0.0"]
+    p.baselines[f"{hid}.1.1.0"] = evolve(base, id=f"{hid}.1.1.0", version="1.1.0")  # (a merge)
+    plan = plan_new_version(p, hid, kind="minor", by="Ada", comment="A change of the harness", when="2026-03-02")  # fmt: skip
+    assert [b.code for b in plan.blockers] == ["version_not_higher"]
+    assert "not higher than its baseline 1.1.0" in plan.blockers[0].message
+    assert plan_new_version(p, hid, kind="major", by="Ada", comment="A change of the harness", when="2026-03-02").ok  # fmt: skip
+
+
+def test_the_release_freeze_takes_only_a_higher_version(tmp_path) -> None:
+    from harness_design_studio.core.commands import History, Put
+    from harness_design_studio.core.errors import TransactionError
+
+    p, hid = _released_project(tmp_path)
+    h = p.harnesses[hid]
+    history = History(p)
+    for version in ("1.0.0", "0.9.0"):
+        with pytest.raises(TransactionError):
+            history.execute("x", [Put("harnesses", evolve(h, version=version, status="draft"))])
+    history.execute("x", [Put("harnesses", evolve(h, version="1.0.1", status="draft"))])
+
+
+def test_new_version_on_the_command_line_and_revise_as_its_older_name(tmp_path, capsys) -> None:
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from harness_design_studio.core.io.saver import save_project
+
+    p, hid = _released_project(tmp_path)
+    root = tmp_path / "p"
+    save_project(p, root)
+    args = [str(root), hid, "--by", "Ada", "--comment", "Rework for the build"]
+    assert main(["new-version", *args]) == 2  # --kind is required
+    assert "--kind" in capsys.readouterr().err
+    assert main(["new-version", *args, "--kind", "minor", "--json", "--date", "2026-04-01"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert (doc["action"], doc["kind"]) == (f"New version 1.1.0 of {hid}", "minor")
+    assert list(doc) == ["ok", "action", "by", "kind", "blockers", "outputs"]
+    assert load_project(root).project.harnesses[hid].version == "1.1.0"
+    from harness_design_studio.cli.main import build_parser
+
+    listing = build_parser().format_help()
+    assert "new-version  " in listing or "new-version " in listing
+    assert "    revise " not in listing  # the older name is left out of the command list
+    q, hid2 = _released_project(tmp_path / "q")
+    root2 = tmp_path / "q" / "p"
+    save_project(q, root2)
+    assert main(["revise", str(root2), hid2, "--by", "Ada", "--comment", "Rework for the build", "--kind", "patch", "--date", "2026-04-01"]) == 0  # fmt: skip
+    assert load_project(root2).project.harnesses[hid2].version == "1.0.1"
+
+
+def test_log_json_and_the_expression_field_carry_both_names(tmp_path, capsys) -> None:
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.extensions.fields import Context, _build
+    from harness_design_studio.core.io.saver import save_project
+
+    p, hid = _released_project(tmp_path)
+    root = tmp_path / "p"
+    save_project(p, root)
+    assert main(["log", str(root), "--json"]) == 0
+    entries = json.loads(capsys.readouterr().out)["entries"]
+    assert entries and all(e["version"] == e["revision"] == "1.0.0" for e in entries)
+    h = p.harnesses[hid]
+    fields = {f.id: f for f in _build()}
+    assert fields["harness.version"].fn(Context(p, harness=h)) == "1.0.0"
+    assert fields["harness.revision"].fn(Context(p, harness=h)) == "1.0.0"  # older name (Q29)
+
+
+def test_the_verifier_refuses_an_export_whose_two_names_differ(tmp_path) -> None:
+    from harness_design_studio.core.outputs.build import build_outputs
+    from harness_design_studio.core.outputs.verify import verify_outputs
+    from harness_design_studio.core.samples import mini3
+
+    p = mini3()
+    files = dict(build_outputs(p, drawings=False).files)
+    assert verify_outputs(p, files).ok
+    doc = json.loads(files["system/export.json"])
+    assert all(x["revision"] == x["version"] == "1.0.0" for x in doc["harnesses"])
+    doc["harnesses"][0]["revision"] = "2.0.0"
+    files["system/export.json"] = json.dumps(doc).encode()
+    report = verify_outputs(p, files)
+    assert not report.ok and any(i.code == "out_json" for i in report.errors)

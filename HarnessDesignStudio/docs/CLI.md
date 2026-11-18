@@ -11,7 +11,7 @@ Generated from the program by `python -m tools.gen_cli_docs`; do not edit by han
 | 2 | usage error, or a project or file that could not be read |
 | 130 | interrupted with Ctrl-C |
 
-A project with damaged files (a file that is not valid, a link, over 64 MB or unreadable) is refused with exit 2 and the damaged file named by every command that reports on it or changes it: `drc`, `verify`, `export`, `generate`, `config`, `library`, `log`, `diff`, `compare`, `review`, `release`, `revise`, `migrate` and the imports. Only `validate` and `check` read it and list the damage (exit 1), so you can see what to repair. With Ctrl-C a command prints `interrupted` and ends with 130 (if it was saving, run `harness-design-studio validate`). A reader that closes the pipe (`harness-design-studio generate | head -1`) does not stop the command: it still finishes and saves.
+A project with damaged files (a file that is not valid, a link, over 64 MB or unreadable) is refused with exit 2 and the damaged file named by every command that reports on it or changes it: `drc`, `verify`, `export`, `generate`, `config`, `library`, `log`, `diff`, `compare`, `review`, `release`, `new-version` (and its older name `revise`), `migrate` and the imports. Only `validate` and `check` read it and list the damage (exit 1), so you can see what to repair. With Ctrl-C a command prints `interrupted` and ends with 130 (if it was saving, run `harness-design-studio validate`). A reader that closes the pipe (`harness-design-studio generate | head -1`) does not stop the command: it still finishes and saves.
 
 An import whose file says what the project already holds changes nothing, prints `Already up to date.` and ends with 0, so it can run again on every build. Every command that changes a project takes the same lock as the app, so the two never write at once. The commands that import data (`import-parts`, `import-lengths`, `import-build-data`, `import-netlist`, `import-pinout`, `import-devices`) and `add-device` accept `--dry-run`: they show what they would do and change nothing; `config --ampacity-csv` does not. The option `--author NAME` (given before the command) names who is making the changes of a run in the change journal of a project that has one; the environment variable `HARNESS_AUTHOR` does the same, and without either the journal records `unknown`: no name is looked up (not Git's `user.name`, not the user of the computer).
 
@@ -19,7 +19,7 @@ What an import prints. Every import that reads a file says what it read before i
 
 The device library (`libraries`, `add-device`, `update-device`, `save-device`): the libraries are the folders of `--library FOLDER` (repeatable; they replace the rest for the run), else those of the project's `device-libraries.json`; the command line never reads the editor's library folder. These commands end with 1 when a change is refused and nothing was changed (an ID the project has already, a device in two libraries, a change a released harness locks, a part conflict, a device file that differs without `--replace`) and when `update-device --check` finds a device that follows a library and differs from it; with 2 when a device or a library cannot be found or read. `update-device` without `--apply` changes nothing. `libraries --add` and `--remove` change `device-libraries.json` at once, outside undo and the change journal.
 
-The examples show the form of each command with example names. They do not all work on any project: `release` is blocked until its conditions are met (placeholder configuration, unapproved parts, missing gauges and lengths; see [`GETTING_STARTED.md`](GETTING_STARTED.md)), and `revise` works only on a released harness.
+The examples show the form of each command with example names. They do not all work on any project: `release` is blocked until its conditions are met (placeholder configuration, unapproved parts, missing gauges and lengths; see [`GETTING_STARTED.md`](GETTING_STARTED.md)), and `new-version` works only on a released harness.
 
 ## Contents
 
@@ -34,7 +34,7 @@ The examples show the form of each command with example names. They do not all w
 - Write data out: [`export-pinout`](#harness-design-studio-export-pinout), [`export-devices`](#harness-design-studio-export-devices), [`export-subsystem`](#harness-design-studio-export-subsystem)
 - Device library: [`libraries`](#harness-design-studio-libraries), [`add-device`](#harness-design-studio-add-device), [`update-device`](#harness-design-studio-update-device), [`save-device`](#harness-design-studio-save-device)
 - Record what was built: [`export-asbuilt`](#harness-design-studio-export-asbuilt), [`import-asbuilt`](#harness-design-studio-import-asbuilt), [`asbuilt`](#harness-design-studio-asbuilt)
-- Review, release and change: [`review`](#harness-design-studio-review), [`release`](#harness-design-studio-release), [`revise`](#harness-design-studio-revise), [`diff`](#harness-design-studio-diff), [`log`](#harness-design-studio-log), [`compare`](#harness-design-studio-compare)
+- Review, release and change: [`review`](#harness-design-studio-review), [`release`](#harness-design-studio-release), [`new-version`](#harness-design-studio-new-version), [`revise`](#harness-design-studio-revise), [`diff`](#harness-design-studio-diff), [`log`](#harness-design-studio-log), [`compare`](#harness-design-studio-compare)
 - Extend the tool: [`extensions`](#harness-design-studio-extensions), [`trust`](#harness-design-studio-trust), [`import-plugin`](#harness-design-studio-import-plugin)
 - Maintenance: [`migrate`](#harness-design-studio-migrate)
 
@@ -81,7 +81,8 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `export-pinout` | `ok`, `device`, `pin_rows`, `columns`, `rows`, `written` |
 | `export-devices` | `ok`, `devices`, `connectors`, `notes` |
 | `export-subsystem` | `ok`, `name`, `devices`, `connectors`, `connections` |
-| `review`, `release`, `revise` | `ok`, `action`, `by`, `blockers`, `outputs` |
+| `review`, `release` | `ok`, `action`, `by`, `blockers`, `outputs` |
+| `new-version`, `revise` | `ok`, `action`, `by`, `kind`, `blockers`, `outputs` |
 | `diff` | `ok`, `harness`, `from`, `to`, `added`, `removed`, `changed`, `changes` |
 | `compare` | `ok`, `added`, `removed`, `changed`, `changes`, `not_compared` |
 | `log` | `ok`, `harness`, `entries` |
@@ -1035,9 +1036,32 @@ harness-design-studio release my-design W001 --by "A. Engineer" --comment "First
 harness-design-studio release my-design W001 --by "A. Engineer" --comment "First release" --json
 ```
 
+### harness-design-studio new-version
+
+start a new version of a released harness: --kind major (not compatible with the versions before it), minor (adds something and stays compatible) or patch (a fix that stays compatible); `revise` is the older name of this command
+
+`harness-design-studio new-version project harness [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `harness` | harness ID, for example W001 |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+| `--by BY` | your name, as you type it (recorded in the change log; required: no name is taken from Git or from the computer) |
+| `--comment COMMENT` | what changed or why (at least 10 characters) |
+| `--date DATE` | YYYY-MM-DD (default: today) |
+| `--kind KIND` | major: not compatible with the versions before it; minor: adds something and stays compatible; patch: a fix that stays compatible (from 1.4.2: 2.0.0, 1.5.0 or 1.4.3) (one of major, minor, patch) |
+
+Examples:
+
+```
+harness-design-studio new-version my-design W001 --kind minor --by "A. Engineer" --comment "Connector change"
+harness-design-studio new-version my-design W001 --kind minor --by "A. Engineer" --comment "Connector change" --json
+```
+
 ### harness-design-studio revise
 
-start a new revision of a released harness
+the older name of `new-version`: start a new version of a released harness (--kind major, minor or patch)
 
 `harness-design-studio revise project harness [options]`
 
@@ -1049,12 +1073,12 @@ start a new revision of a released harness
 | `--by BY` | your name, as you type it (recorded in the change log; required: no name is taken from Git or from the computer) |
 | `--comment COMMENT` | what changed or why (at least 10 characters) |
 | `--date DATE` | YYYY-MM-DD (default: today) |
+| `--kind KIND` | major: not compatible with the versions before it; minor: adds something and stays compatible; patch: a fix that stays compatible (from 1.4.2: 2.0.0, 1.5.0 or 1.4.3) (one of major, minor, patch) |
 
 Examples:
 
 ```
-harness-design-studio revise my-design W001 --by "A. Engineer" --comment "Connector change"
-harness-design-studio revise my-design W001 --by "A. Engineer" --comment "Connector change" --json
+harness-design-studio revise my-design W001 --kind patch --by "A. Engineer" --comment "Label fix"
 ```
 
 ### harness-design-studio diff
@@ -1068,14 +1092,14 @@ show what changed in a harness since a baseline (or between two baselines)
 | `project` | project folder |
 | `harness` | harness ID, for example W001 |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
-| `--from REV_FROM` | baseline revision to compare from (default: latest) |
-| `--to REV_TO` | baseline revision to compare to (default: the working design) |
+| `--from REV_FROM` | baseline version to compare from (default: latest) |
+| `--to REV_TO` | baseline version to compare to (default: the working design) |
 
 Examples:
 
 ```
 harness-design-studio diff my-design W001
-harness-design-studio diff my-design W001 --from A
+harness-design-studio diff my-design W001 --from 1.0.0
 harness-design-studio diff my-design W001 --json
 ```
 

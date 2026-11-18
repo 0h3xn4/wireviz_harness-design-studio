@@ -178,7 +178,7 @@ def test_the_plans_of_a_drawn_tree_refuse_a_generated_a_released_and_an_unknown_
         lambda: plan_add_leg(q, hid, "OBC-J01"),
     ):
         with pytest.raises(
-            EditError, match="W001 is released \\(revision A\\); start a new revision"
+            EditError, match="W001 is released \\(version 1.0.0\\); start a new version"
         ):
             call()
 

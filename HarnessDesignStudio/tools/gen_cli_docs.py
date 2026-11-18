@@ -38,7 +38,10 @@ GROUPS = (
     ("Write data out", ("export-pinout", "export-devices", "export-subsystem")),
     ("Device library", ("libraries", "add-device", "update-device", "save-device")),
     ("Record what was built", ("export-asbuilt", "import-asbuilt", "asbuilt")),
-    ("Review, release and change", ("review", "release", "revise", "diff", "log", "compare")),
+    (
+        "Review, release and change",
+        ("review", "release", "new-version", "revise", "diff", "log", "compare"),
+    ),
     ("Extend the tool", ("extensions", "trust", "import-plugin")),
     ("Maintenance", ("migrate",)),
 )
@@ -258,13 +261,16 @@ EXAMPLES: dict[str, list[str]] = {
         '--checker "B. Checker"',
         'harness-design-studio release my-design W001 --by "A. Engineer" --comment "First release" --json',
     ],
+    "new-version": [
+        'harness-design-studio new-version my-design W001 --kind minor --by "A. Engineer" --comment "Connector change"',
+        'harness-design-studio new-version my-design W001 --kind minor --by "A. Engineer" --comment "Connector change" --json',
+    ],
     "revise": [
-        'harness-design-studio revise my-design W001 --by "A. Engineer" --comment "Connector change"',
-        'harness-design-studio revise my-design W001 --by "A. Engineer" --comment "Connector change" --json',
+        'harness-design-studio revise my-design W001 --kind patch --by "A. Engineer" --comment "Label fix"',
     ],
     "diff": [
         "harness-design-studio diff my-design W001",
-        "harness-design-studio diff my-design W001 --from A",
+        "harness-design-studio diff my-design W001 --from 1.0.0",
         "harness-design-studio diff my-design W001 --json",
     ],
     "log": [
@@ -419,7 +425,7 @@ def render() -> str:
         "A project with damaged files (a file that is not valid, a link, over 64 MB or unreadable) "
         "is refused with exit 2 and the damaged file named by every command that reports on it or "
         "changes it: `drc`, `verify`, `export`, `generate`, `config`, `library`, `log`, `diff`, "
-        "`compare`, `review`, `release`, `revise`, `migrate` and the imports. Only `validate` and "
+        "`compare`, `review`, `release`, `new-version` (and its older name `revise`), `migrate` and the imports. Only `validate` and "
         "`check` read it and list the damage (exit 1), so you can see what to repair. "
         "With Ctrl-C a command prints `interrupted` and ends with 130 (if it was saving, run "
         "`harness-design-studio validate`). A reader that closes the pipe (`harness-design-studio generate | head -1`) does "
@@ -470,7 +476,7 @@ def render() -> str:
         "The examples show the form of each command with example names. They do not all work "
         "on any project: `release` is blocked until its conditions are met (placeholder "
         "configuration, unapproved parts, missing gauges and lengths; see "
-        "[`GETTING_STARTED.md`](GETTING_STARTED.md)), and `revise` works only on a released "
+        "[`GETTING_STARTED.md`](GETTING_STARTED.md)), and `new-version` works only on a released "
         "harness.",
         "",
         "## Contents",

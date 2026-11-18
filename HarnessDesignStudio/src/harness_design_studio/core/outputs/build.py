@@ -15,7 +15,7 @@ from harness_design_studio.core.errors import HarnessError, SaveError
 from harness_design_studio.core.io.fs import atomic_write_bytes, escapes_root
 from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.vcs.hashing import content_hash
-from harness_design_studio.core.vcs.report import changelog_rows, revision_report
+from harness_design_studio.core.vcs.report import changelog_rows, version_report
 
 from . import buildsheet, connections, drawing, exports, system, tables
 from .canvas import SHEETS, Sheet, to_pdf, to_svg
@@ -199,8 +199,8 @@ def build_outputs(
         f"<!-- {stamp.line} -->\n" + render_markdown(project), stamp
     ).encode()
     out["system/changelog.csv"] = csv_bytes(changelog_rows(project), stamp)
-    out["system/revision_report.md"] = with_notice(
-        revision_report(project, stamp.line), stamp
+    out["system/version_report.md"] = with_notice(
+        version_report(project, stamp.line), stamp
     ).encode()
     out["README.txt"] = readme_text(stamp).encode()  # the notice for the files that cannot hold one
     out["system/export.json"] = exports.json_export(project, stamp)

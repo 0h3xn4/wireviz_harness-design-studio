@@ -547,7 +547,7 @@ NOTHING_DONE = {
     "migrate": "migrated", "export": "exported", "generate": "generated", "drc": "checked",
     "verify": "verified", "log": "listed", "diff": "compared", "compare": "compared",
     "config": "reported or changed", "library": "reported or changed",
-    "review": "changed", "release": "released", "revise": "revised",
+    "review": "changed", "release": "released", "revise": "revised", "new-version": "revised",
     "import-parts": "imported", "import-lengths": "imported", "import-netlist": "imported",
     "import-pinout": "imported", "export-pinout": "exported",
     "export-devices": "exported", "import-devices": "imported", "import-build-data": "imported",
@@ -563,7 +563,7 @@ NOTHING_DONE = {
 }  # fmt: skip
 
 MUTATING = {
-    "generate", "export", "migrate", "review", "release", "revise", "merge-fix",
+    "generate", "export", "migrate", "review", "release", "revise", "new-version", "merge-fix",
     "import-parts", "import-lengths", "import-netlist", "import-pinout", "import-devices",
     "import-build-data", "import-subsystem", "import-plugin",
 }  # fmt: skip

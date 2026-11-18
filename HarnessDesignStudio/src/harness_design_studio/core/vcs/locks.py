@@ -130,7 +130,7 @@ def check_locks(project: Project, ops: list[Op]) -> None:
     problems: list[str] = []
 
     def why(hid: str) -> str:
-        return f"{hid} is released (revision {released[hid].version}); start a new revision to change it."
+        return f"{hid} is released (version {released[hid].version}); start a new version to change it."
 
     for op in ops:
         if isinstance(op, SetConfig | DeleteConfig):
@@ -140,7 +140,7 @@ def check_locks(project: Project, ops: list[Op]) -> None:
                 names = _names(sorted(released))
                 problems.append(
                     f"Configuration '{name}' is used by the checks of the released harness(es) "
-                    f"{names}. Start a new revision of them to change it."
+                    f"{names}. Start a new version of them to change it."
                 )
             continue
         if not isinstance(op, Put | Delete):

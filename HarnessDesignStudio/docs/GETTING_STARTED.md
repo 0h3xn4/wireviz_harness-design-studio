@@ -186,7 +186,7 @@ The files are checked a second time by a separate routine before they are writte
 | `harnesses/W001/wireviz.yaml`, `W001.xlsx` | a WireViz-style description; all tables of the harness as an Excel workbook (data, not a build document) |
 | `system/block_diagram.pdf` | the devices and their links |
 | `system/harness_overview.pdf`, `box_pinouts.csv`, `mating_matrix.csv`, `traceability.csv` | all harnesses at a glance; the pinout of every device connector; which cable mates with which device; which interface is carried by which wires |
-| `system/drc_report.md`, `changelog.csv`, `revision_report.md`, `export.json` | the Problems report; the change log; the revision report; the whole model as one JSON |
+| `system/drc_report.md`, `changelog.csv`, `version_report.md`, `export.json` | the Problems report; the change log; the version report; the whole model as one JSON |
 
 Open `harnesses/W001/W001_build.xlsx` in Excel or LibreOffice Calc. The first sheet, **Start here**, says `Ready to build: no` and lists what is open: the four wires have no length, no gauge and no colour (marked `TO FIX`), and some pins have no termination, the wires have no strip lengths, the pins have no contact part and the example parts are not approved (marked `NOTE`; strip lengths, contacts and accessories are yours to enter, see [enter the build data](user-manual/enter-the-build-data.md)). The **Cut list** shows `to fill in` on an amber cell wherever the design has no value. These are the same open questions the tool called `pending` and `n/a` in the lists. Gauge and length are answered in the next two parts; the optional step after Part 8 gives the wires a colour. The workbook is explained sheet by sheet in [`user-manual/export-the-outputs.md`](user-manual/export-the-outputs.md).
 
@@ -356,7 +356,7 @@ harness-design-studio release wheel-link W002 --by "A. Engineer" --comment "Firs
 ```
 
 ```
-Release W002 revision A: done.
+Release W002 version 1.0.0: done.
 Outputs re-exported with the released status (35 files).
 ```
 

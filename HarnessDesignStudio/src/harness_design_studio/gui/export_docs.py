@@ -111,7 +111,7 @@ _SYSTEM_FILES: Final = {
     "drc_findings.csv": "sys_drc_findings",
     "drc_report.md": "sys_drc_report",
     "changelog.csv": "sys_changelog",
-    "revision_report.md": "sys_revision_report",
+    "version_report.md": "sys_revision_report",  # (the screen word stays until R2)
     "export.json": "sys_export",
     "provenance.json": "sys_provenance",
     "system.xlsx": "sys_workbook",
