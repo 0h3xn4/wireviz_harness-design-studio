@@ -45,6 +45,26 @@ def test_the_lane_gets_the_platform_it_asked_for(qapp) -> None:
     assert screen is not None and screen.geometry().width() >= 1024  # (a screen a window fits on)
 
 
+def test_each_worker_of_the_xcb_lane_has_a_display_and_a_pointer_of_its_own(qapp) -> None:
+    """One X display has one pointer, and a test's mouse move on `xcb` moves it: parallel workers
+    on the display of `xvfb-run` took each other's hover away. Each worker starts its own Xvfb
+    (`tests/conftest.py`), with the lane's screen."""
+    if os.environ.get("HARNESS_REAL_PLATFORM") != "xcb" or not os.environ.get(
+        "PYTEST_XDIST_WORKER"
+    ):
+        pytest.skip("not a parallel worker of the xcb lane")
+    from tests import conftest
+
+    assert conftest._OWN_DISPLAY is not None and conftest._OWN_DISPLAY.poll() is None
+    assert os.environ["DISPLAY"] != os.environ["HARNESS_SHARED_DISPLAY"]
+    width, height, _depth = conftest.LANE_SCREEN.split("x")
+    app = QApplication.instance()
+    screen = app.primaryScreen()
+    dpr = screen.devicePixelRatio()
+    assert round(screen.geometry().width() * dpr) == int(width)
+    assert round(screen.geometry().height() * dpr) == int(height)
+
+
 def test_the_report_names_the_platform_the_screen_and_the_fonts(qapp) -> None:
     lines = real_platform_report.report()
     text = "\n".join(lines)
@@ -73,6 +93,9 @@ def test_the_workflow_runs_the_layout_tests_on_both_real_platforms() -> None:
     assert "QT_QPA_PLATFORM: xcb" in text and "QT_QPA_PLATFORM: windows" in text
     assert "HARNESS_REAL_PLATFORM: xcb" in text and "HARNESS_REAL_PLATFORM: windows" in text
     assert "xvfb-run" in text and "runs-on: ubuntu-24.04" in text and "windows-latest" in text
+    from tests import conftest
+
+    assert f'-screen 0 {conftest.LANE_SCREEN}"' in text  # each worker's own display is the same
     # the Qt libraries are the ones the release workflow installs (plus the virtual display)
     release = (WORKFLOW.parent / "release.yml").read_text(encoding="utf-8")
     libs = next(ln for ln in release.splitlines() if "libxcb-xinerama0" in ln)
