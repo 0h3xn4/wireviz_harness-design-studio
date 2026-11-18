@@ -220,7 +220,7 @@ It is one undo step. The message says *A new leg of W001: the loose end W001-P3 
 What is refused, with the reason:
 
 - A plug with no free pin with a signal: *W001-P1 has no free pin with a signal for a new leg. Choose the pins.*
-- A pin that has a wire already. Two wires on one pin need a splice, which comes with format 3 ([what is not in 2.3.0](#what-is-not-in-230)).
+- A pin that has a wire already. Two wires on one pin need a splice, which came with format 3 in 3.0.0 ([splices](splices.md)).
 - A harness made from a connection, or one that Generate made: its pairs belong to the connection or to Generate. Such a port keeps the refusal of 1.17. So does a port with plugs of several harnesses.
 
 ## 5. Join two harnesses into one
@@ -301,7 +301,7 @@ A project with branches is still format 2. Versions 2.2.x, 2.1.x and 2.0.x open 
 
 ## What is not in 2.3.0
 
-- **Splices.** A splice joins several wires inside a harness (a signal to two far pins). It needs a new role of a connector, which is a format change, so splices came with format 3 (3.0.0): the **Splices** list of the Harness tab places them in a harness you drew (see the user guide, *Branching harnesses*). A splice is a node of the routing tree like a connector. In 2.x a joint can only be drawn as an inline connector with several wires on one pin; the design rule `pin-shared` reports it, and the test tables of 2.x are not right for such a joint.
+- **Splices.** A splice joins several wires inside a harness (a signal to two far pins). It needs a new role of a connector, which is a format change, so splices came with format 3 (3.0.0): the **Splices** list of the Harness tab places them in a harness you drew ([splices](splices.md)). A splice is a node of the routing tree like a connector. In 2.x a joint can only be drawn as an inline connector with several wires on one pin; the design rule `pin-shared` reports it, and the test tables of 2.x are not right for such a joint.
 - **A kind of branch point** (a breakout, a boot, a transition) and **backshells** as their own rule. A boot or a transition at a branch point is an accessory of the harness, with its place in words (*at W001-B1*).
 - **A shield or a jacket that ends at a branch point** ([shields across a branch](#shields-across-a-branch)).
 - **Joining in `per_unit_pair` and `per_zone_pair`.** Those modes keep their warning when interfaces of one connector fall into two groups.

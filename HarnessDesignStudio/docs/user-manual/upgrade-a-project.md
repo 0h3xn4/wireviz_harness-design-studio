@@ -2,6 +2,8 @@
 
 Version 2.0.0rc1 is the first version that saves projects in **format 2**. A project saved by 1.17.1 or older is in format 1. This page shows how to upgrade such a project once, what changes in the folder, and what the older versions do with it afterwards.
 
+> **Since 3.0.0** projects are saved in **format 3**, and a project saved by 2.x is upgraded once more, in the same way: see [7. From format 2 to format 3](#7-from-format-2-to-format-3-300). A project of 1.17.1 or older goes through both steps in one upgrade.
+
 ## Contents
 
 - [Before you start](#before-you-start)
@@ -11,6 +13,7 @@ Version 2.0.0rc1 is the first version that saves projects in **format 2**. A pro
 - [4. What changed in the folder](#4-what-changed-in-the-folder)
 - [5. What the older versions do](#5-what-the-older-versions-do)
 - [6. Go back](#6-go-back)
+- [7. From format 2 to format 3 (3.0.0)](#7-from-format-2-to-format-3-300)
 
 ## Before you start
 
@@ -166,5 +169,38 @@ The older versions were not tried apart from 1.17.0 and 1.17.1.
 ## 6. Go back
 
 With Git, go back to the commit before the upgrade. Without Git, copy the files of `.migration-backup-v1/` back into the project folder, then delete `MIGRATION.json` and `journal.jsonl` from the project folder. The project is then in format 1 again, and 1.17.1 can edit it. The line `journal.jsonl merge=union` in `.gitattributes` can stay; it does nothing for a project without that file.
+
+## 7. From format 2 to format 3 (3.0.0)
+
+Version 3.0.0 saves projects in **format 3**. A project saved by 2.x is in format 2, and a command that saves refuses it as above:
+
+```
+error: This project is in format 2, older than this tool writes (format 3), so nothing was saved. Upgrade it first: `harness-design-studio migrate DIR` (`--dry-run` shows what changes), or open it in the editor and choose Upgrade.
+```
+
+**What changes.** A harness has a version MAJOR.MINOR.PATCH in place of a revision letter. The upgrade gives each letter its version by its place, **the Nth letter is N.0.0** (A is `1.0.0`, B is `2.0.0`, AA is `27.0.0`), for the harness, each of its baselines and each change-log entry, and renames the keys `revision` to `version` ([versions](versions.md#the-letters-of-2x)). Nothing else of the design changes. Look first:
+
+```
+harness-design-studio migrate wheel-link --dry-run
+```
+
+```
+Project format 2; this tool writes format 3.
+...
+Harness revisions that become versions (format 3):
+  W001: revision A → version 1.0.0
+  W002: revision A → version 1.0.0
+Only the versions change (each read as its place: the same design, findings and released harnesses): yes.
+Each version is the mapping of its revision: yes.
+...
+Nothing is lost. Nothing was written.
+```
+
+Then `harness-design-studio migrate wheel-link`, or **Upgrade** in the editor's question. A revision that is not a letter (`A1`, `-`) is not guessed: the dry run names it, and `migrate --set-version W001:A1=1.1.0` gives its version.
+
+- **Export once after the upgrade.** Unlike the step to format 2, this step changes the model hash once, so the outputs exported before it read *out of date* and fail `verify --outputs`. The written files say *Version* where they said *Revision*, and `system/revision_report.md` is now `system/version_report.md`.
+- **The backup** is the folder `.migration-backup-v2/`, with the record `MIGRATION.json`, which names each mapping (`W001: revision A → version 1.0.0`).
+- **Older versions.** After the upgrade, versions 2.x open the project read-only and change nothing, so the whole team upgrades together. Upgrade on the main branch first; a branch still in format 2 that is merged later is put right by `merge-fix` ([versions](versions.md#after-a-merge-with-a-branch-of-2x)).
+- **Go back** with Git to the commit before the upgrade. Without Git, copy the files of `.migration-backup-v2/` back into the project folder, then delete `MIGRATION.json` from the project folder and each baseline under its new name (`baselines/W001/W001.1.0.0.json`, beside `W001.A.json` again). The project is then in format 2, and 2.x can edit it.
 
 Next: [Use Git and CI](use-git-and-ci.md), [Override a value and keep a history](override-and-keep-a-history.md) (the change journal), [`TROUBLESHOOTING.md`](../TROUBLESHOOTING.md#this-project-is-in-format-1-older-than-this-tool-writes-format-2-so-nothing-was-saved)
