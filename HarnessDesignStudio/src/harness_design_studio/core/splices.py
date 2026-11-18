@@ -34,9 +34,11 @@ from .wires import find_wire, released_text, used_ids
 __all__ = [
     "SPLICE_CATEGORY",
     "TERMINATIONS",
+    "node_rows",
     "plan_add_splice",
     "plan_delete_splice",
     "plan_splice_wire",
+    "refusal",
     "splice_part",
     "splice_parts",
     "splices_of",
@@ -98,6 +100,27 @@ def _drawn(project: Project, harness_id: str) -> Harness:
             "takes no splice. Place the splice in a harness you made by hand."
         )
     return h
+
+
+def refusal(project: Project, harness_id: str) -> str:
+    """Why no splice can be placed in, cut into or deleted from this harness ("" when one can):
+    the sentence the plans raise. For a screen that says why its buttons are off."""
+    try:
+        _drawn(project, harness_id)
+    except EditError as exc:
+        return str(exc)
+    return ""
+
+
+def node_rows(h: Harness) -> list[tuple[str, str, str, str, tuple[str, ...]]]:
+    """One row per node of each splice of the harness, by splice ID: (splice, node, part,
+    termination, the wires on the node by ID)."""
+    out: list[tuple[str, str, str, str, tuple[str, ...]]] = []
+    for c in splices_of(h):
+        for p in c.pins:
+            wires = tuple(w.id for w in _on_node(h, c.id, p.id))
+            out.append((c.id, p.id, c.part_id, p.termination, wires))
+    return out
 
 
 def _splice(h: Harness, splice_id: str) -> Connector:

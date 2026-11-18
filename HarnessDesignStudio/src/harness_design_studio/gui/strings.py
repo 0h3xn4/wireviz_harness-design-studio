@@ -3916,3 +3916,44 @@ BRANCH_NOTICE_DONE = (
     "one harness that branches; Undo puts per connector pair back."
 )
 BRANCH_NOTICE_GENERATE = "Generate again"
+
+# ---- 3.0.0: splices in the Harness tab (format 3, M6a; design of 2.3.0 section 6.6) -------------
+# `gui/splice_panel.py`: the splices of a harness a person made, under the routing
+SP_TITLE = "Splices"
+SP_TABLE = "Splices of the harness"
+SP_COL_SPLICE = "Splice"
+SP_COL_NODE = "Node"
+SP_COL_PART = "Part"
+SP_COL_TERMINATION = "Joined by"
+SP_COL_WIRES = "Wires"
+SP_PART = "Splice part"
+SP_PART_TIP = "The library part of a new splice (a part of the category splice)"
+SP_ADD = "Add splice"
+SP_ADD_TIP = "Add a splice of the chosen part to this harness (one undo step)"
+SP_SPLICE_WIRE = "Splice this wire"
+SP_SPLICE_WIRE_TIP = (
+    "Cut the wire chosen in the wire table in two at the node chosen here: it ends on the node and "
+    "a new wire runs on from it (one undo step)"
+)
+SP_DELETE = "Delete splice"
+SP_DELETE_TIP = (
+    "Delete the chosen splice; a node with two wires joins them back into one (one undo step)"
+)
+SP_NO_PART = (
+    "The library has no splice part. Import one with the category splice (Library, or "
+    "import-parts; the template splice-parts-EXAMPLE.csv has an example), then add the splice."
+)
+SP_EMPTY = (
+    "No splice yet. A splice joins several wires inside the harness: add one, then splice a wire "
+    "at its node or draw wires to it."
+)
+SP_HINT = (
+    "Each node joins every wire on it. Choose a wire in the wire table and a node here to splice "
+    "the wire; the tests follow the nets through the splices."
+)
+SP_PICK_WIRE = "Choose one wire in the wire table first."
+SP_PICK_NODE = "Choose a node of a splice in the list of splices first."
+SP_NO_WIRE = "no wire"
+STEP_SP_ADD = "Add splice {}"
+STEP_SP_SPLICE_WIRE = "Splice {wire} at {splice}"
+STEP_SP_DELETE = "Delete splice {}"

@@ -82,6 +82,7 @@ from harness_design_studio.gui.dialog_base import HeightScrollArea
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.preview import DrawingPreview, Key
 from harness_design_studio.gui.routing_panel import RoutingPanel
+from harness_design_studio.gui.splice_panel import SplicePanel
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, Row, TableView, natural_key
 from harness_design_studio.gui.theme import ThemeManager
@@ -840,6 +841,15 @@ class HarnessView(QWidget):
         # the routing tree under the wires (2.3.0): only for a harness with one, or one drawn; in
         # a splitter of its own, so the wire table keeps its room and the line between them moves
         self.routing = RoutingPanel(self.ctl, theme, self.settings)
+        # the splices of a harness a person made (format 3), under the routing in the same scroll
+        self.splices = SplicePanel(self.ctl, theme, self.settings)
+        self.splices.selected_wires = self.selected_wire_ids
+        below = QWidget()
+        below_lay = QVBoxLayout(below)
+        below_lay.setContentsMargins(0, 0, 0, 0)
+        below_lay.setSpacing(theme.space(8))
+        below_lay.addWidget(self.routing)
+        below_lay.addWidget(self.splices)
         column = QSplitter(Qt.Orientation.Vertical)
         column.setObjectName("harness-wires-splitter")
         column.setChildrenCollapsible(False)
@@ -848,7 +858,7 @@ class HarnessView(QWidget):
         rscroll.setObjectName("routing-scroll")
         rscroll.setWidgetResizable(True)
         rscroll.setFrameShape(QFrame.Shape.NoFrame)
-        rscroll.setWidget(self.routing)
+        rscroll.setWidget(below)
         rscroll.setMinimumHeight(theme.px(36))  # (a short window: the title and a line)
         rscroll.hide()
         self.routing_scroll = rscroll
@@ -1075,7 +1085,13 @@ class HarnessView(QWidget):
 
     def _show_routing(self, h: Harness) -> None:
         self.routing.show_harness(h)
-        self.routing_scroll.setVisible(not self.routing.isHidden())
+        self.splices.show_harness(h)
+        self.routing_scroll.setVisible(not self.routing.isHidden() or not self.splices.isHidden())
+
+    def selected_wire_ids(self) -> list[str]:
+        """The IDs of the wires chosen in the wire table."""
+        rows = self.wire_table.selected_rows()
+        return [str(r["id"]) for r in rows if isinstance(r, dict) and "id" in r]
 
     def _wire_added(self, wire_id: str) -> None:
         """A wire was added in the form: show its row and its values."""
