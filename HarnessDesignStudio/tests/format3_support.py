@@ -49,11 +49,13 @@ def recorded() -> list[str]:
 
 
 def record(name: str) -> dict[str, Any]:
-    return json.loads((BEFORE / f"{name}.json").read_text(encoding="utf-8"))
+    doc: dict[str, Any] = json.loads((BEFORE / f"{name}.json").read_text(encoding="utf-8"))
+    return doc
 
 
 def word_changes() -> list[dict[str, Any]]:
-    return json.loads(WORD_CHANGES.read_text(encoding="utf-8"))["changes"]
+    changes: list[dict[str, Any]] = json.loads(WORD_CHANGES.read_text(encoding="utf-8"))["changes"]
+    return changes
 
 
 # ---- step 1: the stamp --------------------------------------------------------------------------
@@ -248,12 +250,14 @@ def _sha(data: bytes) -> str:
 def comparable(entry: dict[str, Any]) -> dict[str, Any]:
     """What is compared of one file: its readable content, and for a workbook the hash of each
     member that holds no sheet (its sheets are compared by their cells and widths)."""
-    out = {k: entry[k] for k in ("text", "items", "json", "sheets", "texts") if k in entry}
+    out: dict[str, Any] = {
+        k: entry[k] for k in ("text", "items", "json", "sheets", "texts") if k in entry
+    }
     if "members" in entry:  # the others: the styles, the workbook, the relations
         out["members"] = {
             n: h
             for n, h in entry["members"].items()
-            if not n.startswith(("xl/worksheets/", "docProps/"))
+            if not n.startswith("xl/worksheets/") and n != "docProps/core.xml"
         }
     if not out:  # a file of another kind: by its digest
         out["sha256"] = entry["sha256"]

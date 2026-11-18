@@ -2,6 +2,8 @@
 
 `harness-design-studio export DIR` (or **Export…** in the top bar of the app) writes everything below into `DIR/outputs/`. The files are produced from the model only: the same model gives the same bytes. Nothing in them is typed in by hand; edit the model and export again.
 
+**Format 3 (3.0.0, D-242).** A harness has a version MAJOR.MINOR.PATCH (`1.0.0`) where it had a revision letter, and the written files say *Version* where they said *Revision* (owner question Q23): the title block field *VERSION* and the header `Version 1.0.0  status draft` of a drawing, *Start here*, the change log, the version report (Q31) and the findings of the release consistency. `system/export.json` writes each harness with `version` and keeps `revision` beside it with the same value through 3.0.x (Q29); the output check verifies that the two agree. The fixed list of these changes is `tests/fixtures/format3/word_changes.json`; `tests/test_format3.py` compares every file that 2.x wrote for the examples and test projects (the record `tests/fixtures/format3/before/`) with the file of 3.0 after the stamp, the file name and that list, and finds nothing else. The harness plan (`<ID>_plan.ods`) is not written yet.
+
 The screen says *device*, the files say *unit*: the written files keep the word *unit* in their headings and texts (for example the *Unit* column of `mating_matrix.csv`), so that a file made now has the same bytes as one made by version 1.7.0. (The *Unit* column of the bill of materials is a unit of measure.) This page keeps the words of the files.
 
 ## Contents
@@ -43,7 +45,7 @@ outputs/
     block_diagram.svg|pdf          units in zone lanes (each card with the band, badge and pictogram of its kind), interfaces and connections coloured by category, a key to the kinds
     harness_overview.svg|pdf       harnesses between units, solid = nominal, dashed = redundant
     bom.csv  mass_length.csv  mating_matrix.csv  traceability.csv  box_pinouts.csv
-    changelog.csv  revision_report.md   change log and per-harness history with differences between revisions
+    changelog.csv  version_report.md    change log and per-harness history with differences between versions
     drc_findings.csv  drc_report.md
     asbuilt_report.md  asbuilt_report.csv   what was built and measured against the design and the test limits (only when the project has as-built records, S9)
     export.json                    the whole model in one documented JSON file
@@ -58,7 +60,7 @@ outputs/
 
 | Sheet | Content |
 | --- | --- |
-| **Start here** | Title, revision, status and stamp; `Ready to build` (yes when no check below is marked `TO FIX`; `yes (values rest on placeholder configuration: …)` while a configuration file is still a placeholder, with a *Placeholder files* line listing them); a table of checks with the number open and a status: wires without a length, wires without a gauge, wires without a colour and wires without a part (`TO FIX`), pins in use without a termination, wires without strip lengths (a wire that lacks either end), pins in use without a contact part and parts that are not approved (`NOTE`); the author, checker, approver and release date from the harness (`not set` until then); how to use the sheets; a sign-off block (cut and stripped, terminated, assembled and labelled, tested, released for delivery) to fill in by hand. |
+| **Start here** | Title, version (`Version 1.0.0 · status …`), status and stamp; `Ready to build` (yes when no check below is marked `TO FIX`; `yes (values rest on placeholder configuration: …)` while a configuration file is still a placeholder, with a *Placeholder files* line listing them); a table of checks with the number open and a status: wires without a length, wires without a gauge, wires without a colour and wires without a part (`TO FIX`), pins in use without a termination, wires without strip lengths (a wire that lacks either end), pins in use without a contact part and parts that are not approved (`NOTE`); the author, checker, approver and release date from the harness (`not set` until then); how to use the sheets; a sign-off block (cut and stripped, terminated, assembled and labelled, tested, released for delivery) to fill in by hand. |
 | **Cut list** | One row per wire in cut order: thick before thin (smaller AWG first), then colour name, then length, the shorter first; a wire without a gauge comes last, and inside a gauge one without a colour or a length comes last in its group. Columns: **Cut (x)**, wire, colour (a coloured cell with the name and the IEC 60757 code, for example `red (RD)`), AWG, part, length (m), **Strip A (mm)**, **Strip B (mm)**, from, to, signal or label, shield group, note. A totals row gives the number of wires and the length. |
 | **Routing** | Only for a harness with at least one branch point (2.3.0), after **Cut list**: one row per segment in natural ID order (`W001-L2` before `W001-L10`): segment, from, to, length (m) (`to fill in` on an amber cell when it has none), number of wires and the wires, joined by `; `; then an empty row, a header and one row per branch point: its ID, its name and the connectors beyond it on each segment that meets it, on one line (`W001-L1: W001-P3, W001-P4; W001-L2: W001-P1`; a side with no connector says `(none)`). **Start here** lists the sheet under *How to use this workbook*. No new readiness check: a segment without a length already shows as *Wires without a length*. |
 | **Connectors** | One block per cable connector in ID order: a heading row with its ID, part, gender, what it mates with (or `not plugged into a unit`) and its label, then a row for every pin: signal, function, wire, colour, AWG, where the wire goes, termination (`to fill in` for a pin in use that has none), contact size, **Contact** (the contact part of the pin; `to fill in` for a pin in use that has none), **Tool** (the crimp tool of that contact part) and the tick columns **Terminated (x)**, **Inserted (x)**, **Checked (x)**. A pin without a wire is grey and reads `(spare)`. |
@@ -162,7 +164,7 @@ Each list holds the model objects exactly as in the project files (sorted by ID)
 Dark colours and dash patterns carry every distinction (category, nominal/redundant), so greyscale prints stay readable. Tests check contrast against white (at least 3:1) for the system diagrams. Harness drawings draw wire colours on a dark outline and write every colour as a code (REQ-OUT-03).
 
 ## Change control in the outputs
-`system/changelog.csv` lists every change log entry. `system/revision_report.md` gives, per harness, the history and the differences between consecutive baselines and between the working design and the latest baseline. The manifest also stores `content_hash` (model hash without release bookkeeping) which the release gate compares; see DECISIONS D-104.
+`system/changelog.csv` lists every change log entry (column *Version*; the event *new version started*). `system/version_report.md` (called `revision_report.md` until 3.0.0; an export removes the old file) gives, per harness, the history and the differences between consecutive baselines and between the working design and the latest baseline. The manifest also stores `content_hash` (model hash without release bookkeeping) which the release gate compares; see DECISIONS D-104.
 
 ## EMC class on wires and labels
 
@@ -202,7 +204,7 @@ A **loose end** is the end of a cable that is not on a connector yet (role `loos
 | `wireviz.yaml` | `type: "TBD-CONNECTOR (loose end)"` |
 | as-built sheet (`export-asbuilt`) and report | no lot is asked for `TBD-CONNECTOR`; the row of the end says `open end: no connector chosen yet`; its tests are those of the Tests sheet |
 | `system/export.json`, the open data | data as stored: role `loose`, part `TBD-CONNECTOR`, no `mates_with` (the open-data pin and BOM tables follow the CSV tables above) |
-| `revision_report.md`, `diff`, `compare` | the object is named *Loose end* instead of *Cable connector* (after the change; a plug reads *Cable connector* again) |
+| `version_report.md`, `diff`, `compare` | the object is named *Loose end* instead of *Cable connector* (after the change; a plug reads *Cable connector* again) |
 
 `explain` of a loose end says *Open end: no device connector and no part chosen yet* and its label `W009-P2 open end`; `explain TBD-CONNECTOR` explains the BOM line `(open end)`. The independent verifier words every row of this table again on its own and refuses a file that names an open end as an ordinary connector. The golden set of a project with loose ends is `tests/fixtures/outputs/loose_ends.json` and the text files in `tests/fixtures/outputs/loose_ends/` (`python -m tools.gen_output_goldens`).
 

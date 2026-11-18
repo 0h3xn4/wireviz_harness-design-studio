@@ -709,8 +709,8 @@ def test_the_record_holds_the_projects_of_the_design() -> None:
         "custom_device", "example-first-steps", "example-flatsat", "example-minimal-satellite",
         "example-small-satellite", "mini3", "mini3-released",
     ]  # fmt: skip
-    size = sum(p.stat().st_size for p in f3.BEFORE.glob("*.json"))
-    assert size < 5_100_000, size  # about 5 MB: small enough for the repository
+    size = sum((f3.BEFORE / f"{n}.json").stat().st_size for n in f3.recorded())
+    assert size < 5_000_000, size  # the record of the projects: small enough for the repository
     released = f3.record("mini3-released")["files"]
     assert "revision A to B" in released["system/revision_report.md"]["text"]
 

@@ -186,15 +186,21 @@ _HEADER_FOOTER = re.compile(rb"<headerFooter>.*?</headerFooter>", re.S)
 
 
 def _member_texts(z: zipfile.ZipFile) -> dict[str, str]:
-    """The parts of a workbook that hold the stamp outside the cells: the document properties, and
-    the header and footer of each sheet."""
+    """The parts of a workbook that hold the stamp outside the cells: the document properties
+    (`docProps/core.xml`) and the header and footer of each sheet, kept once under
+    `xl/worksheets/*` when every sheet has the same."""
     out: dict[str, str] = {}
+    sheets: dict[str, str] = {}
     for n in sorted(z.namelist()):
         data = as_in_base_version(z.read(n))
-        if n.startswith("docProps/"):
+        if n == "docProps/core.xml":
             out[n] = data.decode("utf-8")
         elif n.startswith("xl/worksheets/") and (m := _HEADER_FOOTER.search(data)):
-            out[n] = m[0].decode("utf-8")
+            sheets[n] = m[0].decode("utf-8")
+    if sheets and len(set(sheets.values())) == 1:
+        out["xl/worksheets/*"] = next(iter(sheets.values()))
+    else:
+        out.update(sheets)
     return out
 
 

@@ -2,6 +2,8 @@
 
 Written on 2026-11-17 from a reading of the code at `2393ff7` (master, with pull request 2 of 2.2.0) and of the users' template `harness_plan_template.ods`, supplied by the owner on 2026-11-17. The decision that records it is D-242. It is a design only: nothing of it is built. Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`. The owner answered the 17 questions of the first version on 2026-11-17 (section 14). The second version followed the answers and asked the questions they raised (Q18 to Q27). The owner answered those on 2026-11-17 too. This version follows them: the word *Revision* becomes *Version* everywhere in 3.0.0 (Q23, section 5.8). It asks the questions that change raises (Q28 to Q33).
 
+**Status (2026-11-18):** R1 is built (pull request 272). Pull request 1 is built on the branch `feat/format3` (format 3, the versions, `new-version --kind`, `migrate --set-version`, the word *Version* in the written files, the proof of section 5.6 with the record of the 2.x outputs and `word_changes.json`); it is not merged. R2 and pull requests 2 to 8 are not built. Where pull request 1 differs from this design, see [section 16](#16-pull-request-1-as-built-where-it-differs).
+
 ## 0. The owner's frame
 
 The owner decided three things on 2026-11-17. This design works inside them.
@@ -770,3 +772,20 @@ The table of the Notes sheet of the users' template, *uD Pigtail Colour Code*, a
 | 35 | Wh / Red / Orange |
 | 36 | Wh / Red / Yellow |
 | 37 | Wh / Red / Green |
+
+## 16. Pull request 1 as built: where it differs
+
+Pull request 1 (branch `feat/format3`) follows sections 4, 5 and 12 with these differences, each the conservative reading of a point the design leaves open:
+
+- **The old reading is not compared at run time.** An upgrade that crosses format 3 cannot load the files of format 2 as they are (format 3 refuses a letter), so the safety net runs parts 1 and 2 of section 5.6 on the files before it writes (`upgrade.prove_versions_step`: both sides loaded with the renamed keys read as one and each version read as its place, the same model hash, findings of loading and release consistency; every version the mapping of its revision), and the record says *exports not compared with the old reading*. The findings of `validate` and `check` are compared between the in-memory upgrade and the reloaded folder, as for the other steps.
+- **The generation input hash reads the title block field under its old name**, so that the upgrade leaves a generated project current (generation does not read the title block). Without it every generated project would read *out of date* after the upgrade, which the design did not intend.
+- **`check` of a format 2 project** holds the files that the step changes against the tool's formatting of their own content, not against what a save would write now.
+- **The device library file** is written as version 2 when a device or a part uses any field of format 3 (the pin level, the role `signal_ground`, a connector's source, a part's link), not only the pin level: a 2.2 tool refuses each of them.
+- **When a draft is *revised*** (`describe.harness_state`): when its version is not `1.0.0`, the letter rule of 2.x mapped; the baseline rule of section 5.7 is left to R2 with the screen.
+- **`revise`** is left out of the command list of `--help` but still shows in its line of choices `{…}` (an argparse limit); it now needs `--kind` like `new-version`. `plan_new_revision` stays in the core as the older name with the major step.
+- **The top bar shows `v1.0.0`** (the short form of Q32), because *Revision 1.0.0* made it fold at 1440 px; the other screen words stay for R2.
+- **Left to R2**, as section 12 lists: the notes on a major version and on a pinout change, the kind chosen again (`version_changed` exists in the model), `diff --from` with an old letter, the loader's `revision_not_version` and `merge-fix` for letters after a merge.
+- **The record of the 2.x outputs** (`tests/fixtures/format3/before/`, made by `tools.format3_record` with the code of R1) holds the four examples, mini3, custom_device and mini3 with a release history (A, B); sat15 is not recorded apart, because the example small-satellite is the sample sat15 under another name and a second copy would take the record past 5 MB. JSON files are kept as their content, workbooks as cells, column widths, document properties, headers and footers and member hashes, drawings as their text items. The checks of section 5.6 that the record holds: `tests/test_format3.py` (the record against the 2.x baseline and goldens, the comparison with the word list, the snapshot of the numbers).
+- **The word list** has no entry for `drc_findings.csv` and `drc_report.md` (*revision {L}*, *start a new revision*): those texts appear only where a release history is broken, no recorded project has one, and an entry that matches nowhere fails the test. The core messages are held by the word guard instead.
+- **Step 4 of the comparison** has one rule beside the widths and the `fit`, which did not move: in a comparison of the version report the line of the renamed field moves to its place among the fields sorted by name (`version` after `status`, where `revision` was before it).
+
