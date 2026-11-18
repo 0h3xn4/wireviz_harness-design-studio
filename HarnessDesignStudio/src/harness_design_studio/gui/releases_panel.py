@@ -40,6 +40,7 @@ from harness_design_studio.core.model import Project
 from harness_design_studio.core.vcs import lockview
 from harness_design_studio.core.vcs.diff import Diff
 from harness_design_studio.core.vcs.gitinfo import CommitInfo, last_commit
+from harness_design_studio.core.vcs.release import kind_again
 from harness_design_studio.core.vcs.report import baselines_of
 from harness_design_studio.core.vcs.timeline import (
     DiffGroup,
@@ -91,7 +92,7 @@ def _timeline_dict(r: TimelineRow) -> dict[str, Any]:
     return {
         "id": r.id,
         "harness": r.harness_id,
-        "revision": r.version,
+        "version": r.version,
         "kind": r.kind,
         "event": r.event,
         "by": r.by,
@@ -231,7 +232,7 @@ class ReleasesPanel(QWidget):
         cols = [
             Column("id", strings.REL_COLUMNS["id"], mono=True),
             Column("harness", strings.REL_COLUMNS["harness"], mono=True),
-            Column("revision", strings.REL_COLUMNS["revision"], mono=True),
+            Column("version", strings.REL_COLUMNS["version"], mono=True),
             Column(
                 "event",
                 strings.REL_COLUMNS["event"],
@@ -245,7 +246,7 @@ class ReleasesPanel(QWidget):
                 strings.REL_COLUMNS["baseline"],
                 state=lambda r: "released" if _m(r)["has_baseline"] else None,
                 tooltip=lambda r: (
-                    strings.REL_BASELINE_TIP.format(_m(r)["revision"])
+                    strings.REL_BASELINE_TIP.format(_m(r)["version"])
                     if _m(r)["has_baseline"]
                     else strings.REL_NO_BASELINE_TIP
                 ),
@@ -506,7 +507,7 @@ class ReleasesPanel(QWidget):
     def _selected_revision(self) -> str | None:
         rows = self.timeline.selected_rows()
         if rows and isinstance(rows[0], Mapping) and rows[0].get("has_baseline"):
-            return str(rows[0]["revision"])
+            return str(rows[0]["version"])
         return None
 
     # ---- the timeline -------------------------------------------------------------------------
@@ -552,8 +553,12 @@ class ReleasesPanel(QWidget):
             "release": strings.REL_RELEASE_TIP,
             "revise": strings.REL_REVISE_TIP,
         }
+        again = h is not None and kind_again(project, h.id)  # the kind chosen again (Q22)
+        if again:
+            tips["revise"] = strings.REL_REVISE_AGAIN_TIP
         for action, button in self.action_buttons.items():
-            ok = h is not None and status in wanted[action] and not self.ctl.read_only
+            fits = status in wanted[action] or (action == "revise" and again)
+            ok = h is not None and fits and not self.ctl.read_only
             button.setEnabled(ok)
             tip = tips[action]
             if not ok:  # a disabled button says why

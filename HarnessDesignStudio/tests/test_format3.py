@@ -18,6 +18,7 @@ the mapping of its revision. A 2.x tool opens a format 3 project read-only (the 
 
 import copy
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -684,6 +685,50 @@ def test_no_message_of_the_core_says_revision() -> None:
             ):
                 found.append(f"{rel}:{node.lineno}: {node.value[:60]}")
     assert found == []
+
+
+# The texts of the screen that may still name the word of 2.x (pull request R2): the upgrade question
+# explains the mapping of the old revisions to versions.
+ALLOWED_STRINGS = {"UPGRADE_DETAIL_VERSIONS"}
+SCREEN_OLD_WORDS = re.compile(r"revision|revise|\brev\b", re.IGNORECASE)
+
+
+def _texts(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [t for v in value.values() for t in _texts(v)]
+    if isinstance(value, list | tuple | set | frozenset):
+        return [t for v in value for t in _texts(v)]
+    return []
+
+
+def test_no_text_of_the_screen_says_revision() -> None:
+    """Section 5.6, the word guard, extended by pull request R2 to the texts of `gui/strings.py`
+    (Q32): no text of the screen says *revision*, *revise* or *rev*, apart from the upgrade
+    question that names the word of 2.x; nor does a document name of the Outputs list."""
+    pytest.importorskip("PySide6")
+    from harness_design_studio.gui import export_docs, strings
+
+    found = [
+        f"{name}: {text[:60]}"
+        for name, value in sorted(vars(strings).items())
+        if name.isupper() and name not in ALLOWED_STRINGS
+        for text in _texts(value)
+        if SCREEN_OLD_WORDS.search(text)
+    ]
+    assert found == []
+    assert "revision" in strings.UPGRADE_DETAIL_VERSIONS  # the one allowed text still needs it
+    assert [d.label for d in export_docs.DOCS.values() if SCREEN_OLD_WORDS.search(d.label)] == []
+    assert export_docs.DOCS["sys_version_report"].label == "Version report"
+
+
+def test_the_screen_and_the_core_give_the_same_note_on_a_major_version() -> None:
+    pytest.importorskip("PySide6")
+    from harness_design_studio.core.vcs.release import MAJOR_NOTE
+    from harness_design_studio.gui import strings
+
+    assert strings.NV_MAJOR_NOTE == MAJOR_NOTE
 
 
 def test_the_change_log_and_the_report_say_version(tmp_path: Path) -> None:

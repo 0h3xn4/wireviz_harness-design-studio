@@ -194,7 +194,7 @@ def test_a_harness_shows_its_release_state_as_a_chip(flat, theme, qtbot) -> None
     for status, rev, expect in (
         ("in_review", "1.0.0", ("in-review", "In review")),
         ("released", "1.0.0", ("released", "Released 1.0.0")),
-        ("draft", "2.0.0", ("revised", "Revised 2.0.0")),
+        ("draft", "2.0.0", ("revised", "New version 2.0.0")),
     ):
         ops = [Put("harnesses", evolve(h, status=status, version=rev))]
         if status == "released":
@@ -462,7 +462,7 @@ def test_the_lock_goes_when_the_release_is_undone(released, theme, qtbot) -> Non
     assert plan.ok
     assert ctl.apply_change(plan, "revised")
     assert tree.lock_of("harness", hid) is None
-    assert tree.state_of("harness", hid) == ("revised", "Revised 2.0.0")
+    assert tree.state_of("harness", hid) == ("revised", "New version 2.0.0")
 
 
 # ---- selection, keyboard, signals ----------------------------------------------------------------

@@ -165,7 +165,7 @@ def test_a_locked_link_shows_who_holds_it_and_how_to_revise(released, theme, qtb
         w.banner.chip.text() or ""
     )
     assert "Names and notes can still be changed" in w.banner.sentence.text()
-    assert w.banner.button.isVisibleTo(w) and w.banner.button.text() == "Start new revision"
+    assert w.banner.button.isVisibleTo(w) and w.banner.button.text() == "Start new version"
     assert w.banner.button.accessibleName() and hid in w.banner.button.toolTip()
 
 
