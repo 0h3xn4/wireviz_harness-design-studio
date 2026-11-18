@@ -7,6 +7,10 @@ Usage: python -m tools.gen_output_goldens   (then review the diff)
 `tests/loose_support.py` (the flatsat example and five harnesses a person drew): the digest of
 every file, and the text files of the drawn harnesses and the system BOM and mass to read.
 
+`splices` (format 3, M6a) is the project with splices of `tests/splice_support.py`
+(`branch_leg_project`: mini3 with a Y harness through two splices and a harness with a splice on a
+branch point's leg): the digest of every file, and the text files of those two harnesses.
+
 `harness_plan/` (3.0.0, D-242, pull request 3 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`): the
 harness plans of the four examples and of the branching fixture, made with the plan on
 (`build_outputs(..., harness_plan=True)`): the SHA-256 of each plan in `<project>.json`, and the
@@ -24,6 +28,8 @@ from harness_design_studio.core.samples import mini3, sat15, sat15_full
 from tests.helpers import output_digests
 from tests.loose_support import generated_loose, golden_text_files
 from tests.plan_support import GOLDEN_PROJECTS, READABLE, golden_files, golden_project
+from tests.splice_support import branch_leg_project
+from tests.splice_support import golden_text_files as splice_text_files
 
 ROOT = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "outputs"
 
@@ -54,6 +60,15 @@ def main() -> None:
     text = ROOT / "loose_ends"
     shutil.rmtree(text, ignore_errors=True)
     for rel, data in golden_text_files(files).items():
+        (text / rel).parent.mkdir(parents=True, exist_ok=True)
+        (text / rel).write_bytes(data)
+    files = build_outputs(branch_leg_project()).files
+    (ROOT / "splices.json").write_text(
+        json.dumps(output_digests(files), indent=1, sort_keys=True) + "\n", newline="\n"
+    )
+    text = ROOT / "splices"
+    shutil.rmtree(text, ignore_errors=True)
+    for rel, data in splice_text_files(files).items():
         (text / rel).parent.mkdir(parents=True, exist_ok=True)
         (text / rel).write_bytes(data)
     plans = ROOT / "harness_plan"

@@ -113,7 +113,12 @@ def plan_edit_connector(
     clean: dict[str, object] = {}
     for key, value in changes.items():
         if key == "part_id":
-            part = connector_part(project, str(value))
+            if c.role == "splice":  # a splice takes a splice part (format 3)
+                from .splices import splice_part
+
+                part = splice_part(project, str(value))
+            else:
+                part = connector_part(project, str(value))
             clean[key] = part.id
         elif key == "gender":
             if value not in GENDERS:

@@ -1,0 +1,18 @@
+# harness-design-studio 2.4.0 model e0075c432202
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+Label,Kind,Text,Quantity
+W003-P1,connector,W003-P1 mates PCDU-J02,1
+W003-P2,connector,W003-P2 mates OBC-J02,1
+W003-P3,connector,W003-P3 mates OBC-J03,1
+W003-001-A,wire,W003-001 PWR to W003-X1.1,1
+W003-001-B,wire,W003-001 PWR to W003-P1.1,1
+W003-002-A,wire,W003-002 PWR to W003-P2.1,1
+W003-002-B,wire,W003-002 PWR to W003-X1.1,1
+W003-003-A,wire,W003-003 PWR to W003-P3.1,1
+W003-003-B,wire,W003-003 PWR to W003-X1.1,1
+W003-004-A,wire,W003-004 RTN to W003-X2.1,1
+W003-004-B,wire,W003-004 RTN to W003-P1.2,1
+W003-005-A,wire,W003-005 RTN to W003-P2.2,1
+W003-005-B,wire,W003-005 RTN to W003-X2.1,1
+W003-006-A,wire,W003-006 RTN to W003-P3.2,1
+W003-006-B,wire,W003-006 RTN to W003-X2.1,1

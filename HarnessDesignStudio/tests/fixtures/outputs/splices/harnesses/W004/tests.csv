@@ -1,0 +1,9 @@
+# harness-design-studio 2.4.0 model e0075c432202
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+Test,Type,From,To,Expected,Limit,Test voltage,Wire
+T001,continuity,W004-P1.1,W004-P2.1 via W004-X1,continuous,TBD (placeholder),,W004-001;W004-002
+T002,continuity,W004-P1.1,W004-P3.1 via W004-X1,continuous,TBD (placeholder),,W004-001;W004-003
+T003,continuity,W004-P2.1,W004-P3.1 via W004-X1,continuous,TBD (placeholder),,W004-002;W004-003
+T004,continuity,W004-P1.2,W004-P2.2,continuous,TBD (placeholder),,W004-004
+T005,isolation,W004-P1.1 + W004-P2.1 + W004-P3.1,all other nets and shields,isolated,TBD (placeholder),TBD (placeholder),W004-001;W004-002;W004-003
+T006,isolation,W004-P1.2,all other wires and shields,isolated,TBD (placeholder),TBD (placeholder),W004-004
