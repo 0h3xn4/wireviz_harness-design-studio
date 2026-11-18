@@ -84,7 +84,7 @@ class CableEndItem(QGraphicsItem):
             spot = (hx + shift.x(), hy + shift.y())
         else:
             spot = self.dscene.cable.port_now(cb.Port(e.target_unit, e.target)).at
-        pts = cb.route(a, spot)
+        pts = self.route_via(a, spot)
         if pts == self.points and spot == self.spot:
             return
         self.prepareGeometryChange()
@@ -101,6 +101,18 @@ class CableEndItem(QGraphicsItem):
         self._hit = hit
         self._bounds = path.boundingRect().adjusted(-PAD, -PAD, PAD + 60.0, PAD)
         self.update()
+
+    def route_via(self, a: cb.Port, spot: tuple[float, float]) -> list[tuple[float, float]]:
+        """The line from the port `a` to `spot`, through the branch points on its way (2.3.0):
+        out of the port as a connection runs, then in right angles from one stop to the next."""
+        stops = [s for b in self.end.via if (s := self.dscene.branch_spot(b)) is not None]
+        if not stops:
+            return cb.route(a, spot)
+        pts = cb.route(a, stops[0])
+        for (x0, y0), (x1, y1) in zip([*stops], [*stops[1:], spot], strict=True):
+            mid = (x0 + x1) / 2
+            pts += [(mid, y0), (mid, y1), (x1, y1)]
+        return pts
 
     def plug_rect(self) -> QRectF:
         """Where the open plug of a loose end is (around its spot), for a press and a ring."""
