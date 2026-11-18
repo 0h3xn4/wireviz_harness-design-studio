@@ -50,6 +50,7 @@ from .wires import released_text, used_ids
 
 __all__ = [
     "Leg",
+    "PlugFix",
     "plan_add_branch_point",
     "plan_add_leg",
     "plan_add_segment",
@@ -58,6 +59,7 @@ __all__ = [
     "plan_join_harnesses",
     "plan_rename_branch_point",
     "plan_set_segment_length",
+    "plug_fix",
 ]
 
 _NAME = TypeAdapter(Name)
@@ -647,3 +649,41 @@ def plan_join_harnesses(project: Project, keep_id: str, other_id: str) -> list[O
         notes=notes,
     )
     return [Delete("harnesses", other_id), Put("harnesses", joined)]
+
+
+# ---- what a person can do about a device connector with several plugs ---------------------------
+
+
+@dataclass(frozen=True)
+class PlugFix:
+    """The way out the editor offers for a device connector with plugs of several harnesses (the
+    warning `box_connector_mated_twice`): `join` when every plug belongs to a harness a person
+    made (`plan_join_harnesses`, the harnesses in ID order), `mode` when every plug belongs to a
+    draft that Generate made and `segmentation.mode` is not `per_connector_group` yet (choose that
+    mode: the next Generate joins them)."""
+
+    kind: str  # "join" | "mode"
+    box_id: str
+    harness_ids: tuple[str, ...]
+
+
+def plug_fix(project: Project, box_id: str) -> PlugFix | None:
+    """The fix of a device connector with plugs of two harnesses or more (see `PlugFix`), or None:
+    one plug or none, plugs of both kinds, a released harness of Generate, or Generate's harnesses
+    in the mode that joins them already (the next Generate does it)."""
+    from .generate.segmentation import GROUP_MODE, mode_of
+    from .integrity import mating_plugs
+
+    if box_id not in project.connectors:
+        return None
+    plugs = mating_plugs(project.harnesses.values()).get(box_id, [])
+    ids = tuple(sorted({hid for hid, _cid in plugs}))
+    harnesses = [project.harnesses.get(hid) for hid in ids]
+    if len(ids) < 2 or any(h is None for h in harnesses):
+        return None
+    if not any(h.generated for h in harnesses if h is not None):
+        return PlugFix("join", box_id, ids)
+    drafts = all(h is not None and h.generated and h.status != "released" for h in harnesses)
+    if drafts and mode_of(project) != GROUP_MODE:
+        return PlugFix("mode", box_id, ids)
+    return None

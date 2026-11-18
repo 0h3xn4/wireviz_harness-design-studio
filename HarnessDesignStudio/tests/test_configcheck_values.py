@@ -242,3 +242,33 @@ def test_a_value_frozen_by_a_release_is_refused_with_the_lock_sentence(tmp_path:
     assert fields[("derating", "spare_pin_fraction")].locked == plan.error
     assert fields[("generation", "service_loop_m")].locked is None
     assert configcheck.plan_set_value(p, "generation", "service_loop_m", 0.1).ok
+
+
+def test_a_choice_of_the_registry_is_set_as_one_op_and_refused_with_the_reason() -> None:
+    """2.3.0 (D-243): Settings > Project sets segmentation.mode through `plan_set_choice`."""
+    p = fresh()
+    plan = configcheck.plan_set_choice(p, "segmentation", "mode", "per_connector_group")
+    assert plan.ok and plan.value == "per_connector_group" and len(plan.ops) == 1
+    History(p).execute("mode", plan.ops)
+    assert p.config["segmentation"].values["mode"] == "per_connector_group"
+    assert configcheck.plan_set_choice(p, "segmentation", "mode", "per_connector_group").ops == []
+    bad = configcheck.plan_set_choice(p, "segmentation", "mode", "per_galaxy")
+    assert not bad.ok and "per_connector_group" in (bad.error or "")
+    assert not configcheck.plan_set_choice(p, "segmentation", "nothing", "x").ok
+    assert not configcheck.plan_set_choice(p, "derating", "spare_pin_fraction", "x").ok
+    p.read_only = True
+    assert "read-only" in (
+        configcheck.plan_set_choice(p, "segmentation", "mode", "per_unit_pair").error or ""
+    )
+    empty = fresh()
+    empty.config.pop("segmentation", None)
+    made = configcheck.plan_set_choice(empty, "segmentation", "mode", "per_unit_pair")
+    assert made.ok and isinstance(made.ops[0], SetConfig)
+
+
+def test_a_release_does_not_freeze_the_segmentation_choice(tmp_path: Path) -> None:
+    """Generate never takes over a released harness, so the mode stays open after a release."""
+    p = full()
+    hid = releasable(p)
+    do_release(p, hid, exported(p, tmp_path))
+    assert configcheck.plan_set_choice(p, "segmentation", "mode", "per_connector_group").ok

@@ -19,8 +19,14 @@ listed in the project tree and reached from the menu.
 Where an end hangs is the diagram mark `pos:<connector id>` (an offset from the place the diagram
 gives it, outside the model hash; `core/io/layout.py` drops it when the connector goes). Pure
 functions of the project; they change nothing and know nothing of a screen.
+
+A harness drawn by hand that branches (2.3.0, D-243) has branch points: `drawn_branch_points`
+names each one with the connectors it sits between (the diagram puts it at their middle, moved by
+the mark `branch:<branch point id>`), and each end lists the branch points its line runs through
+(`CableEnd.via`, from the anchor's plug along the segments).
 """
 
+from collections import deque
 from dataclasses import dataclass
 
 from .edit import EditError, unit_connectors
@@ -30,11 +36,17 @@ from .model import Connector, Harness, Project
 from .model.physical import LOOSE_ROLE
 
 POS_KIND = "pos"
+BRANCH_KIND = "branch"
 
 
 def pos_mark(connector_id: str) -> str:
     """The ID of the diagram mark that keeps where a loose end hangs."""
     return f"{POS_KIND}:{connector_id}"
+
+
+def branch_mark(branch_id: str) -> str:
+    """The ID of the diagram mark that keeps where a branch point sits."""
+    return f"{BRANCH_KIND}:{branch_id}"
 
 
 @dataclass(frozen=True)
@@ -54,6 +66,75 @@ class CableEnd:
     target_unit: str = ""
     index: int = 0
     pins: int = 0
+    via: tuple[str, ...] = ()  # the branch points the line runs through, from the anchor on
+
+
+@dataclass(frozen=True)
+class BranchSpot:
+    """A branch point the diagram draws: on a harness drawn by hand that `drawn_ends` draws, between
+    the cable connectors of the harness it joins (`connectors`, every side of it)."""
+
+    harness_id: str
+    branch_id: str
+    name: str
+    connectors: tuple[str, ...]
+
+
+def _graph(h: Harness) -> dict[str, list[str]]:
+    graph: dict[str, list[str]] = {}
+    for s in sorted(h.segments, key=lambda x: x.id):
+        graph.setdefault(s.from_node, []).append(s.to_node)
+        graph.setdefault(s.to_node, []).append(s.from_node)
+    return graph
+
+
+def path_branches(h: Harness, start: str, end: str) -> tuple[str, ...]:
+    """The branch points on the path of segments from node `start` to node `end`, in order (none
+    when the segments do not join them)."""
+    graph = _graph(h)
+    came: dict[str, str] = {start: start}
+    todo = deque([start])
+    while todo:
+        node = todo.popleft()
+        if node == end:
+            break
+        for nxt in graph.get(node, []):
+            if nxt not in came:
+                came[nxt] = node
+                todo.append(nxt)
+    if end not in came or start == end:
+        return ()
+    points = {b.id for b in h.branch_points}
+    path = []
+    node = came[end]
+    while node != start:
+        path.append(node)
+        node = came[node]
+    return tuple(n for n in reversed(path) if n in points)
+
+
+def drawn_branch_points(project: Project) -> list[BranchSpot]:
+    """The branch points of the harnesses drawn by hand that the diagram draws (a harness plugged
+    in somewhere that Generate did not make), by harness and ID; each with the cable connectors it
+    joins (those reached through its segments, natural order of IDs)."""
+    out: list[BranchSpot] = []
+    for hid in sorted(project.harnesses):
+        h = project.harnesses[hid]
+        if h.generated or not h.branch_points or not _plugged(project, h):
+            continue
+        graph = _graph(h)
+        connectors = {c.id for c in h.connectors}
+        for b in sorted(h.branch_points, key=lambda x: x.id):
+            seen = {b.id}
+            todo = list(graph.get(b.id, []))
+            seen.update(todo)
+            while todo:
+                for nxt in graph.get(todo.pop(), []):
+                    if nxt not in seen:
+                        seen.add(nxt)
+                        todo.append(nxt)
+            out.append(BranchSpot(hid, b.id, b.name, tuple(sorted(seen & connectors))))
+    return out
 
 
 def harness_of(project: Project, connector_id: str) -> Harness | None:
@@ -104,7 +185,7 @@ def drawn_ends(project: Project) -> list[CableEnd]:
         plugged = _plugged(project, h)
         if not plugged:
             continue
-        anchor = plugged[0][1]
+        anchor_plug, anchor = plugged[0]
         index = 0
         for c in sorted(h.connectors, key=lambda x: x.id):
             if c.role != LOOSE_ROLE:
@@ -119,6 +200,7 @@ def drawn_ends(project: Project) -> list[CableEnd]:
                     anchor.unit_id or "",
                     index=index,
                     pins=len(c.pins),
+                    via=path_branches(h, anchor_plug.id, c.id),
                 )
             )
             index += 1
@@ -136,6 +218,7 @@ def drawn_ends(project: Project) -> list[CableEnd]:
                     box.id,
                     box.unit_id or "",
                     pins=len(c.pins),
+                    via=path_branches(h, anchor_plug.id, c.id),
                 )
             )
     return out
@@ -176,13 +259,18 @@ def plug_port(project: Project, harness_id: str, loose_id: str, unit_id: str) ->
 
 
 __all__ = [
+    "BRANCH_KIND",
     "POS_KIND",
+    "BranchSpot",
     "CableEnd",
     "all_loose_ends",
+    "branch_mark",
     "connector_of",
+    "drawn_branch_points",
     "drawn_ends",
     "free_port",
     "harness_of",
+    "path_branches",
     "plug_port",
     "pos_mark",
 ]

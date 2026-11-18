@@ -44,7 +44,7 @@ from harness_design_studio.core.model import InterfaceInstance, Part
 from harness_design_studio.gui import device_kinds, device_looks, strings
 from harness_design_studio.gui.controller import LIST_DELAY_MS, Delta, EditorController
 from harness_design_studio.gui.icons import icon_button
-from harness_design_studio.gui.problems_panel import finding_why
+from harness_design_studio.gui.problems_panel import branch_fix, finding_why
 from harness_design_studio.gui.theme import ThemeManager, current_theme, mark_mono
 from harness_design_studio.gui.theme.tokens import CATEGORIES, style_category
 from harness_design_studio.gui.wrap_label import FlowRow, WrapButton, breakable
@@ -790,6 +790,8 @@ class ProblemsPanel(QScrollArea):
     showRequested = Signal(str)  # object id
     waiveRequested = Signal(object)  # Finding
     deviateRequested = Signal(object)  # Finding: an error of an electrical rule, accepted
+    joinRequested = Signal(str)  # a device connector: join the harnesses that plug into it
+    segmentationRequested = Signal()  # open Settings at the segmentation choice
 
     def __init__(self, ctl: EditorController) -> None:
         super().__init__()
@@ -1041,6 +1043,23 @@ class ProblemsPanel(QScrollArea):
             fix.setEnabled(not self.ctl.read_only)
             fix.clicked.connect(lambda: self.ctl.apply_fix(f))
             row.addWidget(fix)
+        plugs = branch_fix(self.ctl.project, f)  # 2.3.0: several plugs on one device connector
+        if plugs is not None:
+            box, ids = plugs.box_id, plugs.harness_ids
+            if plugs.kind == "join":
+                join = QPushButton(strings.FIX_JOIN)
+                join.setObjectName("fix-join")
+                join.setToolTip(
+                    strings.FIX_JOIN_TIP.format(harnesses=", ".join(ids), box=box, keep=ids[0])
+                )
+                join.clicked.connect(lambda: self.joinRequested.emit(box))
+            else:
+                join = QPushButton(strings.FIX_MODE)
+                join.setObjectName("fix-mode")
+                join.setToolTip(strings.FIX_MODE_TIP.format(box=box))
+                join.clicked.connect(self.segmentationRequested.emit)
+            join.setEnabled(not self.ctl.read_only)
+            row.addWidget(join)
         if f.can_waive:
             waive = QPushButton(strings.WAIVE)
             waive.setObjectName("waive")

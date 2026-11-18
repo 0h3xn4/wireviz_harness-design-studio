@@ -305,6 +305,13 @@ def _cases() -> list[Case]:
     )
     add("Change group", _group, "ChangeGroupDialog")
     add(
+        "Add segment",
+        lambda c: _routing().SegmentDialog(
+            None, c.theme, c.project, sorted(c.project.harnesses)[0]
+        ),
+        "SegmentDialog",
+    )
+    add(
         "History window (journal)",
         lambda c: journal_dialog.JournalDialog(
             None, c.theme, c.project, start_journal=lambda: True
@@ -443,6 +450,12 @@ def _group(c: Ctx) -> QWidget:
 
     gid = next(s.id for h in c.project.harnesses.values() for s in h.shields)
     return harness_edit_dialogs.ChangeGroupDialog(None, c.theme, c.project, gid)
+
+
+def _routing() -> Any:
+    from harness_design_studio.gui import routing_panel
+
+    return routing_panel
 
 
 def _conflict(c: Ctx) -> QWidget:

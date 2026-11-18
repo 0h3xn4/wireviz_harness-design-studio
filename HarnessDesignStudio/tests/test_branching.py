@@ -619,3 +619,44 @@ def test_put_ops_only_replace_the_one_harness():
     hid = straight(p)
     ops, _bid = plan_add_branch_point(p, hid)
     assert [type(o) for o in ops] == [Put] and ops[0].obj.id == hid
+
+
+def test_the_fix_of_a_connector_with_two_plugs_is_the_join_or_the_mode():
+    from harness_design_studio.core.branching import PlugFix, plug_fix
+
+    p = labelled()
+    history = History(p)
+    keep, other = two_cables(p, history)
+    assert plug_fix(p, "OBC-J01") == PlugFix("join", "OBC-J01", (keep, other))
+    assert plug_fix(p, "RW1-J02") is None  # one plug
+    assert plug_fix(p, "NOPE") is None
+    p.harnesses[other] = evolve(p.harnesses[other], generated=True)
+    assert plug_fix(p, "OBC-J01") is None  # one of each: neither fix
+    p.harnesses[keep] = evolve(p.harnesses[keep], generated=True)
+    assert plug_fix(p, "OBC-J01") == PlugFix("mode", "OBC-J01", (keep, other))
+    p.config["segmentation"] = evolve(
+        p.config["segmentation"], values={"mode": "per_connector_group"}
+    )
+    assert plug_fix(p, "OBC-J01") is None  # the next Generate joins them
+
+
+def test_the_diagram_draws_the_branch_points_of_a_drawn_harness_and_its_lines_run_through_them():
+    from harness_design_studio.core import cable_ends
+
+    p = labelled()
+    hid = straight(p)
+    assert cable_ends.drawn_branch_points(p) == []
+    leg = plan_add_leg(p, hid, "OBC-J01")
+    apply_ops(p, leg.ops)
+    (spot,) = cable_ends.drawn_branch_points(p)
+    assert spot == cable_ends.BranchSpot(
+        hid, "W001-B1", "Branch 1", ("W001-P1", "W001-P2", "W001-P3")
+    )
+    ends = {e.connector_id: e for e in cable_ends.drawn_ends(p)}
+    assert ends["W001-P3"].via == ("W001-B1",) and ends["W001-P2"].via == ("W001-B1",)
+    h = p.harnesses[hid]
+    assert cable_ends.path_branches(h, "W001-P1", "W001-P1") == ()
+    assert cable_ends.path_branches(h, "W001-P2", "W001-P3") == ("W001-B1",)
+    assert cable_ends.path_branches(h, "W001-P1", "NOWHERE") == ()
+    assert cable_ends.branch_mark("W001-B1") == "branch:W001-B1"
+    assert cable_ends.drawn_branch_points(generated_mini3()) == []  # Generate's are not drawn
