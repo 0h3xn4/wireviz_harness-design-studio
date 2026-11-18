@@ -113,6 +113,8 @@ Every one of these is one undo step. What the rest of the tool does with a loose
 - **Release:** blocked with `loose_end_unresolved`, see [release a harness](release-a-harness.md#optional-a-cable-with-a-loose-end).
 - **Written files:** they name the end as an **open end**: the part reads `TBD-CONNECTOR (loose end)` and what it mates with `open end` (pinout table, drawing, build workbook), the label `W009-P2 open end`, the bill of materials has one line `(open end)` with the approval *to fill in* and the number of ends instead of a line for `TBD-CONNECTOR`, the mass never counts the end and lists it as missing, the tests at the end say `(open end)` and *test when the end is decided*, the drawing draws the end dashed, and the Connectors sheet of the build workbook says *open end, to fill in*. The whole list is in [Outputs](../OUTPUTS.md#a-loose-cable-end).
 
+**Branches.** A harness you drew can branch: a second cable from a port it plugs into is a new leg of it, and its **Routing** table in the **Harness** tab adds branch points and segments with their lengths. Two harnesses you drew on one device connector can be joined into one. See [branching harnesses](branching-harnesses.md) (since 2.3.0).
+
 ## What Generate does with it
 
 Nothing. **Generate** leaves a harness you made, its connectors and its wires exactly as they are. It reports nothing as removed because of it. Delete the harness yourself with **More > Delete harness…** (a draft or a harness in review).
