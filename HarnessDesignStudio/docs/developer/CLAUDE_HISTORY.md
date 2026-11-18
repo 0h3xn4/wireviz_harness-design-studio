@@ -57,3 +57,9 @@ The notes on the publication of the minor releases 2.2.0 and 2.3.0, moved word f
 The minor release `2.2.0` (D-244; the device library; no format change) was published on 2026-11-17 (annotated tag `v2.2.0` on `a90ef82`, the merge of #256; made by the tag workflow, run 44137315323, its sixth use; release workflow run 44137517372, first attempt; signed and attested): the latest full release until 2.3.0.
 
 The minor release `2.3.0` (D-245; branching harnesses; no format change) was published on 2026-11-18 (annotated tag `v2.3.0` on `5104988`, the merge of #267; made by the tag workflow, run 44238883189, its seventh use; release workflow run 44238914945, first attempt; signed and attested): the latest full release until 2.3.1.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 3.0.0 (2026-11-18)
+
+The note on the publication of the patch release 2.3.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when 3.0.0 was prepared; that item still names 2.3.1 in the list of releases and says where this note is.
+
+The patch release `2.3.1` (D-246; the new logo; no format change) was published on 2026-11-18 (annotated tag `v2.3.1` on `764061f`, the merge of #270; made by the tag workflow, run 44274980246, its eighth use; release workflow run 44275039150, first attempt; signed and attested): the latest full release until 2.4.0.

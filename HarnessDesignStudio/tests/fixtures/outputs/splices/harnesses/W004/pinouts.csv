@@ -1,5 +1,5 @@
-# harness-design-studio 2.4.0 model e0075c432202
-# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.0.0 model 1082c8d99657
+# harness-design-studio 3.0.0. Provided as is, without warranty. Verify before use.
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare,Termination
 W004-P1,cable,PCDU-J03,EX-MICROD-15-M,1,SIG,,W004-001,no,unspecified
 W004-P1,cable,PCDU-J03,EX-MICROD-15-M,2,RTN,,W004-004,no,unspecified

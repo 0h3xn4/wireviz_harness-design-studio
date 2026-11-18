@@ -186,7 +186,7 @@ harness-design-studio export-pinout wheel-link --device GYRO1
 ```
 
 ```
-# harness-design-studio 2.4.0 model <hash>
+# harness-design-studio 3.0.0 model <hash>
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare
 GYRO1-J01,box,,EX-MICROD-9-F,A1,PWR,,,no
 GYRO1-J01,box,,EX-MICROD-9-F,A2,RTN,,,no
