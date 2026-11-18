@@ -47,6 +47,7 @@ __all__ = [
     "LibraryProblem",
     "LibraryScan",
     "describe_entry",
+    "describe_parts",
     "load_entry",
     "save_devices",
     "save_targets",
@@ -452,6 +453,36 @@ def _device_rows(data: dict[str, Any], unit_id: str) -> list[dict[str, str]]:
                         "function": str(p.get("function") or ""),
                     }
                 )
+    return rows
+
+
+def describe_parts(data: dict[str, Any], unit_id: str) -> list[dict[str, str]]:
+    """Rows for the parts of a device in its file (format 3, design of 3.0.0 section 10): one for
+    each part its connectors and pins name that the file carries (part, description, link), in
+    the order the file lists them. Plain strings; a link that is not a web link is left out, so a
+    click can only open `https://` or `http://`."""
+    used: set[str] = set()
+    for rec in _records(data.get("devices", [])):
+        unit = rec.get("unit", {})
+        if not isinstance(unit, dict) or unit.get("id") != unit_id:
+            continue
+        for c in _records(rec.get("connectors", [])):
+            used.add(str(c.get("part_id", "")))
+            used.update(str(p.get("contact_part")) for p in _records(c.get("pins", [])))
+    rows: list[dict[str, str]] = []
+    for part in _records(data.get("parts", [])):
+        pid = str(part.get("id", ""))
+        if pid not in used:
+            continue
+        link = part.get("link")
+        ok = isinstance(link, str) and link.startswith(("https://", "http://"))
+        rows.append(
+            {
+                "part": pid,
+                "description": str(part.get("description") or ""),
+                "link": link if ok and isinstance(link, str) else "",
+            }
+        )
     return rows
 
 

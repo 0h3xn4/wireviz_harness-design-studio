@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 from harness_design_studio import __version__
 from harness_design_studio.gui import licences, strings
 from harness_design_studio.gui.empty_state import attach_empty_state
+from harness_design_studio.gui.plan_pages import DocumentSection, HarnessPlanSection
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
 
@@ -57,6 +58,8 @@ SECTIONS = (
     ("appearance", strings.SETTINGS_SECTION_APPEARANCE),
     ("editing", strings.SETTINGS_SECTION_EDITING),
     ("project", strings.SETTINGS_SECTION_PROJECT),
+    ("document", strings.SETTINGS_SECTION_DOCUMENT),  # the Cover of the harness plans (3.0.0)
+    ("harness_plan", strings.SETTINGS_SECTION_HARNESS_PLAN),  # config/harness_plan.json (3.0.0)
     ("shortcuts", strings.SETTINGS_SECTION_SHORTCUTS),
     ("about", strings.SETTINGS_SECTION_ABOUT),
     ("licences", strings.SETTINGS_SECTION_LICENCES),
@@ -126,6 +129,12 @@ class SettingsPage(QWidget):
         add_project_library: Callable[[], None] = lambda: None,
         remove_project_library: Callable[[str], None] = lambda _path: None,
         set_segmentation: Callable[[str], None] = lambda _mode: None,
+        set_document_fields: Callable[[dict[str, str]], bool] = lambda _f: False,
+        set_document_contact: Callable[[list[tuple[str, str]]], bool] = lambda _c: False,
+        set_plan: Callable[..., bool] = lambda **_c: False,
+        use_example_code: Callable[[], bool] = lambda: False,
+        ask_text: Callable[[str, str, str], str | None] = lambda _t, _l, _x: None,
+        clipboard: Callable[[], str] = lambda: "",
         shortcut_rows: Callable[[], list[tuple[str, str]]],
         settings_file: str = "",
     ) -> None:
@@ -336,6 +345,24 @@ class SettingsPage(QWidget):
         col.addLayout(project_row)
         self._project_why_not = ""
         self.show_project_libraries([], "", strings.SETTINGS_PROJECT_LIBRARIES_NO_FOLDER)
+        col.addStretch(1)
+
+        # ---- the harness plans (3.0.0, D-242, design section 10): their Cover and their settings
+        page, col = self._add("document")
+        self.document = DocumentSection(
+            theme, set_fields=set_document_fields, set_contact=set_document_contact
+        )
+        col.addWidget(self.document)
+        col.addStretch(1)
+        page, col = self._add("harness_plan", wide=True)
+        self.harness_plan = HarnessPlanSection(
+            theme,
+            set_plan=set_plan,
+            use_example=use_example_code,
+            ask_text=ask_text,
+            clipboard=clipboard,
+        )
+        col.addWidget(self.harness_plan)
         col.addStretch(1)
 
         # ---- shortcuts

@@ -569,6 +569,14 @@ class PropertiesPanel(QScrollArea):
                 or strings.ANY_TYPE
             )
             lay.addWidget(muted(strings.CARRIES.format(carries)))
+            if c.source_doc or c.source_link:  # where the pinout comes from (format 3)
+                doc = c.source_doc or c.source_link or ""
+                if c.source_version:
+                    doc = strings.INS_SOURCE_VERSION.format(doc, c.source_version)
+                source = muted(strings.INS_SOURCE.format(doc))
+                source.setObjectName(f"source-{c.id}")
+                source.setToolTip(c.source_link or strings.DV_CARD_SOURCE_TIP)
+                lay.addWidget(source)
             self.lay.addWidget(card)
         self.lay.addWidget(muted(strings.PARTS_UNVERIFIED))
         self.lay.addWidget(muted(describe_library(p)))

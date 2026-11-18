@@ -49,6 +49,7 @@ from harness_design_studio.gui.theme import ThemeManager
 
 EDITABLE = (
     "pin", "signal", "role", "mode", "contact_size", "termination", "function", "contact_part",
+    "level",
 )  # fmt: skip
 Validator = Callable[[str, dict[str, Any], str], str | None]
 
@@ -235,8 +236,8 @@ class PinDelegate(StateDelegate):
         else:
             line = QLineEdit(parent)
             line.setAccessibleName(
-                strings.DV_COL_PIN if key == "pin" else strings.DV_COL_CONTACT_SIZE
-            )
+                {"pin": strings.DV_COL_PIN, "level": strings.DV_COL_LEVEL, "function": strings.DV_COL_FUNCTION}.get(key, strings.DV_COL_CONTACT_SIZE)
+            )  # fmt: skip
             line.textChanged.connect(lambda t: self._check(line, key, row, t))
             editor = line
         return editor

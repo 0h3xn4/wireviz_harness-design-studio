@@ -135,6 +135,12 @@ def _web_link(value: object, what: str) -> str | None:
         ) from exc
 
 
+def check_web_link(value: object, what: str) -> str | None:
+    """`value` as a web link (format 3: `https://` or `http://`), None for an empty text; an
+    `EditError` names `what` and says what a link must be."""
+    return _web_link(value, what)
+
+
 # ---- small helpers -----------------------------------------------------------------------------
 
 
@@ -2358,6 +2364,7 @@ __all__ = [
     "RowIssue",
     "check_contact_part",
     "check_pin",
+    "check_web_link",
     "connector_delete_impact",
     "contact_part_choices",
     "derive_meaning",

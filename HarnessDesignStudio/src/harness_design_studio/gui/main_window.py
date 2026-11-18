@@ -69,12 +69,14 @@ from harness_design_studio.core import (
     checks,
     configcheck,
     device_library,
+    document,
     drc,
     edit,
     library_link,
     library_pointer,
     manual_harness,
     part_approval,
+    plan_config,
 )
 from harness_design_studio.core import links as core_links
 from harness_design_studio.core import workflow as core_workflow
@@ -99,9 +101,11 @@ from harness_design_studio.core.outputs.build import (
     OutputSet,
     build_outputs,
     drawings_exported,
+    harness_plan_exported,
     write_outputs,
 )
 from harness_design_studio.core.outputs.verify import verify_outputs
+from harness_design_studio.core.validation import plan_notes
 from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.core.vcs.release import (
     kind_again,
@@ -193,6 +197,7 @@ from harness_design_studio.gui.next_page import NextStepPage
 from harness_design_studio.gui.next_step import NextInputs, NextProblem, next_step, todo_sentence
 from harness_design_studio.gui.pages import HomePage
 from harness_design_studio.gui.panels import ProblemsPanel, PropertiesPanel, category_icon
+from harness_design_studio.gui.plan_pages import ExampleCodeDialog
 from harness_design_studio.gui.problems_panel import ProblemsList, finding_why
 from harness_design_studio.gui.project_tree import ProjectTree
 from harness_design_studio.gui.rail import NavRail
@@ -313,10 +318,11 @@ class OutputsWorker(QThread):
 
     progressed = Signal(float, str)
 
-    def __init__(self, project: Project, drawings: bool = True) -> None:
+    def __init__(self, project: Project, drawings: bool = True, harness_plan: bool = False) -> None:
         super().__init__()
         self._project = project
         self.drawings = drawings  # the PDF and SVG drawings of the harnesses (D-169)
+        self.harness_plan = harness_plan  # one harness plan (.ods) per harness (3.0.0, D-242)
         self.open_data = False  # also make the open data (the files of `export-data`)
         self._cancelled = False
         self.data: dict[str, bytes] | None = None  # the open data, by file name, when asked for
@@ -332,6 +338,7 @@ class OutputsWorker(QThread):
             self.result = build_outputs(
                 self._project,
                 drawings=self.drawings,
+                harness_plan=self.harness_plan,
                 cancel=lambda: self._cancelled,
                 progress=lambda f, t: self.progressed.emit(f, t),
             )
@@ -872,6 +879,12 @@ class MainWindow(QMainWindow):
             add_project_library=lambda: self.add_project_library_flow(),
             remove_project_library=lambda path: self.remove_project_library(path),
             set_segmentation=lambda mode: self.set_segmentation(mode),
+            set_document_fields=self.set_document_fields,
+            set_document_contact=self.set_document_contact,
+            set_plan=self.set_plan_settings,
+            use_example_code=self.example_code_flow,
+            ask_text=self._settings_ask_text,
+            clipboard=self._clipboard_text,
             shortcut_rows=self.shortcut_rows,
             settings_file=self.settings.fileName(),
         )
@@ -1189,6 +1202,7 @@ class MainWindow(QMainWindow):
         self.problems.segmentationRequested.connect(self.segmentation_flow)
         self.inspector = Inspector(self.ctl, self.theme, props=self.props, problems=self.problems)
         self.inspector.plugRequested.connect(self.plug_loose_flow)
+        self.inspector.link_box.opener = self._open_link  # (the hook `open_url`, read late)
         self.harness_view.routing.branchPicked.connect(
             lambda _hid, bid: self.inspector.show_object("branch_point", bid)
         )
@@ -1197,6 +1211,7 @@ class MainWindow(QMainWindow):
         self.install_view("harness", self.harness_view)
         self.install_view("lists", self.lists_panel)
         self.devices_view = DevicesView(self.ctl, self.theme, self.settings)
+        self.devices_view.opener = self._open_link  # the source link of a connector's pinout
         self.install_view("devices", self.devices_view)
         self.install_view("tree", self.project_tree)
         self.install_view("inspector", self.inspector)
@@ -1779,6 +1794,7 @@ class MainWindow(QMainWindow):
             win = LibraryWindow(self.ctl, self.theme, self.settings, self)
             win.run_dialog = lambda dlg: self.run_dialog(dlg)
             win.ask_choice = lambda title, text, buttons: self.ask_choice(title, text, buttons)
+            win.opener = self._open_link
             win.folderChangeRequested.connect(self.choose_library_folder_flow)
             win.libraryWritten.connect(lambda: self.library_links.refresh())
             self.library_window = win
@@ -2304,6 +2320,12 @@ class MainWindow(QMainWindow):
         self.act_history.setToolTip(strings.HISTORY_TIP)
         self.act_delete_harness.setToolTip(strings.DELETE_HARNESS_TIP)
         self.act_values = a(strings.A_VALUES, self.values_flow, name="act-values")
+        self.act_document = a(strings.A_DOCUMENT, self.document_flow, name="act-document")
+        self.act_plan_settings = a(
+            strings.A_PLAN_SETTINGS, self.harness_plan_flow, name="act-plan-settings"
+        )
+        self.act_document.setToolTip(strings.A_DOCUMENT_TIP)
+        self.act_plan_settings.setToolTip(strings.A_PLAN_SETTINGS_TIP)
         self.act_new_interface = a(
             strings.A_NEW_INTERFACE, self.new_interface_flow, "Ctrl+I", name="act-new-interface"
         )
@@ -2637,6 +2659,8 @@ class MainWindow(QMainWindow):
             d.addAction(act)
         d.addSeparator()
         d.addAction(self.act_values)
+        d.addAction(self.act_document)
+        d.addAction(self.act_plan_settings)
         g = mb.addMenu(strings.M_GO)
         self.menu_go = g
         g.addAction(self.act_go_home)
@@ -3467,6 +3491,7 @@ class MainWindow(QMainWindow):
         self.topbar.hash_label.setText("…")
         if self.area_stack.currentWidget() is self.settings_page:
             self._show_segmentation()  # (an undo can change it)
+            self._show_plan_settings()
 
     def _on_selection(self) -> None:
         c = self.ctl
@@ -4139,6 +4164,123 @@ class MainWindow(QMainWindow):
         self._show_segmentation()
         self.settings_page.segmentation_combo.setFocus()
 
+    # ---- the harness plans: Settings > Document and > Harness plan (3.0.0, D-242, section 10) ----
+    def _plan_why_not(self) -> str:
+        return strings.WHY_READ_ONLY if self.ctl.read_only else ""
+
+    def _settings_ask_text(self, title: str, label: str, text: str) -> str | None:
+        return self.ask_text(title, label, text)
+
+    def _clipboard_text(self) -> str:
+        return QApplication.clipboard().text()
+
+    def _run_plan_ops(self, label: str, build: Callable[[], list[Op]], message: str) -> bool:
+        """Build the ops of a change of the plans' data and run them as one undo step; a refusal
+        is said like every refused edit, and the sections show the project again either way."""
+        try:
+            ops = build()
+        except HarnessError as exc:  # (an EditError is one)
+            self.ctl.message.emit(str(exc), False)
+            self._show_plan_settings()
+            return False
+        ok = self.ctl.run(label, ops, message=message) if ops else True
+        self._show_plan_settings()
+        return ok
+
+    def set_document_fields(self, fields: dict[str, str]) -> bool:
+        """Settings > Document: the system code, title or company of every plan."""
+        return self._run_plan_ops(
+            strings.STEP_SET_DOCUMENT,
+            partial(document.plan_document_edit, self.ctl.project, fields=fields),
+            strings.DOCUMENT_SET,
+        )
+
+    def set_document_contact(self, lines: list[tuple[str, str]]) -> bool:
+        """Settings > Document: every contact line, in order (one undo step)."""
+        return self._run_plan_ops(
+            strings.STEP_SET_DOCUMENT,
+            partial(document.plan_document_edit, self.ctl.project, contact=lines),
+            strings.DOCUMENT_SET,
+        )
+
+    def _open_link(self, url: QUrl) -> bool:
+        """A web link of a part or of a pinout's source, in the browser (`open_url`, a hook)."""
+        return bool(self.open_url(url))
+
+    def set_plan_settings(self, **changes: Any) -> bool:
+        """Settings > Harness plan: the colour rule, the codes or the note lines."""
+        return self._run_plan_ops(
+            strings.STEP_SET_PLAN_SETTINGS,
+            partial(plan_config.plan_settings_edit, self.ctl.project, **changes),
+            strings.PLAN_SETTINGS_SET,
+        )
+
+    def example_code_flow(self) -> bool:
+        """*Use the example colour code…*: ask for the connector parts, then add the code of the
+        users' template, marked as an example, and colour the ends by pin number (section 6)."""
+        if self.ctl.read_only:
+            return False
+        p = self.ctl.project
+        parts = [
+            (x.id, x.description or "")
+            for x in sorted(p.parts.values(), key=lambda x: x.id)
+            if x.category == "connector"
+        ]
+        dlg = ExampleCodeDialog(self, parts)
+        accepted = self.run_dialog(dlg) == QDialog.DialogCode.Accepted
+        chosen = dlg.chosen()
+        dlg.deleteLater()
+        if not accepted or not chosen:
+            return False
+        return self._run_plan_ops(
+            strings.STEP_USE_EXAMPLE_CODE,
+            partial(plan_config.plan_example_code, p, chosen),
+            strings.PLAN_EXAMPLE_DONE,
+        )
+
+    def plan_note_rows(self) -> list[tuple[str, str]]:
+        """The notes of `check` on the plans (`validation.plan_notes`), worded for the screen."""
+        out: list[tuple[str, str]] = []
+        for issue in plan_notes(self.ctl.project):
+            if issue.code == "plan_document_unknown":
+                text = strings.DOC_UNKNOWN_PLAN.format(issue.object_id or "")
+            elif issue.code == "plan_colour_example":
+                name = (issue.object_id or "").removeprefix("harness_plan.colour_codes.")
+                text = strings.PLAN_EXAMPLE_NOTE.format(name)
+            else:
+                text = issue.message
+            out.append((issue.severity, text))
+        return out
+
+    def _show_plan_settings(self) -> None:
+        p = self.ctl.project
+        why = self._plan_why_not()
+        doc = document.document_of(p)
+        self.settings_page.document.show_document(
+            {k: getattr(doc, k) for k in document.DOCUMENT_FIELDS},
+            document.shown_when_empty(p),
+            [(c.label, c.value) for c in doc.contact],
+            document.unknown_plan_keys(p),
+            why,
+        )
+        self.settings_page.harness_plan.show_plan(
+            plan_config.plan_values(p), self.plan_note_rows(), why
+        )
+
+    def document_flow(self) -> None:
+        """Design > Document data of the plans…: Settings at the Cover of every plan."""
+        self.set_area("settings")
+        self.settings_page.show_section("document")
+        self._show_plan_settings()
+        self.settings_page.document.edits["system"].setFocus()
+
+    def harness_plan_flow(self) -> None:
+        """Design > Harness plan settings…: Settings at the colour rule, codes and notes."""
+        self.set_area("settings")
+        self.settings_page.show_section("harness_plan")
+        self._show_plan_settings()
+        self.settings_page.harness_plan.rule_combo.setFocus()
+
     def check_flow(self) -> None:
         """Run the design rule check now; a toast says how it went when it has finished."""
         self._check_asked = True
@@ -4625,6 +4767,7 @@ class MainWindow(QMainWindow):
             self.area_stack.setCurrentWidget(pages.get(key, self.settings_page))
             if key == "settings":
                 self._show_segmentation()
+                self._show_plan_settings()
             if key == "asbuilt":
                 self._update_asbuilt()
         else:
@@ -4892,9 +5035,13 @@ class MainWindow(QMainWindow):
         )
 
     def _compute_outputs(self) -> tuple[OutputSet, VerifyReport] | None:
-        folder = self.ctl.outputs_folder()  # the same set as the last export there (D-169)
+        # the same set as the last export there: the drawings (D-169) and the harness plans (3.0.0)
+        folder = self.ctl.outputs_folder()
         had = folder is not None and drawings_exported(folder)
-        worker = OutputsWorker(edit.clone_with(self.ctl.project, []), drawings=had)
+        plans = folder is not None and harness_plan_exported(folder)
+        worker = OutputsWorker(
+            edit.clone_with(self.ctl.project, []), drawings=had, harness_plan=plans
+        )
         self._run_worker(worker, strings.EXPORT_RUNNING, "export-progress")
         self.job_error = worker.error
         return (
@@ -5846,6 +5993,7 @@ class MainWindow(QMainWindow):
         self.settings_page.show_library_folder(self.library_folder())
         self._show_project_libraries()
         self._show_segmentation()
+        self._show_plan_settings()
 
     def shortcut_rows(self) -> list[tuple[str, str]]:
         """Every action of the window that has a key: (name, key), by name."""

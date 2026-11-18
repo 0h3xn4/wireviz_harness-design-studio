@@ -25,11 +25,12 @@ exported, and the notes the pin checks give. Plugged into the window as the sixt
 """
 
 from collections.abc import Callable, Mapping
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSettings, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSettings, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QAction, QDesktopServices, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -70,7 +71,7 @@ from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
 from harness_design_studio.gui.lists_panel import table_columns
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, Row, TableView, natural_key
-from harness_design_studio.gui.theme import ThemeManager
+from harness_design_studio.gui.theme import ThemeManager, mark_mono
 from harness_design_studio.gui.wrap_label import WrapLabel
 
 _SEVERITY = {
@@ -131,6 +132,7 @@ def pin_rows_for_table(
     frozen: str | None = None,
     roles: Mapping[str, tuple[str, str]] | None = None,
     ports: Mapping[str, tuple[str, str]] | None = None,
+    levels: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """The pin table's rows (dicts) for `PIN_COLUMNS`. `roles` maps a pin to (the role a person
     gave, the role it has: given or taken from the signal name); `ports` maps a pin to (its named
@@ -158,6 +160,7 @@ def pin_rows_for_table(
                 "meaning_tip": r.note,
                 "wire": ";".join(r.wires),
                 "function": r.function,
+                "level": (levels or {}).get(r.pin, ""),
                 "contact_size": r.contact_size,
                 "termination": strings.DV_TERMINATION[r.termination],
                 "termination_key": r.termination,
@@ -191,6 +194,8 @@ PIN_COLUMNS = [
     Column("mode", strings.DV_COL_MODE, tooltip=_tip("mode_tip"), width=64),
     Column("interface", strings.DV_COL_INTERFACE, mono=True, width=80),
     Column("direction", strings.DV_COL_DIRECTION, tooltip=_tip("meaning_tip"), width=76),
+    # the level of the pin (format 3; the template's column after Direction); box pins only, Q5
+    Column("level", strings.DV_COL_LEVEL, mono=True, tooltip=lambda _r: strings.DV_COL_LEVEL_TIP, width=96),
     Column("class", strings.DV_COL_CLASS, tooltip=_tip("meaning_tip"), width=76),
     Column("wire", strings.DV_COL_WIRE, mono=True, width=96),
     Column("contact_size", strings.DV_COL_CONTACT_SIZE, mono=True, width=96),
@@ -259,6 +264,7 @@ class DevicesView(QWidget):
         self.ctl, self.theme, self.settings = ctl, theme, settings
         self.setObjectName("devices-view")
         self.setAccessibleName(strings.DV_ACCESSIBLE)
+        self.opener: Callable[[QUrl], bool] = QDesktopServices.openUrl  # a hook for the tests
         self._dirty = True
         self._syncing = False
         self._unit: str | None = None
@@ -655,6 +661,37 @@ class DevicesView(QWidget):
         self.label_edit.editingFinished.connect(self._label_edited)
         grid.addWidget(caption(strings.DV_CARD_LABEL), 4, 0, top)
         grid.addWidget(self.label_edit, 4, 1)
+        # where the pinout comes from (format 3, D-242, design of 3.0.0 section 4.1): the
+        # document, its version and a web link to it, shown in the harness plan
+        self.source_edits: dict[str, QLineEdit] = {}
+        for k, (field, words, tip_text) in enumerate(
+            (
+                ("source_doc", strings.DV_CARD_SOURCE, strings.DV_CARD_SOURCE_TIP),
+                ("source_version", strings.DV_CARD_SOURCE_VERSION, strings.DV_CARD_SOURCE_VERSION_TIP),
+                ("source_link", strings.DV_CARD_SOURCE_LINK, strings.DV_CARD_SOURCE_LINK_TIP),
+            ),
+            start=5,
+        ):  # fmt: skip
+            edit = QLineEdit()
+            edit.setObjectName(f"devices-card-{field.replace('_', '-')}-edit")
+            edit.setAccessibleName(words)
+            edit.setToolTip(tip_text)
+            edit.setPlaceholderText(strings.DV_CARD_NONE)
+            edit.editingFinished.connect(partial(self._source_edited, field))
+            self.source_edits[field] = edit
+            grid.addWidget(caption(words), k, 0, top)
+            if field == "source_link":
+                mark_mono(edit)
+                self.source_open = QPushButton()
+                self.source_open.setObjectName("devices-card-source-open")
+                icon_button(self.source_open, "export", theme, strings.DV_CARD_SOURCE_OPEN_TIP, text=strings.DV_CARD_SOURCE_OPEN)  # fmt: skip
+                self.source_open.clicked.connect(self.open_source_link)
+                link_box = QHBoxLayout()
+                link_box.addWidget(edit, 1)
+                link_box.addWidget(self.source_open)
+                grid.addLayout(link_box, k, 1)
+            else:
+                grid.addWidget(edit, k, 1)
         grid.setColumnStretch(1, 1)
         rl.addWidget(self.card)
 
@@ -696,7 +733,7 @@ class DevicesView(QWidget):
         self.pin_model = PinModel(PIN_COLUMNS, (), self.theme)
         self.pin_table = PinTable(
             self.pin_model, self.theme, name=strings.DV_PINS, settings=self.settings,
-            key="devices-pins-2",  # the columns moved in 2.1.1: widths saved before do not fit
+            key="devices-pins-3",  # a column was added in 3.0.0 (Level): widths saved before do not fit
         )  # fmt: skip
         self.pin_table.setObjectName("devices-pin-table")
         self.pin_table.setItemDelegate(
@@ -1177,8 +1214,12 @@ class DevicesView(QWidget):
                 self.keying_edit,
                 self.carries_btn,
                 self.label_edit,
+                *self.source_edits.values(),
+                self.source_open,
             ):
                 w.setEnabled(False)
+            for edit in self.source_edits.values():
+                edit.setText("")
             self.carries_suggest.hide()
             self.pin_model.update_rows([])
             self.note_model.update_rows([])
@@ -1204,12 +1245,18 @@ class DevicesView(QWidget):
                 self.keying_edit.setText(c.keying or "")
             if not self.label_edit.hasFocus():
                 self.label_edit.setText(c.label or "")
+            for key, edit in self.source_edits.items():
+                if not edit.hasFocus():
+                    edit.setText(getattr(c, key) or "")
         finally:
             self._syncing = False
         for w in (self.part_edit, self.gender_edit, self.keying_edit):
             w.setEnabled(not ro and not frozen)
         self.carries_btn.setEnabled(not ro)
         self.label_edit.setEnabled(not ro)  # a label is not part of the design the release locks
+        for edit in self.source_edits.values():
+            edit.setEnabled(not ro)
+        self.source_open.setEnabled(bool(c.source_link))
         self.part_edit.setToolTip(frozen or strings.DV_CARD_PART_TIP)
         self.gender_edit.setToolTip(frozen or strings.DV_CARD_GENDER_TIP)
         self.keying_edit.setToolTip(frozen or strings.DV_CARD_KEYING_TIP)
@@ -1236,7 +1283,8 @@ class DevicesView(QWidget):
         self.card.setToolTip(frozen or "")
         rows = devices.pin_rows(p, cid, problems=problems)
         roles = {x.id: (x.role, effective_role(x, p, c)) for x in c.pins}
-        data = pin_rows_for_table(rows, problems, frozen, roles, devices.pin_ports(p, cid))
+        levels = {x.id: x.level or "" for x in c.pins}
+        data = pin_rows_for_table(rows, problems, frozen, roles, devices.pin_ports(p, cid), levels)
         self._pin_index = {r.pin: k for k, r in enumerate(rows)}
         self.pins_caption.setText(strings.DV_PIN_TABLE.format(c.name))
         self.pin_table.setAccessibleName(strings.DV_PIN_TABLE.format(c.id))
@@ -1575,6 +1623,26 @@ class DevicesView(QWidget):
         ):
             self._reload()
 
+    def _source_edited(self, key: str) -> None:
+        """Source, Source version or Source link of the connector: one undo step each."""
+        cid = self._cid
+        if self._syncing or cid is None:
+            return
+        text = self.source_edits[key].text().strip()
+        if text != (getattr(self.ctl.project.connectors[cid], key) or "") and not self._do(
+            self.ctl.update_connector, cid, **{key: text}
+        ):
+            self._reload()
+
+    def open_source_link(self) -> bool:
+        """Open the saved source link of the connector (never the text being typed)."""
+        cid = self._cid
+        c = self.ctl.project.connectors.get(cid) if cid is not None else None
+        link = c.source_link if c is not None else None
+        if not link or not link.startswith(("https://", "http://")):
+            return False
+        return bool(self.opener(QUrl(link)))
+
     def _carries_toggled(self) -> None:
         cid = self._cid
         if self._syncing or cid is None:
@@ -1617,7 +1685,7 @@ class DevicesView(QWidget):
                 if any(p.id.casefold() == text.casefold() for p in pins):
                     return strings.DV_PIN_EXISTS.format(text)
             return None
-        if key in ("signal", "contact_size") and len(text) > 200:
+        if key in ("signal", "contact_size", "level") and len(text) > 200:
             return strings.DV_TEXT_TOO_LONG
         if key == "contact_part":
             try:

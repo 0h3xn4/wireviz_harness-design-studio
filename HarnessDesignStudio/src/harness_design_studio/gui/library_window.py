@@ -31,8 +31,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QEvent, QModelIndex, QSettings, Qt, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
+from PySide6.QtCore import QEvent, QModelIndex, QSettings, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -392,6 +392,7 @@ class LibraryWindow(QWidget):
         self.setWindowTitle(strings.LIB_TITLE)
         self.setAccessibleName(strings.LIB_TITLE)
         self.run_dialog: Callable[[QDialog], int] = run_dialog
+        self.opener: Callable[[QUrl], bool] = QDesktopServices.openUrl  # a part's link (3.0.0)
         self.ask_choice: Callable[[str, str, list[str]], int] = self._ask_choice
         # the states of the devices by where their library comes from (D-240): the project's
         # libraries, and the person's folder on its own
@@ -588,10 +589,28 @@ class LibraryWindow(QWidget):
         self.preview_stack = QStackedWidget()
         self.preview_stack.addWidget(self.pin_table)
         self.preview_stack.addWidget(self.sub_table)
+        # the parts of a device with their web links (format 3, design of 3.0.0 section 10)
+        self.part_model = DictTableModel(
+            [
+                Column("part", strings.LIB_PREVIEW_PART_COLUMNS[0], mono=True, width=130),
+                Column("description", strings.LIB_PREVIEW_PART_COLUMNS[1], width=180),
+                Column("link", strings.LIB_PREVIEW_PART_COLUMNS[2], mono=True),
+            ],
+            [],
+            theme,
+        )
+        self.part_table = TableView(self.part_model, theme, name=strings.LIB_PREVIEW_TABLE_PARTS)
+        self.part_table.setObjectName("library-preview-parts")
+        self.part_table.setToolTip(strings.LIB_PREVIEW_PARTS_TIP)
+        self.part_table.horizontalHeader().setStretchLastSection(True)
+        self.part_table.setMaximumHeight(theme.px(130))
+        self.part_table.activated.connect(self._part_activated)
+        self.part_table.hide()
         rv.addWidget(self.preview_title)
         rv.addWidget(self.preview_text)
         rv.addWidget(self.source_label)
         rv.addWidget(self.preview_stack, 1)
+        rv.addWidget(self.part_table)
         split.addWidget(right)
         split.setStretchFactor(0, 4)
         split.setStretchFactor(1, 5)
@@ -982,6 +1001,8 @@ class LibraryWindow(QWidget):
         self.preview_text.setText(strings.LIB_PREVIEW_LOADING)
         self.pin_model.set_rows([])
         self.sub_model.set_rows([])
+        self.part_model.set_rows([])
+        self.part_table.hide()
         lib = self.library_of(entry)
         folder = lib.folder if lib is not None else Path(self.folder)
 
@@ -1006,6 +1027,9 @@ class LibraryWindow(QWidget):
         if entry.kind == "device":
             self.pin_model.set_rows(rows)
             self.preview_stack.setCurrentWidget(self.pin_table)
+            parts = library_folder.describe_parts(data, entry.id)
+            self.part_model.set_rows(parts)
+            self.part_table.setVisible(bool(parts))
             text = [contents_of(entry)]
         else:
             self.sub_model.set_rows(rows)
@@ -1020,6 +1044,19 @@ class LibraryWindow(QWidget):
         self.preview_text.setText("\n".join(text))
         self._show_source()
         self._update_buttons()
+
+    def _part_activated(self, index: QModelIndex) -> None:
+        row = self.part_table.row_at(index)
+        if isinstance(row, dict):
+            self.open_part_link(str(row.get("part", "")))
+
+    def open_part_link(self, part_id: str) -> bool:
+        """Open the link of a part of the device shown in the web browser (`https://` or
+        `http://` only; `describe_parts` leaves any other out)."""
+        for row in self.part_model.rows():
+            if isinstance(row, dict) and row.get("part") == part_id and row.get("link"):
+                return bool(self.opener(QUrl(str(row["link"]))))
+        return False
 
     # ---- buttons ----------------------------------------------------------------------------------
     def _update_buttons(self) -> None:

@@ -2803,6 +2803,7 @@ LINK_ROLE_NAMES = {
     "signal": "Signal",
     "shield": "Shield",
     "spare": "Spare",
+    "signal_ground": "Signal ground",  # format 3 (D-242, design of 3.0.0 section 4.3): SGND
 }
 LINK_ROLE_HELP = (
     "Roles: Power carries the supply. Return is the line the current of a signal comes back on. "
@@ -3272,7 +3273,7 @@ RELEASE_TEXT_LENGTHS = "Enter the routing segment lengths in the Harness tab, or
 PROBLEMS_BUTTON_OF = "Problems ({0} of {1})"
 INS_TAB_PROBLEMS_TIP = "{0} errors and warnings of the {1} open items. The Problems list at the bottom of the window shows all of them, notes included."
 DV_COL_ROLE = "Role"
-DV_COL_ROLE_TIP = "What the pin is for: power, return, ground, signal, shield or spare. Automatic takes it from the signal name."
+DV_COL_ROLE_TIP = "What the pin is for: power, return, ground, signal ground, signal, shield or spare. Automatic takes it from the signal name."
 DV_ROLE_AUTO = "{0} (auto)"
 
 
@@ -3936,4 +3937,207 @@ NV_AGAIN_DONE = "{0} is now version {1}."
 REL_REVISE_AGAIN_TIP = (
     "Choose the kind of the new version again (major, minor or patch): the version is worked out "
     "again from the released one. Possible until the review starts."
+)
+
+# ---- 3.0.0, pull request 7: the editor of the harness plan (D-242, design of 3.0.0 section 10) ------
+# the export window: the second check box (section 10), the removal said as the command line says it
+DOC_HARNESS_PLAN = "Harness plan"
+EXP_PLANS = "Include the harness plans (.ods), one per harness"
+EXP_PLANS_NAME = "Include the harness plans in the export"
+EXP_PLANS_TIP = (
+    "Write the harness plan of each harness, harnesses/<ID>/<ID>_plan.ods, a spreadsheet in the "
+    "layout of the users' harness plan template. Ticked at the start when the last export into the "
+    "folder had them; unticked, an export removes them from the folder."
+)
+EXP_PLANS_REMOVED = (
+    "The harness plans of the earlier export were removed; tick Include the harness plans to "
+    "write them again."
+)
+EXP_PLAN_NOTES = "{0}: see Settings > Harness plan."
+EXP_PLAN_NOTES_N = ("1 note on the harness plans", "{0} notes on the harness plans")
+# Settings: the two sections of the plans (section 10)
+SETTINGS_SECTION_DOCUMENT = "Document"
+SETTINGS_SECTION_HARNESS_PLAN = "Harness plan"
+DOC_PAGE_TEXT = (
+    "What the Cover of every harness plan of this project shows. The number, version, release and "
+    "title of one harness's plan are set in the Inspector of that harness (Plan document). Each "
+    "change is one undo step. The data is saved in project.json, so a name, a phone number or an "
+    "e-mail address goes into the project's Git history; a role address can stand in for a person."
+)
+DOC_SYSTEM = "System code"
+DOC_SYSTEM_TIP = "The code of the system; the Cover shows the project name while it is empty"
+DOC_TITLE = "Title"
+DOC_TITLE_TIP = "The title of the plans; the Cover shows the default while it is empty"
+DOC_COMPANY = "Company"
+DOC_COMPANY_TIP = "The company named on the Cover of every plan"
+DOC_EMPTY_SHOWS = "Empty: the Cover shows {0}"
+DOC_CONTACT = "Contact lines"
+DOC_CONTACT_TEXT = (
+    "Up to eight lines, a label and a value each (Name, Phone, E-mail), in the order the Cover "
+    "shows them. Double-click a cell to edit it."
+)
+DOC_CONTACT_TABLE = "Contact lines of the plans"
+DOC_CONTACT_COLUMNS = ("Label", "Value")
+DOC_CONTACT_EMPTY = "No contact line"
+DOC_CONTACT_EMPTY_HINT = "Add one: a label such as E-mail and its value."
+DOC_CONTACT_ADD = "Add line"
+DOC_CONTACT_ADD_TIP = "Add a contact line at the end (one undo step)"
+DOC_CONTACT_REMOVE = "Remove line"
+DOC_CONTACT_REMOVE_TIP = "Remove the selected contact line (one undo step)"
+DOC_CONTACT_UP = "Move up"
+DOC_CONTACT_UP_TIP = "Move the selected contact line up (one undo step)"
+DOC_CONTACT_DOWN = "Move down"
+DOC_CONTACT_DOWN_TIP = "Move the selected contact line down (one undo step)"
+DOC_CONTACT_NEW_LABEL = "E-mail"
+DOC_UNKNOWN_PLAN = (
+    "The document data has a plan of {0}, which is not a harness of the project (check: "
+    "plan_document_unknown). It stays in project.json until the harness comes back or the key "
+    "is removed there."
+)
+STEP_SET_DOCUMENT = "Set the document data of the harness plans"
+STEP_SET_PLAN_DOCUMENT = "Set the plan document of {0}"
+DOCUMENT_SET = "The document data of the harness plans is set."
+PLAN_DOCUMENT_SET = "The plan document of {0} is set."
+# Settings > Harness plan
+PLAN_PAGE_TEXT = (
+    "How the harness plans colour the ends of the wires, and the note lines on their Notes sheet. "
+    "The settings are saved in config/harness_plan.json: the file is made by the first value and "
+    "removed when every value is back to its default. Each change is one undo step; none changes a "
+    "harness or another output."
+)
+PLAN_RULE = "Colour of an end"
+PLAN_RULE_TIP = "Where the plan takes the colour of each end of a wire"
+PLAN_RULE_CHOICES = {
+    "wire": "The wire's colour (default)",
+    "pin_code": "By pin number, from a colour code",
+}
+PLAN_RULE_ABOUT = {
+    "wire": "Each end shows the colour of its wire.",
+    "pin_code": (
+        "An end whose connector part a colour code names gets the colour of its pin from the code "
+        "(a formula over the table on the Notes sheet); any other end shows the wire's colour."
+    ),
+}
+PLAN_CODES = "Colour codes"
+PLAN_CODES_TEXT = (
+    "A code gives a colour to each pin number, for the connector parts it names (a connector with "
+    "pigtails comes with its wires coloured by pin position). A part takes its colours from one "
+    "code only."
+)
+PLAN_CODE_LIST = "Colour codes of the plans"
+PLAN_CODE_LIST_TIP = "Pick a code to see and change its parts, its table and its mark"
+PLAN_CODE_ITEM = "{0}  ({1} pins, {2} parts)"
+PLAN_CODE_ITEM_EXAMPLE = "{0}  ({1} pins, {2} parts, example)"
+PLAN_CODE_NONE = "No colour code. Add one, or use the example colour code of the users' template."
+PLAN_CODE_ADD = "Add code…"
+PLAN_CODE_ADD_TIP = "Add an empty colour code under a name you type (one undo step)"
+PLAN_CODE_NAME_ASK = "Name of the new colour code"
+PLAN_CODE_REMOVE = "Remove code"
+PLAN_CODE_REMOVE_TIP = "Remove the selected colour code (one undo step)"
+PLAN_EXAMPLE = "Use the example colour code…"
+PLAN_EXAMPLE_TIP = (
+    "Add the colour code of the users' template (pins 1 to 37) as the code example, for the "
+    "connector parts you choose, and colour the ends by pin number (one undo step)"
+)
+PLAN_EXAMPLE_TITLE = "Use the example colour code"
+PLAN_EXAMPLE_TEXT = (
+    "The table of the users' harness plan template, uD Pigtail Colour Code, pins 1 to 37. It is an "
+    "example, not a standard and not a supplier's table: check it against the pigtail code of your "
+    "connector's supplier, then untick Example. Choose the connector parts it is for; the "
+    "template names none. The plans then colour the ends by pin number."
+)
+PLAN_EXAMPLE_PARTS = "Connector parts of this project"
+PLAN_EXAMPLE_OK = "Use the example"
+PLAN_EXAMPLE_NONE = "Tick at least one connector part."
+PLAN_EXAMPLE_DONE = "The example colour code is added; check it against the supplier's code."
+PLAN_PARTS = "Parts"
+PLAN_PARTS_TIP = "The connector parts this code is for, separated by commas (Enter to set)"
+PLAN_MARK = "Example"
+PLAN_MARK_TIP = (
+    "The code is the example of the users' template: the plans head its table as an example and "
+    "check gives a note. Untick it once the code is checked against the supplier's code."
+)
+PLAN_PINS_TABLE = "Pins and colours of the code {0}"
+PLAN_PINS_COLUMNS = ("Pin", "Colour")
+PLAN_PINS_EMPTY = "No pin in this code"
+PLAN_PINS_EMPTY_HINT = (
+    "Paste two columns, pin and colour, from a spreadsheet or the example's CSV file."
+)
+PLAN_PASTE = "Paste pins and colours"
+PLAN_PASTE_TIP = (
+    "Replace the table of this code with two columns from the clipboard, pin and colour (tabs, "
+    "commas or semicolons; a first row Pin, Colour is a heading)"
+)
+PLAN_TWO_COLOURS = "Pin {0} has two colours in this code."
+PLAN_NOTES = "Note lines"
+PLAN_NOTES_TEXT = "Lines the Notes sheet of every plan shows, one per line (at most 20)."
+PLAN_NOTES_TIP = "The note lines of the plans; they are set when the field loses the focus"
+PLAN_CHECK_NOTES = "Notes of check"
+PLAN_CHECK_NONE = "No note on the harness plans."
+PLAN_CHECK_TABLE = "Notes of check on the harness plans"
+PLAN_CHECK_COLUMNS = ("Severity", "Note")
+PLAN_EXAMPLE_NOTE = (
+    "The colour code '{0}' is the example from the users' template; check it against the "
+    "supplier's pigtail code, then untick Example (check: plan_colour_example)."
+)
+PLAN_SEVERITY = {"info": "Note", "warning": "Warning", "error": "Error"}
+STEP_SET_PLAN_SETTINGS = "Change the settings of the harness plans"
+STEP_USE_EXAMPLE_CODE = "Use the example colour code"
+PLAN_SETTINGS_SET = "The settings of the harness plans are changed."
+A_DOCUMENT = "Document data of the plans…"
+A_DOCUMENT_TIP = "Open Settings at the document data that the Cover of every harness plan shows"
+A_PLAN_SETTINGS = "Harness plan settings…"
+A_PLAN_SETTINGS_TIP = (
+    "Open Settings at the colour rule, the colour codes and the notes of the plans"
+)
+# the Inspector of a harness: its plan document (Q25)
+INS_PLAN_DOCUMENT = "Plan document"
+INS_PLAN_NUMBER = "Document number"
+INS_PLAN_VERSION = "Plan document version"
+INS_PLAN_RELEASE = "Release"
+INS_PLAN_TITLE = "Title"
+INS_PLAN_TIPS = {
+    "number": "The document number of this harness's plan",
+    "version": (
+        "The plan document's own version, a person's field; the Cover shows the harness version "
+        "while it is empty"
+    ),
+    "release": "The release of this harness's plan (a released harness can still get it)",
+    "title": "The title of this harness's plan; the Cover shows the default while it is empty",
+}
+INS_PLAN_SET = "Set"
+INS_PLAN_SET_TIP = "Save the four fields of this harness's plan document (one undo step)"
+INS_PLAN_EMPTY = "Empty: {0}"
+# the Inspector of a part: its web link (section 4.1)
+INS_PART_LINK = "Link"
+INS_PART_LINK_TIP = "The part's page on the web (a datasheet, a supplier), https:// or http://"
+INS_PART_LINK_SET = "Set"
+INS_PART_LINK_SET_TIP = "Save the link of this part (one undo step)"
+INS_PART_LINK_OPEN = "Open link"
+INS_PART_LINK_OPEN_TIP = "Open the link of this part in the web browser"
+STEP_SET_PART_LINK = "Set the link of {0}"
+PART_LINK_SET = "The link of {0} is set."
+# the Devices tab: the level of a pin, the source of a connector's pinout (section 4.1, Q5)
+DV_COL_LEVEL = "Level"
+DV_COL_LEVEL_TIP = (
+    "The electrical level of the pin from the device's interface control document, free text "
+    "(RS422-3V3, TTL-5V, 18V); the harness plan shows it"
+)
+DV_CARD_SOURCE = "Source"
+DV_CARD_SOURCE_TIP = "The document the pinout comes from, for example the device's ICD"
+DV_CARD_SOURCE_VERSION = "Source version"
+DV_CARD_SOURCE_VERSION_TIP = "The version of that document"
+DV_CARD_SOURCE_LINK = "Source link"
+DV_CARD_SOURCE_LINK_TIP = (
+    "A web link to that document, https:// or http:// (a path on a share goes into Source as text)"
+)
+DV_CARD_SOURCE_OPEN = "Open"
+DV_CARD_SOURCE_OPEN_TIP = "Open the source link in the web browser"
+INS_SOURCE = "Source: {0}"
+INS_SOURCE_VERSION = "{0}, version {1}"
+# the library window: the parts of a device and their links
+LIB_PREVIEW_TABLE_PARTS = "Parts of the device"
+LIB_PREVIEW_PART_COLUMNS = ("Part", "Description", "Link")
+LIB_PREVIEW_PARTS_TIP = (
+    "Double-click or press Enter on a row with a link to open it in the web browser"
 )

@@ -147,6 +147,22 @@ def plan_document_edit(
     return [SetMeta(evolve(project.meta, document=new))]
 
 
+def shown_when_empty(project: Project, harness: str | None = None) -> dict[str, str]:
+    """What the Cover shows for each field that is empty (`outputs/harness_plan.py`, `_cover`):
+    the project name for the system code, `<name> Harness Plan` for the title; with `harness`,
+    the harness version for the plan document version and the project's title for the plan's
+    title. A field with no stand-in is left out."""
+    doc = document_of(project)
+    title = doc.title or f"{project.meta.name} Harness Plan"
+    if harness is None:
+        return {"system": project.meta.name, "title": title}
+    h = project.harnesses.get(harness)
+    out = {"title": title}
+    if h is not None:
+        out["version"] = h.version
+    return out
+
+
 def unknown_plan_keys(project: Project) -> list[str]:
     """The keys of `document.plans` that name no harness of the project (a `check` warning,
     section 4.1), in ID order."""
@@ -180,5 +196,6 @@ __all__ = [
     "edited_document",
     "plan_document_edit",
     "plan_of",
+    "shown_when_empty",
     "unknown_plan_keys",
 ]
