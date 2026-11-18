@@ -11,10 +11,11 @@ moves it and writes the mark when it is let go, as one undo step outside the mod
 written output goes out of date. Nothing else here changes the project.
 """
 
-from typing import TYPE_CHECKING
+from collections.abc import Mapping
+from typing import Protocol
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QBrush, QFontMetrics, QPainter, QPainterPath, QPolygonF
+from PySide6.QtGui import QBrush, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsSceneMouseEvent,
@@ -22,12 +23,57 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core.cable_ends import BranchSpot, branch_mark, pos_mark
+from harness_design_studio.core.cable_ends import BranchSpot, CableEnd, branch_mark, pos_mark
 from harness_design_studio.gui import cable as cb
 from harness_design_studio.gui import strings
+from harness_design_studio.gui.controller import EditorController
+from harness_design_studio.gui.theme.manager import ThemeManager
 
-if TYPE_CHECKING:
-    from harness_design_studio.gui.canvas import DiagramScene
+
+class _EndItem(Protocol):
+    """What a branch point reads of a drawn cable end (`canvas_ends.CableEndItem`)."""
+
+    @property
+    def end(self) -> CableEnd: ...
+
+    def home(self) -> tuple[float, float]: ...
+
+
+class _Cable(Protocol):
+    """What a branch point asks the cable layer (`canvas_cable.CableLayer`)."""
+
+    def port_now(self, port: cb.Port) -> cb.Port: ...
+
+
+class BranchScene(Protocol):
+    """What a branch point needs of the diagram (`canvas.DiagramScene` has all of it). Protocols,
+    so that this module imports neither the canvas nor the modules that import it back: `canvas`
+    imports this module, and an import back, even one only for the type checker, is a
+    module-level import cycle for CodeQL."""
+
+    @property
+    def ctl(self) -> EditorController: ...
+
+    @property
+    def theme(self) -> ThemeManager: ...
+
+    @property
+    def cable(self) -> _Cable: ...
+
+    @property
+    def end_items(self) -> Mapping[str, _EndItem]: ...
+
+    @property
+    def unit_items(self) -> Mapping[str, object]: ...
+
+    def mark_shift(self, mark_id: str) -> QPointF: ...
+
+    def follow_harness(self, harness_id: str) -> None: ...
+
+    def pen(self, token: str, width: float) -> QPen: ...
+
+    def px_font(self, pixel_size: int) -> QFont: ...
+
 
 HALF = 8.0  # half the width of the diamond (scene units)
 PAD = 30.0  # room around it for the name and the selection ring
@@ -37,7 +83,7 @@ Spot = tuple[float, float]
 class BranchPointItem(QGraphicsItem):
     """One branch point of a cable drawn by hand."""
 
-    def __init__(self, scene: DiagramScene, spot: BranchSpot) -> None:
+    def __init__(self, scene: BranchScene, spot: BranchSpot) -> None:
         super().__init__()
         self.dscene = scene
         self.spot = spot
