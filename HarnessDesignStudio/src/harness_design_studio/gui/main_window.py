@@ -3414,6 +3414,8 @@ class MainWindow(QMainWindow):
     def _alert_dismissed(self, key: str) -> None:
         if key == "legal":
             self.settings.setValue("legal/notice_done", True)
+        if key == "branching":
+            self._remember_branching_notice()
         if key == "stale":
             status = self.shell_status()
             self._dismissed_alert = (
@@ -3741,12 +3743,74 @@ class MainWindow(QMainWindow):
         if plan.empty and not self.ctl.plan_problems(plan):
             if self._apply_record_only(plan, token):
                 self._job_succeeded()
+                self._offer_branching()
             return
         accepted = self.run_dialog(GeneratePreviewDialog(self, plan)) == QDialog.DialogCode.Accepted
         if accepted and self.ctl.apply_generation(plan, token):
             self._job_succeeded()
             if not self._stays_on_the_path():
                 self.show_harness_view()
+            self._offer_branching()
+
+    # ---- 2.4.0 (D-247): one harness that branches, offered once to a project that keeps pairs ----
+
+    def _branching_key(self) -> str | None:
+        """Where the window remembers that this project's notice was answered (QSettings, per
+        project folder; never in the project's files). None for a project without a folder."""
+        group = self._layout_group()
+        return None if group is None else f"{group}/branching_notice_done"
+
+    def branching_notice_done(self) -> bool:
+        key = self._branching_key()
+        return key is None or bool(self.settings.value(key, False, type=bool))
+
+    def _offer_branching(self) -> None:
+        """After Generate: a project in `per_connector_pair` whose device connector has the plugs
+        of several harnesses of Generate gets, once, the notice that a new project makes one
+        harness that branches there, with the button *Make one harness that branches*. Closing
+        it or pressing the button is remembered for the project (QSettings), so it is not shown
+        again; nothing is switched without the person's choice."""
+        if self.ctl.read_only or self.branching_notice_done():
+            return
+        offer = branching.branch_offer(self.ctl.project)
+        if offer is None:
+            return
+        self.alerts.show_banner(
+            "branching",
+            "info",
+            strings.BRANCH_NOTICE.format(
+                boxes=segmentation.words(list(offer.boxes)),
+                has="has" if len(offer.boxes) == 1 else "have",
+                harnesses=segmentation.words(list(offer.harness_ids)),
+            ),
+            details=[strings.BRANCH_NOTICE_DETAIL],
+            actions=[(strings.BRANCH_NOTICE_ACTION, self.make_branching_flow)],
+        )
+
+    def _remember_branching_notice(self) -> None:
+        key = self._branching_key()
+        if key is not None:
+            self.settings.setValue(key, True)
+
+    def make_branching_flow(self) -> None:
+        """The button of the notice: `segmentation.mode` = `per_connector_group` through the path
+        of Settings > Project (`set_segmentation`, one undo step), then the offer to Generate
+        again."""
+        self._remember_branching_notice()
+        self.set_segmentation(segmentation.GROUP_MODE)
+        if segmentation.mode_of(self.ctl.project) != segmentation.GROUP_MODE:
+            self.alerts.clear("branching")  # (refused: the message says why)
+            return
+        self.alerts.show_banner(
+            "branching",
+            "info",
+            strings.BRANCH_NOTICE_DONE,
+            actions=[(strings.BRANCH_NOTICE_GENERATE, self._generate_again)],
+        )
+
+    def _generate_again(self) -> None:
+        self.alerts.clear("branching")
+        self.generate_flow()
 
     def _apply_record_only(self, plan: GenerationPlan, token: tuple[int, int]) -> bool:
         """A plan that changes no harness. When the design did change since the last generation
@@ -4305,6 +4369,7 @@ class MainWindow(QMainWindow):
         opens on the diagram). In Quick mode every role starts on the diagram: the Next step page
         and the areas of due diligence are not on the rail. The landing page ends here."""
         self._leave_landing()
+        self.alerts.clear("branching")  # (the notice of the project that was open before)
         if self.quick_on():
             self._show_area("model", tab="diagram")
         elif self.role in STARTS_ON_NEXT:

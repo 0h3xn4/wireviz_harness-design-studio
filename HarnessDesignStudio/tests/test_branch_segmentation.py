@@ -4,9 +4,9 @@
 `docs/ait/DESIGN_2.3_BRANCHING.md` section 5.1, tests of section 9). The groups of
 `per_connector_pair` that plug into one device connector become one harness that branches: one plug
 on each device connector, a branch point on an end with more than one connector, the trunk and the
-legs. Opt-in (B2): the default stays `per_connector_pair`. Drafts are taken over (the lowest ID is
-kept, what a person set carries over), released harnesses never (B6). A ring of connectors stays as
-its pairs with the warning `branch_not_built`. Example data only."""
+legs. Opt-in in 2.3.0 (B2); since 2.4.0 the default of a new project (D-247). Drafts are taken
+over (the lowest ID is kept, what a person set carries over), released harnesses never (B6). A ring
+of connectors stays as its pairs with the warning `branch_not_built`. Example data only."""
 
 from collections.abc import Sequence
 from pathlib import Path
@@ -36,7 +36,7 @@ from harness_design_studio.core.model import (
     Wire,
     evolve,
 )
-from harness_design_studio.core.samples import new_project
+from harness_design_studio.core.samples import new_project, start_project
 from tests.test_e2e_rs422x3 import (
     J1,
     add_interfaces,
@@ -206,14 +206,25 @@ def test_a_project_without_a_shared_connector_groups_the_same_in_both_modes() ->
     assert group.groups == pair.groups and group.rings == []
 
 
-def test_the_default_stays_per_connector_pair() -> None:
+def test_a_new_project_starts_in_per_connector_group_and_a_file_without_a_mode_stays_pairs() -> (
+    None
+):
+    """D-247 (2.4.0): a project a person starts is per_connector_group; the default of the
+    registry, the mode of a file that names none and of a project made before stay
+    per_connector_pair, so no project is switched (the groups of 2.2,
+    `tests/test_segmentation_compat_220.py`)."""
     s = settings.setting("segmentation", "mode")
     assert s is not None and s.default == "per_connector_pair"
     assert s.choices == ("per_connector_pair", "per_unit_pair", "per_zone_pair", GROUP)
-    p = new_project("default")
+    p = new_project("older tool")
     assert p.config["segmentation"].values["mode"] == "per_connector_pair"
     assert settings.choice(p, "segmentation", "mode") == "per_connector_pair"
     assert settings.choice(set_mode(p, GROUP), "segmentation", "mode") == GROUP
+    p.config["segmentation"] = ConfigFile(name="segmentation", placeholder=True, values={})
+    assert settings.choice(p, "segmentation", "mode") == "per_connector_pair"
+    assert segmentation.mode_of(p) == "per_connector_pair" == segmentation.segment(p).mode
+    assert segmentation.NEW_PROJECT_MODE == GROUP
+    assert start_project("new").config["segmentation"].values == {"mode": GROUP}
 
 
 # ---- taking over drafts (B6) --------------------------------------------------------------------

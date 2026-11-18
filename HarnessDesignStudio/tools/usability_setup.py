@@ -11,7 +11,7 @@ from harness_design_studio.core import edit
 from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.model import Project
-from harness_design_studio.core.samples import new_project, sat15_full
+from harness_design_studio.core.samples import sat15_full, start_project
 
 
 def _free_pair(project: Project) -> tuple[str, str, str]:
@@ -25,7 +25,7 @@ def _free_pair(project: Project) -> tuple[str, str, str]:
 
 def build(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    save_project(new_project("Usability T1"), root / "t1-empty")
+    save_project(start_project("Usability T1"), root / "t1-empty")
     full = sat15_full()
     save_project(full, root / "t6-t7-generated")
     kind, a, b = _free_pair(full)

@@ -143,10 +143,10 @@ How interfaces share a harness was already a choice before this page: `segmentat
 
 | Key | Value | Interfaces share a harness when they have the same |
 | --- | --- | --- |
-| `segmentation.mode` | `per_connector_pair` (default) | pair of device connectors, and chain |
+| `segmentation.mode` | `per_connector_pair` (default of a file that names no mode) | pair of device connectors, and chain |
 | `segmentation.mode` | `per_unit_pair` | pair of devices, chain and class |
 | `segmentation.mode` | `per_zone_pair` | pair of zones, chain and class |
-| `segmentation.mode` | `per_connector_group` (since 2.3.0) | chain, and device connectors joined by interfaces (one harness that branches; [segmentation](segmentation.md#one-harness-that-branches)) |
+| `segmentation.mode` | `per_connector_group` (since 2.3.0; a new project starts with it since 2.4.0) | chain, and device connectors joined by interfaces (one harness that branches; [segmentation](segmentation.md#one-harness-that-branches)) |
 | `segregation.forbid_nominal_with_redundant` | `true` (default) / `false` | the nominal and the redundant chain never share a harness (`true`) or may (`false`) |
 | `segregation.forbid_pyro_with_other` | `true` (default) / `false` | a pyro line gets a harness of its own, in the two coarser modes |
 | `segregation.category_pairs_to_separate` | pairs of categories | the listed pairs of interface categories get harnesses of their own, in the two coarser modes |

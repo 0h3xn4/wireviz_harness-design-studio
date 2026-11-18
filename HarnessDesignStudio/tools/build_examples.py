@@ -17,7 +17,7 @@ from harness_design_studio.core.commands import History
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.mergefix import write_gitattributes
 from harness_design_studio.core.model import Project, evolve
-from harness_design_studio.core.samples import new_project, sat15
+from harness_design_studio.core.samples import new_project, sat15, start_project
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = ROOT / "src" / "harness_design_studio" / "resources" / "examples" / "projects"
@@ -45,7 +45,9 @@ PROJECTS = {
 
 
 def _blank() -> Project:
-    return new_project(PROJECTS["blank"][0])
+    # the start of a new project (`new`, the editor's New project): per_connector_group (D-247);
+    # the other examples keep the mode their outputs were made with
+    return start_project(PROJECTS["blank"][0])
 
 
 def _first_steps() -> Project:
