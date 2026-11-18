@@ -49,3 +49,11 @@ The minor release `2.1.0` (D-238; several interfaces on one connector, D-237; no
 The note on the publication of the patch release 2.1.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when 2.4.0 was prepared; that item still names 2.1.1 in the list of releases and says where this note is.
 
 The patch release `2.1.1` (D-239; the three fixes of the end-to-end test of 2.1.0; no format change) was published on 2026-11-17 (annotated tag `v2.1.1` on `5e99d3d`, the merge of #249, a test fix after #245; made by the tag workflow, run 44042970611, its fifth use; release workflow run 44042996462, first attempt; signed and attested): the latest full release until 2.2.0.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 2.4.0 (2026-11-18)
+
+The notes on the publication of the minor releases 2.2.0 and 2.3.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 2.4.0 was written; that item still names 2.2.0 and 2.3.0 in the list of releases and says where these notes are.
+
+The minor release `2.2.0` (D-244; the device library; no format change) was published on 2026-11-17 (annotated tag `v2.2.0` on `a90ef82`, the merge of #256; made by the tag workflow, run 44137315323, its sixth use; release workflow run 44137517372, first attempt; signed and attested): the latest full release until 2.3.0.
+
+The minor release `2.3.0` (D-245; branching harnesses; no format change) was published on 2026-11-18 (annotated tag `v2.3.0` on `5104988`, the merge of #267; made by the tag workflow, run 44238883189, its seventh use; release workflow run 44238914945, first attempt; signed and attested): the latest full release until 2.3.1.
