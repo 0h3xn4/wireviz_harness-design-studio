@@ -12,7 +12,7 @@ Read this once, in ten minutes, and the rest of the documentation will make sens
 - [From design to harness: generation](#from-design-to-harness-generation)
 - [Problems, rules and waivers](#problems-rules-and-waivers)
 - [Placeholders: what the tool does not know](#placeholders-what-the-tool-does-not-know)
-- [Review, release, revision](#review-release-revision)
+- [Review, release, version](#review-release-version)
 - [Outputs](#outputs)
 - [What is on disk](#what-is-on-disk)
 - [What the tool does not do](#what-the-tool-does-not-do)
@@ -80,7 +80,7 @@ Switching never changes data. Start in Guided.
 
 Your **role** is a second, separate choice: who you are working as, which decides how much of the window is on screen and where a project opens. There are three:
 
-- A **Systems engineer** thinks in devices, the connections between them, subsystems and the library. The window opens on the **Next step** page, which says in plain words what to do now and has one button; the project tree, the Inspector and the Problems panel start closed, and the rail lists only Next step, Model, Checks, Revisions and Settings.
+- A **Systems engineer** thinks in devices, the connections between them, subsystems and the library. The window opens on the **Next step** page, which says in plain words what to do now and has one button; the project tree, the Inspector and the Problems panel start closed, and the rail lists only Next step, Model, Checks, Versions and Settings.
 - An **Electrical engineer** thinks in connectors, pinouts, harnesses, wires and the engineering values. Every area and panel is there except the as-built records, and a project opens on the diagram.
 - An **AIT engineer** (assembly, integration and test) thinks in build data, build sheets, outputs and as-built records. A project opens on the Next step page; the rail leaves out the Model, and the editing of the diagram is left out of the menus.
 
@@ -120,14 +120,14 @@ A new project ships **no engineering numbers** in its configuration: no derating
 
 The files that hold these values are in the project's `config/` folder and are described in [`CONFIG.md`](CONFIG.md). The examples ship a set of **demo values for learning**; they are not engineering data (see [`../src/harness_design_studio/resources/examples/templates/README.md`](../src/harness_design_studio/resources/examples/templates/README.md)).
 
-## Review, release, revision
+## Review, release, version
 
 A harness has a **status**: `draft`, then optionally `in_review`, then `released`.
 
 - **Release** needs a person's name and a comment (at least 10 characters). It is blocked while something is missing (a wire without a gauge or length, unresolved errors) and the reasons are listed in plain words. It is also blocked while a configuration file is still marked `"placeholder": true`, unless you give a written reason (`--accept-placeholders`), which is kept in the change log and the baseline. The same goes for parts: a release is blocked while the harness uses a part that is not approved (or is example data), unless you give a written reason (`--accept-unapproved-parts`). A project can also ask for the as-built records of a harness before it is released (a setting, off by default; [as-built records](models/asbuilt.md#the-release-gate-optional)).
 - A project can require that the author, the checker and the person who releases are three different people (`harness-design-studio config DIR --distinct-roles on`, off by default; [`CONFIG.md`](CONFIG.md)). This is about people in change control, not the *role* of the window.
 - A released harness is **locked**: it, the interfaces it carries and the pins it uses cannot be edited, and neither can the parts, interface types and configuration values it uses. A **baseline** (frozen snapshot) and a **change log** entry are stored.
-- To change it you start a new **revision** (A, B, C ...). The old revision stays.
+- To change it you start a new **version** and choose its kind: major (not compatible with the versions before it), minor (adds something and stays compatible) or patch (a fix that stays compatible). From `1.0.0` they give `2.0.0`, `1.1.0` and `1.0.1`. The old version stays. Before 3.0.0 this was a *revision* letter (A, B, C ...); the Nth letter is now N.0.0 ([versions](user-manual/versions.md)).
 
 The release check looks at the harness itself and at the placeholder mark of the configuration files. It cannot tell whether the values are right; that stays your decision and your responsibility.
 
@@ -173,7 +173,7 @@ Files are written in a fixed format, so two people editing different parts of a 
 - **Model hash**: a fingerprint of the whole design, printed on every output.
 - **Auto-filled**: a connector the tool chose; unconfirmed until a person looks at it.
 - **Locked** (wire or pin): a choice you made that generation will keep. You set it in the app (a wire in the **Edit wire** tab since 1.4.0, a pin in the **Devices** tab) or by editing the harness file (`"locked": true`).
-- **Released (locked)**: a harness that can no longer be edited; start a new revision.
+- **Released (locked)**: a harness that can no longer be edited; start a new version.
 - **DRC**: design rule check, the background rules listed in [`RULES.md`](RULES.md).
 - **Fixed pin**: a pin whose signal is defined by the device itself (imported from KiCad); generation never moves it.
 - **Library**: the folder of device files and subsystem files that a team shares; see [use the library](user-manual/use-the-library.md).

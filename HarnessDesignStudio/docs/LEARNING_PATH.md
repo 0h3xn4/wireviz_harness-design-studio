@@ -28,7 +28,7 @@ If you have not installed the tool yet, start with [`INSTALL.md`](INSTALL.md).
 | 5. Enter your design | build it in the app or import it | 1 to 2 h | `blank`, template `interfaces.csv` |
 | 6. Bring in real data | parts, lengths, engineering values | as needed | templates `approved-parts.csv`, `segment-lengths.csv`, [`CONFIG.md`](CONFIG.md) |
 | 7. Check and review | read every problem, decide what is a real issue | 30 min | template `design-review-checklist.md` |
-| 8. Release and change | freeze a harness, then change it with a new revision | 30 min | [`HOWTO.md`](HOWTO.md) |
+| 8. Release and change | freeze a harness, then change it with a new version | 30 min | [`HOWTO.md`](HOWTO.md) |
 | 9. Automate | the same steps in a script or CI | 20 min | templates `ci/build.sh`, `ci/github-actions.yml` |
 
 ## 1. Look around (10 minutes)
@@ -110,9 +110,9 @@ Read every entry of the **Problems** tab, the Problems panel (Ctrl+Shift+M) or `
 
 ## 8. Release and change (30 minutes)
 
-A released harness is locked, and so are the parts, interface types and configuration values it uses. To change them, you start a new revision, so the old one stays reproducible. The steps, with the exact commands, are in [`HOWTO.md`](HOWTO.md) and in Part 9 of [`GETTING_STARTED.md`](GETTING_STARTED.md). Practise on a copy of your project, not on the real one.
+A released harness is locked, and so are the parts, interface types and configuration values it uses. To change them, you start a new version, so the old one stays reproducible. The steps, with the exact commands, are in [`HOWTO.md`](HOWTO.md) and in Part 9 of [`GETTING_STARTED.md`](GETTING_STARTED.md). Practise on a copy of your project, not on the real one.
 
-**Done when:** you can show, with `harness-design-studio diff` and `harness-design-studio log`, what changed since revision A. After `harness-design-studio revise`, `harness-design-studio diff DIR W002` compares revision A with the working design; revision B has a baseline of its own only after you release it, and then `--from A --to B` compares the two.
+**Done when:** you can show, with `harness-design-studio diff` and `harness-design-studio log`, what changed since version 1.0.0. After `harness-design-studio new-version`, `harness-design-studio diff DIR W002` compares version 1.0.0 with the working design; the new version has a baseline of its own only after you release it, and then `--from 1.0.0 --to 1.1.0` compares the two.
 
 ## 9. Automate
 

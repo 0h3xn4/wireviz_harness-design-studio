@@ -52,7 +52,7 @@ harness-design-studio generate wheel-link --json
 }
 ```
 
-(The harnesses were generated before; a first run lists them under `added`.) The first key of every document is `ok`: true when the exit code is 0. Which commands take `--json`, and the keys of each document, are in the [command line reference](../CLI.md#json-output): every command that has a result in data form, from `new`, `validate`, `check`, `drc`, `verify`, `generate` and `export` to `config`, `library`, the imports and exports of data, `review`, `release`, `revise`, `diff`, `compare`, `log`, `migrate` and `merge-fix`.
+(The harnesses were generated before; a first run lists them under `added`.) The first key of every document is `ok`: true when the exit code is 0. Which commands take `--json`, and the keys of each document, are in the [command line reference](../CLI.md#json-output): every command that has a result in data form, from `new`, `validate`, `check`, `drc`, `verify`, `generate` and `export` to `config`, `library`, the imports and exports of data, `review`, `release`, `new-version` (and its older name `revise`), `diff`, `compare`, `log`, `migrate` and `merge-fix`.
 
 The documents are made to be kept and compared:
 

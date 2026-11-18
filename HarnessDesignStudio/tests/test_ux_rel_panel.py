@@ -213,7 +213,7 @@ def test_a_harness_without_a_baseline_says_so(qtbot, released, tmp_path) -> None
 def test_an_unchanged_released_harness_has_no_differences(qtbot, released, tmp_path) -> None:
     panel = make_panel(qtbot, released, tmp_path)
     panel.select_harness("W001")
-    assert panel.summary.text() == strings.REL_DIFF_NONE.format("Revision 1.0.0", "Working design")
+    assert panel.summary.text() == strings.REL_DIFF_NONE.format("Version 1.0.0", "Working design")
     assert panel.group_model.rowCount() == 1  # only "All kinds (0)"
     assert not panel.mark.isEnabled()
 

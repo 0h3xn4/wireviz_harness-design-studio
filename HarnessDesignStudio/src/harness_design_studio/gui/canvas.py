@@ -369,7 +369,7 @@ class UnitItem(QGraphicsItem):
     def lock_tip(self, st: ObjectState) -> str:
         """The sentence for the lock mark: who locks the unit and what can still be edited."""
         harness, rev = st.locks[0]
-        text = strings.LOCK_TIP.format(harness=harness, rev=rev)
+        text = strings.LOCK_TIP.format(harness=harness, version=rev)
         if len(st.locks) > 1:
             text += strings.LOCK_TIP_MORE.format(", ".join(f"{h} {r}" for h, r in st.locks[1:]))
         return text + strings.LOCK_TIP_COSMETIC

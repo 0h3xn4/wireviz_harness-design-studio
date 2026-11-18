@@ -288,7 +288,7 @@ def test_the_lock_tooltip_says_who_locks_it_and_what_stays_editable(released) ->
     card = layout_of(released, uid)
     hit = item.hit_at(card.lock[0].center())
     tip = item.mark_tip(hit)
-    assert "Locked by W001" in tip and "released as revision" in tip and "new revision" in tip
+    assert "Locked by W001" in tip and "released as version" in tip and "new version" in tip
     assert strings.LOCK_TIP_COSMETIC.strip() in tip
 
 

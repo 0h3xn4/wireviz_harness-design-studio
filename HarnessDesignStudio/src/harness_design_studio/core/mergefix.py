@@ -21,6 +21,10 @@ Generate it conflicts at every merge, whatever else was edited. The change journ
   decides anything about any other file.
 * `record_journal_merge`: after a merge the journal has the entries of two lines of work; it adds
   the one `merge` entry that names both (`core.journal.merge_rows`).
+* `plan_version_fix`: a branch still in format 2, merged into a project in format 3, can bring the
+  old key and a letter of a harness version into a format 3 file (design of 3.0.0, section 5.6);
+  the loader names each with `revision_not_version`, and this rewrites them by the rule of the
+  upgrade (`A` is `1.0.0`, `B` is `2.0.0`; `core.io.migrate.rewrite_leftovers`).
 
 No Qt, no `git` program (see `core/vcs/gitindex.py`), no network.
 """
@@ -42,10 +46,12 @@ __all__ = [
     "GITATTRIBUTES",
     "JOURNAL_FILE",
     "MergeFixPlan",
+    "VersionFix",
     "add_journal_union",
     "conflict_files",
     "current_journal",
     "plan_merge_fix",
+    "plan_version_fix",
     "record_journal_merge",
     "record_renames",
     "take_both_sides",
@@ -275,6 +281,54 @@ def take_both_sides(data: bytes) -> bytes:
 
 
 @dataclass(frozen=True)
+class VersionFix:
+    """The keys and letters of format 2 that a merge brought into a format 3 project (design of
+    3.0.0 section 5.6, *Merges across the upgrade*): the files to write (None: the file is removed,
+    a baseline that moves to its new name), one line per rewritten place, and why it cannot be done
+    ('' when it can: a revision that is not a letter is not guessed)."""
+
+    writes: tuple[tuple[str, bytes | None], ...] = ()
+    lines: tuple[str, ...] = ()
+    problem: str = ""
+
+
+def plan_version_fix(folder: Path) -> VersionFix:
+    """Read-only: the rewrite of every key `revision`, letter, kind `new_revision` and title block
+    field `revision` of a project in the current format, by the rule of section 5.5
+    (`migrate.rewrite_leftovers`). Empty for a project of another format, which `migrate` upgrades,
+    and for a clean one. A file that cannot be read (conflict markers) is left to the rest of
+    `merge-fix`."""
+    from harness_design_studio.core.io import canonical
+    from harness_design_studio.core.io.loader import read_tree
+    from harness_design_studio.core.io.migrate import (
+        current_version,
+        leftovers,
+        rewrite_leftovers,
+        schema_version_of,
+    )
+
+    files, _broken, _issues = read_tree(folder)
+    if "project.json" not in files or schema_version_of(files) != current_version():
+        return VersionFix()
+    found = leftovers(files)
+    if not found:
+        return VersionFix()
+    guessed = [left for left in found if left.version is None]
+    if guessed:
+        return VersionFix(problem=guessed[0].message())
+    rewritten, moved = rewrite_leftovers(files)
+    writes: list[tuple[str, bytes | None]] = []
+    for rel in sorted(set(files) | set(rewritten)):
+        if rel in moved:
+            writes.append((rel, None))
+        elif rel in rewritten and rewritten[rel] != files.get(rel):
+            writes.append((rel, canonical.dumps(rewritten[rel])))
+    lines = [left.line() for left in found]
+    lines += [f"{old} -> {new}" for old, new in sorted(moved.items())]
+    return VersionFix(tuple(writes), tuple(lines))
+
+
+@dataclass(frozen=True)
 class MergeFixPlan:
     """What `merge-fix` finds. `ok` is True only when every file in conflict is one it resolves:
     the record, the journal, and the harness files and lists of IDs that both branches made
@@ -287,14 +341,15 @@ class MergeFixPlan:
     problem: str = ""  # why the record, the journal or the IDs cannot be taken
     new_journal: bytes | None = None  # both sides of the journal when it has markers
     ids: IdFix = field(default_factory=IdFix)  # the harnesses and lists of IDs in conflict
+    versions: VersionFix = field(default_factory=VersionFix)  # keys and letters of format 2
 
     @property
     def nothing_to_do(self) -> bool:
-        return not self.conflicts
+        return not self.conflicts and not self.versions.writes and not self.versions.problem
 
     @property
     def ok(self) -> bool:
-        return bool(self.conflicts) and not self.others and not self.problem
+        return not self.nothing_to_do and not self.others and not self.problem
 
 
 def _journal_both_sides(folder: Path) -> tuple[bytes | None, str]:
@@ -320,34 +375,40 @@ def plan_merge_fix(folder: Path) -> MergeFixPlan:
     conflicts = conflict_files(folder)
     others = [c for c in conflicts if c not in (GENERATION_FILE, JOURNAL_FILE) and not handles(c)]
     ids = IdFix()
+    versions = VersionFix()
     if not others:
         ids = plan_id_fix(folder, conflicts)
+        versions = plan_version_fix(folder)
     journal, problem = _journal_both_sides(folder) if JOURNAL_FILE in conflicts else (None, "")
-    problem = problem or ids.problem
+    problem = problem or ids.problem or versions.problem
     if problem or GENERATION_FILE not in conflicts:
-        return MergeFixPlan(conflicts, others, problem=problem, new_journal=journal, ids=ids)
+        return MergeFixPlan(
+            conflicts, others, problem=problem, new_journal=journal, ids=ids, versions=versions
+        )
     path = folder / GENERATION_FILE
     try:
         data = path.read_bytes() if path.is_file() and not path.is_symlink() else b""
     except OSError:
-        return MergeFixPlan(conflicts, others, problem="The record cannot be read.", ids=ids)
+        return MergeFixPlan(
+            conflicts, others, problem="The record cannot be read.", ids=ids, versions=versions
+        )
     marked = has_markers(data)
+    why = ""
     if marked:
         try:
             data = take_our_side(data)
         except ValueError as exc:
-            return MergeFixPlan(conflicts, others, True, None, f"The record: {exc}.", journal, ids)
-    try:
-        record = json.loads(data.decode("utf-8"))
-    except ValueError:
-        return MergeFixPlan(
-            conflicts, others, marked, None, "The record is not valid JSON.", journal, ids
-        )
-    if not isinstance(record, dict) or "input_hash" not in record:
-        return MergeFixPlan(
-            conflicts, others, marked, None, "The file is not a generation record.", journal, ids
-        )
-    return MergeFixPlan(conflicts, others, marked, data if marked else None, "", journal, ids)
+            why = f"The record: {exc}."
+    if not why:
+        try:
+            record = json.loads(data.decode("utf-8"))
+        except ValueError:
+            why = "The record is not valid JSON."
+        else:
+            if not isinstance(record, dict) or "input_hash" not in record:
+                why = "The file is not a generation record."
+    kept = data if marked and not why else None
+    return MergeFixPlan(conflicts, others, marked, kept, why, journal, ids, versions)
 
 
 def current_journal(folder: Path) -> Any:

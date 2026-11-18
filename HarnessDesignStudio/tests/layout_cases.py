@@ -402,10 +402,10 @@ def _revise_dialog(c: Ctx) -> QWidget:
 
     return dialogs.ChangeDialog(
         None,
-        "New revision of W001",
+        "New version of W001",
         by="Ada",
         blockers=[],
-        explain="A new revision unlocks the harness for editing. " * 3,
+        explain="A new version unlocks the harness for editing. " * 3,
     )
 
 
@@ -423,7 +423,7 @@ def _revisions_dialog(c: Ctx) -> QWidget:
     rows = [header] + [
         [f"{i}", "W001", f"{i}", "released", "Ada", "2026-03-01", LONG] for i in range(5)
     ]
-    return dialogs.HistoryDialog(None, "Revisions of W001", rows)
+    return dialogs.HistoryDialog(None, "Versions of W001", rows)
 
 
 def _explain(c: Ctx) -> QWidget:
