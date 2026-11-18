@@ -482,7 +482,7 @@ error: [out_stamp] harnesses/W001/W001.xlsx does not carry the current generator
 error: [out_modified] system/bom.csv was changed after it was exported.
 ```
 
-If you filled in the build workbook in `outputs/` (ticks, measured values), `verify --outputs` also prints `error: [out_build] The build workbook of W001 (Cut list) does not match the design for W001-001.` (the sheet and the wire it names depend on what you typed). Work on a copy of the workbook instead.
+If you filled in the build workbook in `outputs/` (ticks, measured values), `verify --outputs` also prints `error: [out_build] The build workbook of W001 (Cut list) does not match the design for W001-001.` (the sheet and the wire it names depend on what you typed). Work on a copy of the workbook instead. A harness plan (`<ID>_plan.ods`) typed into in `outputs/` gives `[out_modified]` and `[out_plan]` (or `[out_plan_formula]` for a changed formula) in the same way.
 
 Exit code 1. **Fix:** never edit files in `outputs/`; they are made from the design and can be deleted. Run `harness-design-studio generate DIR`, then `harness-design-studio export DIR`, then `harness-design-studio verify DIR --outputs`.
 
