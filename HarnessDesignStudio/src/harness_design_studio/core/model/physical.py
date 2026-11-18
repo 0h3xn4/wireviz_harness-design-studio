@@ -23,12 +23,17 @@ from .base import (
 )
 
 Gender = Literal["male", "female", "unspecified"]
-Role = Literal["box", "cable", "inline", "feedthrough", "test", "loose"]
+Role = Literal["box", "cable", "inline", "feedthrough", "test", "loose", "splice"]
 # "loose" is the end of a cable that is not on a connector yet (M4, D-200, D-201): an ordinary
 # connector of the harness with pins that wires attach to, no `mates_with`, and the library part
 # `TBD-CONNECTOR` until a person decides.
 LOOSE_ROLE: Role = "loose"
 TBD_PART_ID = "TBD-CONNECTOR"  # the library part of a loose end until a person chooses one
+# "splice" (format 3, M6a, design of 2.3.0 section 6.1): a joint inside a harness, a connector of
+# the harness with no `mates_with` and no `unit_id` whose part is a library part of category
+# `splice`. Each pin is one node, and every wire that ends on a node is joined to the others there;
+# the pin's `termination` says how (`crimp` or `solder`). A splice block has a pin per node.
+SPLICE_ROLE: Role = "splice"
 # Where a harness came from. It is worked out from what the files already say (`generated`, and the
 # connection that names the harness), never stored: `links.harness_origin` (D-201).
 Origin = Literal["interfaces", "link", "drawn"]
@@ -161,6 +166,10 @@ class ShieldGroup(SparseEntity):
 
 
 class Splice(Entity):
+    """The splice entry of formats 1 and 2: never created by any tool, kept readable, never written
+    by this one (a splice is a connector of role `splice` since format 3). Integrity reports a
+    non-empty list (`splice_stub`); the step from 2 to 3 keeps it as it is."""
+
     id: Id
     name: Name
     wire_ids: list[Id]

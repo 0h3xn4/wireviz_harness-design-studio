@@ -398,7 +398,8 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "The rule pin-shared reports every pin of a harness on which more than one wire ends: "
             "the limit is one wire, whatever the contact or the crimp could hold. It is not a number "
             "the project can set; a design that needs two wires in one contact waives the finding "
-            "with a reason.",
+            "with a reason. The nodes of a splice are left out: a splice joins its wires there by "
+            "design.",
             "built in",
             "core/drc/rules.py (_pin_shared), core/derive_rules.py (_pin_shared)",
         ),

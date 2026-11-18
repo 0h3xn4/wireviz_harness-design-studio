@@ -22,6 +22,7 @@ from harness_design_studio.core.model import (
 from harness_design_studio.core.model.base import Entity
 from harness_design_studio.core.model.config import ABOUT_KEY
 from harness_design_studio.core.model.journal import Journal
+from harness_design_studio.core.model.library import SPARSE_CATEGORIES
 
 from . import canonical
 from .fs import slug
@@ -233,6 +234,8 @@ def serialize(project: Project, *, tool_version: str | None = None) -> dict[str,
     files["library/manifest.json"] = canonical.dumps(project.library_info.model_dump(mode="json"))
     for category in PART_CATEGORIES:
         parts = [p for p in project.parts.values() if p.category == category]
+        if not parts and category in SPARSE_CATEGORIES:
+            continue  # `library/splice.json` only while a splice part exists (format 3)
         files[f"library/{category}.json"] = memo.get(
             f"library/{category}.json",
             parts,

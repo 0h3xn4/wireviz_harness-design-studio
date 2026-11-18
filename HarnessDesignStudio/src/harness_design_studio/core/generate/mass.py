@@ -4,13 +4,16 @@
 
 A loose cable end (role `loose`, D-201) has no connector yet: its mass is never counted (not even
 a mass a person gave the placeholder part `TBD-CONNECTOR`), and it is reported as missing data,
-`mass of open end W009-P2 (no connector chosen yet)`, so the harness is not complete."""
+`mass of open end W009-P2 (no connector chosen yet)`, so the harness is not complete.
+
+A splice (role `splice`, format 3) is counted only by the model `full_bom`, with the contacts and
+the accessories (D-200): the default model of wires and cable connectors leaves it out."""
 
 from dataclasses import dataclass, field
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.model import Connector, Harness, Project
-from harness_design_studio.core.model.physical import LOOSE_ROLE
+from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 
 from .lengths import wire_length
 
@@ -49,6 +52,12 @@ def _add_bom_parts(project: Project, h: Harness, r: MassReport) -> None:
     mass per metre), each by the mass of its part; a part without that mass is reported as missing."""
     used = pins_in_use(h)
     for c in h.connectors:
+        if c.role == SPLICE_ROLE:  # a splice: by the mass of its part, as a connector
+            part = project.parts.get(c.part_id)
+            if part is None or part.mass_g is None:
+                r.missing.append(f"mass of splice part {c.part_id}")
+            else:
+                r.total_g += part.mass_g
         for pin in c.pins:
             if not pin.contact_part or (c.id, pin.id) not in used:
                 continue
@@ -83,6 +92,8 @@ def harness_mass(project: Project, h: Harness) -> MassReport:
         if c.role == LOOSE_ROLE:
             r.missing.append(open_end_missing(c))
             continue
+        if c.role == SPLICE_ROLE:
+            continue  # only under full_bom (`_add_bom_parts`)
         part = project.parts.get(c.part_id)
         if part is None or part.mass_g is None:
             r.missing.append(f"mass of connector part {c.part_id}")

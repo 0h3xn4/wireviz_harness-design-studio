@@ -28,7 +28,7 @@ from harness_design_studio.core.deviations import (
 )
 from harness_design_studio.core.generate.lengths import wire_length
 from harness_design_studio.core.model import Connector, Harness, Project, Wire
-from harness_design_studio.core.model.physical import LOOSE_ROLE, TBD_PART_ID
+from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
 from harness_design_studio.core.wirecolours import resolve
 
 from . import tables
@@ -72,6 +72,9 @@ CONNECTOR_HEADER = [
 ]  # fmt: skip
 ACCESSORY_HEADER = ["Done (x)", *tables.ACCESSORY_HEADER]
 NO_ACCESSORIES = "No accessories entered."
+# The heading of the block of splices at the end of the *Connectors* sheet, for a harness with a
+# splice (format 3, M6a): each splice with its part and its nodes, the wires on each node.
+SPLICE_BLOCK = "Splices: each node joins the wires listed on it"
 HARNESS_TARGET = "(harness)"  # an accessory with no target belongs to the harness as a whole
 LABEL_HEADER = ["Done (x)", "Label", "Kind", "Text", "Quantity"]
 TEST_HEADER = [
@@ -362,8 +365,8 @@ def open_items(project: Project, h: Harness) -> dict[str, tuple[str, ...]]:
             w.id for w in wires if w.strip_a_mm is None or w.strip_b_mm is None
         ),
         "Pins in use without a contact part": tuple(
-            f"{c.id}.{p.id}" for c, p in pins if not p.contact_part
-        ),
+            f"{c.id}.{p.id}" for c, p in pins if not p.contact_part and c.role != SPLICE_ROLE
+        ),  # a splice node takes no contact: the splice part is the joint (format 3)
         "Parts that are not approved": tuple(
             sorted(
                 pid
@@ -570,8 +573,12 @@ def _pin_rows(
             wire_ids, goes = ("(spare)" if spare else "(no wire)"), ""
         gauge = "; ".join(str(w.gauge_awg) for w in wires if w.gauge_awg is not None)
         term = p.termination if p.termination != "unspecified" else (TO_FILL if wires else "")
-        contact = p.contact_part or (TO_FILL if wires else "")
-        part = project.parts.get(p.contact_part or "")
+        if c.role == SPLICE_ROLE:  # a node: no contact; the tool is the splice part's (format 3)
+            contact = ""
+            part = project.parts.get(c.part_id)
+        else:
+            contact = p.contact_part or (TO_FILL if wires else "")
+            part = project.parts.get(p.contact_part or "")
         tool = (part.tool or "") if part is not None else ""
         cells = [
             _cell(ws, p.id, bold=True, fill=grey), _cell(ws, p.signal or "", fill=grey),
@@ -661,9 +668,19 @@ def _connector_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> Non
     attached = _attached(h)
     body.append(_header(ws, lay, CONNECTOR_HEADER))
     row, since_break, ticks = 1, 0, []
-    for c in sorted(h.connectors, key=lambda x: x.id):
+    splices = [c for c in sorted(h.connectors, key=lambda x: x.id) if c.role == SPLICE_ROLE]
+    plain = [c for c in sorted(h.connectors, key=lambda x: x.id) if c.role != SPLICE_ROLE]
+    for c in [*plain, *splices]:
         label = tables.connector_label(project, c)
-        if tables.is_open_end(c):  # a loose end has no gender or mate yet: it is an end to decide
+        if c is (splices[0] if splices else None):  # the splices: a block of their own (format 3)
+            body.append([_cell(ws, SPLICE_BLOCK, bold=True, size=11, wrap=False, box=False)])
+            body.append([])
+            row += 2
+        if c.role == SPLICE_ROLE:
+            nodes = len(c.pins)
+            head = [c.id, c.part_id, "splice", f"{nodes} node{'s' if nodes != 1 else ''}"]
+            label = ""
+        elif tables.is_open_end(c):  # a loose end has no gender or mate yet: it is an end to decide
             head = [c.id, tables.part_text(c), f"{tables.OPEN_END}, {TO_FILL}"]
         else:
             head = [

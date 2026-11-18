@@ -1,0 +1,9 @@
+# harness-design-studio 2.4.0 model e0075c432202
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+Wire,Signal,Interface,From connector,From pin,To connector,To pin,AWG,Part,Colour,Length (m),Shield group,Locked,Via
+W003-001,PWR,,W003-P1,1,W003-X1,1,22,,red,0.5,,,W003-X1
+W003-002,PWR,,W003-X1,1,W003-P2,1,24,,red,1,,,W003-X1
+W003-003,PWR,,W003-X1,1,W003-P3,1,24,,red,1.25,,,W003-X1
+W003-004,RTN,,W003-P1,2,W003-X2,1,22,,black,0.52,,,W003-X2
+W003-005,RTN,,W003-X2,1,W003-P2,2,24,,black,1.02,,,W003-X2
+W003-006,RTN,,W003-X2,1,W003-P3,2,24,,black,1.27,,,W003-X2
