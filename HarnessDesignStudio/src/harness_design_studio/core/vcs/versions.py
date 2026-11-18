@@ -6,9 +6,12 @@ old letter, and the pinout test (design of 3.0.0, `docs/ait/DESIGN_3.0_HARNESS_P
 Format 2 names a harness revision by upper-case letters (A, B … Z, AA, AB …, `release.next_revision`);
 format 3 will name it by a version MAJOR.MINOR.PATCH (section 5.2, D-242, Q9). This module is
 prepared before format 3 (pull request R1 of section 12): `version_key` is the one order of
-revisions that `report.baselines_of`, the editor's top bar and `describe.harness_state` use, and it
-keeps the letter order of format 2 exactly; `bump`, `letter_to_version` and the pinout test have no
-caller yet. Nothing here is shown, and nothing here writes a file.
+revisions and versions that `report.baselines_of` and the editor's top bar use, and it keeps the
+letter order of format 2 exactly. `bump` works out a new version (`release.plan_new_version`),
+`letter_to_version` maps an old letter (the migration, `diff --from B`, `merge-fix`), `kind_between`
+reads the kind of a draft from its versions and the pinout test gives the note of section 5.3 at
+review and release (`release.pinout_note`, pull request R2). Nothing here is shown, and nothing here
+writes a file.
 
 Pure: no Qt, no file, no clock.
 """
@@ -26,8 +29,8 @@ from .diff import Flat, ObjectChange, diff_flat, flatten_snapshot
 VersionKind = Literal["major", "minor", "patch"]
 KINDS: tuple[VersionKind, ...] = ("major", "minor", "patch")
 
-# The revision a new harness gets in format 2 (the model's default and generation's value); a
-# harness at any other revision is a later one (`describe.harness_state`).
+# The revision a new harness got in format 2 (the model's default and generation's value then); the
+# migration maps it to `FIRST_VERSION`.
 FIRST_REVISION = "A"
 FIRST_VERSION = FIRST_VERSION_OF_MODEL  # the version a new harness starts at in format 3
 
@@ -101,8 +104,8 @@ def sort_versions(texts: Iterable[str]) -> list[str]:
 
 def is_first(version: str) -> bool:
     """True for the version a new harness starts at (`FIRST_VERSION`, `1.0.0`, format 3; it was the
-    letter `A` in format 2, which the migration maps to `1.0.0`). Any other version is a later one,
-    as `describe.harness_state` reads it."""
+    letter `A` in format 2, which the migration maps to `1.0.0`). Whether a draft is a later version
+    of a released harness is read from its baselines, not from this (`describe.harness_state`)."""
     return version_key(version) == version_key(FIRST_VERSION)
 
 
@@ -143,6 +146,27 @@ def bump(version: str, kind: VersionKind) -> str:
     if max(major, minor, patch) > MAX_PART:
         raise ValueError(f"The {kind} version after {version} would have a number above {MAX_PART}")
     return f"{major}.{minor}.{patch}"
+
+
+def kind_between(released: str, version: str) -> VersionKind | None:
+    """The kind of the step from a released version to a later one (section 5.3): major when the
+    first number went up, minor when only the second did, patch when only the third did; from
+    `1.4.2`, `2.0.0` is major, `1.5.0` minor and `1.4.3` patch. A letter of format 2 is read as its
+    version (`B` is `2.0.0`). `None` when either is no version or `version` is not higher, which only
+    a hand-edited file or a merge can hold.
+
+    The kind of a draft is read from its versions, not from the change log, so a migrated project
+    (whose letters were major steps, `A` to `B` is `1.0.0` to `2.0.0`) and a kind chosen again
+    (`version_changed`, Q22) need no rule of their own."""
+    old, new = letter_to_version(released), letter_to_version(version)
+    if old is None or new is None:
+        return None
+    a, b = _parts(old), _parts(new)
+    if b <= a:
+        return None
+    if b[0] != a[0]:
+        return "major"
+    return "minor" if b[1] != a[1] else "patch"
 
 
 # ---- the pinout test of section 5.3 (Q20) -------------------------------------------------------
@@ -238,6 +262,7 @@ __all__ = [
     "bump",
     "is_first",
     "is_version",
+    "kind_between",
     "letter_number",
     "letter_to_version",
     "pinout_changes",

@@ -17,12 +17,14 @@ from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.vcs import diff as vdiff
 from harness_design_studio.core.vcs.release import (
     ReleasePlan,
+    major_note,
+    pinout_note,
     plan_new_version,
     plan_release,
     plan_submit_review,
 )
 from harness_design_studio.core.vcs.report import baselines_of, changelog_rows, working_diff
-from harness_design_studio.core.vcs.versions import KINDS
+from harness_design_studio.core.vcs.versions import KINDS, is_version, letter_to_version
 
 COMMANDS = ("review", "release", "new-version", "revise", "diff", "compare", "log")
 NEW_VERSION = ("new-version", "revise")  # `revise` is the older name of `new-version` (Q30)
@@ -111,7 +113,9 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         text = (
             "start a new version of a released harness: --kind major (not compatible with the "
             "versions before it), minor (adds something and stays compatible) or patch (a fix that "
-            "stays compatible); `revise` is the older name of this command"
+            "stays compatible); on a draft after a release, before its review, it chooses the kind "
+            "again and works the version out again from the released one; `revise` is the older "
+            "name of this command"
             if listed
             else "the older name of `new-version`: start a new version of a released harness "
             "(--kind major, minor or patch)"
@@ -131,13 +135,15 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "--from",
         dest="rev_from",
         default=None,
-        help="baseline version to compare from (default: latest)",
+        help="baseline version to compare from (default: latest); an old letter is read as its "
+        "version (B is 2.0.0)",
     )
     d.add_argument(
         "--to",
         dest="rev_to",
         default=None,
-        help="baseline version to compare to (default: the working design)",
+        help="baseline version to compare to (default: the working design); an old letter is "
+        "read as its version",
     )
     c = sub.add_parser(
         "compare",
@@ -266,7 +272,9 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         plan = plan_new_version(
             project, args.harness, kind=args.kind, by=by, comment=args.comment, when=when
         )
-    extra = {"kind": args.kind} if cmd in NEW_VERSION else {}  # `--json` adds the kind
+    notes = _notes(project, args, cmd)
+    extra: dict[str, Any] = {"kind": args.kind} if cmd in NEW_VERSION else {}  # `--json`: the kind
+    extra["notes"] = notes
     blocked = _apply(args.project, plan, rep, by, **extra)
     if blocked:
         return blocked
@@ -277,10 +285,23 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         print(blocked_text(exc), file=sys.stderr)
         return 2 if isinstance(exc, SaveError) else 1
     rep.say(f"{plan.label}: done.")
+    for note in notes:
+        rep.say(f"Note: {note}")
     rep.put(action=plan.label, by=by, **extra, blockers=[], outputs=None)
     if cmd == "release":
         return _restamp(args.project, rep)
     return 0
+
+
+def _notes(project: Any, args: argparse.Namespace, cmd: str) -> list[str]:
+    """The notes of section 5.3 of the design of 3.0.0, which change no version and block nothing:
+    at review and release, a pinout change at a device in a minor or patch version (Q20); at a new
+    version, the note on a major version (Q21)."""
+    if args.harness not in project.harnesses:
+        return []
+    at_new = cmd in NEW_VERSION
+    note = major_note(args.kind) if at_new else pinout_note(project, args.harness)
+    return [note] if note else []
 
 
 RESTAMP_HINT = (
@@ -345,14 +366,25 @@ def _diff(project: object, args: argparse.Namespace, rep: Report) -> int:
     if not bases:
         print(f"error: {h.id} has no baseline yet; release it first.", file=sys.stderr)
         return 2
-    start = bases.get(args.rev_from) if args.rev_from else list(bases.values())[-1]
+    read_as: dict[str, str] = {}
+    for given in (args.rev_from, args.rev_to):
+        mapped = _read_as(given)
+        if mapped is not None and given is not None and given not in read_as:
+            read_as[given] = mapped
+            rep.say(
+                f"{given} is read as version {mapped}: the letters of format 2 became versions at "
+                "the upgrade to format 3, the Nth letter N.0.0."
+            )
+    wanted_from = read_as.get(args.rev_from or "", args.rev_from)
+    wanted_to = read_as.get(args.rev_to or "", args.rev_to)
+    start = bases.get(wanted_from) if wanted_from else list(bases.values())[-1]
     if start is None:
-        print(f"error: {h.id} has no baseline for version {args.rev_from}.", file=sys.stderr)
+        print(f"error: {h.id} has no baseline for version {wanted_from}.", file=sys.stderr)
         return 2
-    if args.rev_to:
-        end = bases.get(args.rev_to)
+    if wanted_to:
+        end = bases.get(wanted_to)
         if end is None:
-            print(f"error: {h.id} has no baseline for version {args.rev_to}.", file=sys.stderr)
+            print(f"error: {h.id} has no baseline for version {wanted_to}.", file=sys.stderr)
             return 2
         diff = vdiff.diff_snapshots(start.snapshot, end.snapshot)
         rep.say(
@@ -367,5 +399,14 @@ def _diff(project: object, args: argparse.Namespace, rep: Report) -> int:
             end="",
         )
         to = "working"
-    rep.put(harness=h.id, **{"from": start.version, "to": to}, **_diff_doc(diff))
+    rep.put(harness=h.id, **{"from": start.version, "to": to}, read_as=read_as, **_diff_doc(diff))
     return 0
+
+
+def _read_as(given: str | None) -> str | None:
+    """The version an old letter given to `--from` or `--to` is read as (design of 3.0.0 section
+    5.4, Q18: `B` is `2.0.0`), or None for a version, an empty value and any other text, which are
+    looked up as they are."""
+    if not given or is_version(given):
+        return None
+    return letter_to_version(given)

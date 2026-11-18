@@ -75,7 +75,7 @@ def test_guide_names_buttons_that_exist() -> None:
         "Export outputs",
         "Submit for review",
         "Release…",
-        "New revision…",
+        "New version…",
         "Changes…",
         "Change log…",
         "Interface table",

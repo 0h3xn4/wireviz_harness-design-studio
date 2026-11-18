@@ -14,7 +14,7 @@ from harness_design_studio.core.io.saver import save_project  # noqa: E402
 from harness_design_studio.core.model import evolve  # noqa: E402
 from harness_design_studio.core.samples import sat15_full  # noqa: E402
 from harness_design_studio.gui.dialogs import ChangeDialog, DiffDialog, HistoryDialog  # noqa: E402
-from tests.gui_helpers import DialogScript, make_window  # noqa: E402
+from tests.gui_helpers import DialogScript, hold_drc, make_window  # noqa: E402
 
 
 @pytest.fixture
@@ -181,3 +181,76 @@ def test_marks_are_drawn_and_cleared_on_project_change(win) -> None:  # type: ig
     win.view.grab()  # paints the marked unit without errors
     win.ctl._install(sat15_full(), None, None)
     assert win.ctl.diff_marks == {}
+
+
+# ---- pull request R2 of 3.0.0: the notes and the kind chosen again (design sections 5.3, Q20 to Q22) ----
+
+
+def _released_then_new(win, kind: str) -> str:  # type: ignore[no-untyped-def]
+    hold_drc(win)
+    hid = releasable(win)
+    win.export_flow()
+    DialogScript(win, fill())
+    win.change_flow("release", hid)
+    DialogScript(win, fill(comment="Rework after the review", kind=kind))
+    win.change_flow("revise", hid)
+    return hid
+
+
+def test_choosing_major_shows_the_note_and_the_dialog_goes_on(win) -> None:  # type: ignore[no-untyped-def]
+    from harness_design_studio.gui import strings
+
+    hold_drc(win)
+    hid = releasable(win)
+    win.export_flow()
+    DialogScript(win, fill())
+    win.change_flow("release", hid)
+    script = DialogScript(win, accept=False)
+    win.change_flow("revise", hid)
+    dlg = script.seen[0]
+    assert isinstance(dlg, ChangeDialog) and not dlg.version_note.isVisibleTo(dlg)
+    dlg.kind_buttons["major"].setChecked(True)
+    assert dlg.version_note.isVisibleTo(dlg) and dlg.version_note.text() == strings.NV_MAJOR_NOTE
+    dlg.kind_buttons["minor"].setChecked(True)
+    assert not dlg.version_note.isVisibleTo(dlg)  # a note, never a block: minor is fine
+
+
+def test_the_review_dialog_shows_the_pinout_note_of_a_minor_version(win) -> None:  # type: ignore[no-untyped-def]
+    from harness_design_studio.core.vcs.release import pinout_note
+
+    hid = _released_then_new(win, "minor")
+    h = win.ctl.project.harnesses[hid]
+    end = next(c for c in h.connectors if c.mates_with)
+    other = "female" if end.gender == "male" else "male"
+    changed = evolve(h, connectors=[evolve(c, gender=other) if c.id == end.id else c for c in h.connectors])  # fmt: skip
+    assert win.ctl.run("change the end", [Put("harnesses", changed)])
+    note = pinout_note(win.ctl.project, hid)
+    assert note.startswith("This version changes the pinout at a device")
+    script = DialogScript(win, accept=False)
+    win.change_flow("review", hid)
+    dlg = script.seen[0]
+    assert isinstance(dlg, ChangeDialog) and dlg.version_note.text() == note
+    assert dlg.version_note.isVisibleTo(dlg)
+
+
+def test_the_kind_is_chosen_again_from_the_releases_panel(win) -> None:  # type: ignore[no-untyped-def]
+    from harness_design_studio.gui import strings
+
+    hid = _released_then_new(win, "minor")
+    assert win.ctl.project.harnesses[hid].version == "1.1.0"
+    win.go_to("releases")
+    panel = win.releases_panel
+    panel.refresh()
+    assert panel.select_harness(hid)
+    assert panel.action_enabled("revise")  # a draft after a release, before its review (Q22)
+    assert panel.action_buttons["revise"].toolTip() == strings.REL_REVISE_AGAIN_TIP
+    script = DialogScript(win, fill(comment="Only a fix after all", kind="patch"))
+    win.change_flow("revise", hid)
+    dlg = script.seen[0]
+    assert isinstance(dlg, ChangeDialog)
+    assert dlg.windowTitle() == strings.NV_AGAIN_TITLE.format(hid)
+    h = win.ctl.project.harnesses[hid]
+    assert (h.version, h.status) == ("1.0.1", "draft")
+    entry = max(win.ctl.project.changelog.values(), key=lambda e: e.id)
+    assert (entry.kind, entry.version) == ("version_changed", "1.0.1")
+    assert strings.NV_AGAIN_DONE.format(hid, "1.0.1") in win.toasts.messages[-1]

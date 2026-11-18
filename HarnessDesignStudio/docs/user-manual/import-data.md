@@ -266,7 +266,7 @@ The editor shows the same line under the part picker, and every export carries i
 - **"Harness 'W001' does not exist" for every row of the lengths file.** The harnesses are not generated yet, or the columns are in another order.
 - **A part approval value is not accepted.** List every value of your file under `--approved`, `--pending` or `--rejected`.
 - **"1,234" is refused.** Write `1.234` or `1234`. The tool does not guess which you mean.
-- **"This change was blocked because it touches released items."** A released harness uses that part. Start a new revision first.
+- **"This change was blocked because it touches released items."** A released harness uses that part. Start a new version first.
 - **Errors appear after an import.** The library or the lengths changed, so the plans are out of date. Generate and export again.
 - **Importing interfaces on the command line.** It is app only.
 - **The lengths are 1000 times too small or too large.** Look at the echo of the rows: `5.0 mm = 0.005 m` shows the unit that was used. Say `--unit` when the file is not in millimetres.

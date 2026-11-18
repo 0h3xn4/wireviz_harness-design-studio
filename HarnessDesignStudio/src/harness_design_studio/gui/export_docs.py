@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 from harness_design_studio.core.outputs.buildsheet import FILE_SUFFIX as BUILD_SUFFIX
+from harness_design_studio.gui import strings
 
 MANIFEST: Final = "manifest.json"  # written beside the outputs; never part of a copy
 SYSTEM: Final = "system"  # the scope of the files that cover all harnesses together
@@ -61,7 +62,7 @@ SYSTEM_DOCS: Final[tuple[DocType, ...]] = (
     DocType("sys_drc_findings", "Design rule findings", "CSV"),
     DocType("sys_drc_report", "Design rule report", "Markdown"),
     DocType("sys_changelog", "Change log", "CSV"),
-    DocType("sys_revision_report", "Revision report", "Markdown"),
+    DocType("sys_version_report", strings.DOC_VERSION_REPORT, "Markdown"),
     DocType("sys_export", "Project export", "JSON"),
     DocType("sys_provenance", "Provenance of the generated values", "JSON"),
     DocType("sys_workbook", "System workbook (all tables)", "XLSX"),
@@ -111,7 +112,7 @@ _SYSTEM_FILES: Final = {
     "drc_findings.csv": "sys_drc_findings",
     "drc_report.md": "sys_drc_report",
     "changelog.csv": "sys_changelog",
-    "version_report.md": "sys_revision_report",  # (the screen word stays until R2)
+    "version_report.md": "sys_version_report",
     "export.json": "sys_export",
     "provenance.json": "sys_provenance",
     "system.xlsx": "sys_workbook",

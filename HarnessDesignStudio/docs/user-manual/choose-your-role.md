@@ -30,7 +30,7 @@ The workshop of October 2026 said the tool is too crowded, that a user feels ove
 |---|---|---|---|
 | Thinks in | devices, the connections between devices, subsystems, the library, the checks | connectors, pinouts, harnesses, wires, the engineering values and the models | the build data, the build sheets, the outputs, the as-built records, the workflow |
 | A project opens on | the **Next step** page | the diagram (**Model**) | the **Next step** page |
-| Rail | Next step, Model, Checks, Revisions, Settings | Next step, Home, Model, Checks, Drawings, Outputs, Revisions, Settings | Next step, Home, Checks, Drawings, Outputs, As-built, Revisions, Settings |
+| Rail | Next step, Model, Checks, Versions, Settings | Next step, Home, Model, Checks, Drawings, Outputs, Versions, Settings | Next step, Home, Checks, Drawings, Outputs, As-built, Versions, Settings |
 | Side panels (project tree, inspector) | closed until asked for (**Show panels**) | open | open |
 | Minimap, legend, status counts | off | on | on |
 | Tools above the diagram | **Select**, **Connect**, **Add device**, **More** | all of them | all of them |
@@ -61,7 +61,7 @@ This is separate from **Guided / Expert** in the top bar, which only changes how
 
 The same project as a Systems engineer, with the side panels, the minimap, the legend, the status counts and the problem notices (the status chip of the top bar and the badges on the diagram) left out, a rail of five areas, and **Select**, **Connect**, **Add device** and **More** above the diagram. **Show panels** is in the top bar:
 
-![The tutorial project as a Systems engineer: the rail with Next step, Model, Checks, Revisions and Settings, the top bar with a Show panels button and no status chip, the diagram of three devices without problem badges and with the tools Select, Connect, Add device and More above it, and a short status bar](../img/systems-engineer.png)
+![The tutorial project as a Systems engineer: the rail with Next step, Model, Checks, Versions and Settings, the top bar with a Show panels button and no status chip, the diagram of three devices without problem badges and with the tools Select, Connect, Add device and More above it, and a short status bar](../img/systems-engineer.png)
 
 The same project as an Electrical engineer, with the project tree on the left, the Inspector on the right, the full tool row, the legend and the minimap of the diagram, and the counts in the status bar:
 
@@ -80,7 +80,7 @@ A role is a named set of the pages on the rail and the entries of the menus. The
 | Drawings | Ctrl+2, the palette | listed | listed |
 | Outputs | Ctrl+3, the palette, the Next step buttons | listed | listed |
 | As-built | `Go > Go to As-built`, the palette | `Go > Go to As-built` is not listed; the palette reaches it | listed |
-| Revisions | listed | listed | listed |
+| Versions | listed | listed | listed |
 | Settings | listed | listed | listed |
 
 **The pending-values link (fixed in S9).** The status bar's link *n values pending, m rules not checked* is a problem notice, and problem notices are off for the Systems engineer; so the Systems engineer used to see no sign that engineering values were still to set. The Next step page now says it in every role, in a quiet line under the steps (*n engineering values are still to set. Until they are set, some rules cannot be checked*), with the button **Set the values…** that opens the engineering values; the same count is in *What this step uses and makes* (below). The menu entry **Design > Engineering values…** is still left out of the Systems engineer's menus; the button, Ctrl+K and the Settings page reach the same window.
@@ -98,9 +98,9 @@ To show less at once, the Systems engineer role starts with these things closed 
 | Minimap and legend of the diagram | off | on |
 | Status bar | the save state, the running job, *Offline* and the project path | everything, with the counts, the *Problems* button (while the problem notices are on) and the zoom value |
 | Tools above the diagram | **Select**, **Connect**, **Add device** and **More** | all of them |
-| Rail | Next step, Model, Checks, Revisions, Settings | the same and Home, Drawings and Outputs |
+| Rail | Next step, Model, Checks, Versions, Settings | the same and Home, Drawings and Outputs |
 
-- **The menus list less (since 1.9).** The Systems engineer's menus leave out the entries for wires, harnesses, zones, aligning devices, the interface-first way (**Connect with an interface type…**, **New interface…**), the drawing options of the diagram, revisions of a harness, the engineering values and the detail views. Every one of them is still in the command palette (Ctrl+K) and on its key; the Electrical engineer's menus list all of them.
+- **The menus list less (since 1.9).** The Systems engineer's menus leave out the entries for wires, harnesses, zones, aligning devices, the interface-first way (**Connect with an interface type…**, **New interface…**), the drawing options of the diagram, the versions of a harness, the engineering values and the detail views. Every one of them is still in the command palette (Ctrl+K) and on its key; the Electrical engineer's menus list all of them.
 - **After each step you stay where you are (since 1.9).** Adding a device, generating, creating a harness from a connection and adding library devices leave the Systems engineer on the Next step page or the diagram, not in a detail tab.
 - **More** holds the other tools: *Create redundant copy*, *Delete*, *Zoom out*, *Zoom in*, *Fit all*, *Arrange diagram*, and a **Show only** menu (all interfaces, by signal class, by connector, by bundle).
 - **Show panels** (a button in the top bar, and **Show side panels** first in the View menu) opens or closes the project tree and the inspector together. It is only there for the Systems engineer. The project tree has the **Connections** group (see [connect two connectors](connect-two-connectors.md)).
@@ -119,8 +119,8 @@ Quick mode is for the person who only wants to draw the devices of a set-up and 
 
 While it is on, the window shows less:
 
-- **The rail** lists the **Model**, **Home** and **Settings**. Next step, Checks, Drawings, Outputs, Revisions and As-built are left out (the area that is open stays listed until you leave it).
-- **The top bar** keeps the project name, the save marker, Undo and Redo, the Role button, a **Quick** marker (click it to leave Quick mode), the search and one button, **Export diagram**. Generate, Check, Release, Export, the model hash, the revision and the status chip are left out.
+- **The rail** lists the **Model**, **Home** and **Settings**. Next step, Checks, Drawings, Outputs, Versions and As-built are left out (the area that is open stays listed until you leave it).
+- **The top bar** keeps the project name, the save marker, Undo and Redo, the Role button, a **Quick** marker (click it to leave Quick mode), the search and one button, **Export diagram**. Generate, Check, Release, Export, the model hash, the version and the status chip are left out.
 - **Problem notices** are off whatever you chose in *Show problem notices* (your own choice comes back when you leave Quick mode): no Problems count, no badges on the diagram, no *out of date* banner. The banners that say why something cannot be done (read-only, released data) stay.
 - **No first-start question** about the role. A project opens on the diagram, whatever the role.
 - The banner of the sample project stays and is shorter.

@@ -55,7 +55,7 @@ Nothing was changed. The exit code is 1. (On a project without the demo values, 
 
 A harness is `draft`, then optionally `in_review`, then `released`.
 
-- App: open the **Releases** tab (Ctrl+5; **Revisions** on the rail), pick the harness and press **Submit for review** (in the **Harness** tab the button is **Open in review**), confirm your name. When the project folder is in a Git repository, a line at the top of the tab names the last commit (who, when, what); it is context, not a signature, and the review, release and revision records below stay the change control ([use Git and CI](use-git-and-ci.md)).
+- App: open the **Releases** tab (Ctrl+5; **Versions** on the rail), pick the harness and press **Submit for review** (in the **Harness** tab the button is **Open in review**), confirm your name. When the project folder is in a Git repository, a line at the top of the tab names the last commit (who, when, what); it is context, not a signature, and the review, release and version records below stay the change control ([use Git and CI](use-git-and-ci.md)).
 - Command line:
 
 ```
@@ -77,11 +77,11 @@ harness-design-studio release wheel-link W002 --by "A. Engineer" --comment "Firs
 ```
 
 ```
-Release W002 revision A: done.
+Release W002 version 1.0.0: done.
 Outputs re-exported with the released status (35 files).
 ```
 
-The number of files is that of the export before the release: the release writes the outputs again with the same set, so the PDF drawings are written again only if that export had them ([export the outputs](export-the-outputs.md#5-the-pdf-drawings-optional)). `--checker` is optional and goes in the title block. Each reason needs at least 10 characters. A name, checker, comment or reason with control characters or too much text (a name is one line of at most 200 characters; a comment together with the reasons at most 2,000) is a blocker that names the option, for example `blocked: [by_invalid] --by: The name must not contain control characters or line breaks.` Line breaks in a comment are allowed and are shown as spaces in the change log and the revision report. `--date ""` is an error; leave `--date` out for today. A date earlier than the last change-log entry of the same harness is refused (`blocked: [date_before_last] --date: ...`), so a release cannot be dated before its own review.
+The number of files is that of the export before the release: the release writes the outputs again with the same set, so the PDF drawings are written again only if that export had them ([export the outputs](export-the-outputs.md#5-the-pdf-drawings-optional)). `--checker` is optional and goes in the title block. Each reason needs at least 10 characters. A name, checker, comment or reason with control characters or too much text (a name is one line of at most 200 characters; a comment together with the reasons at most 2,000) is a blocker that names the option, for example `blocked: [by_invalid] --by: The name must not contain control characters or line breaks.` Line breaks in a comment are allowed and are shown as spaces in the change log and the version report. `--date ""` is an error; leave `--date` out for today. A date earlier than the last change-log entry of the same harness is refused (`blocked: [date_before_last] --date: ...`), so a release cannot be dated before its own review.
 
 If the re-export after the release fails (for example the disk is full), the release stands. The command says `The release was recorded (see `harness-design-studio log`); only the outputs still show the old status. Fix the problem, then run `harness-design-studio export` to re-stamp them.` and ends with an error code (1 or 2).
 
@@ -107,7 +107,7 @@ harness-design-studio config wheel-link --distinct-roles on
 From then on, in that project:
 
 - The **author** is the person who submitted the harness for review (step 2 is no longer optional), the **checker** is named in `--checker` (**Checked by** in the window, which now says *required*), and the person who releases is a third person. Two of them with the same name are refused in words, for example `blocked: [same_person] --by: The checker and the person who releases it must be different people, but both are 'B. Checker'.` In the window the button stays off and the line under the form says which two are the same. Capital letters and extra spaces do not make a different person.
-- A review, release or new revision may not be dated earlier than the latest entry of the change log or the latest baseline of **any** harness of the project, and not more than one day after today. The messages say which date to use.
+- A review, release or new version may not be dated earlier than the latest entry of the change log or the latest baseline of **any** harness of the project, and not more than one day after today. The messages say which date to use.
 - `--by` is required: type your name. The tool takes no name from Git or from the computer (decision D-222). In the window, **Your name** starts empty, or with the name you typed there last time.
 
 `--distinct-roles off` takes the setting out again, and the file `config/naming.json` is then exactly what it was. The names are only text: the tool cannot tell that `A. Engineer` and `a.engineer@example.org` are one person, so agree in the team on how to write a name. More: [`CONFIG.md`](../CONFIG.md#different-people-in-a-release-since-190).
@@ -122,8 +122,8 @@ A cable can have an end that is not on a connector yet (a **loose end**: you dre
 
 ## 4. After the release
 
-- `W002` is now **released (locked)**. The **Releases** tab lists the release with a *Released* chip, and the **Harness** tab header says *Released · rev A*. A lock and *W002 A* appear on the objects it holds, in the **Project** tree and on the diagram. The harness, the links it carries and the pins it uses cannot be edited. The app refuses an edit and gives the reason.
-- When what you look at belongs to a released harness, a banner under the top bar says so ("Harness W002 is released (revision A) and locked. To change it, start a new revision.") and offers **Start new revision…**. The tooltip of the **Release** step in the top bar counts the released harnesses ("1 of 2 released").
+- `W002` is now **released (locked)**. The **Releases** tab lists the release with a *Released* chip, and the **Harness** tab header says *Released · v1.0.0*. A lock and *W002 1.0.0* appear on the objects it holds, in the **Project** tree and on the diagram. The harness, the links it carries and the pins it uses cannot be edited. The app refuses an edit and gives the reason.
+- When what you look at belongs to a released harness, a banner under the top bar says so ("Harness W002 is released (version 1.0.0) and locked. To change it, start a new version.") and offers **Start a new version…**. The tooltip of the **Release** step in the top bar counts the released harnesses ("1 of 2 released").
 - **A release also freezes what the harness uses**: the pins of the device connectors that its wires end on (since 1.9.0, also for a harness made from a connection or by hand; the other pins of the same connector stay editable and `import-pinout --replace` refuses a change to a used pin with the harness named), the parts of its connectors and wires (and, since 1.7.0, the contact parts on its pins and the parts of its accessories), and of the device connectors it plugs into, the interface types of its links, and the configuration its checks and outputs read (all of `derating`, `emc`, `segregation` and `titleblock`, and eight keys of `generation`). The editor and the commands `import-parts` and `config` (including `--apply-profile` and `--ampacity-csv`) refuse a change to these, with the reason and the way out. (`harness-design-studio library`, which only records where the parts data come from, is not affected.) Example, importing the parts list of [import data](import-data.md#approved-parts-list) after the release:
 
 ```
@@ -138,13 +138,13 @@ row 5: OK updated EX-RJ45-F
 row 6: OK updated EX-DSUB-9-F
 5 part(s) ready, 0 row(s) with problems.
 error: This change was blocked because it touches released items.
-  - Part EX-MICROD-9-F is used by W002, which is released. W002 is released (revision A); start a new revision to change it.
-  - Part EX-MICROD-9-M is used by W002, which is released. W002 is released (revision A); start a new revision to change it.
+  - Part EX-MICROD-9-F is used by W002, which is released. W002 is released (version 1.0.0); start a new version to change it.
+  - Part EX-MICROD-9-M is used by W002, which is released. W002 is released (version 1.0.0); start a new version to change it.
 ```
 
-The exit code is 1, and `--dry-run` says the same ("Dry run: this import would be blocked. Nothing was changed."). What stays open: new parts, parts and interface types that no released harness uses, notes and names, and the `segmentation`, `naming` and other `generation` settings. The configuration applies to every harness, so while any harness is released a change to it needs a new revision of each released harness. The complete list is in [`FILE_FORMAT.md`](../FILE_FORMAT.md#what-a-release-freezes). A release of the 0.1.0 tool froze less; its baselines are still read and are not flagged.
-- A release or new revision that has been **saved** can no longer be undone (the Undo button is off, and its tooltip says "This release was saved; it cannot be undone. Use 'Revise' to change the harness."). Before you save, it can still be undone.
-- A **baseline** (a frozen copy) is stored in `baselines/W002/W002.A.json`, and an entry goes into `changelog.json`.
+The exit code is 1, and `--dry-run` says the same ("Dry run: this import would be blocked. Nothing was changed."). What stays open: new parts, parts and interface types that no released harness uses, notes and names, and the `segmentation`, `naming` and other `generation` settings. The configuration applies to every harness, so while any harness is released a change to it needs a new version of each released harness. The complete list is in [`FILE_FORMAT.md`](../FILE_FORMAT.md#what-a-release-freezes). A release of the 0.1.0 tool froze less; its baselines are still read and are not flagged.
+- A release or new version that has been **saved** can no longer be undone (the Undo button is off, and its tooltip says "This release was saved; it cannot be undone. Start a new version to change the harness."). Before you save, it can still be undone.
+- A **baseline** (a frozen copy) is stored in `baselines/W002/W002.1.0.0.json`, and an entry goes into `changelog.json`.
 - Print the history:
 
 ```
@@ -152,15 +152,15 @@ harness-design-studio log wheel-link W002
 ```
 
 ```
-Entry | Harness | Revision | Event | By | Date | Comment
-C0001 | W002 | A | submitted for review | A. Engineer | 2026-10-22 | 
-C0002 | W002 | A | released | A. Engineer | 2026-10-22 | First release of the wheel power harness [Released on placeholder configuration (derating, emc, generation, segmentation, segregation, titleblock); accepted by A. Engineer: Practice project: demo values only] [Released with parts that are not approved (EX-MICROD-9-M, EX-WIRE-SINGLE); accepted by A. Engineer: Practice project: example parts only]
+Entry | Harness | Version | Event | By | Date | Comment
+C0001 | W002 | 1.0.0 | submitted for review | A. Engineer | 2026-10-22 | 
+C0002 | W002 | 1.0.0 | released | A. Engineer | 2026-10-22 | First release of the wheel power harness [Released on placeholder configuration (derating, emc, generation, segmentation, segregation, titleblock); accepted by A. Engineer: Practice project: demo values only] [Released with parts that are not approved (EX-MICROD-9-M, EX-WIRE-SINGLE); accepted by A. Engineer: Practice project: example parts only]
 ```
 
 (The date is the day you run it.)
 
 - The build workbook now says `status released` on **Start here**, with the release date, the author and approver (the name you gave) and the checker. If the last export had the PDF drawings, the drawing says `status released` too, and its title block shows the same. The release command exports again for you; in the app, press **Export…** again.
-- If someone edits a released harness file by hand anyway, `harness-design-studio check` reports `released_modified: W002 was changed after its release (revision A); it no longer matches its baseline.` and exits with 1. It also compares the devices and box connectors, and the parts, interface types and configuration values stored in the baseline. To change a released harness, start a new revision: [change a released harness](change-a-released-harness.md).
+- If someone edits a released harness file by hand anyway, `harness-design-studio check` reports `released_modified: W002 was changed after its release (version 1.0.0); it no longer matches its baseline.` and exits with 1. It also compares the devices and box connectors, and the parts, interface types and configuration values stored in the baseline. To change a released harness, start a new version: [change a released harness](change-a-released-harness.md), and what the version means: [versions](versions.md).
 
 ## Common mistakes
 
@@ -169,7 +169,7 @@ C0002 | W002 | A | released | A. Engineer | 2026-10-22 | First release of the wh
 - **"The comment needs at least 10 characters."** Write a real comment.
 - **"Harness W999 does not exist."** Check the ID in the **Harness** tab or the **Project** tree (exit code 2).
 - **A comment that is too long.** Together with the reasons it must fit 2,000 characters.
-- **"This change was blocked because it touches released items" when you import parts or change a derating value.** A released harness uses them. Start a new revision ([change a released harness](change-a-released-harness.md)).
+- **"This change was blocked because it touches released items" when you import parts or change a derating value.** A released harness uses them. Start a new version ([change a released harness](change-a-released-harness.md)).
 
 More: [`TROUBLESHOOTING.md`](../TROUBLESHOOTING.md), [`CLI.md`](../CLI.md#harness-design-studio-release).
 

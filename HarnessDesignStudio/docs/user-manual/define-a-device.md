@@ -217,13 +217,13 @@ Then connect the device as usual and **Generate**.
 
 Edit a cell, add or delete pins, change the part: each is one step, and **Undo** takes it back. When a released harness uses the device:
 
-- a banner says which harness, with **Start new revision…**;
+- a banner says which harness, with **Start a new version…**;
 - the pin names and the number of pins of a connector that a released cable plugs into are frozen, and so are the part, the gender and the keying; every cell of a pin that carries a released interface is disabled, with the reason as tooltip;
 - the **spare** pins of that connector can still get a signal, a contact size or a termination, and the names, the notes and the **Kind** of the device can be changed.
 
 **What the device looks like.** The card of a device has the picture and the colour of its kind, read from its name. If the tool reads it wrong, select the device and set the **Kind** in the Inspector (under **Subsystem**; *Automatic: Battery* is the first entry, one undo step each change); the kind is stored on the device only when you set it ([telling devices apart](telling-devices-apart.md#setting-the-kind-by-hand)). The **kind** you pick in the **Add device** window is another thing: it chooses the connectors a new device starts with.
 
-Where a harness made by hand (not generated) has a wire on a pin, the pin cannot be deleted or renamed until that harness is deleted or revised. A generated harness only becomes out of date and is rebuilt by the next Generate.
+Where a harness made by hand (not generated) has a wire on a pin, the pin cannot be deleted or renamed until that harness is deleted or given a new version. A generated harness only becomes out of date and is rebuilt by the next Generate.
 
 ## What a pin can hold
 

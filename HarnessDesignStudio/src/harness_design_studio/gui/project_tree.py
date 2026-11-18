@@ -373,7 +373,7 @@ class ProjectTreeModel(QAbstractItemModel):
                     h.id,
                     h.name,
                     h.version,
-                    strings.STATE_LABELS[describe.harness_state(h)].lower(),
+                    strings.STATE_LABELS[describe.harness_state(h, p)].lower(),
                 )
             )
         elif node.kind == LOOSE_KIND and node.parent is not None:
@@ -520,7 +520,7 @@ class ProjectTreeModel(QAbstractItemModel):
             node.name = link_caption(obj) + (f" ({obj.name})" if obj.name else "")
         elif kind == "harness":
             node.name = obj.name
-            node.state = describe.harness_state(obj)
+            node.state = describe.harness_state(obj, self.ctl.project)
             word = strings.STATE_LABELS[node.state]
             node.state_text = (
                 f"{word} {obj.version}" if node.state in ("released", "revised") else word

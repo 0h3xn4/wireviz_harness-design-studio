@@ -33,10 +33,20 @@ from harness_design_studio.core.model.review import ChangeKind
 from harness_design_studio.core.verify import verify_project
 
 from .consistency import release_integrity
+from .diff import KIND_NAMES
 from .hashing import content_hash
+from .report import baselines_of
 from .roles import date_problem, distinct_roles_on, same_person
 from .snapshot import carried_interfaces, normalize, related_ids, snapshot_for
-from .versions import KINDS, VersionKind, bump, version_key
+from .versions import (
+    KINDS,
+    VersionKind,
+    bump,
+    kind_between,
+    pinout_changes,
+    pinout_note_due,
+    version_key,
+)
 
 MIN_COMMENT = 10
 MAX_COMMENT = 2000  # the baseline keeps the comment; its limit is in core/model/review.py
@@ -728,6 +738,71 @@ def plan_release(
 
 MAX_BASELINE_ID = 64  # the longest ID (`core.ids`); a baseline ID is `<harness>.<version>`
 
+# ---- the notes of section 5.3 (Q20, Q21): they change no version and block nothing ----------------
+
+MAJOR_NOTE = (
+    "A major version says that this harness is not compatible with its earlier versions. The "
+    "harness plan template gives such a harness a new ID instead (TH01 becomes TH02, not TH01 "
+    "2.0.0)."
+)
+PINOUT_NOTE = (
+    "This version changes the pinout at a device{0}. The harness plan template calls that an "
+    "incompatible change."
+)
+NOTE_LISTED = 5  # the changed objects a pinout note names; the rest are counted
+
+
+def last_baseline(project: Project, hid: str) -> Baseline | None:
+    """The baseline of the highest version of a harness (the released one a new version is worked
+    out from), or None when it has none."""
+    bases = baselines_of(project, hid)
+    return bases[-1] if bases else None
+
+
+def draft_kind(project: Project, hid: str) -> VersionKind | None:
+    """The kind of version a harness that is not released is on its way to (section 5.3): read from
+    its version and the version of its last baseline (`versions.kind_between`). None for a harness
+    without a baseline (its first release), for a released one, and for a version that is not
+    higher than its baseline."""
+    h = project.harnesses.get(hid)
+    base = last_baseline(project, hid)
+    if h is None or base is None or h.status == "released":
+        return None
+    return kind_between(base.version, h.version)
+
+
+def major_note(kind: str) -> str:
+    """The note of section 5.3 when a person chooses a major version (Q21); "" for minor and
+    patch. The person can go on: the tool does not enforce the naming rule in 3.0.0."""
+    return MAJOR_NOTE if kind == "major" else ""
+
+
+def pinout_note(project: Project, hid: str) -> str:
+    """The note of section 5.3 at review and release (Q20): the diff against the last baseline
+    changes the pinout at a device (`versions.pinout_changes`) and the kind of the new version is
+    minor or patch (`versions.pinout_note_due`). The note names the changed objects. "" when no
+    note is due: no baseline, a major version, or no such change."""
+    h = project.harnesses.get(hid)
+    base = last_baseline(project, hid)
+    kind = draft_kind(project, hid)
+    if h is None or base is None or kind is None:
+        return ""
+    changes = pinout_changes(base.snapshot, snapshot_for(project, h))
+    if not pinout_note_due(kind, changes):
+        return ""
+    names = [f"{KIND_NAMES.get(c.kind, c.kind).lower()} {c.id}" for c in changes]
+    shown = ", ".join(names[:NOTE_LISTED])
+    if len(names) > NOTE_LISTED:
+        shown += f" and {len(names) - NOTE_LISTED} more"
+    return PINOUT_NOTE.format(f" ({shown})")
+
+
+def kind_again(project: Project, hid: str) -> bool:
+    """True when `plan_new_version` on this harness chooses the kind again (Q22): a draft that has
+    a baseline, before its review."""
+    h = project.harnesses.get(hid)
+    return h is not None and h.status == "draft" and last_baseline(project, hid) is not None
+
 
 def plan_new_version(
     project: Project, hid: str, *, kind: str, by: str, comment: str, when: str
@@ -736,12 +811,31 @@ def plan_new_version(
     kind, major, minor or patch, and the next version is worked out from the released one (from
     `1.4.2`: `2.0.0`, `1.5.0`, `1.4.3`). The harness becomes a draft at that version, the
     baseline of the released version stays, and the change log gets one entry of kind
-    `new_version`. Refused: a harness that is not released, a kind that is not one of the three,
-    a version that is not higher than every baseline of the harness (`version_not_higher`, also
-    when a merge brought one in) and a baseline ID that would be longer than an ID may be."""
+    `new_version`.
+
+    On a draft that has a baseline, before its review, the kind is chosen again (Q22): the version
+    is worked out again from the released one (the last baseline) and the change log gets one entry
+    of kind `version_changed`; nothing else of the draft changes.
+
+    Refused: a harness that is neither released nor such a draft (`not_released`, and
+    `in_review` once its review has started), a kind that is not one of the three, the kind the
+    draft already has (`kind_unchanged`), a version that is not higher than every baseline of the
+    harness (`version_not_higher`, also when a merge brought one in) and a baseline ID that would
+    be longer than an ID may be."""
     blockers = _common(project, hid, by, comment, when)
     h = project.harnesses.get(hid)
-    if h is not None and h.status != "released":
+    base = last_baseline(project, hid)
+    again = kind_again(project, hid)
+    if h is not None and h.status == "in_review" and base is not None:
+        blockers.append(
+            Blocker(
+                "in_review",
+                f"{hid} is in review, so the kind of its version can no longer be chosen again; "
+                "it can be chosen again only while the harness is a draft, before its review.",
+                hid,
+            )
+        )
+    elif h is not None and h.status != "released" and not again:
         blockers.append(
             Blocker("not_released", f"{hid} is not released, so it can be edited directly.", hid)
         )
@@ -756,7 +850,19 @@ def plan_new_version(
     plan = ReleasePlan(blockers=blockers, label=f"New version of {hid}")
     if blockers or h is None:
         return plan
-    version = next_version(h.version, kind)  # type: ignore[arg-type]
+    released = base.version if again and base is not None else h.version
+    version = next_version(released, kind)  # type: ignore[arg-type]
+    if again and version == h.version:
+        blockers.append(
+            Blocker(
+                "kind_unchanged",
+                f"{hid} is already version {version}, the {kind} version after {released}; "
+                "choose another kind to change it.",
+                hid,
+                "kind",
+            )
+        )
+        return plan
     higher = [
         b.version
         for b in project.baselines.values()
@@ -782,6 +888,12 @@ def plan_new_version(
             )
         )
     if blockers:
+        return plan
+    if again:
+        new = evolve(h, version=version)
+        entry = _entry(project, new, "version_changed", by.strip(), when, comment.strip())
+        plan.ops = [Put("harnesses", new), Put("changelog", entry)]
+        plan.label = f"Version {h.version} of {hid} becomes {version} ({kind})"
         return plan
     new = evolve(
         h,
@@ -830,9 +942,15 @@ def plan_submit_review(project: Project, hid: str, *, by: str, when: str) -> Rel
 
 
 __all__ = [
+    "MAJOR_NOTE",
+    "PINOUT_NOTE",
     "Blocker",
     "ReleaseError",
     "ReleasePlan",
+    "draft_kind",
+    "kind_again",
+    "last_baseline",
+    "major_note",
     "next_version",
     "plan_new_revision",
     "plan_new_version",
@@ -842,6 +960,7 @@ __all__ = [
     "placeholder_note",
     "plan_release",
     "plan_submit_review",
+    "pinout_note",
     "release_blockers",
     "release_integrity",
     "role_blockers",

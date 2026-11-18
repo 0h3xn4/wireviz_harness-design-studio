@@ -114,7 +114,7 @@ Not an error. The status-bar button **Problems (n)**, the count on the inspector
 
 ### The app opens on "What to do next" and the tree, the Inspector and the Problems panel are not there
 
-Not an error. You are working as a **Systems engineer** (the role the first start offers; the *Simple workspace* of 1.7.0 became it): the window opens on the **Next step** page and the project tree, the Inspector and the Problems panel start closed (the rail lists only Next step, Model, Checks, Revisions and Settings). **Show panels** in the top bar opens the tree and the Inspector, **Show everything** on the page or **View > Role > Electrical engineer** gives every area and panel, and **View > Role > Systems engineer** goes back; the choice is also in **Settings** (*Role*) and in the **Role** button of the top bar. The AIT engineer role opens on the same page. A settings file made by an older version keeps the Electrical engineer role. If the rail has only *Home*, *Model* and *Settings* and the top bar shows a **Quick** marker, **Quick mode** is on: click the marker, or choose **View > Quick mode**, to get the layout of your role back. The Problems panel is **Ctrl+Shift+M**, and *Home* is **Go > Go to Home** (Ctrl+7). See [choose your role](user-manual/choose-your-role.md).
+Not an error. You are working as a **Systems engineer** (the role the first start offers; the *Simple workspace* of 1.7.0 became it): the window opens on the **Next step** page and the project tree, the Inspector and the Problems panel start closed (the rail lists only Next step, Model, Checks, Versions and Settings). **Show panels** in the top bar opens the tree and the Inspector, **Show everything** on the page or **View > Role > Electrical engineer** gives every area and panel, and **View > Role > Systems engineer** goes back; the choice is also in **Settings** (*Role*) and in the **Role** button of the top bar. The AIT engineer role opens on the same page. A settings file made by an older version keeps the Electrical engineer role. If the rail has only *Home*, *Model* and *Settings* and the top bar shows a **Quick** marker, **Quick mode** is on: click the marker, or choose **View > Quick mode**, to get the layout of your role back. The Problems panel is **Ctrl+Shift+M**, and *Home* is **Go > Go to Home** (Ctrl+7). See [choose your role](user-manual/choose-your-role.md).
 
 ### A banner says "Read-only: this project was saved by a newer version of the tool, or is open in another window"
 
@@ -409,7 +409,7 @@ harness-design-studio drc dmg
 error: the project has damaged files (first: ERROR   quarantined: A harness could not be loaded and was set aside: wires.0.gauge_awg: Input should be less than or equal to 40; wires.1.length_m: Input should be greater than or equal to 0 (line 452) [physical/harnesses/W001.json]); nothing was checked
 ```
 
-`drc`, `verify`, `export`, `generate`, `config`, `library`, `log`, `diff`, `compare`, `review`, `release`, `revise`, `migrate` and the imports refuse a project with damaged files instead of printing a clean-looking result or saving over it (the editor opens such a project in the recovery view). A file counts as damaged when it is not valid JSON, has a wrong structure, is a link, is over 64 MB or cannot be read, or holds a **number outside its range**: wire gauge (AWG) 0 to 40, wire length 0 to 10000 m, current and voltage above 0, a part's pin count 1 to 1000, masses and ratings 0 or more, harness number and schema version 1 or more. A value like that is set aside and kept (never used), and the message names the field and the limit. **Fix:** run `harness-design-studio validate DIR` (or `harness-design-studio check DIR`), which lists the damage with the file and line, correct the value in the file named, and run the command again. The original files are never overwritten while the project is in this state; in the app **Save salvaged copy…** writes the rest to a new folder.
+`drc`, `verify`, `export`, `generate`, `config`, `library`, `log`, `diff`, `compare`, `review`, `release`, `new-version`, `migrate` and the imports refuse a project with damaged files instead of printing a clean-looking result or saving over it (the editor opens such a project in the recovery view). A file counts as damaged when it is not valid JSON, has a wrong structure, is a link, is over 64 MB or cannot be read, or holds a **number outside its range**: wire gauge (AWG) 0 to 40, wire length 0 to 10000 m, current and voltage above 0, a part's pin count 1 to 1000, masses and ratings 0 or more, harness number and schema version 1 or more. A value like that is set aside and kept (never used), and the message names the field and the limit. **Fix:** run `harness-design-studio validate DIR` (or `harness-design-studio check DIR`), which lists the damage with the file and line, correct the value in the file named, and run the command again. The original files are never overwritten while the project is in this state; in the app **Save salvaged copy…** writes the rest to a new folder.
 
 ### `ERROR released_modified: ... it no longer matches its baseline`
 
@@ -418,10 +418,10 @@ harness-design-studio check rel
 ```
 
 ```
-ERROR   released_modified: W002 was changed after its release (revision A) (part EX-MICROD-9-M it uses was changed); it no longer matches its baseline. Undo the change, or start a new revision of the harness and make it there.
+ERROR   released_modified: W002 was changed after its release (version 1.0.0) (part EX-MICROD-9-M it uses was changed); it no longer matches its baseline. Undo the change, or start a new version of the harness and make it there.
 ```
 
-Exit code 1. A released harness, the links it carries, the devices and box connectors it uses, **and the parts, interface types and configuration values it relies on** are compared with the baseline stored at the release. The text in the second brackets says what changed (`configuration derating it depends on was changed` for a configuration file). Someone edited a file by hand (or merged one) after the release. **Fix:** undo the edit (`git checkout` the file), or `harness-design-studio revise DIR W002 --by NAME --comment TEXT`, make the change in the new revision and release it. A baseline made by version 0.1.0 holds none of the parts, interface types and configuration, so nothing of that kind is compared for it.
+Exit code 1. A released harness, the links it carries, the devices and box connectors it uses, **and the parts, interface types and configuration values it relies on** are compared with the baseline stored at the release. The text in the second brackets says what changed (`configuration derating it depends on was changed` for a configuration file). Someone edited a file by hand (or merged one) after the release. **Fix:** undo the edit (`git checkout` the file), or `harness-design-studio new-version DIR W002 --kind minor --by NAME --comment TEXT`, make the change in the new revision and release it. A baseline made by version 0.1.0 holds none of the parts, interface types and configuration, so nothing of that kind is compared for it.
 
 ### `ERROR dangling_accessory: Accessory 'ACC-001' in harness 'W001' belongs to ...` (new in 1.7.0)
 
@@ -710,7 +710,7 @@ blocked: [parts_reason_short] The reason for releasing with parts that are not a
 A release that rests on placeholders or example parts teaches the flow and nothing more: the change log records that it did. Practise only in a practice project; the full walk-through is Part 9 of [`GETTING_STARTED.md`](GETTING_STARTED.md). This is what a successful practice release on the `flatsat` example printed, and the change log that follows:
 
 ```
-Release W003 revision A: done.
+Release W003 version 1.0.0: done.
 Outputs re-exported with the released status (89 files).
 ```
 
@@ -726,7 +726,7 @@ blocked: [no_harness] Harness W999 does not exist.
 blocked: [not_released] W003 is not released, so it can be edited directly.
 ```
 
-(exit code 1: you asked `harness-design-studio revise` for a harness that is not released; revisions are only for released harnesses.)
+(exit code 1: you asked `harness-design-studio new-version` for a harness that is not released; a new version is only for a released harness, or, to choose the kind again, for a draft after a release before its review.)
 
 ### `error: This change was blocked because it touches released items.`
 
@@ -741,36 +741,36 @@ row 2: OK updated EX-MICROD-9-F
 ...
 5 part(s) ready, 0 row(s) with problems.
 error: This change was blocked because it touches released items.
-  - Part EX-MICROD-9-F is used by W002, which is released. W002 is released (revision A); start a new revision to change it.
-  - Part EX-MICROD-9-M is used by W002, which is released. W002 is released (revision A); start a new revision to change it.
+  - Part EX-MICROD-9-F is used by W002, which is released. W002 is released (version 1.0.0); start a new version to change it.
+  - Part EX-MICROD-9-M is used by W002, which is released. W002 is released (version 1.0.0); start a new version to change it.
 ```
 
-Exit code 1 (`--dry-run` ends the same way with `Dry run: this import would be blocked. Nothing was changed.`). `harness-design-studio config rel --apply-profile NAME` is refused the same way, with `Configuration 'derating' is used by the checks of the released harness(es) W002. Start a new revision of them to change it.`; configuration applies to every harness, so with several released harnesses each needs a new revision. **Fix:** `harness-design-studio revise DIR W002 --by NAME --comment TEXT`, make the change, generate, export and release again ([change a released harness](user-manual/change-a-released-harness.md)). Not blocked: new parts, parts no released harness uses, notes and names, `harness-design-studio library`, and the naming, segmentation and other `generation` settings.
+Exit code 1 (`--dry-run` ends the same way with `Dry run: this import would be blocked. Nothing was changed.`). `harness-design-studio config rel --apply-profile NAME` is refused the same way, with `Configuration 'derating' is used by the checks of the released harness(es) W002. Start a new version of them to change it.`; configuration applies to every harness, so with several released harnesses each needs a new version. **Fix:** `harness-design-studio new-version DIR W002 --kind minor --by NAME --comment TEXT`, make the change, generate, export and release again ([change a released harness](user-manual/change-a-released-harness.md)). Not blocked: new parts, parts no released harness uses, notes and names, `harness-design-studio library`, and the naming, segmentation and other `generation` settings.
 
 ### `blocked: [outputs_linked] The outputs folder (or a folder in it) is a link ...`
 
 A release is blocked up front when the `outputs` folder is a link or cannot be written. Replace the link with a real folder and run `harness-design-studio export DIR`. If the re-export fails *after* the release was saved, the release stands: the message says `The release was recorded (see `harness-design-studio log`); only the outputs still show the old status. Fix the problem, then run `harness-design-studio export` to re-stamp them.` A name, checker, comment or reason with control characters or too much text is also a `blocked:` line that names the option (`--by`, `--comment`), for example `blocked: [by_invalid] --by: The name must not contain control characters or line breaks.`
 
-### `harness-design-studio diff ... --from A --to B`: `error: W003 has no baseline for revision B.`
+### `harness-design-studio diff ... --from 1.0.0 --to 2.0.0`: `error: W003 has no baseline for version 2.0.0.`
 
-After `harness-design-studio release` (revision A) and `harness-design-studio revise` (revision B), this fails:
-
-```
-harness-design-studio diff fs W003 --from A --to B
-```
+After `harness-design-studio release` (version 1.0.0) and `harness-design-studio new-version --kind major` (version 2.0.0), this fails:
 
 ```
-error: W003 has no baseline for revision B.
-```
-
-Exit code 2. A baseline (the frozen snapshot that `diff` compares) is written **when a revision is released**. Revision B is only a draft until you release it, so it has no baseline. What works: compare revision A with the working design (this is the default; leave out `--to`):
-
-```
-harness-design-studio diff fs W003 --from A
+harness-design-studio diff fs W003 --from 1.0.0 --to 2.0.0
 ```
 
 ```
-# W003: working design against revision A
+error: W003 has no baseline for version 2.0.0.
+```
+
+Exit code 2. A baseline (the frozen snapshot that `diff` compares) is written **when a version is released**. Version 2.0.0 is only a draft until you release it, so it has no baseline. What works: compare version 1.0.0 with the working design (this is the default; leave out `--to`). An old letter of 2.x is read as its version, so `--from A` is `--from 1.0.0`:
+
+```
+harness-design-studio diff fs W003 --from 1.0.0
+```
+
+```
+# W003: working design against version 1.0.0
 
 Comparing before with after: 0 added, 0 removed, 1 changed.
 
@@ -779,8 +779,8 @@ Comparing before with after: 0 added, 0 removed, 1 changed.
 - Harness `W003`
   - approver: Ada -> (none)
   - released_on: 2026-10-21 -> (none)
-  - revision: A -> B
   - status: released -> draft
+  - version: 1.0.0 -> 2.0.0
 ```
 
 For a harness that was never released: `error: W001 has no baseline yet; release it first.` (exit code 2). `harness-design-studio log DIR` prints the history, including the reasons given for releasing on placeholders and example parts.
@@ -827,7 +827,7 @@ The files are plain text (JSON), so a project folder can be copied, zipped, e-ma
 - *Make the generated harnesses and outputs fresh:* `harness-design-studio generate demo` can be repeated (generating twice gives the same result); `rm -r demo/outputs` and `harness-design-studio export demo` rebuild the outputs.
 - *Put one configuration file back to its starting state:* copy it from a fresh project (`harness-design-studio new fresh --template blank`, then copy `fresh/config/derating.json` over yours).
 - *Reset the app's look and scale:* delete `~/.config/HarnessDesigner/HarnessDesigner.ini` (on Ubuntu; **Settings > About** names the file).
-- *Undo a mistake in the app:* **Ctrl+Z**. A released harness is locked; start a new revision with `harness-design-studio revise` instead of editing it.
+- *Undo a mistake in the app:* **Ctrl+Z**. A released harness is locked; start a new version with `harness-design-studio new-version` instead of editing it.
 - *Two copies to try different ideas:* copy the folder (`cp -r demo demo-try`); `harness-design-studio compare demo demo-try` shows the differences.
 
 Still stuck? Run `harness-design-studio validate DIR` and `harness-design-studio drc DIR` and read the messages: each says what is wrong and how to fix it. Check the output first before you send it to anyone if the project is confidential: the messages name devices, interfaces and parts. More answers: [`FAQ.md`](FAQ.md).

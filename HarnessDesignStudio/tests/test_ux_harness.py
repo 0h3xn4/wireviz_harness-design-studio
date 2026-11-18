@@ -179,7 +179,7 @@ def test_released_pins_and_wires_show_the_lock_and_name_the_release(qtbot, theme
         tip = view.wire_model.index(i, wcol).data(Qt.ItemDataRole.ToolTipRole)
         assert view.wire_model.index(i, wcol).data(STATE_ROLE) == "locked" and hid in tip
     assert view.release_chip.state() == "released"
-    assert f"rev {h.version}" in (view.release_chip.text() or "")
+    assert f"v{h.version}" in (view.release_chip.text() or "")
 
 
 def test_hand_locked_pin_and_wire_say_so(qtbot, theme) -> None:
@@ -258,7 +258,7 @@ def test_header_shows_name_state_interfaces_and_the_generated_hash(qtbot, theme)
     h = ctl.project.harnesses["W002"]
     assert view.harness_id() == "W002" and view.selector.currentData() == "W002"
     assert view.name.full() == h.name
-    assert view.release_chip.state() == "draft" and "rev 1.0.0" in (view.release_chip.text() or "")
+    assert view.release_chip.state() == "draft" and "v1.0.0" in (view.release_chip.text() or "")
     assert all(i in view.interfaces.full() for i in h.interfaces)
     gen = ctl.project.generation
     assert gen is not None

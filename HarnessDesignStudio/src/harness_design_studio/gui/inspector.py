@@ -92,7 +92,7 @@ def banner_for(project: Project, kind: str, object_id: str) -> BannerInfo | None
         h = project.harnesses.get(object_id)
         if h is None:
             return None
-        state = describe.harness_state(h)
+        state = describe.harness_state(h, project)
         if state == "released":
             word = strings.STATE_LABELS["released"]
             sentence = lock_reason(project, "harness", object_id) or ""
@@ -202,12 +202,12 @@ def origin_text(p: Project, harness_id: str) -> str:
 def _harness_facts(p: Project, oid: str) -> list[dict[str, Any]]:
     h = p.harnesses[oid]
     L = strings.INS_FACT_LABELS
-    state = describe.harness_state(h)
+    state = describe.harness_state(h, p)
     loose = sum(1 for c in h.connectors if c.role == LOOSE_ROLE)
     rows = [
         _fact(L["name"], h.name),
         _fact(strings.INS_FACT_ORIGIN, origin_text(p, oid), tip=strings.INS_ORIGIN_TIP),
-        _fact(L["revision"], h.version),
+        _fact(L["version"], h.version),
         _fact(L["state"], "", strings.STATE_LABELS[state], state),
         _fact(L["interfaces"], str(len(h.interfaces))),
         _fact(L["connectors"], str(len(h.connectors))),

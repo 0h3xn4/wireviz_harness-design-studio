@@ -65,7 +65,9 @@ _TYPES: dict[str, type[Entity]] = {
 }
 
 
-RELEASE_SAVED = "This release was saved; it cannot be undone. Use 'Revise' to change the harness."
+RELEASE_SAVED = (
+    "This release was saved; it cannot be undone. Start a new version to change the harness."
+)
 
 
 @dataclass(frozen=True)

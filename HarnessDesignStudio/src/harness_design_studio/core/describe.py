@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from harness_design_studio.core.model import Connector, Harness, Part
 from harness_design_studio.core.model.physical import Gender
 from harness_design_studio.core.model.project import Project
-from harness_design_studio.core.vcs.versions import is_first
 
 
 def _num(value: float) -> str:
@@ -376,12 +375,14 @@ def why_lines(project: Project, kind: str, ident: str) -> list[str]:
     return out
 
 
-def harness_state(harness: Harness) -> str:
+def harness_state(harness: Harness, project: Project) -> str:
     """The state of a harness in change control as a key of `gui.states`: "draft", "in-review",
-    "released", or "revised" for a draft that is a later version of a released harness (its
-    version is not the first, `1.0.0`, `vcs.versions.is_first`)."""
+    "released", or "revised" for a draft that is a later version of a released harness: a draft
+    that has a baseline (the rule of the design of 3.0.0, section 5.7; the version alone does not
+    say it, since a harness can be migrated from a letter, or given its first version by hand)."""
     if harness.status == "released":
         return "released"
     if harness.status == "in_review":
         return "in-review"
-    return "draft" if is_first(harness.version) else "revised"
+    has_baseline = any(b.harness_id == harness.id for b in project.baselines.values())
+    return "revised" if has_baseline else "draft"

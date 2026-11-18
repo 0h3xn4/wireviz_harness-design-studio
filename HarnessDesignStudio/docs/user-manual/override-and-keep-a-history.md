@@ -108,7 +108,7 @@ Each line reads `#12 2026-11-03T10:00:05Z Ann [override] wire:W001-001 gauge_awg
 
 With `--json`, `journal`, `override` and `deviation` print one document each (the keys are in [`CLI.md`](../CLI.md)), and a script gets the same data from `harness_design_studio.api` (`get_journal`, `set_override`, `clear_override`, `get_overrides`, `list_deviations`, `accept_deviation`, `remove_deviation`, `start_journal`).
 
-What is recorded: a change of any design input (devices, interfaces, connectors, links, harness fields, wire fields, library parts), a configuration value, an override (with its reason), a waiver or a deviation (with its justification), the approval of a part, a review, a release or a new revision (with the comment), and a generation. Not recorded: the positions of devices on the diagram.
+What is recorded: a change of any design input (devices, interfaces, connectors, links, harness fields, wire fields, library parts), a configuration value, an override (with its reason), a waiver or a deviation (with its justification), the approval of a part, a review, a release or a new version (with the comment), and a generation. Not recorded: the positions of devices on the diagram.
 
 The journal is **append-only**. An entry cannot be changed or removed; each entry carries a chain value made from the entry before it on its own branch, so a changed, removed or inserted entry makes `validate` report *the change journal is damaged* (exit 1), and the editor will not save over it. The entries are shown by time, then author; a kind of entry this version does not know (from a later version) is shown as `other`. Cutting off the last entries is not detectable from the file; keep the project in Git (see [use Git and CI](use-git-and-ci.md)) for that.
 
