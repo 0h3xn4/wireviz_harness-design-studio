@@ -3,6 +3,7 @@
 import atexit
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -11,6 +12,55 @@ from pathlib import Path
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+# The real-platform lane on Linux (`harness-real-platform.yml`) runs its tests in
+# parallel workers under `xvfb-run`. One X display has one pointer: `QTest.mouseMove` on `xcb` moves
+# it (`QCursor::setPos`), so a move of one worker reached the window of another worker's test and
+# took its hover away (`test_the_pointer_over_a_port_lights_it_and_shows_the_open_hand`, seen once
+# in CI and made to fail at will by a second process that moves the pointer). Each worker therefore
+# starts a virtual display of its own, with the screen of the lane, before Qt starts.
+LANE_SCREEN = "3840x2160x24"
+_OWN_DISPLAY: subprocess.Popen[bytes] | None = None
+
+
+def _own_display() -> subprocess.Popen[bytes] | None:
+    """A new Xvfb for this pytest-xdist worker of the `xcb` lane (None anywhere else)."""
+    if os.environ.get("HARNESS_REAL_PLATFORM") != "xcb" or not os.environ.get(
+        "PYTEST_XDIST_WORKER"
+    ):
+        return None
+    xvfb = shutil.which("Xvfb")
+    if xvfb is None:
+        return None  # the shared display of `xvfb-run` is used, as before
+    read, write = os.pipe()
+    server = subprocess.Popen(
+        [xvfb, "-displayfd", str(write), "-screen", "0", LANE_SCREEN, "-nolisten", "tcp"],
+        pass_fds=(write,),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    os.close(write)
+    with os.fdopen(read, "rb") as answer:
+        number = answer.readline().strip().decode("ascii")  # written once the display is ready
+    if not number.isdigit():
+        server.kill()
+        raise RuntimeError("Xvfb did not start a display for this worker")
+    os.environ["HARNESS_SHARED_DISPLAY"] = os.environ.get("DISPLAY", "")
+    os.environ["DISPLAY"] = f":{number}"
+    return server
+
+
+def _stop_own_display() -> None:
+    if _OWN_DISPLAY is not None and _OWN_DISPLAY.poll() is None:
+        _OWN_DISPLAY.terminate()
+        try:
+            _OWN_DISPLAY.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            _OWN_DISPLAY.kill()
+
+
+_OWN_DISPLAY = _own_display()
+atexit.register(_stop_own_display)
 
 # Safety net: a test that builds the editor with the default settings must not read or write the
 # developer's own ~/.config (the role, window geometry). Qt resolves the per-user ini
@@ -26,6 +76,7 @@ atexit.register(shutil.rmtree, _CONFIG_HOME, ignore_errors=True)
 
 def pytest_unconfigure(config: object) -> None:
     shutil.rmtree(_CONFIG_HOME, ignore_errors=True)
+    _stop_own_display()
 
 
 @pytest.fixture(autouse=True)
