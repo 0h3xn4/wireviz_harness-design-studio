@@ -334,10 +334,10 @@ class Evaluator:
                 return result
             raise ValueError(f"unexpected {text!r}")
 
-        mul = binary(primary, "/", lambda a, b: _divide(a, b))
-        add = binary(mul, "+", lambda a, b: _plus(a, b))
+        mul = binary(primary, "/", _divide)
+        add = binary(mul, "+", _plus)
         concat = binary(add, "&", lambda a, b: _as_text(a) + _as_text(b))
-        comparison = binary(concat, "=", lambda a, b: _same(a, b))
+        comparison = binary(concat, "=", _same)
         value = comparison()
         if pos != len(toks):
             raise ValueError(f"{formula!r}: tokens left after the expression")
