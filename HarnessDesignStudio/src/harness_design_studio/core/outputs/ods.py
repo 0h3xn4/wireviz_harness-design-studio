@@ -131,7 +131,7 @@ class Workbook:
 # ---- text, numbers, names -------------------------------------------------------------------
 
 # Characters XML 1.0 does not allow; dropped, as the build workbook drops them (exports.py)
-_ILLEGAL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
+_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 
 
 def _clean(s: str) -> str:
