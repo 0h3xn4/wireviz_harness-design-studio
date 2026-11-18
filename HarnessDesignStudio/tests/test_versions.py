@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
+# mypy: disable-error-code="no-untyped-def,no-untyped-call"
 """REQ-CC-05: the one order of revisions and versions (`core/vcs/versions.py`, design of 3.0.0
 `docs/ait/DESIGN_3.0_HARNESS_PLAN.md` section 5, pull request R1), the next version, the mapping
 of an old letter and the pinout test of section 5.3.

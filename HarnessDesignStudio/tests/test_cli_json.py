@@ -492,7 +492,8 @@ def test_change_control_commands(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert set(doc["entries"][0]) == {
         "entry",
         "harness",
-        "revision",
+        "version",
+        "revision",  # the older name of version, through 3.0.x (D-242, Q29)
         "event",
         "by",
         "date",
@@ -501,14 +502,15 @@ def test_change_control_commands(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert run(capsys, "log", str(folder), hid)["harness"] == hid
     assert main(["log", str(folder), "NOPE", "--json"]) == 2 and capsys.readouterr().out == ""
 
-    doc = run(capsys, "revise", *args, "--by", "Ada", "--comment", "Rework for the build",
-              "--date", "2026-04-01")  # fmt: skip
-    keys(doc, "revise")
+    doc = run(capsys, "new-version", *args, "--by", "Ada", "--comment", "Rework for the build",
+              "--date", "2026-04-01", "--kind", "major")  # fmt: skip
+    keys(doc, "new-version")
+    assert doc["kind"] == "major"
     doc = run(capsys, "diff", *args, tmp=tmp_path)
     keys(doc, "diff")
-    assert (doc["from"], doc["to"], doc["harness"]) == ("A", "working", hid)
-    assert any(f["name"] == "revision" for c in doc["changes"] for f in c["fields"])
-    assert run(capsys, "diff", *args, "--from", "A", "--to", "A")["changes"] == []
+    assert (doc["from"], doc["to"], doc["harness"]) == ("1.0.0", "working", hid)
+    assert any(f["name"] == "version" for c in doc["changes"] for f in c["fields"])
+    assert run(capsys, "diff", *args, "--from", "1.0.0", "--to", "1.0.0")["changes"] == []
     assert main(["diff", *args, "--from", "Q", "--json"]) == 2 and capsys.readouterr().out == ""
     doc = run(capsys, "review", *args, "--by", "Ada", "--date", "2026-04-02")
     keys(doc, "review")

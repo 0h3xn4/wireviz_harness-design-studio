@@ -173,7 +173,7 @@ def test_released_pins_and_wires_show_the_lock_and_name_the_release(qtbot, theme
         want = lockview.lock_reason(p, "cable_pin", f"{r['connector']}.{r['pin']}", locked)
         assert want
         assert idx.data(Qt.ItemDataRole.ToolTipRole) == want
-        assert f"{hid} is released (revision {h.version})" in want
+        assert f"{hid} is released (version {h.version})" in want
     wcol = view.wire_model.column_index("locked")
     for i in range(view.wire_model.rowCount()):
         tip = view.wire_model.index(i, wcol).data(Qt.ItemDataRole.ToolTipRole)

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """M6 (GUI): review, release, new revision, changes (with marks on the diagram) and change log."""
 
+from collections.abc import Callable
+
 import pytest
 
 pytest.importorskip("PySide6")
@@ -43,7 +45,7 @@ def fill(
     comment: str = "First release for the CDR",
     checker: str = "Bob",
     kind: str | None = None,
-):  # type: ignore[no-untyped-def]
+) -> Callable[[ChangeDialog], None]:
     def fn(d: ChangeDialog) -> None:
         if kind is not None:  # a new version: the person chooses the kind (D-242)
             assert d.kind() is None and not d.ok.isEnabled() or d.blockers

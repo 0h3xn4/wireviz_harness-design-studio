@@ -103,7 +103,7 @@ def test_a_review_and_a_new_revision_get_their_own_chips(qtbot, released, tmp_pa
     assert kinds == {
         "released": "released",
         "submitted for review": "in-review",
-        "new revision started": "revised",
+        "new version started": "revised",
     }
     # a new revision has no frozen copy of its own: the baseline cell stays empty, not "none"
     rows = dict_rows(panel.timeline_model)
