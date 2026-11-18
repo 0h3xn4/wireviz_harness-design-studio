@@ -145,7 +145,7 @@ A line under the fields says what will happen (*gauge, colour on 4 of 4 wires.*)
 - **Typing a gauge and finding the wire "locked".** That is intended: a value you type is yours. Use **Reset to generated** to hand it back.
 - **Expecting a label to change the drawing.** The label is for the wire labels and the lists (the column *Signal or label* of the build workbook's cut list shows it); the drawing shows the signal name.
 - **Looking for the pins of a generated wire.** They follow the interface; change them in the **Devices** tab, or draw a wire of your own.
-- **Editing a wire of a released harness.** The form is off and says why. Start a new revision.
+- **Editing a wire of a released harness.** The form is off and says why. Start a new version.
 
 More: [`FILE_FORMAT.md`](../FILE_FORMAT.md) (the fields `Wire.label` and `Wire.note`), [`OUTPUTS.md`](../OUTPUTS.md).
 

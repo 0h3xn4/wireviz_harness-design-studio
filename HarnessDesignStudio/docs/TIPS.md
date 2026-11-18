@@ -78,7 +78,7 @@ Press **Ctrl+K**, type a few letters, press **Enter**. The list is one searchabl
 - **Connect with ...** for each interface type (17 ship with the tool);
 - **Go to device** `OBC1 (Computer 1)` for every device, and **Go to interface** `IF-002 (...)` for every interface.
 
-Type several words and every word must match, in any order (`go rw1` finds *Go to device RW1*). A name that starts with what you typed comes first. **Up** and **Down** move through the list, which has no length limit; keep typing to narrow it. The palette floats over the window instead of blocking it: **Esc**, a click anywhere else or **Ctrl+K** again closes it. The commands include Generate, Run checks, Export, Release, Start new revision, the imports, Engineering values and Reset layout. It is the quickest way to jump to one object in a project with dozens of devices.
+Type several words and every word must match, in any order (`go rw1` finds *Go to device RW1*). A name that starts with what you typed comes first. **Up** and **Down** move through the list, which has no length limit; keep typing to narrow it. The palette floats over the window instead of blocking it: **Esc**, a click anywhere else or **Ctrl+K** again closes it. The commands include Generate, Run checks, Export, Release, Start a new version, the imports, Engineering values and Reset layout. It is the quickest way to jump to one object in a project with dozens of devices.
 
 ## Reading a busy diagram
 
@@ -156,10 +156,10 @@ harness-design-studio compare my-design my-design-try
 Comparing my-design with my-design-try: 0 added, 0 removed, 0 changed.
 
 No differences.
-Not compared: the generation record, the contents of baselines (only their revision, date, name, comment and hash), and the files of the outputs folders.
+Not compared: the generation record, the contents of baselines (only their version, date, name, comment and hash), and the files of the outputs folders.
 ```
 
-For a harness you have released, `harness-design-studio diff DIR W001` shows what changed since its baseline, and `harness-design-studio log DIR` prints the change log. `--from A --to B` works between two **released** revisions (see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md#releasing) for the error you get otherwise).
+For a harness you have released, `harness-design-studio diff DIR W001` shows what changed since its baseline, and `harness-design-studio log DIR` prints the change log. `--from 1.0.0 --to 1.1.0` works between two **released** versions (an old letter of 2.x is read as its version, `A` as `1.0.0`) (see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md#releasing) for the error you get otherwise).
 
 ## Engineering values: config, profiles and the ampacity table
 
@@ -259,7 +259,7 @@ outputs/harnesses/W001/  W001.xlsx  W001_build.xlsx  bom.csv
                          labels.csv  mass_length.csv  pinouts.csv  tests.csv  wirelist.csv  wireviz.yaml
 outputs/system/  block_diagram.pdf  block_diagram.svg  bom.csv  box_pinouts.csv  changelog.csv
                  drc_findings.csv  drc_report.md  export.json  harness_overview.pdf  harness_overview.svg
-                 mass_length.csv  mating_matrix.csv  provenance.json  revision_report.md
+                 mass_length.csv  mating_matrix.csv  provenance.json  version_report.md
                  system.xlsx  traceability.csv
 ```
 
@@ -277,7 +277,7 @@ outputs/system/  block_diagram.pdf  block_diagram.svg  bom.csv  box_pinouts.csv 
 | CSV | `system/traceability.csv` | `Interface,Name,Type,From,To,Harnesses,Wires,Routed` (a project with connections: the first heading is `Interface or connection` and a last column `Kind` is added; `Requirement` comes after `Routed` while any interface has a requirement ID) |
 | CSV, XLSX | `system/connections.csv`, `system/connections.xlsx` | only a project with connections: `Connection,Name,From device,From connector,From pin,From signal,From role,To device,To connector,To pin,To signal,To role,Interface,Harness,Note` ([`OUTPUTS.md`](OUTPUTS.md#connection-list-systemconnectionscsv-and-xlsx)) |
 | CSV | `system/drc_findings.csv` | `Finding,Rule,Severity,Object,Statement,Waived,Justification,Requirement` |
-| CSV | `system/changelog.csv` | `Entry,Harness,Revision,Event,By,Date,Comment` |
+| CSV | `system/changelog.csv` | `Entry,Harness,Version,Event,By,Date,Comment` |
 | XLSX | `<ID>_build.xlsx` per harness | the **build workbook**: the sheets *Start here*, *Cut list*, *Connectors*, *Parts*, *Accessories*, *Labels*, *Tests* and *About* ([export the outputs](user-manual/export-the-outputs.md#3-the-build-workbook-sheet-by-sheet)) |
 | XLSX | `<ID>.xlsx` per harness, `system/system.xlsx` | all tables as sheets (data, no layout) |
 | JSON | `system/export.json` | the whole model in one file: `box_connectors`, `field_units` (the unit of every number, since 1.13), `format`, `format_version`, `generator`, `harnesses`, `interface_types`, `interfaces`, `model_hash`, `parts`, `placeholder_config`, `project`, `units` |
@@ -285,7 +285,7 @@ outputs/system/  block_diagram.pdf  block_diagram.svg  bom.csv  box_pinouts.csv 
 | SVG and PDF | `system/block_diagram.*`, `system/harness_overview.*` | the system diagrams, always written |
 | SVG and PDF | `drawing_A3_s<n>.svg` (A3 sheets), `drawing_A3.pdf`, `drawing_A4.pdf` per harness | the harness drawings, written only with `export DIR --drawings` |
 | YAML | `wireviz.yaml` per harness | "WireViz-style" input: `metadata`, `connectors`, `cables`, `connections`. Written by this tool; **not validated against the WireViz program**. |
-| Markdown | `system/drc_report.md`, `system/revision_report.md` | reports |
+| Markdown | `system/drc_report.md`, `system/version_report.md` | reports |
 
 Every CSV starts with a comment line (`# harness-design-studio 2.4.0 model <hash>`, with the version that made it) that a reader must skip. Details and limits: [`OUTPUTS.md`](OUTPUTS.md). The Inspector of an interface in the app has a field *Requirement ID (for traceability)*; its value is part of the interface in `system/export.json`.
 

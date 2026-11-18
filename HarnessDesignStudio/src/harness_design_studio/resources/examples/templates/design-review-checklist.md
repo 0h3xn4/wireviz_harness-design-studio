@@ -2,7 +2,7 @@
 
 Copy this next to your design and tick it off for each harness before you release it. The tool checks most of this for you; the list says where to look.
 
-Project: ____________  Harness: ______  Revision: ___  Reviewer: ____________  Date: ____________
+Project: ____________  Harness: ______  Version: ______  Reviewer: ____________  Date: ____________
 
 ## Before the review
 - [ ] `harness-design-studio check DIR` prints no error.
@@ -38,5 +38,5 @@ These points cannot be checked by the tool. The clause numbers below are those o
 - [ ] Test tables list the limits your programme requires.
 
 ## Release
-- [ ] The release comment says what this revision is for.
+- [ ] The release comment says what this version is for, and the kind (major, minor or patch) fits the change.
 - [ ] After the release: exported again, drawings show *released*, the change log has the entry.

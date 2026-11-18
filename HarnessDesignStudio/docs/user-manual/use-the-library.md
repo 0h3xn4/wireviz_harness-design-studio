@@ -166,7 +166,7 @@ When the library has a newer version of a device, the program shows the differen
 
 **Take it or keep yours.**
 
-- **Take the library's version** (`update-device DIR NAME --apply`, or `--all`). One step that **Undo** takes back, with the new record. The library-owned fields change; the project-owned fields stay (the name, subsystem, zone, chain, place, and the interfaces on the pins). Missing parts and interface types are added. It is all or nothing for a device and its copies: a change that a released harness locks, a pin that a link pairs, or a part of another category or pin count refuses the device, the message names the reason (and the harness: start a new revision with `revise`), and nothing of that device changes.
+- **Take the library's version** (`update-device DIR NAME --apply`, or `--all`). One step that **Undo** takes back, with the new record. The library-owned fields change; the project-owned fields stay (the name, subsystem, zone, chain, place, and the interfaces on the pins). Missing parts and interface types are added. It is all or nothing for a device and its copies: a change that a released harness locks, a pin that a link pairs, or a part of another category or pin count refuses the device, the message names the reason (and the harness: start a new version with `new-version`), and nothing of that device changes.
 - **Keep this project's.** Nothing is stored. The device keeps its state, so the line still says that it differs.
 - **Save this project's to the library…** writes the project's version into the library file ([section 9](#9-save-a-device-to-a-device-library)).
 
@@ -287,10 +287,10 @@ harness-design-studio update-device orbiter OBC1 --apply
 OBC1: library changed. Library ACME devices, OBC1.device.json.
   Device  Connector  Pin  Field     In this project          In the library  Locked by
   OBC1    OBC1-J01   1    function  Telemetry out, positive  Telemetry +     W001
-error: OBC1: Pin 1 of OBC1-J01 cannot change. Connector OBC1-J01 is used by W001, which is released. W001 is released (revision A); start a new revision to change it. Nothing of OBC1 was changed.
+error: OBC1: Pin 1 of OBC1-J01 cannot change. Connector OBC1-J01 is used by W001, which is released. W001 is released (version 1.0.0); start a new version to change it. Nothing of OBC1 was changed.
 ```
 
-The exit code is 1. Start a new revision of W001 (`revise`), then apply.
+The exit code is 1. Start a new version of W001 (`new-version`), then apply.
 
 ## Subsystems on the command line
 

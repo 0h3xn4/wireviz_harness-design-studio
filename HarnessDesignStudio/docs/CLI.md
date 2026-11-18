@@ -61,7 +61,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `export-data` | `ok`, `count`, `model_hash`, `files`, `run_record` |
 | `generate` | `ok`, `saved`, `added`, `changed`, `unchanged`, `removed`, `frozen`, `kept_locks`, `findings`, `interfaces_checked`, `wires_checked`, `verify_issues` |
 | `export` | `ok`, `written`, `blocked`, `model_hash`, `drawings_removed`, `file_count`, `files`, `issues` |
-| `merge-fix` | `ok`, `result`, `conflicts`, `problem`, `generate`, `check`, `dry_run`, `renamed` |
+| `merge-fix` | `ok`, `result`, `conflicts`, `problem`, `generate`, `check`, `dry_run`, `renamed`, `versions` |
 | `config` | `ok`, `set_count`, `total`, `values`, `problems`, `placeholder_files`, `waiting_for_decision`, `counterpart_pairs`, `release_distinct_roles`, `comment_warnings`, `changes` |
 | `library` | `ok`, `name`, `version`, `source`, `date`, `changed` |
 | `import-parts` | `ok`, `dry_run`, `changed`, `ready`, `problems`, `rows`, `library`, `import` |
@@ -81,9 +81,9 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `export-pinout` | `ok`, `device`, `pin_rows`, `columns`, `rows`, `written` |
 | `export-devices` | `ok`, `devices`, `connectors`, `notes` |
 | `export-subsystem` | `ok`, `name`, `devices`, `connectors`, `connections` |
-| `review`, `release` | `ok`, `action`, `by`, `blockers`, `outputs` |
-| `new-version`, `revise` | `ok`, `action`, `by`, `kind`, `blockers`, `outputs` |
-| `diff` | `ok`, `harness`, `from`, `to`, `added`, `removed`, `changed`, `changes` |
+| `review`, `release` | `ok`, `action`, `by`, `notes`, `blockers`, `outputs` |
+| `new-version`, `revise` | `ok`, `action`, `by`, `kind`, `notes`, `blockers`, `outputs` |
+| `diff` | `ok`, `harness`, `from`, `to`, `read_as`, `added`, `removed`, `changed`, `changes` |
 | `compare` | `ok`, `added`, `removed`, `changed`, `changes`, `not_compared` |
 | `log` | `ok`, `harness`, `entries` |
 | `migrate` | `ok`, `migrated`, `from_version`, `to_version`, `backup`, `record`, `self_check`, `gitattributes`, `outputs_version` |
@@ -481,7 +481,7 @@ harness-design-studio export-data my-design --out my-design-data --run-record --
 
 ### harness-design-studio merge-fix
 
-After a Git merge. When two people each pressed Generate, `generated/generation.json` conflicts: this command keeps this branch's version of that file, then runs `generate` (which writes the record again for the merged design) and `check`. When both added entries to the change journal (`journal.jsonl`), Git keeps the lines of both (`merge=union` in `.gitattributes`); if it stopped on the journal instead, this command keeps both sides' lines. Then it adds one `merge` entry to the journal that names the last entry of each side. When both branches made a harness or a link with the same ID (`W005`, `L7`) and different content, this branch's keeps the ID and the other branch's gets the next free one, with the IDs inside the harness and every link, waiver and diagram mark of the other branch that names it; it prints each rename and adds one journal entry that names them. It refuses to rename a harness or link with a release history (released IDs never change). It refuses, and changes nothing, when any other file of the project is in conflict, and it writes nothing itself apart from those files, the journal and what `generate` writes. Commit the result afterwards.
+After a Git merge. When two people each pressed Generate, `generated/generation.json` conflicts: this command keeps this branch's version of that file, then runs `generate` (which writes the record again for the merged design) and `check`. When both added entries to the change journal (`journal.jsonl`), Git keeps the lines of both (`merge=union` in `.gitattributes`); if it stopped on the journal instead, this command keeps both sides' lines. Then it adds one `merge` entry to the journal that names the last entry of each side. When both branches made a harness or a link with the same ID (`W005`, `L7`) and different content, this branch's keeps the ID and the other branch's gets the next free one, with the IDs inside the harness and every link, waiver and diagram mark of the other branch that names it; it prints each rename and adds one journal entry that names them. It refuses to rename a harness or link with a release history (released IDs never change). When a branch still in format 2 was merged into a project in format 3, it rewrites the old key and letter of each harness version that the merge brought in by the rule of the upgrade (A is 1.0.0, B is 2.0.0), in the harness files, the change log and the baselines (a baseline moves to its new name), and prints each one. It refuses, and changes nothing, when any other file of the project is in conflict, and it writes nothing itself apart from those files, the journal and what `generate` writes. Commit the result afterwards.
 
 `harness-design-studio merge-fix project [options]`
 
@@ -1038,7 +1038,7 @@ harness-design-studio release my-design W001 --by "A. Engineer" --comment "First
 
 ### harness-design-studio new-version
 
-start a new version of a released harness: --kind major (not compatible with the versions before it), minor (adds something and stays compatible) or patch (a fix that stays compatible); `revise` is the older name of this command
+start a new version of a released harness: --kind major (not compatible with the versions before it), minor (adds something and stays compatible) or patch (a fix that stays compatible); on a draft after a release, before its review, it chooses the kind again and works the version out again from the released one; `revise` is the older name of this command
 
 `harness-design-studio new-version project harness [options]`
 
@@ -1092,14 +1092,15 @@ show what changed in a harness since a baseline (or between two baselines)
 | `project` | project folder |
 | `harness` | harness ID, for example W001 |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
-| `--from REV_FROM` | baseline version to compare from (default: latest) |
-| `--to REV_TO` | baseline version to compare to (default: the working design) |
+| `--from REV_FROM` | baseline version to compare from (default: latest); an old letter is read as its version (B is 2.0.0) |
+| `--to REV_TO` | baseline version to compare to (default: the working design); an old letter is read as its version |
 
 Examples:
 
 ```
 harness-design-studio diff my-design W001
 harness-design-studio diff my-design W001 --from 1.0.0
+harness-design-studio diff my-design W001 --from A
 harness-design-studio diff my-design W001 --json
 ```
 

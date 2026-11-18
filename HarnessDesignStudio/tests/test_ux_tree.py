@@ -180,19 +180,26 @@ def test_a_harness_shows_its_release_state_as_a_chip(flat, theme, qtbot) -> None
     from dataclasses import replace  # noqa: F401
 
     from harness_design_studio.core.commands import Put
-    from harness_design_studio.core.model import evolve
+    from harness_design_studio.core.model import Baseline, Snapshot, evolve
 
     tree = make(flat, theme, qtbot)
     p = flat.project
     hid = sorted(p.harnesses)[0]
     h = p.harnesses[hid]
-    assert tree.state_of("harness", hid) == (describe.harness_state(h), "Draft")
+    assert tree.state_of("harness", hid) == (describe.harness_state(h, p), "Draft")
+    base = Baseline(
+        id=f"{hid}.1.0.0", harness_id=hid, version="1.0.0", released_on="2026-01-01",
+        by="A. Person", comment="the first release", content_hash="x", snapshot=Snapshot(),
+    )  # fmt: skip
     for status, rev, expect in (
         ("in_review", "1.0.0", ("in-review", "In review")),
         ("released", "1.0.0", ("released", "Released 1.0.0")),
-        ("draft", "2.0.0", ("revised", "Revised 2.0.0")),
+        ("draft", "2.0.0", ("revised", "New version 2.0.0")),
     ):
-        flat.run("state", [Put("harnesses", evolve(h, status=status, version=rev))])
+        ops = [Put("harnesses", evolve(h, status=status, version=rev))]
+        if status == "released":
+            ops.append(Put("baselines", base))
+        flat.run("state", ops)
         assert tree.state_of("harness", hid) == expect
 
 
@@ -455,7 +462,7 @@ def test_the_lock_goes_when_the_release_is_undone(released, theme, qtbot) -> Non
     assert plan.ok
     assert ctl.apply_change(plan, "revised")
     assert tree.lock_of("harness", hid) is None
-    assert tree.state_of("harness", hid) == ("revised", "Revised 2.0.0")
+    assert tree.state_of("harness", hid) == ("revised", "New version 2.0.0")
 
 
 # ---- selection, keyboard, signals ----------------------------------------------------------------

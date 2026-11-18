@@ -308,6 +308,185 @@ def _v3_titleblock(files: RawFiles) -> RawFiles:
     return files
 
 
+# ---- a format 2 key or letter in a format 3 project, after a merge (section 5.6) ----------------
+#
+# A branch still in format 2, merged into a branch in format 3, can bring a key `revision` and a
+# letter into a format 3 file: a harness it made, a change-log entry, a baseline. The loader refuses
+# such an object (the model knows no key `revision` and no letter) and names it with the code
+# `revision_not_version` and the version the letter maps to; `merge-fix` rewrites such keys and
+# letters by the rule of section 5.5 (`rewrite_leftovers`).
+
+LEFTOVER_CODE = "revision_not_version"
+
+
+@dataclass(frozen=True)
+class Leftover:
+    """One object of a format 3 file that still holds a key or a letter of format 2: the file,
+    where in it (`harness W002`, `change log C0007`, `baseline W002.A`, `the title block`), the old
+    value and the version it maps to (None when it is not a letter, which is not guessed)."""
+
+    file: str
+    where: str
+    value: str
+    version: str | None
+
+    def line(self) -> str:
+        """What `merge-fix` rewrites here, in one line."""
+        if self.where == "the title block":
+            return f"{self.file}: the title block field 'revision' -> 'version'"
+        if self.value == OLD_KIND:
+            return f"{self.file}: {self.where}: the kind '{OLD_KIND}' -> '{NEW_KIND}'"
+        return f"{self.file}: {self.where}: revision '{self.value}' -> version {self.version}"
+
+    def message(self) -> str:
+        """The sentence of the loader's finding `revision_not_version`."""
+        if self.where == "the title block":
+            return (
+                f"{self.where} lists the field 'revision' of format 2; in format 3 it is called "
+                "'version'. `harness-design-studio merge-fix DIR` rewrites it."
+            )
+        if self.version is None:
+            return (
+                f"{self.where} holds the revision '{self.value}' of format 2, which is not a "
+                "letter, so its version is not guessed: write a version MAJOR.MINOR.PATCH under "
+                "the key 'version' by hand. A branch in format 2 was merged into a project in "
+                "format 3; upgrade the other branches before they merge."
+            )
+        return (
+            f"{self.where} holds the revision '{self.value}' of format 2; in format 3 that is "
+            f"version {self.version}. A branch in format 2 was merged into a project in format 3: "
+            "`harness-design-studio merge-fix DIR` rewrites the key and the letter."
+        )
+
+
+def _leftover_value(data: dict[str, Any]) -> str | None:
+    """The old value an object of format 3 still holds: any value under the key `revision`, or an
+    upper-case letter under the key `version`. None for a clean object (and for any other text under
+    `version`, which the model names as it names any wrong value)."""
+    from harness_design_studio.core.vcs.versions import letter_number
+
+    if OLD_KEY in data:
+        old = data[OLD_KEY]
+        return old if isinstance(old, str) else str(old)
+    new = data.get(NEW_KEY)
+    if isinstance(new, str) and letter_number(new) is not None:
+        return new
+    return None
+
+
+def _objects(files: Mapping[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
+    """(file, where, object) for every harness, change-log entry, baseline and harness of a
+    baseline's snapshot of a file tree, in the order of the files."""
+    out: list[tuple[str, str, dict[str, Any]]] = []
+    for rel in sorted(files):
+        data = files[rel]
+        if not isinstance(data, dict):
+            continue
+        if rel.startswith("physical/harnesses/"):
+            out.append((rel, f"harness {data.get('id')}", data))
+        elif rel == "changelog.json" and isinstance(data.get("changelog"), list):
+            out += [
+                (rel, f"change log {e.get('id')}", e)
+                for e in data["changelog"]
+                if isinstance(e, dict)
+            ]
+        elif rel.startswith("baselines/"):
+            out.append((rel, f"baseline {data.get('id')}", data))
+            snap = data.get("snapshot")
+            for h in snap.get("harnesses", []) if isinstance(snap, dict) else []:
+                if isinstance(h, dict):
+                    out.append((rel, f"baseline {data.get('id')}, its snapshot", h))
+    return out
+
+
+def _titleblocks(files: Mapping[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """(file, values) of the title block of `config/titleblock.json` and of each baseline's frozen
+    copy."""
+    out: list[tuple[str, dict[str, Any]]] = []
+    cfg = files.get("config/titleblock.json")
+    if isinstance(cfg, dict) and isinstance(cfg.get("values"), dict):
+        out.append(("config/titleblock.json", cfg["values"]))
+    for rel in sorted(r for r in files if r.startswith("baselines/")):
+        data = files[rel]
+        snap = data.get("snapshot") if isinstance(data, dict) else None
+        config = snap.get("config") if isinstance(snap, dict) else None
+        tb = config.get("titleblock") if isinstance(config, dict) else None
+        if isinstance(tb, dict):
+            out.append((rel, tb))
+    return out
+
+
+def leftovers(files: Mapping[str, Any]) -> list[Leftover]:
+    """Every key or letter of format 2 in a format 3 file tree (section 5.6, *Merges across the
+    upgrade*): an object with the key `revision`, a letter under the key `version`, a change-log
+    entry of the kind `new_revision`, and the title block field `revision`. Empty for a clean
+    tree. Read only."""
+    from harness_design_studio.core.vcs.versions import letter_to_version
+
+    out: list[Leftover] = []
+    for rel, where, data in _objects(files):
+        value = _leftover_value(data)
+        if value is not None:
+            out.append(Leftover(rel, where, value, letter_to_version(value)))
+        elif data.get("kind") == OLD_KIND:
+            out.append(Leftover(rel, where, OLD_KIND, NEW_KIND))
+    for rel, values in _titleblocks(files):
+        fields = values.get("fields")
+        if isinstance(fields, list) and TITLEBLOCK_OLD in fields:
+            out.append(Leftover(rel, "the title block", TITLEBLOCK_OLD, TITLEBLOCK_NEW))
+    return out
+
+
+def rewrite_leftovers(files: Mapping[str, Any]) -> tuple[RawFiles, dict[str, str]]:
+    """The file tree with every key and letter of format 2 that `leftovers` finds rewritten by the
+    rule of section 5.5 (`A` is `1.0.0`, `B` is `2.0.0`; a version is kept), and the baselines that
+    move to their new name (old file -> new file). A key `revision` beside a key `version` is
+    dropped (the version is the format 3 side). A value that is not a letter is left as it is: it
+    is not guessed, and the loader still names it. Works on a copy."""
+    from harness_design_studio.core.vcs.versions import (
+        is_version,
+        letter_number,
+        letter_to_version,
+    )
+
+    out = copy.deepcopy(dict(files))
+    for _rel, _where, data in _objects(out):
+        if OLD_KEY in data:
+            old = data.pop(OLD_KEY)
+            data.setdefault(NEW_KEY, old)
+        value = data.get(NEW_KEY)
+        if isinstance(value, str) and not is_version(value):
+            mapped = letter_to_version(value)
+            if mapped is not None and letter_number(value) is not None:
+                data[NEW_KEY] = mapped
+        if data.get("kind") == OLD_KIND:
+            data["kind"] = NEW_KIND
+    for _rel, values in _titleblocks(out):
+        fields = values.get("fields")
+        if isinstance(fields, list) and TITLEBLOCK_OLD in fields:
+            renamed = [TITLEBLOCK_NEW if f == TITLEBLOCK_OLD else f for f in fields]
+            values["fields"] = [f for i, f in enumerate(renamed) if f not in renamed[:i]]
+    moved: dict[str, str] = {}
+    for rel in sorted(r for r in out if r.startswith("baselines/")):
+        data = out[rel]
+        if not isinstance(data, dict):
+            continue
+        hid, bid, version = data.get("harness_id"), data.get("id"), data.get(NEW_KEY)
+        if not (isinstance(hid, str) and isinstance(bid, str) and isinstance(version, str)):
+            continue
+        old = bid.removeprefix(f"{hid}.") if bid.startswith(f"{hid}.") else None
+        if old is None or old == version or letter_to_version(old) != version:
+            continue
+        data["id"] = f"{hid}.{version}"
+        folder, _, name = rel.rpartition("/")
+        if name == f"{bid}.json":
+            target = f"{folder}/{data['id']}.json"
+            if target not in out:
+                out[target] = out.pop(rel)
+                moved[rel] = target
+    return out, moved
+
+
 # The parts of the step from format 2 to 3, run in this order on a copy of the files. Every new
 # field of format 3 is absent, so it has its default: no pin gets `signal_ground`, no config file is
 # created, and `project.json` changes in its number only (`ProjectMeta` is sparse for `document`).

@@ -271,6 +271,7 @@ EXAMPLES: dict[str, list[str]] = {
     "diff": [
         "harness-design-studio diff my-design W001",
         "harness-design-studio diff my-design W001 --from 1.0.0",
+        "harness-design-studio diff my-design W001 --from A",
         "harness-design-studio diff my-design W001 --json",
     ],
     "log": [

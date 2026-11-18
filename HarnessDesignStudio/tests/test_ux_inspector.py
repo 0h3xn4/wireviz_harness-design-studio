@@ -165,7 +165,7 @@ def test_a_locked_link_shows_who_holds_it_and_how_to_revise(released, theme, qtb
         w.banner.chip.text() or ""
     )
     assert "Names and notes can still be changed" in w.banner.sentence.text()
-    assert w.banner.button.isVisibleTo(w) and w.banner.button.text() == "Start new revision"
+    assert w.banner.button.isVisibleTo(w) and w.banner.button.text() == "Start new version"
     assert w.banner.button.accessibleName() and hid in w.banner.button.toolTip()
 
 
@@ -191,21 +191,27 @@ def test_a_released_harness_banner_and_the_other_states(released, theme, qtbot) 
 
 
 def test_banner_for_covers_every_state_without_qt() -> None:
-    from harness_design_studio.core.model import evolve
+    from harness_design_studio.core.model import Baseline, Snapshot, evolve
 
     p = full()
     h = next(iter(p.harnesses.values()))
-    for status, rev, state in (
-        ("draft", "1.0.0", "draft"),
-        ("in_review", "1.0.0", "in-review"),
-        ("draft", "2.0.0", "revised"),
+    released = Baseline(
+        id=f"{h.id}.1.0.0", harness_id=h.id, version="1.0.0", released_on="2026-01-01",
+        by="A. Person", comment="the first release", content_hash="x", snapshot=Snapshot(),
+    )  # fmt: skip
+    for status, rev, base, state in (
+        ("draft", "1.0.0", False, "draft"),
+        ("in_review", "1.0.0", False, "in-review"),
+        ("draft", "2.0.0", False, "draft"),  # a draft is revised by its baseline, not its version
+        ("draft", "2.0.0", True, "revised"),
     ):
         p.harnesses[h.id] = evolve(h, status=status, version=rev)
+        p.baselines = {released.id: released} if base else {}
         info = ins.banner_for(p, "harness", h.id)
         assert info is not None and info.state == state and info.revise is None
     assert ins.banner_for(p, "unit", next(iter(p.units))) is None
     assert ins.banner_for(p, "harness", "nope") is None
-    assert describe.harness_state(p.harnesses[h.id]) == "revised"
+    assert describe.harness_state(p.harnesses[h.id], p) == "revised"
 
 
 def test_the_read_only_project_cannot_start_a_revision(released, theme, qtbot) -> None:

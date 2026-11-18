@@ -78,7 +78,7 @@ from harness_design_studio.core import (
 )
 from harness_design_studio.core import links as core_links
 from harness_design_studio.core import workflow as core_workflow
-from harness_design_studio.core.commands import Op
+from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.drc import by_rule
 from harness_design_studio.core.errors import HarnessError, ProjectLockedError
 from harness_design_studio.core.generate import segmentation
@@ -91,7 +91,7 @@ from harness_design_studio.core.import_record import CHANGED, CachedHasher, chec
 from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.io.migrate import current_version
 from harness_design_studio.core.io.upgrade import UpgradeError, format_of
-from harness_design_studio.core.model import Project
+from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.model.physical import LOOSE_ROLE, TBD_PART_ID
 from harness_design_studio.core.open_data import data_files
 from harness_design_studio.core.outputs.build import (
@@ -104,7 +104,10 @@ from harness_design_studio.core.outputs.build import (
 from harness_design_studio.core.outputs.verify import verify_outputs
 from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.core.vcs.release import (
+    kind_again,
+    last_baseline,
     loose_ends_of,
+    pinout_note,
     plan_new_version,
     plan_release,
     plan_submit_review,
@@ -3935,6 +3938,7 @@ class MainWindow(QMainWindow):
         if hid not in project.harnesses:
             self.toasts.show_message(strings.NO_HARNESSES_FOR_ACTION, None)
             return
+        again = action == "revise" and kind_again(project, hid)  # the kind chosen again (Q22)
         if action == "review":
             dlg = ChangeDialog(
                 self,
@@ -3944,6 +3948,7 @@ class MainWindow(QMainWindow):
                 ask_comment=False,
                 ok_text=strings.REVIEW_CONFIRM,
                 rule_note=strings.ROLES_REVIEW_NOTE if distinct_roles_on(project) else "",
+                note=pinout_note(project, hid),
             )
         elif action == "release":
             # the dialog asks for the reason itself, so a stand-in keeps that blocker out of the list
@@ -3973,6 +3978,16 @@ class MainWindow(QMainWindow):
                     if distinct_roles_on(project)
                     else None
                 ),
+                note=pinout_note(project, hid),
+            )
+        elif again:
+            base = last_baseline(project, hid)
+            dlg = ChangeDialog.for_kind_again(
+                self,
+                hid,
+                version=project.harnesses[hid].version,
+                released=base.version if base is not None else "",
+                by=self._user_name(),
             )
         else:
             dlg = ChangeDialog.for_revise(
@@ -4003,7 +4018,19 @@ class MainWindow(QMainWindow):
             plan = plan_new_version(
                 project, hid, kind=dlg.kind() or "", by=by, comment=comment, when=today
             )
-            msg = strings.NEW_REV_STARTED.format(hid)
+            new = next(
+                (
+                    op.obj.version
+                    for op in plan.ops
+                    if isinstance(op, Put) and isinstance(op.obj, Harness)
+                ),
+                "",
+            )
+            msg = (
+                strings.NV_AGAIN_DONE.format(hid, new)
+                if again
+                else strings.NEW_REV_STARTED.format(hid)
+            )
         self.ctl.apply_change(plan, msg)
 
     # ---- change control on "the" harness (menu, shortcut, Ctrl+K) ----------------------------------
@@ -4040,7 +4067,11 @@ class MainWindow(QMainWindow):
             "release": ("draft", "in_review"),
             "revise": ("released",),
         }[action]
-        fit = sorted(h for h, x in project.harnesses.items() if x.status in allowed)
+        fit = sorted(
+            h
+            for h, x in project.harnesses.items()
+            if x.status in allowed or (action == "revise" and kind_again(project, h))
+        )
         chosen = self.current_harness()
         if chosen is None or chosen not in fit:
             chosen = fit[0] if len(fit) == 1 else None

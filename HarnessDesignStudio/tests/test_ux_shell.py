@@ -195,7 +195,7 @@ def test_palette_finds_every_command(flat) -> None:
         "Run checks",
         "Export…",
         "Release harness…",
-        "Start new revision…",
+        "Start a new version…",
         "Reset layout",
         "Go to Diagram",
         "Go to Checks",

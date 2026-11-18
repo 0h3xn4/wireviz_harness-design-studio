@@ -4,7 +4,7 @@
 """SH-8: where a unit, interface, part or interface type is used (the inspector's "Used in")."""
 
 from harness_design_studio.core import describe
-from harness_design_studio.core.model import evolve
+from harness_design_studio.core.model import Baseline, Snapshot, evolve
 from harness_design_studio.core.usedby import Use, used_by
 from tests.test_change_control import full, releasable
 
@@ -82,7 +82,14 @@ def test_the_order_is_stable_and_natural() -> None:
 def test_harness_state_has_a_word_for_each_stage_of_change_control() -> None:
     p = full()
     h = next(iter(p.harnesses.values()))
-    assert describe.harness_state(h) == "draft"
-    assert describe.harness_state(evolve(h, status="in_review")) == "in-review"
-    assert describe.harness_state(evolve(h, status="released")) == "released"
-    assert describe.harness_state(evolve(h, status="draft", version="2.0.0")) == "revised"
+    assert describe.harness_state(h, p) == "draft"
+    assert describe.harness_state(evolve(h, status="in_review"), p) == "in-review"
+    assert describe.harness_state(evolve(h, status="released"), p) == "released"
+    # a draft is revised when it has a baseline (design of 3.0.0, section 5.7), not by its version
+    assert describe.harness_state(evolve(h, status="draft", version="2.0.0"), p) == "draft"
+    p.baselines[f"{h.id}.1.0.0"] = Baseline(
+        id=f"{h.id}.1.0.0", harness_id=h.id, version="1.0.0", released_on="2026-01-01",
+        by="A. Person", comment="the first release", content_hash="x", snapshot=Snapshot(),
+    )  # fmt: skip
+    assert describe.harness_state(evolve(h, status="draft", version="2.0.0"), p) == "revised"
+    assert describe.harness_state(evolve(h, status="draft"), p) == "revised"

@@ -183,18 +183,29 @@ def test_the_top_bar_puts_z_before_aa() -> None:
     assert _top_bar_text({"B", "AA", "C"}) == "B-AA"
 
 
-def test_the_state_of_a_draft_is_revised_after_the_first_version() -> None:
-    # Format 3 (D-242): a harness starts at 1.0.0; a draft at any later version is a new version
-    # of a released harness, as a draft at a later letter was in format 2 (A is 1.0.0).
+def test_the_state_of_a_draft_is_revised_when_it_has_a_baseline() -> None:
+    # The baseline rule of the design of 3.0.0 (section 5.7, pull request R2): a draft is a new
+    # version of a released harness when it has a baseline, whatever its version says; pull request
+    # 1 read it from the version (not 1.0.0), the letter rule of 2.x mapped.
+    from harness_design_studio.core.model import Baseline, Project, Snapshot
+
     base = Harness(id="W001", name="W001")
     assert base.version == "1.0.0"
-    for version in ["1.0.0", "1.0.1", "1.1.0", "2.0.0", "0.1.0", "27.0.0"]:
-        for status in ("draft", "in_review", "released"):
-            h = evolve(base, version=version, status=status)
-            want = {"released": "released", "in_review": "in-review"}.get(
-                status, "draft" if version == "1.0.0" else "revised"
-            )
-            assert harness_state(h) == want, (version, status)
+    released = Baseline(
+        id="W001.1.0.0", harness_id="W001", version="1.0.0", released_on="2026-01-01",
+        by="A. Person", comment="the first release", content_hash="x", snapshot=Snapshot(),
+    )  # fmt: skip
+    for has_baseline in (False, True):
+        project = Project()
+        if has_baseline:
+            project.baselines[released.id] = released
+        for version in ["1.0.0", "1.0.1", "1.1.0", "2.0.0", "0.1.0", "27.0.0"]:
+            for status in ("draft", "in_review", "released"):
+                h = evolve(base, version=version, status=status)
+                want = {"released": "released", "in_review": "in-review"}.get(
+                    status, "revised" if has_baseline else "draft"
+                )
+                assert harness_state(h, project) == want, (version, status, has_baseline)
     assert is_first("1.0.0") and not is_first("1.0.1") and not is_first("2.0.0")
 
 
@@ -472,7 +483,7 @@ def test_new_version_on_the_command_line_and_revise_as_its_older_name(tmp_path, 
     assert main(["new-version", *args, "--kind", "minor", "--json", "--date", "2026-04-01"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert (doc["action"], doc["kind"]) == (f"New version 1.1.0 of {hid}", "minor")
-    assert list(doc) == ["ok", "action", "by", "kind", "blockers", "outputs"]
+    assert list(doc) == ["ok", "action", "by", "kind", "notes", "blockers", "outputs"]
     assert load_project(root).project.harnesses[hid].version == "1.1.0"
     from harness_design_studio.cli.main import build_parser
 
@@ -517,3 +528,256 @@ def test_the_verifier_refuses_an_export_whose_two_names_differ(tmp_path) -> None
     files["system/export.json"] = json.dumps(doc).encode()
     report = verify_outputs(p, files)
     assert not report.ok and any(i.code == "out_json" for i in report.errors)
+
+
+# ---- pull request R2: the kind chosen again, the notes, an old letter, merges (section 5.3 to 5.6) ----
+
+
+def test_kind_between_reads_the_kind_of_a_step() -> None:
+    from harness_design_studio.core.vcs.versions import kind_between
+
+    assert kind_between("1.4.2", "2.0.0") == "major"
+    assert kind_between("1.4.2", "1.5.0") == "minor"
+    assert kind_between("1.4.2", "1.4.3") == "patch"
+    assert kind_between("A", "B") == "major"  # a letter is read as its version
+    assert kind_between("B", "2.1.0") == "minor"
+    for old, new in (("1.4.2", "1.4.2"), ("1.4.2", "1.3.9"), ("1.0", "2.0.0"), ("1.0.0", "-")):
+        assert kind_between(old, new) is None
+
+
+def _draft_of(tmp_path, kind: str):
+    """The released project of `_released_project` with a new version of the given kind."""
+    from harness_design_studio.core.commands import History
+    from harness_design_studio.core.vcs.release import plan_new_version
+
+    p, hid = _released_project(tmp_path)
+    plan = plan_new_version(p, hid, kind=kind, by="Ada", comment="A change of the harness", when="2026-03-02")  # fmt: skip
+    assert plan.ok, [b.message for b in plan.blockers]
+    History(p).execute(plan.label, plan.ops)
+    return p, hid
+
+
+def test_the_kind_is_chosen_again_on_a_draft_before_its_review(tmp_path) -> None:
+    """Q22: `new-version --kind` on a draft that has a baseline works the version out again from
+    the released one and adds one change-log entry `version_changed`; refused after the review
+    starts, and for the kind the draft already has."""
+    from harness_design_studio.core.commands import History
+    from harness_design_studio.core.vcs.release import (
+        draft_kind,
+        kind_again,
+        plan_new_version,
+        plan_submit_review,
+    )
+
+    p, hid = _draft_of(tmp_path, "minor")
+    assert p.harnesses[hid].version == "1.1.0" and kind_again(p, hid)
+    assert draft_kind(p, hid) == "minor"
+    entries = len(p.changelog)
+    plan = plan_new_version(p, hid, kind="patch", by="Ada", comment="Only a fix after all", when="2026-03-03")  # fmt: skip
+    assert plan.ok and plan.label == f"Version 1.1.0 of {hid} becomes 1.0.1 (patch)"
+    History(p).execute(plan.label, plan.ops)
+    h = p.harnesses[hid]
+    assert (h.version, h.status, draft_kind(p, hid)) == ("1.0.1", "draft", "patch")
+    entry = max(p.changelog.values(), key=lambda e: e.id)
+    assert (entry.kind, entry.version, entry.comment) == ("version_changed", "1.0.1", "Only a fix after all")  # fmt: skip
+    assert len(p.changelog) == entries + 1
+    assert sorted(b for b in p.baselines if b.startswith(f"{hid}.")) == [f"{hid}.1.0.0"]
+    same = plan_new_version(p, hid, kind="patch", by="Ada", comment="Only a fix after all", when="2026-03-03")  # fmt: skip
+    assert [b.code for b in same.blockers] == ["kind_unchanged"]
+    review = plan_submit_review(p, hid, by="Ada", when="2026-03-04")
+    History(p).execute(review.label, review.ops)
+    late = plan_new_version(p, hid, kind="major", by="Ada", comment="A larger change now", when="2026-03-05")  # fmt: skip
+    assert [b.code for b in late.blockers] == ["in_review"] and not kind_again(p, hid)
+
+
+def _change_a_device_end(p, hid: str) -> str:
+    """Change the gender of a cable connector that plugs into a device; its ID."""
+    from harness_design_studio.core.commands import History, Put
+
+    h = p.harnesses[hid]
+    end = next(c for c in h.connectors if c.mates_with)
+    other = "female" if end.gender == "male" else "male"
+    changed = evolve(h, connectors=[evolve(c, gender=other) if c.id == end.id else c for c in h.connectors])  # fmt: skip
+    History(p).execute("change the end", [Put("harnesses", changed)])
+    return str(end.id)
+
+
+@pytest.mark.parametrize("kind", ["minor", "patch"])
+def test_the_pinout_note_is_due_for_a_minor_or_patch_version_that_changes_a_device_end(
+    kind: str, tmp_path
+) -> None:
+    from harness_design_studio.core.vcs.release import pinout_note
+
+    p, hid = _draft_of(tmp_path, kind)
+    assert pinout_note(p, hid) == ""  # nothing changed yet
+    cid = _change_a_device_end(p, hid)
+    note = pinout_note(p, hid)
+    assert note == (
+        f"This version changes the pinout at a device (cable connector {cid}). The harness plan "
+        "template calls that an incompatible change."
+    )
+
+
+def test_no_pinout_note_for_a_major_version_or_a_first_release(tmp_path) -> None:
+    from harness_design_studio.core.samples import mini3
+    from harness_design_studio.core.vcs.release import pinout_note
+
+    p, hid = _draft_of(tmp_path, "major")
+    _change_a_device_end(p, hid)
+    assert pinout_note(p, hid) == ""
+    q = mini3()  # no baseline: the first release has nothing to compare with
+    assert all(pinout_note(q, h) == "" for h in q.harnesses)
+
+
+def test_the_note_on_a_major_version() -> None:
+    from harness_design_studio.core.vcs.release import MAJOR_NOTE, major_note
+
+    assert major_note("major") == MAJOR_NOTE and major_note("minor") == major_note("patch") == ""
+    assert MAJOR_NOTE == (
+        "A major version says that this harness is not compatible with its earlier versions. The "
+        "harness plan template gives such a harness a new ID instead (TH01 becomes TH02, not TH01 "
+        "2.0.0)."
+    )
+
+
+def test_review_and_new_version_print_their_notes(tmp_path, capsys) -> None:
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from harness_design_studio.core.io.saver import save_project
+    from harness_design_studio.core.vcs.release import MAJOR_NOTE, pinout_note
+
+    p, hid = _draft_of(tmp_path / "a", "patch")
+    _change_a_device_end(p, hid)
+    note = pinout_note(p, hid)
+    root = tmp_path / "a" / "p"
+    save_project(p, root)
+    assert main(["review", str(root), hid, "--by", "Ada", "--date", "2026-04-01", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["notes"] == [note] and list(doc) == ["ok", "action", "by", "notes", "blockers", "outputs"]  # fmt: skip
+    q, hid2 = _released_project(tmp_path / "b")
+    root2 = tmp_path / "b" / "p"
+    save_project(q, root2)
+    args = [str(root2), hid2, "--by", "Ada", "--comment", "A larger change", "--date", "2026-04-01"]
+    assert main(["new-version", *args, "--kind", "major"]) == 0
+    out = capsys.readouterr().out
+    assert f"New version 2.0.0 of {hid2}: done.\nNote: {MAJOR_NOTE}\n" in out
+    assert main(["new-version", *args, "--kind", "minor", "--json"]) == 0  # the kind again
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["action"] == f"Version 2.0.0 of {hid2} becomes 1.1.0 (minor)" and doc["notes"] == []
+    log = load_project(root2).project.changelog.values()
+    assert [e.kind for e in sorted(log, key=lambda e: e.id)][-2:] == ["new_version", "version_changed"]  # fmt: skip
+
+
+def test_diff_reads_an_old_letter_as_its_version(tmp_path, capsys) -> None:
+    """Q18, section 5.4: after the upgrade `diff --from` and `--to` still take an old letter, and
+    the output says once which version it is."""
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from tests.migration_support import as_format, build
+
+    root = as_format(build("released", tmp_path / "p"), 2)
+    assert main(["migrate", str(root)]) == 0
+    capsys.readouterr()
+    p = load_project(root).project
+    hid = next(h for h in sorted(p.harnesses) if p.harnesses[h].version == "2.0.0")
+    assert main(["diff", str(root), hid, "--from", "A"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("A is read as version 1.0.0") == 1
+    assert f"{hid}: working design against version 1.0.0" in out
+    assert main(["diff", str(root), hid, "--from", "A", "--to", "1.0.0", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert (doc["from"], doc["to"], doc["read_as"]) == ("1.0.0", "1.0.0", {"A": "1.0.0"})
+    assert main(["diff", str(root), hid, "--from", "B"]) == 2  # B is 2.0.0: no such baseline
+    assert "no baseline for version 2.0.0" in capsys.readouterr().err
+
+
+def _as_merged_from_format_2(root, hid: str) -> None:
+    """Write the files of one released harness as a branch still in format 2 holds them, as a merge
+    brings them into a format 3 project: the key `revision` and the letter, the baseline under its
+    old name."""
+    from harness_design_studio.core.io import canonical
+
+    path = root / "physical" / "harnesses" / f"{hid}.json"
+    doc = json.loads(path.read_bytes())
+    popped = doc.pop("version")
+    assert popped == "1.0.0"
+    doc["revision"] = "A"
+    path.write_bytes(canonical.dumps(doc))
+    log = root / "changelog.json"
+    doc = json.loads(log.read_bytes())
+    for e in doc["changelog"]:
+        if e["harness_id"] == hid:
+            popped = e.pop("version")
+            assert popped == "1.0.0"
+            e["revision"] = "A"
+    log.write_bytes(canonical.dumps(doc))
+    old = root / "baselines" / hid / f"{hid}.1.0.0.json"
+    doc = json.loads(old.read_bytes())
+    popped = doc.pop("version")
+    assert popped == "1.0.0"
+    doc["id"], doc["revision"] = f"{hid}.A", "A"
+    for h in doc["snapshot"]["harnesses"]:
+        h["version"] = "A"  # a letter under the new key, as a hand-resolved conflict leaves it
+    old.unlink()
+    (old.parent / f"{hid}.A.json").write_bytes(canonical.dumps(doc))
+
+
+def test_the_loader_names_a_key_or_letter_of_format_2_and_merge_fix_rewrites_it(
+    tmp_path, capsys
+) -> None:
+    """Section 5.6, *Merges across the upgrade*: the loader refuses such a file with
+    `revision_not_version` and names the version the letter maps to; `merge-fix` rewrites the keys
+    and letters by the rule of section 5.5, and the project is then byte for byte what it was."""
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io.loader import load_project
+    from tests.migration_support import build, folder_bytes
+
+    root = build("released", tmp_path / "p")
+    p = load_project(root).project
+    hid = next(h for h in sorted(p.harnesses) if p.harnesses[h].status == "released")
+    before = folder_bytes(root)
+    _as_merged_from_format_2(root, hid)
+    r = load_project(root)
+    found = [i for i in r.issues if i.code == "revision_not_version"]
+    assert {i.location for i in found} == {
+        f"physical/harnesses/{hid}.json",
+        "changelog.json",
+        f"baselines/{hid}/{hid}.A.json",
+    }
+    assert any(
+        f"harness {hid} holds the revision 'A' of format 2; in format 3 that is version 1.0.0"
+        in i.message
+        for i in found
+    )
+    assert hid not in r.project.harnesses  # the model refuses the file: it is set aside
+    assert main(["merge-fix", str(root), "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert f"physical/harnesses/{hid}.json: harness {hid}: revision 'A' -> version 1.0.0" in out
+    assert folder_bytes(root) != before  # the dry run wrote nothing
+    assert main(["merge-fix", str(root)]) == 0, capsys.readouterr().err
+    out = capsys.readouterr().out
+    assert f"baselines/{hid}/{hid}.A.json -> baselines/{hid}/{hid}.1.0.0.json" in out
+    after = {k: v for k, v in folder_bytes(root).items() if not k.startswith(".harness.lock")}
+    assert after == before
+    assert not [i for i in load_project(root).issues if i.code == "revision_not_version"]
+
+
+def test_merge_fix_does_not_guess_a_revision_that_is_not_a_letter(tmp_path, capsys) -> None:
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core.io import canonical
+    from harness_design_studio.core.io.loader import load_project
+    from tests.migration_support import build, folder_bytes
+
+    root = build("mini3", tmp_path / "p")
+    path = root / "physical" / "harnesses" / "W001.json"
+    doc = json.loads(path.read_bytes())
+    doc.pop("version")
+    doc["revision"] = "A1"
+    path.write_bytes(canonical.dumps(doc))
+    found = [i for i in load_project(root).issues if i.code == "revision_not_version"]
+    assert found and "which is not a letter, so its version is not guessed" in found[0].message
+    before = folder_bytes(root)
+    assert main(["merge-fix", str(root)]) == 1
+    assert "not guessed" in capsys.readouterr().err
+    after = {k: v for k, v in folder_bytes(root).items() if not k.startswith(".harness.lock")}
+    assert after == before

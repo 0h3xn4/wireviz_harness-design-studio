@@ -210,7 +210,7 @@ PLACEHOLDER_WARNING = (
     "These configuration files are still placeholders: {0}. A release needs a written reason."
 )
 REVIEW_CONFIRM = "Submit for review"
-NEW_REV_CONFIRM = "Start new revision"
+NEW_REV_CONFIRM = "Start new version"
 GEN_STATUS = {
     "none": "Not generated yet.",
     "current": "Up to date with the diagram.",
@@ -426,14 +426,14 @@ OK = "OK"
 
 RELEASE = "Release…"
 RELEASE_TIP = "Release the selected harness: records a baseline and the change log, and locks it"
-NEW_REV_TIP = "Unlock a released harness by starting its next revision (the released one is kept)"
+NEW_REV_TIP = "Unlock a released harness by starting its next version (the released one is kept)"
 CHANGES = "Changes…"
 CHANGES_TIP = "Show what changed since a baseline"
 HISTORY = "Change log…"
 HISTORY_TIP = "Who changed what, when and why"
 RELEASE_TITLE = "Release {0}"
 REVIEW_TITLE = "Submit {0} for review"
-NEW_REV_TITLE = "New revision of {0}"
+NEW_REV_TITLE = "New version of {0}"
 YOUR_NAME = "Your name"
 CHECKED_BY = "Checked by (optional)"
 CHECKED_BY_REQUIRED = "Checked by (required: someone other than the author and you)"
@@ -567,11 +567,11 @@ CHANGES_DURING_JOB = (
 )
 ISSUES_LIST = "Problems found while opening the project"
 HISTORY_LIST = "Change log"
-DIFF_BASELINE = "Compare with released revision"
-DIFF_LIST = "Changes since the released revision"
+DIFF_BASELINE = "Compare with released version"
+DIFF_LIST = "Changes since the released version"
 ARRANGE_LABEL = "Arrange diagram"
 REVIEW_SUBMITTED = "{} submitted for review."
-NEW_REV_STARTED = "New revision of {} started; it can be edited again."
+NEW_REV_STARTED = "New version of {} started; it can be edited again."
 WIRE_COLOURS_LABEL = "Set wire colours"
 CHAIN_HELP = "Chain must be nominal, redundant or none."
 INTERFACE_COLUMNS = ["ID", "Name", "Type", "From", "To", "Chain", "Max current (A)", "Requirement"]
@@ -623,7 +623,7 @@ STATE_LABELS = {
     "stale": "Out of date",
     "draft": "Draft",
     "in-review": "In review",
-    "revised": "Revised",
+    "revised": "New version",
 }
 # tables (gui/tables.py)
 TABLE_HEADER_UNIT = "{} ({})"
@@ -725,7 +725,7 @@ MULTI_DELETE = "Delete selection"
 SELECTED_MANY = "Selected: {} items"
 EMPTY_HINT_NAME = "What to do next"
 # ==== UX release / export / import wave (ux/rel): releases panel, release dialogs, export, import wizard, new project ====
-# what a release locks / what a revision makes editable (gui/lock_tree.py)
+# what a release locks / what a new version makes editable (gui/lock_tree.py)
 LOCK_GROUP_WIRES = "Wires"
 LOCK_GROUP_PINS = "Pins"
 LOCK_GROUP_INTERFACES = "Interfaces"
@@ -739,7 +739,7 @@ LOCK_NOTHING = "nothing"
 LOCK_STAYS_EDITABLE = "{} stay editable"
 LOCK_NOT_SET = "not set (pending)"
 LOCK_NOT_SET_NOTE = (
-    "No value yet. The release records it as not set; giving it a value later needs a new revision."
+    "No value yet. The release records it as not set; giving it a value later needs a new version."
 )
 LOCK_PLACEHOLDER = "placeholder values"
 LOCK_PLACEHOLDER_NOTE = "This file is still marked as a placeholder: its numbers were never reviewed, and the release freezes them as they are."
@@ -747,7 +747,7 @@ LOCK_PIN_CABLE = "cable"
 LOCK_PIN_UNIT = "device connector"
 LOCK_ALSO = "also locked by {}"
 LOCK_TREE_HEADER = "Locked object"
-# release and revise dialogs
+# release and new-version dialogs
 RELEASE_LOCKS_HEAD = "This release locks: {}."
 RELEASE_LOCKS_TREE = "What this release locks"
 RELEASE_LOCKS_TIP = "Open a group (arrow keys, Enter) to see every object, and the values of the config files that are frozen."
@@ -755,9 +755,9 @@ RELEASE_LOCKS_PLACEHOLDERS = (
     "Still placeholders when released: {}. The release freezes these numbers unreviewed."
 )
 REVISE_EXPLAIN = (
-    "<b>What happens.</b> {0} gets revision {2} as a new draft; revision {1} stays on record as "
+    "<b>What happens.</b> {0} gets version {2} as a new draft; version {1} stays on record as "
     "a frozen baseline that you can compare with. What only {0} locks becomes editable again, "
-    "and the change log records who started the revision and why."
+    "and the change log records who started the new version and why."
 )
 # the kind of a new version (D-242, design of 3.0.0 section 5.3): none is chosen at the start
 NV_KIND_HEAD = "Kind of the new version"
@@ -786,13 +786,13 @@ COMMENT_MIN = 10
 REL_ACCESSIBLE = "Releases and change control"
 REL_HARNESS = "Harness"
 REL_ALL = "All harnesses"
-REL_HARNESS_ITEM = "{0} — {1} (revision {2})"
-REL_TIMELINE = "Timeline of reviews, releases and new revisions"
+REL_HARNESS_ITEM = "{0} — {1} (version {2})"
+REL_TIMELINE = "Timeline of reviews, releases and new versions"
 REL_TIMELINE_NAME = "Timeline"
 REL_COLUMNS = {
     "id": "Entry",
     "harness": "Harness",
-    "revision": "Revision",
+    "version": "Version",
     "event": "Event",
     "by": "By",
     "when": "When",
@@ -801,34 +801,32 @@ REL_COLUMNS = {
 }
 REL_BASELINE_CHIP = "Baseline {0}"
 REL_BASELINE_TIP = (
-    "A frozen copy of revision {0} was kept when it was released; you can compare with it."
+    "A frozen copy of version {0} was kept when it was released; you can compare with it."
 )
-REL_NO_BASELINE_TIP = "No frozen copy: this step did not release a revision."
-REL_EMPTY_ALL = "Nothing has been reviewed, released or revised yet. Submit a draft for review or release it, and the step appears here."
-REL_EMPTY_ONE = "{0} has no review, release or new revision yet."
+REL_NO_BASELINE_TIP = "No frozen copy: this step did not release a version."
+REL_EMPTY_ALL = "Nothing has been reviewed, released or given a new version yet. Submit a draft for review or release it, and the step appears here."
+REL_EMPTY_ONE = "{0} has no review, release or new version yet."
 REL_SUBMIT = "Submit for review"
 REL_RELEASE = "Release…"
-REL_REVISE = "New revision…"
+REL_REVISE = "New version…"
 REL_SUBMIT_TIP = "Mark the draft harness as ready for review"
 REL_RELEASE_TIP = (
     "Release the harness: records a baseline and the change log, and locks what it uses"
 )
-REL_REVISE_TIP = (
-    "Unlock a released harness by starting its next revision (the released one is kept)"
-)
+REL_REVISE_TIP = "Unlock a released harness by starting its next version (the released one is kept)"
 REL_CHOOSE_HARNESS = "Choose a harness first (or select a line of the timeline)."
-REL_READ_ONLY = "This project is read-only, so nothing can be released or revised."
+REL_READ_ONLY = "This project is read-only, so nothing can be released or given a new version."
 REL_WRONG_STATE = "{0} is {1}; this step is for harnesses that are {2}."
 REL_DIFF_TITLE = "Differences"
-REL_BEFORE = "Compare revision"
+REL_BEFORE = "Compare version"
 REL_AFTER = "with"
 REL_WORKING = "Working design"
-REL_REVISION = "Revision {0}"
+REL_REVISION = "Version {0}"
 REL_DIFF_NEED_HARNESS = (
-    "Choose a harness (or select a line of the timeline) to compare its revisions."
+    "Choose a harness (or select a line of the timeline) to compare its versions."
 )
 REL_DIFF_NO_BASE = "{0} has no baseline yet; a baseline is created when the harness is released."
-REL_DIFF_SAME = "Choose two different revisions to compare."
+REL_DIFF_SAME = "Choose two different versions to compare."
 REL_DIFF_NONE = "No differences between {0} and {1}."
 REL_DIFF_SUMMARY = "{0} compared with {1}: {2}."
 REL_DIFF_NAME = "Changes grouped by kind"
@@ -1203,7 +1201,7 @@ CORNER_ALL_CURRENT = "Harnesses and outputs up to date"
 BADGE_CLICK = "Click to show them in Problems."
 BADGE_PENDING_TIP = "{}. They are not entered yet; the checks that need them stay silent."
 BADGE_NOT_CHECKED_TIP = "Not checked yet: the design check has no result for this project."
-LOCK_TIP = "Locked by {harness}, released as revision {rev}. Start a new revision to change it."
+LOCK_TIP = "Locked by {harness}, released as version {version}. Start a new version to change it."
 LOCK_TIP_MORE = " It is also locked by {}."
 LOCK_TIP_COSMETIC = " Names, notes and the position can still be edited."
 AUTO_COUNT = "{} auto"
@@ -1221,7 +1219,7 @@ LEGEND_BADGE_FAIL = "problems found"
 LEGEND_BADGE_WARNING = "warnings"
 LEGEND_BADGE_PENDING = "value still to enter (V ?, A ?)"
 LEGEND_BADGE_NOT_CHECKED = "not checked yet"
-LEGEND_LOCK = "locked by a release (harness, revision)"
+LEGEND_LOCK = "locked by a release (harness, version)"
 LINK_TIP_WHY = "Why? Right-click the link and choose Why?"
 CM_SHOW_PROBLEMS = "Show problems"
 CM_WHY = "Why?"
@@ -1301,7 +1299,7 @@ BN_GENERATE = "Generate"
 BN_EXPORT = "Export…"
 BN_DISMISS = "Hide this notice until the design changes again"
 BN_RETRY = "Try again"
-BN_START_REVISION = "Start new revision…"
+BN_START_REVISION = "Start a new version…"
 # status bar
 STATUS_PATH_NONE = "Not saved to a folder yet"
 STATUS_PATH_SAMPLE = "Sample project (not saved)"
@@ -1322,7 +1320,7 @@ A_EXPORT_DIAGRAM_TIP = (
     "project folder and no check, and writes nothing into the project."
 )
 A_RELEASE = "Release harness…"
-A_REVISE = "Start new revision…"
+A_REVISE = "Start a new version…"
 A_REVIEW = "Submit harness for review…"
 A_CANCEL_CHECK = "Cancel the running check"
 A_NEW_INTERFACE = "New interface…"
@@ -1412,15 +1410,15 @@ HV_PENDING_LENGTH = "Length pending"
 HV_PENDING_BOTH = "Gauge and length pending"
 HV_GAUGE_PENDING_TIP = "The gauge is not decided yet. It stays pending until the values that wire sizing needs are supplied."
 HV_LENGTH_PENDING_TIP = "The length is not known yet: a routing segment on its path has no length."
-HV_REL_DRAFT = "Draft · rev {}"
-HV_REL_REVIEW = "In review · rev {}"
-HV_REL_RELEASED = "Released · rev {}"
-HV_REL_REVISED = "Revised · rev {}"
+HV_REL_DRAFT = "Draft · v{}"
+HV_REL_REVIEW = "In review · v{}"
+HV_REL_RELEASED = "Released · v{}"
+HV_REL_REVISED = "New version · v{}"
 HV_REL_TIP = {
     "draft": "Draft: it can still be edited and regenerated.",
     "in-review": "In review: submitted for review, not released yet.",
-    "released": "Released: the harness and what it uses are locked. Revise it to change it.",
-    "revised": "A new revision of a released harness: editable again, the released one is kept.",
+    "released": "Released: the harness and what it uses are locked. Start a new version to change it.",
+    "revised": "A new version of a released harness: editable again, the released one is kept.",
 }
 HV_GEN_CURRENT = "Up to date"
 HV_GEN_STALE = "Out of date"
@@ -1443,8 +1441,8 @@ HV_REGENERATE_TIP = "Generate all harnesses again from the diagram. Generate cov
 HV_EXPORT = "Export"
 HV_REVIEW = "Open in review"
 HV_REVIEW_TIP = "Open {} in the review view"
-HV_REVISE = "Revise…"
-HV_WHY_NOT_RELEASED = "Only a released harness can be revised."
+HV_REVISE = "New version…"
+HV_WHY_NOT_RELEASED = "Only a released harness can get a new version."
 HV_WHY_RELEASE_NOT_DRAFT = "Only a draft or a harness in review can be released."
 HV_EMPTY_TITLE = "No harnesses yet"
 HV_EMPTY_NO_INTERFACES = "Add interfaces on the diagram or import a table (Ctrl+Shift+I). Then press Generate to build the harnesses. Or join two devices with Connect and press Create harness on the connection."
@@ -1562,7 +1560,7 @@ TREE_CONFIG_PLACEHOLDER = "Placeholder"
 TREE_CONFIG_PENDING = "{} pending"
 TREE_TIP_UNIT = "Device {}: {}. Subsystem {}, zone {}, chain {}."
 TREE_TIP_INTERFACE = "Interface {}: {} ({})."
-TREE_TIP_HARNESS = "Harness {}: {}. Revision {}, {}."
+TREE_TIP_HARNESS = "Harness {}: {}. Version {}, {}."
 TREE_TIP_PART = "Part {}: {} ({})."
 TREE_TIP_TYPE = "Interface type {}: {} ({} interface)."
 TREE_TIP_CONFIG_PLACEHOLDER = (
@@ -1609,13 +1607,13 @@ INS_TAB_WHY = "Why"
 INS_TAB_PROBLEMS = "Problems"
 INS_TAB_PROBLEMS_N = "Problems ({})"
 INS_NO_PROBLEMS_HOST = "The problems list is not attached yet."
-INS_REVISE = "Start new revision"
-INS_REVISE_TIP = "Start a new revision of {}: it becomes a draft you can edit; the released revision stays on record"
+INS_REVISE = "Start new version"
+INS_REVISE_TIP = "Start a new version of {}: it becomes a draft you can edit; the released version stays on record"
 INS_BANNER_COSMETIC = "Names and notes can still be changed."
 INS_BANNER_RELEASED = "Released {} {}"
-INS_BANNER_DRAFT = "{} is a draft (revision {})."
-INS_BANNER_IN_REVIEW = "{} is in review (revision {}). It can be edited until it is released."
-INS_BANNER_REVISED = "{} is revision {}, a draft after a release. It can be edited."
+INS_BANNER_DRAFT = "{} is a draft (version {})."
+INS_BANNER_IN_REVIEW = "{} is in review (version {}). It can be edited until it is released."
+INS_BANNER_REVISED = "{} is version {}, a draft after a release. It can be edited."
 INS_USED_IN = "Used in"
 INS_USED_IN_N = "Used in ({})"
 INS_USED_NONE = "Not used anywhere yet."
@@ -1639,7 +1637,7 @@ INS_FACT_KIND = {
 }
 INS_FACT_LABELS = {
     "name": "Name",
-    "revision": "Revision",
+    "version": "Version",
     "state": "State",
     "interfaces": "Interfaces",
     "wires": "Wires",
@@ -1784,10 +1782,10 @@ DV_CHAIN_TIP = "Whether this device is on the nominal chain, the redundant chain
 DV_READ_ONLY_BANNER = (
     "This project is read-only (saved by a newer tool version). Use Save as to make changes."
 )
-DV_REVISE = "Start new revision…"
-DV_REVISE_TIP = "Start a new revision of the released harness that uses this device"
+DV_REVISE = "Start a new version…"
+DV_REVISE_TIP = "Start a new version of the released harness that uses this device"
 DV_REVISE_TIP_FOR = (
-    "Start a new revision of {}, which uses this device; the released revision stays on record"
+    "Start a new version of {}, which uses this device; the released version stays on record"
 )
 DV_PART_PICKER = "Part for a new connector"
 DV_PART_PICKER_TIP = "Search the connector parts of the library; the first entry makes a new part"
@@ -1962,7 +1960,7 @@ AREA_MODEL = "Model"
 AREA_CHECKS = "Checks"
 AREA_DRAWINGS = "Drawings"
 AREA_OUTPUTS = "Outputs"
-AREA_REVISIONS = "Revisions"
+AREA_REVISIONS = "Versions"
 AREA_SETTINGS = "Settings"
 AREA_HOME_TIP = "Home: your project, new and recent projects, the examples"
 AREA_MODEL_TIP = (
@@ -1971,15 +1969,15 @@ AREA_MODEL_TIP = (
 AREA_CHECKS_TIP = "Checks: the design rules, what passed, what failed and what could not be checked"
 AREA_DRAWINGS_TIP = "Drawings: the harness drawings with their connectors, pins and wires"
 AREA_OUTPUTS_TIP = "Outputs: the wire list, pinouts, bill of materials and the other tables"
-AREA_REVISIONS_TIP = "Revisions: reviews, releases and what changed between revisions"
+AREA_REVISIONS_TIP = "Versions: reviews, releases and what changed between versions"
 AREA_SETTINGS_TIP = "Settings: theme, interface size and the project's configuration"
 RAIL_NAME = "Areas"
 RAIL_COLLAPSE = "Show icons only"
 RAIL_EXPAND = "Show the names"
 CRUMB_SEPARATOR = "  ›  "
 CRUMBS_NAME = "Where you are"
-TB_REVISION = "v{}"  # the short form of Q32 (D-242): a version is longer than a letter
-TB_REVISION_TIP = "The revision of the released harnesses ({})"
+TB_REVISION = "v{}"  # the short form of Q32 (D-242), as the harness view chips: Draft · v1.1.0
+TB_REVISION_TIP = "The versions of the harnesses, lowest to highest ({})"
 GO_HOME = "Go to Home"
 GO_SETTINGS = "Go to Settings"
 HOME_TITLE = "Home"
@@ -2023,7 +2021,7 @@ PROBLEMS_COL_MESSAGE = "Message"
 PROBLEMS_FILTER_ALL = "All"
 
 PANE_PROBLEMS = "Problems panel"
-TB_REVISION_NAME = "Revision"
+TB_REVISION_NAME = "Version"
 JOB_GENERATING = "Generating harnesses"
 JOB_EXPORTING = "Exporting outputs"
 JOB_ARRANGING = "Arranging the diagram"
@@ -2053,14 +2051,12 @@ STEP_REVIEW_FIRST = "check the design first."
 STEP_RELEASE_ALL = "all {} harness(es) released"
 STEP_RELEASE_COUNT = "{} of {} released"
 TB_RELEASE = "Release…"
-TB_RELEASE_TIP = "Release a harness: lock its data and outputs as a numbered revision"
+TB_RELEASE_TIP = "Release a harness: lock its data and outputs as a numbered version"
 LOCK_BANNER_ONE = (
-    "Harness {} is released (revision {}) and locked. To change it, start a new revision."
+    "Harness {} is released (version {}) and locked. To change it, start a new version."
 )
-LOCK_BANNER_MANY = (
-    "{} harnesses are released and locked. To change one, start a new revision of it."
-)
-LOCK_BANNER_ACTION = "Start new revision…"
+LOCK_BANNER_MANY = "{} harnesses are released and locked. To change one, start a new version of it."
+LOCK_BANNER_ACTION = "Start a new version…"
 HOME_RECENT = "Recent projects"
 HOME_RECENT_NONE = "No recent projects yet. Create one or open an example below."
 HOME_EXAMPLES = "Examples"
@@ -2120,7 +2116,7 @@ IMP_PASTE_TEXT_TIP = (
     "Interfaces only: paste the rows of a table (CSV text) instead of choosing a file"
 )
 
-# ---- UI overhaul M8: Outputs files and Revisions --------------------------------------------------
+# ---- UI overhaul M8: Outputs files and Versions (the area Revisions before 3.0.0) --------------------------------------------------
 OUT_FILES_NAME = "Exported files"
 OUT_FILES_TITLE = "Exported files"
 OUT_COLUMNS = {
@@ -2151,7 +2147,7 @@ OUT_SUMMARY = "{0} files in {1}, made from design {2}"
 OUT_SUMMARY_BAD = "; {0} differ from the export"
 OUT_EMPTY_TITLE = "Nothing exported yet"
 OUT_EMPTY_HINT = "Export the outputs (Export…) and the files appear here with their checksums."
-REL_LOCKS = "{0} revision {1} is released and locks {2}. Start a new revision to change them."
+REL_LOCKS = "{0} version {1} is released and locks {2}. Start a new version to change them."
 REL_LOCK_KINDS = {
     "unit": "{0} device(s)",
     "interface": "{0} link(s)",
@@ -2285,7 +2281,7 @@ WIRE_REASON_TIP = (
 )
 WIRE_REASON_NEEDED = "Say why you set this value yourself (Reason), then apply."
 WIRE_REASON_PLACEHOLDER = "required: why this value, and not the design's"
-WIRE_STATE_RELEASED = "{0} is released (revision {1}). Start a new revision to change its wires."
+WIRE_STATE_RELEASED = "{0} is released (version {1}). Start a new version to change its wires."
 WIRE_STATE_READ_ONLY = "This project is read-only."
 STEP_EDIT_WIRES = "Edit wires"
 STEP_RESET_WIRES = "Reset wires"
@@ -2399,7 +2395,7 @@ CE_GENERATED = (
     "{0} is made by Generate, which gives it the connectors of the design. To add connectors "
     "yourself, make a harness with New harness."
 )
-CE_RELEASED = "{0} is released. Start a new revision to change its connectors."
+CE_RELEASED = "{0} is released. Start a new version to change its connectors."
 CE_ADD_TITLE = "Add connector"
 CE_PART = "Part"
 CE_PART_TIP = "The connector part from the parts library. New parts are added in the Devices tab."
@@ -2550,7 +2546,7 @@ ACC_EMPTY_HINT = (
     "heat shrink, labels, backshells. List them here and the build sheets show them."
 )
 ACC_NO_HARNESS = "Choose a harness to list its accessories."
-ACC_RELEASED = "{0} is released. Start a new revision to change its accessories."
+ACC_RELEASED = "{0} is released. Start a new version to change its accessories."
 ACC_ID = "ID"
 ACC_ID_TIP = (
     "The name of the accessory in this harness, for example ACC-001. The next free one is "
@@ -2677,7 +2673,7 @@ NEXT_BUTTON_TIPS = {
     "check": "Look for mistakes in the design (F5)",
     "fix": "Open the Checks, which list what failed and what to do",
     "build_sheets": "Write the build workbook and the other files of every harness (Ctrl+E)",
-    "release": "Open the Revisions, where a harness is reviewed and released",
+    "release": "Open the Versions, where a harness is reviewed and released",
     "done": "Open the Outputs: the lists and the exported files",
 }
 # ---- The Systems engineer role (the Simple workspace of 1.7.0, stage S2): fewer things on screen (D-171, D-176) ----
@@ -3353,7 +3349,7 @@ QD_SHOW_FOLDER = "Show folder"
 A_QUICK = "Quick mode"
 A_QUICK_TIP = (
     "Make a block diagram quickly: the rail, the top bar and the notices show only what drawing and "
-    "exporting a diagram need (no Checks, Revisions, Drawings, Outputs or Next step, no Generate, "
+    "exporting a diagram need (no Checks, Versions, Drawings, Outputs or Next step, no Generate, "
     "Check or Release, no problem notices), and Connect joins two devices in one click. Nothing is "
     "locked and nothing in the project or in the written files changes; every hidden thing is still "
     "in the menus and in Ctrl+K. Turn it off here to get the layout of your role back."
@@ -3916,6 +3912,31 @@ BRANCH_NOTICE_DONE = (
     "one harness that branches; Undo puts per connector pair back."
 )
 BRANCH_NOTICE_GENERATE = "Generate again"
+
+# ---- 3.0.0, pull request R2 (D-242, design of 3.0.0 sections 5.3 and 5.8, Q20 to Q22, Q32) ----------
+# the Outputs list and the export window: the document `system/version_report.md` (gui/export_docs.py)
+DOC_VERSION_REPORT = "Version report"
+# the note when a person chooses a major version (Q21); the same words as `release.MAJOR_NOTE`
+NV_MAJOR_NOTE = (
+    "A major version says that this harness is not compatible with its earlier versions. The "
+    "harness plan template gives such a harness a new ID instead (TH01 becomes TH02, not TH01 "
+    "2.0.0)."
+)
+# the note at review and release (Q20) is the core's sentence (`release.pinout_note`); its label
+VERSION_NOTE_NAME = "Note on the version"
+# the kind chosen again on a draft after a release, before its review (Q22)
+NV_AGAIN_TITLE = "Choose the kind of version of {0} again"
+NV_AGAIN_EXPLAIN = (
+    "<b>What happens.</b> {0} is version {1}, a draft after version {2}. Choose the kind again: "
+    "{0} becomes version {3}, worked out again from version {2}, and the change log records who "
+    "changed it and why. Nothing else of the draft changes."
+)
+NV_AGAIN_CONFIRM = "Change the version"
+NV_AGAIN_DONE = "{0} is now version {1}."
+REL_REVISE_AGAIN_TIP = (
+    "Choose the kind of the new version again (major, minor or patch): the version is worked out "
+    "again from the released one. Possible until the review starts."
+)
 
 # ---- 3.0.0: splices in the Harness tab (format 3, M6a; design of 2.3.0 section 6.6) -------------
 # `gui/splice_panel.py`: the splices of a harness a person made, under the routing

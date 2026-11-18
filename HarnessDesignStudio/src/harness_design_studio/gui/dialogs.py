@@ -620,13 +620,16 @@ def _bumped(version: str, kind: str) -> str:
 
 
 class ChangeDialog(Dialog):
-    """Review, release and new-revision steps: who, optional checker, mandatory comment, and
+    """Review, release and new-version steps: who, optional checker, mandatory comment, and
     anything that blocks the step (shown as plain sentences; OK stays disabled until clear, and a
     line under the form says what is still missing).
 
     A release passes `locks` (from `release_locks`) and the dialog lists what the release will
-    lock as a tree; a new revision passes `explain` (what happens) and `unlocks` (what becomes
-    editable). `for_release` and `for_revise` build both from the project."""
+    lock as a tree; a new version passes `explain` (what happens), `unlocks` (what becomes
+    editable) and `kinds`. `for_release`, `for_revise` and `for_kind_again` build them from the
+    project. `note` is the note of the design of 3.0.0 section 5.3 at review and release (a pinout
+    change in a minor or patch version); choosing major shows the note on a major version. Neither
+    blocks anything."""
 
     def __init__(
         self,
@@ -647,12 +650,17 @@ class ChangeDialog(Dialog):
         rule_note: str = "",
         roles_check: Callable[[str, str], list[str]] | None = None,
         kinds: tuple[str, str] | None = None,
+        note: str = "",
+        explain_kind: Callable[[str], str] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setObjectName("change-dialog")
         # a new version: (harness ID, released version); the person chooses the kind (D-242)
         self._kinds = kinds
+        # what happens, for the new version a kind gives (a new version, or the kind again)
+        self._explain_kind = explain_kind
+        self._note = note
         self.kind_buttons: dict[str, QRadioButton] = {}
         self._roles_check = roles_check
         self._comment_needed = ask_comment
@@ -683,7 +691,15 @@ class ChangeDialog(Dialog):
         self.rule_note.setWordWrap(True)
         self.rule_note.setVisible(bool(rule_note))
         lay.addWidget(self.rule_note)
-        # what the step locks (release) or unlocks (new revision)
+        # the note of section 5.3 (a pinout change at review and release; a major version)
+        self.version_note = QLabel(note)
+        self.version_note.setObjectName("change-version-note")
+        self.version_note.setWordWrap(True)
+        self.version_note.setTextFormat(Qt.TextFormat.PlainText)
+        self.version_note.setAccessibleName(strings.VERSION_NOTE_NAME)
+        self.version_note.setVisible(bool(note))
+        lay.addWidget(self.version_note)
+        # what the step locks (release) or unlocks (new version)
         self.locks_summary = QLabel()
         self.locks_summary.setObjectName("change-locks-summary")
         self.locks_summary.setWordWrap(True)
@@ -805,6 +821,7 @@ class ChangeDialog(Dialog):
         unapproved_parts: list[str] | None = None,
         roles_check: Callable[[str, str], list[str]] | None = None,
         loose_ends: list[str] | None = None,
+        note: str = "",
     ) -> ChangeDialog:
         """The release dialog: asks the questions and lists everything the release will lock.
         `roles_check(by, checker)` is given when the project requires different people: it returns
@@ -822,6 +839,7 @@ class ChangeDialog(Dialog):
             locks=release_locks(project, harness_id),
             rule_note=strings.ROLES_RELEASE_NOTE if roles_check is not None else "",
             roles_check=roles_check,
+            note=note,
         )
 
     @classmethod
@@ -840,6 +858,33 @@ class ChangeDialog(Dialog):
             explain=strings.REVISE_EXPLAIN.format(harness_id, unlocks.version, "…"),
             unlocks=unlocks,
             kinds=(harness_id, unlocks.version),
+        )
+
+    @classmethod
+    def for_kind_again(
+        cls,
+        parent: QWidget | None,
+        harness_id: str,
+        *,
+        version: str,
+        released: str,
+        by: str,
+    ) -> ChangeDialog:
+        """The kind of a new version chosen again (Q22): a draft at `version` after the release of
+        `released`; the three kinds, none chosen at the start, each worked out from `released`."""
+
+        def explain(new: str) -> str:
+            return strings.NV_AGAIN_EXPLAIN.format(harness_id, version, released, new)
+
+        return cls(
+            parent,
+            strings.NV_AGAIN_TITLE.format(harness_id),
+            by=by,
+            blockers=[],
+            ok_text=strings.NV_AGAIN_CONFIRM,
+            explain=explain("…"),
+            kinds=(harness_id, released),
+            explain_kind=explain,
         )
 
     # ---- the lock lists ---------------------------------------------------------------------
@@ -912,9 +957,16 @@ class ChangeDialog(Dialog):
         kind = self.kind()
         if self._kinds is not None and kind is not None and not self.blockers:
             hid, released = self._kinds
+            new = _bumped(released, kind)
             self.status.setText(
-                strings.REVISE_EXPLAIN.format(hid, released, _bumped(released, kind))
+                self._explain_kind(new)
+                if self._explain_kind is not None
+                else strings.REVISE_EXPLAIN.format(hid, released, new)
             )
+        if self._kinds is not None:  # the note on a major version (Q21)
+            note = strings.NV_MAJOR_NOTE if kind == "major" else self._note
+            self.version_note.setText(note)
+            self.version_note.setVisible(bool(note))
         if hasattr(self, "ok"):
             self._validate()
 
