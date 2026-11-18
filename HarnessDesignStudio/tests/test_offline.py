@@ -9,6 +9,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from tests.static_scan import DYNAMIC, imported_names
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +22,10 @@ BANNED_MODULES = {
     "ftplib", "smtplib", "telnetlib", "xmlrpc", "websocket", "websockets", "asyncio",
     "webbrowser", "imaplib", "poplib", "nntplib", "socketserver",
 }  # fmt: skip
+# Core modules that import only the standard library and the program's own core: the `.ods` writer
+# (design of 3.0.0 section 8: no dependency, and nothing that imports network code at import time,
+# such as `xml.sax.saxutils`, which `canvas.escape` replaces)
+STDLIB_AND_CORE_ONLY = ["core/outputs/ods.py"]
 BANNED_QT = {"QtNetwork", "QtWebEngineCore", "QtWebEngineWidgets", "QtWebChannel", "QtWebSockets"}
 
 
@@ -41,6 +47,22 @@ def test_no_network_imports_in_source() -> None:
         if _banned(name)
     ]
     assert not offenders, offenders
+
+
+@pytest.mark.parametrize("rel", STDLIB_AND_CORE_ONLY)
+def test_these_modules_import_only_the_standard_library_and_the_core(rel: str) -> None:
+    def allowed(name: str) -> bool:
+        if name in ("harness_design_studio", "harness_design_studio.__version__"):
+            return True
+        if name.startswith("harness_design_studio.core."):
+            return True
+        top = name.split(".")[0]
+        return (
+            top in sys.stdlib_module_names and not _banned(name) and not name.startswith("xml.sax")
+        )
+
+    names = _imported_names(SRC / rel)
+    assert names and not [n for n in sorted(names) if not allowed(n)]
 
 
 def test_scanner_detects_banned_import(tmp_path: Path) -> None:
