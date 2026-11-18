@@ -1,0 +1,337 @@
+== Cover
+E2	Doc.-No.
+F2	to fill in
+E3	Version
+F3	1.0.0
+E4	Release
+F4	to fill in
+A17	mini3 (example data)
+A19	mini3 (example data) Harness Plan
+A21	to fill in
+A23	harness-design-studio 2.4.0 model e0075c432202
+A24	This file is written by Harness Design Studio. An export overwrites it; work on a copy.
+A25	harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+C36	Contact Information
+D37	to fill in
+== Change_Register
+B2	Change register of W003
+B4	Version
+C4	Sub-Version
+D4	Date
+E4	Name
+F4	Sheets
+G4	Description
+B5	No entry in the change log of this harness yet.
+== W003
+H6	mini3 (example data)
+N6	W003
+Q6	VERSION: v1.0.0 (draft)
+H8	Harness mini3 (example data)-W003: OBC + OBC <–> PCDU	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_OBC-J02'.B1]&" + "&[$'CON_OBC-J03'.B1]&" <–> "&[$'CON_PCDU-J02'.B1]
+H10	used Connectors
+H11	No.
+I11	Part No.
+M11	Quantity
+N11	Remark
+H12	1
+I12	EX-MICROD-9-M
+M12	2
+N12	W003-P1, W003-P2
+H13	2
+I13	EX-MICROD-15-M
+M13	1
+N13	W003-P3
+H14	3
+I14	EX-SPLICE-1
+M14	2
+N14	W003-X1, W003-X2; EX-SPLICE-1
+H16	used Cable Types
+H17	No.
+I17	Part No.
+K17	AWG
+L17	Conductor
+O17	Colours
+R17	No. of wires in cable
+S17	Length [mm]
+H19	used Backshells
+H20	No.
+I20	Part No.
+M20	Quantity
+N20	Remark
+I21	No backshells.
+B23	OBC-J02
+F26	Device Side
+H26	Harness Side
+V26	PCDU-J02
+B27	Data from CON_OBC-J02
+F27	OBC [OBC-J02]: ; Micro-D 9-pin, female (example, baseline power and data) 9 female	=[$'CON_OBC-J02'.B11]
+H27	Micro-D 9-pin, male (example, baseline power and data) [W003:OBC:OBC-J02]	="Micro-D 9-pin, male (example, baseline power and data) ["&[.N6]&":"&[$'CON_OBC-J02'.B1]&":"&[$'CON_OBC-J02'.B2]&"]"
+V27	Data from CON_PCDU-J02
+B28	Pin No.
+C28	Function
+D28	Direction
+E28	Level
+F28	Description
+H28	Pinout
+I28	Function
+J28	Direction
+K28	Color
+L28	Cable / Type
+M28	Shielding / (Grouping)
+N28	Length [mm]
+O28	Level
+P28	Cable / Type
+Q28	Color
+R28	Direction
+S28	Function
+T28	Pinout (of PCDU)
+V28	Pinout
+W28	Function
+X28	Direction
+Y28	Level
+Z28	Description
+B29	1	=[$'CON_OBC-J02'.A19]
+C29	PWR	=[$'CON_OBC-J02'.B19]
+D29	PWR	=[$'CON_OBC-J02'.C19]
+H29	1	=[.B29]
+I29	PWR	=[.C29]
+J29	PWR	=IF([.D29]="IN";"OUT";IF([.D29]="OUT";"IN";[.D29]))
+K29	red
+L29	to fill in
+N29	1000
+P29	to fill in
+Q29	red
+R29	PWR	=IF([$'CON_PCDU-J02'.C19]="IN";"OUT";IF([$'CON_PCDU-J02'.C19]="OUT";"IN";[$'CON_PCDU-J02'.C19]))
+S29	PWR	=[$'CON_PCDU-J02'.B19]
+T29	1
+V29	1
+W29	PWR	=[$'CON_PCDU-J02'.B19]
+X29	PWR	=[$'CON_PCDU-J02'.C19]
+B30	2	=[$'CON_OBC-J02'.A20]
+C30	RTN	=[$'CON_OBC-J02'.B20]
+D30	PWR-RET	=[$'CON_OBC-J02'.C20]
+H30	2	=[.B30]
+I30	RTN	=[.C30]
+J30	PWR-RET	=IF([.D30]="IN";"OUT";IF([.D30]="OUT";"IN";[.D30]))
+K30	black
+L30	to fill in
+N30	1020
+P30	to fill in
+Q30	black
+R30	PWR-RET	=IF([$'CON_PCDU-J02'.C20]="IN";"OUT";IF([$'CON_PCDU-J02'.C20]="OUT";"IN";[$'CON_PCDU-J02'.C20]))
+S30	RTN	=[$'CON_PCDU-J02'.B20]
+T30	2
+V30	2
+W30	RTN	=[$'CON_PCDU-J02'.B20]
+X30	PWR-RET	=[$'CON_PCDU-J02'.C20]
+B31	3	=[$'CON_OBC-J02'.A21]
+I31	Not connected pins will be marked yellow
+B33	OBC-J03
+F36	Device Side
+H36	Harness Side
+B37	Data from CON_OBC-J03
+F37	OBC [OBC-J03]: ; Micro-D 15-pin, female (example, baseline power and data) 15 female	=[$'CON_OBC-J03'.B11]
+H37	Micro-D 15-pin, male (example, baseline power and data) [W003:OBC:OBC-J03]	="Micro-D 15-pin, male (example, baseline power and data) ["&[.N6]&":"&[$'CON_OBC-J03'.B1]&":"&[$'CON_OBC-J03'.B2]&"]"
+B38	Pin No.
+C38	Function
+D38	Direction
+E38	Level
+F38	Description
+H38	Pinout
+I38	Function
+J38	Direction
+K38	Color
+L38	Cable / Type
+M38	Shielding / (Grouping)
+N38	Length [mm]
+O38	Level
+P38	Cable / Type
+Q38	Color
+R38	Direction
+S38	Function
+T38	Pinout (of PCDU)
+B39	1	=[$'CON_OBC-J03'.A19]
+C39	PWR	=[$'CON_OBC-J03'.B19]
+D39	PWR	=[$'CON_OBC-J03'.C19]
+H39	1	=[.B39]
+I39	PWR	=[.C39]
+J39	PWR	=IF([.D39]="IN";"OUT";IF([.D39]="OUT";"IN";[.D39]))
+K39	red
+L39	to fill in
+N39	1250
+P39	to fill in
+Q39	red
+R39	PWR	=IF([$'CON_PCDU-J02'.C19]="IN";"OUT";IF([$'CON_PCDU-J02'.C19]="OUT";"IN";[$'CON_PCDU-J02'.C19]))
+S39	PWR	=[$'CON_PCDU-J02'.B19]
+T39	1
+V39	1
+W39	PWR	=[$'CON_PCDU-J02'.B19]
+X39	PWR	=[$'CON_PCDU-J02'.C19]
+B40	2	=[$'CON_OBC-J03'.A20]
+C40	RTN	=[$'CON_OBC-J03'.B20]
+D40	PWR-RET	=[$'CON_OBC-J03'.C20]
+H40	2	=[.B40]
+I40	RTN	=[.C40]
+J40	PWR-RET	=IF([.D40]="IN";"OUT";IF([.D40]="OUT";"IN";[.D40]))
+K40	black
+L40	to fill in
+N40	1270
+P40	to fill in
+Q40	black
+R40	PWR-RET	=IF([$'CON_PCDU-J02'.C20]="IN";"OUT";IF([$'CON_PCDU-J02'.C20]="OUT";"IN";[$'CON_PCDU-J02'.C20]))
+S40	RTN	=[$'CON_PCDU-J02'.B20]
+T40	2
+V40	2
+W40	RTN	=[$'CON_PCDU-J02'.B20]
+X40	PWR-RET	=[$'CON_PCDU-J02'.C20]
+B41	3	=[$'CON_OBC-J03'.A21]
+H43	Further wires
+H44	Wire
+I44	From
+J44	To
+K44	Color
+L44	Cable / Type
+M44	Shielding / (Grouping)
+N44	Length [mm]
+H45	W003-001
+I45	W003-P1.1
+J45	W003-X1.1
+K45	red
+L45	to fill in
+N45	500
+H46	W003-004
+I46	W003-P1.2
+J46	W003-X2.1
+K46	black
+L46	to fill in
+N46	520
+H48	Sum of length of cable type [mm]
+V48	PCDU-J02
+H49	No.
+I49	Part No.
+N49	Sum of length [mm]
+V50	Data from CON_PCDU-J02
+V51	Pinout
+W51	Function
+X51	Direction
+Y51	Level
+Z51	Description
+AA51	Used in Row
+V52	1	=[$'CON_PCDU-J02'.A19]
+W52	PWR	=[$'CON_PCDU-J02'.B19]
+X52	PWR	=[$'CON_PCDU-J02'.C19]
+AA52	29	=IF(ISNA(MATCH([.V52];[.V29:.V41];0));"";MATCH([.V52];[.V29:.V41];0)+28)
+V53	2	=[$'CON_PCDU-J02'.A20]
+W53	RTN	=[$'CON_PCDU-J02'.B20]
+X53	PWR-RET	=[$'CON_PCDU-J02'.C20]
+AA53	30	=IF(ISNA(MATCH([.V53];[.V29:.V41];0));"";MATCH([.V53];[.V29:.V41];0)+28)
+V54	3	=[$'CON_PCDU-J02'.A21]
+AA54		=IF(ISNA(MATCH([.V54];[.V29:.V41];0));"";MATCH([.V54];[.V29:.V41];0)+28)
+H56	Block diagram: harnesses/W003/drawing_A3.pdf
+== Notes
+B2	Notes
+B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.
+B6	A yellow row is a pin of the device connector with no wire in this harness.
+B7	[no SGND*] in the header: a pin of the role signal ground (SGND) of a device connector of this harness has no wire.
+B8	Formulas: the device side and the far device side copy the CON_ sheets; Pinout, Function and Level of the harness side copy the device side; the two Direction columns mirror it; a colour by pin code is looked up in its table on this sheet; the title, the connector descriptions, the sums per cable type, the cable type lengths and Used in Row are formulas too. Every other cell is a value of the design.
+B9	The change register lists the change log of this harness (system/changelog.csv of the outputs); it is not typed into this file.
+B10	This file is written by Harness Design Studio. An export overwrites it, formulas and typed changes alike; work on a copy.
+== CON_OBC-J02
+A1	Device
+B1	OBC
+A2	Connector ID
+B2	OBC-J02
+A3	Interface Name
+A6	Connector Type
+B6	Micro-D 9-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	9
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 9-pin, female (example, baseline power and data) 9 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	OBC [OBC-J02]: ; Micro-D 9-pin, female (example, baseline power and data) 9 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	PWR
+C19	PWR
+A20	2
+B20	RTN
+C20	PWR-RET
+A21	3
+== CON_OBC-J03
+A1	Device
+B1	OBC
+A2	Connector ID
+B2	OBC-J03
+A3	Interface Name
+A6	Connector Type
+B6	Micro-D 15-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	15
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 15-pin, female (example, baseline power and data) 15 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	OBC [OBC-J03]: ; Micro-D 15-pin, female (example, baseline power and data) 15 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	PWR
+C19	PWR
+A20	2
+B20	RTN
+C20	PWR-RET
+A21	3
+== CON_PCDU-J02
+A1	Device
+B1	PCDU
+A2	Connector ID
+B2	PCDU-J02
+A3	Interface Name
+A6	Connector Type
+B6	Micro-D 9-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	9
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 9-pin, female (example, baseline power and data) 9 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	PCDU [PCDU-J02]: ; Micro-D 9-pin, female (example, baseline power and data) 9 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	PWR
+C19	PWR
+A20	2
+B20	RTN
+C20	PWR-RET
+A21	3
+== About
+A1	Generated by
+B1	harness-design-studio 2.4.0 model e0075c432202
+A2	Model hash
+B2	e0075c4322027698ee7f300d674c9e25660c1ab5acc92ec9ffebf75cc586abd8
+A3	Notice
+B3	harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.

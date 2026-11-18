@@ -14,9 +14,10 @@ and works out on its own, from the project, what each plan must hold:
    as `core/kicad.py` does (`out_plan_package`).
 3. **The cells** (`out_plan`): the sheets and their order, and for every cell its value type, its
    value, the text it shows and its link, against the cells derived here from the project with
-   the verifier's own copies of the sides rule (`plan_sides`), the Direction words
-   (`direction_word`, `mirrored`) and the colour lookup (`lookup`); `tests/test_verify_plan.py`
-   compares the copies with the core's. Every wire is in exactly one row, every pin row is there.
+   the verifier's own copies of the sides rule with splices (`plan_sides`, `spliced`), the
+   Direction words (`direction_word`, `mirrored`) and the colour lookup (`lookup`);
+   `tests/test_verify_plan.py` compares the copies with the core's. Every wire is in exactly one
+   row (a near row, or *Further wires*, wires beyond a splice included), every pin row is there.
 4. **The formulas** (`out_plan_formula`): each formula is the text the design gives, is in the
    closed list of section 7.2 (`IF`, `ISNA`, `VLOOKUP` and `MATCH` with exact match, `SUMIF`,
    `&`, `=`, `/`, `+`, direct references only; `AND` and `OR` only in a conditional format), and
@@ -42,7 +43,7 @@ from xml.etree import ElementTree  # noqa: S405 - DOCTYPE and entities are refus
 from harness_design_studio import __version__
 from harness_design_studio.core.links import effective_role
 from harness_design_studio.core.model import Connector, Harness, Pin, Project, Wire
-from harness_design_studio.core.model.physical import LOOSE_ROLE
+from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 from harness_design_studio.core.verify import VerifyReport
 
 from .stamp import Stamp, stamp_of
@@ -150,16 +151,54 @@ def mirrored(word: str) -> str:
     return {"IN": "OUT", "OUT": "IN"}.get(word, word)
 
 
-def plan_sides(h: Harness) -> tuple[tuple[Connector, ...], tuple[Connector, ...]]:
-    """(near end, far end) by the sides rule of section 9, without splices: the connectors coloured
-    in two by walks in breadth in natural ID order, each walk starting in the first end; the end
-    with more connectors is the near end, on a tie the end of the first connector."""
-    order = sorted(h.connectors, key=lambda c: natural_key(c.id))
-    joined: dict[str, set[str]] = defaultdict(set)
+def spliced(h: Harness) -> dict[str, list[Wire]]:
+    """Wire ID -> every wire that a walk from it over splice nodes meets, itself included, in
+    natural ID order. Only a pin of a connector of role `splice` passes a walk on; a pin of any
+    other connector stops it."""
+    splices = {c.id for c in h.connectors if c.role == SPLICE_ROLE}
+    on: dict[tuple[str, str], list[Wire]] = defaultdict(list)
     for w in h.wires:
-        if w.from_connector != w.to_connector:
-            joined[w.from_connector].add(w.to_connector)
-            joined[w.to_connector].add(w.from_connector)
+        for end in {(w.from_connector, w.from_pin), (w.to_connector, w.to_pin)}:
+            if end[0] in splices:
+                on[end].append(w)
+    out: dict[str, list[Wire]] = {}
+    for w in h.wires:
+        if w.id in out:
+            continue
+        seen, todo = {w.id: w}, [w]
+        while todo:
+            here = todo.pop()
+            for end in ((here.from_connector, here.from_pin), (here.to_connector, here.to_pin)):
+                for there in on.get(end, []):
+                    if there.id not in seen:
+                        seen[there.id] = there
+                        todo.append(there)
+        group = sorted(seen.values(), key=lambda x: natural_key(x.id))
+        for x in group:
+            out[x.id] = group
+    return out
+
+
+def _plain_ends(wires: Sequence[Wire], h: Harness) -> list[tuple[str, str]]:
+    """The pins of the wires that are not on a splice, each once."""
+    splices = {c.id for c in h.connectors if c.role == SPLICE_ROLE}
+    ends = [e for w in wires for e in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin))]
+    return list(dict.fromkeys(e for e in ends if e[0] not in splices))
+
+
+def plan_sides(h: Harness) -> tuple[tuple[Connector, ...], tuple[Connector, ...]]:
+    """(near end, far end) by the sides rule of section 9: the connectors that are not splices,
+    two of them joined when wires reach both through splices (`spliced`), coloured in two by walks
+    in breadth in natural ID order, each walk starting in the first end; the end with more
+    connectors is the near end, on a tie the end of the first connector."""
+    order = sorted(
+        (c for c in h.connectors if c.role != SPLICE_ROLE), key=lambda c: natural_key(c.id)
+    )
+    joined: dict[str, set[str]] = defaultdict(set)
+    for group in spliced(h).values():
+        reached = {cid for cid, _ in _plain_ends(group, h)}
+        for cid in reached:
+            joined[cid].update(reached - {cid})
     side: dict[str, bool] = {}
     for c in order:
         if c.id in side:
@@ -442,7 +481,9 @@ class _Line:
     box_pin: bool
     wired: bool
     wire: Wire | None = None
-    far: tuple[Connector, str] | None = None
+    far: tuple[
+        tuple[Connector, str, Wire], ...
+    ] = ()  # far connector, far pin, the wire ending there
 
 
 class _HarnessSheet:
@@ -463,6 +504,7 @@ class _HarnessSheet:
         self.conditions: dict[tuple[int, int], tuple[tuple[str, str], ...]] = {}
         self.rows: dict[int, str] = {}
         self.near, self.far = plan_sides(h)
+        self.spliced = spliced(h)
         self.by_part: dict[str, _Code] = {}
         if rule == "pin_code":
             for code in codes:
@@ -641,19 +683,37 @@ class _HarnessSheet:
         ]
 
     def place(self, blocks: list[tuple[Connector, list[_Line]]]) -> list[Wire]:
-        """The wire of each near row (the first by ID that goes to the far end and is on no row
-        yet), and the wires left over for *Further wires*."""
-        far = {c.id: c for c in self.far}
+        """The wire of each near row (the first by ID that reaches the far end, directly or
+        through splices, and is on no row yet) with every far pin it reaches, and the wires left
+        over for *Further wires*."""
+        column = {c.id: n for n, c in enumerate(self.far)}
         placed: set[str] = set()
         for c, lines in blocks:
             for line in lines:
                 for w in self.ends.get((c.id, line.pin.id), []):
-                    mine = (w.from_connector, w.from_pin) == (c.id, line.pin.id)
-                    other = (w.to_connector, w.to_pin) if mine else (w.from_connector, w.from_pin)
-                    if other[0] in far and w.id not in placed:
-                        line.wire, line.far = w, (far[other[0]], other[1])
-                        placed.add(w.id)
-                        break
+                    if w.id in placed:
+                        continue
+                    group = self.spliced[w.id]
+                    far = [e for e in _plain_ends(group, self.h) if e[0] in column]
+                    if not far:
+                        continue
+                    far.sort(key=lambda e: (column[e[0]], natural_key(e[1])))
+                    line.wire = w
+                    line.far = tuple(
+                        (
+                            self.far[column[cid]],
+                            pin,
+                            next(
+                                x
+                                for x in group
+                                if (cid, pin)
+                                in ((x.from_connector, x.from_pin), (x.to_connector, x.to_pin))
+                            ),
+                        )
+                        for cid, pin in far
+                    )
+                    placed.add(w.id)
+                    break
         return [
             w for w in sorted(self.h.wires, key=lambda x: natural_key(x.id)) if w.id not in placed
         ]
@@ -738,29 +798,84 @@ class _HarnessSheet:
             self.put(row, COL_H, cell_value(pid))
             self.put(row, COL_I, line.pin.signal or (w.signal if w else None) or "")
             self.put(row, COL_J, mirrored(direction_word(project, line.pin, line.cable)))
-        if w is None or line.far is None:
+        if w is None or not line.far:
             return noted
         self.colour(row, COL_K, line.cable, pid, _here(row, COL_H), w)
         kind = self.wire_cells(row, w)
-        self.put(row, COL_P, kind, _here(row, COL_L))
-        fc, fpin = line.far
-        _, fcon, pin_col, group = self.columns[fc.id]
-        self.put(row, pin_col, cell_value(fpin))
-        self.colour(row, COL_Q, fc, fpin, _here(row, pin_col), w)
-        if fcon is not None and fpin in fcon.rows and group is not None:
-            pr, five = fcon.rows[fpin], fcon.values[fpin]
-            self.mirror(row, COL_R, five[2], _there(fcon.name, pr, 2))
-            self.copy(row, COL_S, five[1], _there(fcon.name, pr, 1))
-            self.put(row, group, five[0])
-            for n in range(1, 5):
-                self.copy(row, group + n, five[n], _there(fcon.name, pr, n))
-        else:
-            pin = next((p for p in fc.pins if p.id == fpin), None)
-            self.put(row, COL_R, mirrored(direction_word(project, pin, fc)) if pin else "")
-            self.put(row, COL_S, (pin.signal if pin else None) or w.signal or "")
-            if group is not None:
-                self.put(row, group, cell_value(fpin))
+        if len(line.far) == 1:
+            fc, fpin, fw = line.far[0]
+            _, fcon, pin_col, group = self.columns[fc.id]
+            self.put(row, pin_col, cell_value(fpin))
+            # a straight row copies its own Cable / Type; through a splice, the far wire's
+            self.put(
+                row, COL_P, *((kind, _here(row, COL_L)) if fw.id == w.id else (self.kind(fw),))
+            )
+            self.colour(row, COL_Q, fc, fpin, _here(row, pin_col), fw)
+            if fcon is not None and fpin in fcon.rows and group is not None:
+                pr, five = fcon.rows[fpin], fcon.values[fpin]
+                self.mirror(row, COL_R, five[2], _there(fcon.name, pr, 2))
+                self.copy(row, COL_S, five[1], _there(fcon.name, pr, 1))
+                self.put(row, group, five[0])
+                for n in range(1, 5):
+                    self.copy(row, group + n, five[n], _there(fcon.name, pr, n))
+            else:
+                pin = next((p for p in fc.pins if p.id == fpin), None)
+                self.put(row, COL_R, mirrored(direction_word(project, pin, fc)) if pin else "")
+                self.put(row, COL_S, (pin.signal if pin else None) or fw.signal or "")
+                if group is not None:
+                    self.put(row, group, cell_value(fpin))
+            return noted
+        # two or more far pins: values, each cell the far pins' values joined by " + "
+        p_, q_, r_, s_ = [], [], [], []
+        for fc, fpin, fw in line.far:
+            _, fcon, _, _ = self.columns[fc.id]
+            p_.append(str(self.kind(fw)))
+            q_.append(str(self.colour_of(fc, fpin, fw)))
+            if fcon is not None and fpin in fcon.rows:
+                five = fcon.values[fpin]
+                r_.append(mirrored(str(five[2])))
+                s_.append(str(five[1]))
+            else:
+                pin = next((p for p in fc.pins if p.id == fpin), None)
+                r_.append(mirrored(direction_word(project, pin, fc)) if pin else "")
+                s_.append((pin.signal if pin else None) or fw.signal or "")
+        for col, parts in ((COL_P, p_), (COL_Q, q_), (COL_R, r_), (COL_S, s_)):
+            self.joined(row, col, parts)
+        for fc, fcon, pin_col, group in self.columns.values():
+            pins = [fpin for c, fpin, _ in line.far if c.id == fc.id]
+            if not pins:
+                continue
+            self.put(row, pin_col, " + ".join(pins) if len(pins) > 1 else cell_value(pins[0]))
+            if group is None:
+                continue
+            if len(pins) == 1:
+                fpin = pins[0]
+                if fcon is not None and fpin in fcon.rows:
+                    pr, five = fcon.rows[fpin], fcon.values[fpin]
+                    self.put(row, group, five[0])
+                    for n in range(1, 5):
+                        self.copy(row, group + n, five[n], _there(fcon.name, pr, n))
+                else:
+                    self.put(row, group, cell_value(fpin))
+                continue
+            for n in range(5):
+                self.joined(
+                    row,
+                    group + n,
+                    [
+                        str(fcon.values[x][n])
+                        if fcon is not None and x in fcon.rows
+                        else (x if n == 0 else "")
+                        for x in pins
+                    ],
+                )
         return noted
+
+    def joined(self, row: int, col: int, parts: list[str]) -> None:
+        """Several far pins' values in one cell, joined by " + ", empty ones in their place; no
+        cell when all are empty."""
+        if any(parts):
+            self.put(row, col, " + ".join(parts))
 
     def copy(self, row: int, col: int, value: Value, ref: str) -> None:
         if value != "":
@@ -771,6 +886,18 @@ class _HarnessSheet:
             self.put(
                 row, col, mirrored(str(word)), f'IF({ref}="IN";"OUT";IF({ref}="OUT";"IN";{ref}))'
             )
+
+    def colour_of(self, c: Connector, pin: str, w: Wire) -> Value:
+        """The colour of a wire end as a value: the code's colour of the pin, else the wire's."""
+        code = self.by_part.get(c.part_id)
+        if code is None:
+            return w.colour or TO_FILL
+        if pin not in dict(code.pins):
+            return TO_FILL
+        return lookup(self.tables[code.name][2], cell_value(pin)) or ""
+
+    def kind(self, w: Wire) -> Value:
+        return self.types.index(w.part_id) + 1 if w.part_id else TO_FILL
 
     def colour(self, row: int, col: int, c: Connector, pin: str, ref: str, w: Wire) -> None:
         code = self.by_part.get(c.part_id)
@@ -786,7 +913,7 @@ class _HarnessSheet:
 
     def wire_cells(self, row: int, w: Wire) -> Value:
         """Cable / Type, Shielding and Length of a wire's row; the Cable / Type."""
-        kind: Value = self.types.index(w.part_id) + 1 if w.part_id else TO_FILL
+        kind = self.kind(w)
         self.put(row, COL_L, kind)
         self.put(row, COL_M, ", ".join(self.groups.get(w.id, [])))
         length = _length(self.h, w)
