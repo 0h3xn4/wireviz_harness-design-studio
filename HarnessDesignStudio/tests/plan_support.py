@@ -453,18 +453,24 @@ def dump(data: bytes) -> str:
 # ---- the golden projects --------------------------------------------------------------------------
 
 EXAMPLES = ("first-steps", "minimal-satellite", "small-satellite", "flatsat")
-GOLDEN_PROJECTS = (*EXAMPLES, "branching")
-READABLE = ("first-steps", "branching")  # the projects whose plans are kept as text to read
+GOLDEN_PROJECTS = (*EXAMPLES, "branching", "splices")
+# the projects whose plans are kept as text to read
+READABLE = ("first-steps", "branching", "splices")
 
 
 def golden_project(name: str) -> Project:
     """An example generated the way a user does (as `tools.output_hashes` makes it), or the
     branching fixture of `tests/test_outputs_routing.py` (the users' harness DEV2 + DEV3 <-> DEV1 +
-    DEV4 and a straight one)."""
+    DEV4 and a straight one), or the splice fixture of `tests/splice_support.py` (`splices`: mini3
+    with the Y harness W003 through two splices and W004 with a splice on a branch point's leg)."""
     if name == "branching":
         from tests.test_outputs_routing import branching_project
 
         return branching_project()
+    if name == "splices":
+        from tests.splice_support import branch_leg_project
+
+        return branch_leg_project()
     from harness_design_studio.core import templates
     from harness_design_studio.core.generate.engine import generate_project
 
