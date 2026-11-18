@@ -1,6 +1,6 @@
 # Design of 2.3.0: branching harnesses and splices
 
-Written on 2026-11-17 from a reading of the code at `ba1d2b2` (master, with pull request 3 of 2.2.0) and of the users' harness plan template as the owner's session described it. The decision that records it is D-243. D-235 is the owner decision that placed branching harnesses and splices at 2.3.0; in [`PLAN_2.0.md`](PLAN_2.0.md) section 3.2 they are milestone M6 (M6a splices, M6b branches and breakouts, M6c backshells). It is a design only: nothing of it is built. *Added 2026-11-18:* pull requests 2 to 7 of section 10 are built (255, 262, 263, 264, 265 and pull request 7), and version 2.3.0 is prepared (decision D-245: a minor release, no format change, no release candidate first); it is not tagged yet. Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`.
+Written on 2026-11-17 from a reading of the code at `ba1d2b2` (master, with pull request 3 of 2.2.0) and of the users' harness plan template as the owner's session described it. The decision that records it is D-243. D-235 is the owner decision that placed branching harnesses and splices at 2.3.0; in [`PLAN_2.0.md`](PLAN_2.0.md) section 3.2 they are milestone M6 (M6a splices, M6b branches and breakouts, M6c backshells). It is a design only: nothing of it is built. *Added 2026-11-18:* pull requests 2 to 7 of section 10 are built (255, 262, 263, 264, 265 and pull request 7), and version 2.3.0 is prepared (decision D-245: a minor release, no format change, no release candidate first); it is not tagged yet. *Added 2026-11-18, after the publication of 2.3.0:* 2.3.0 is published as the latest full release (annotated tag `v2.3.0` on `5104988`, the merge of the preparation, #267; `compliance/SIGNOFF.md`, *Publication of 2.3.0*); the branching of pull requests 2 to 7 is in it, and the splices of section 6 are not (3.0.0, format 3). Paths are relative to `src/harness_design_studio/` unless they start with `docs/` or `tests/`.
 
 ## 0. The answer in short
 
@@ -319,7 +319,7 @@ A **backshell** stays the accessory of 1.7.0. The rule `backshell-missing` and a
 
 Order: 2, then 3 and 4 in either order, then 5, then 6, then 7. The splice work follows the 3.0 design's pull request 1 (format 3), in this order: S1 the role and category in the model and the step; S2 nets, rules and the verifier; S3 the outputs and the output check; S4 the editor; S5 the end-to-end test. S1 to S3 go into the release that first writes format 3 (section 4.3).
 
-Pull requests 2 to 7 are built (D-243). *Added 2026-11-18:* the preparation of 2.3.0 is done, with decision D-245; it is not tagged yet.
+Pull requests 2 to 7 are built (D-243). *Added 2026-11-18:* the preparation of 2.3.0 is done, with decision D-245; it is not tagged yet. *Added 2026-11-18, after the publication of 2.3.0:* 2.3.0 is published (tag `v2.3.0` on `5104988`); pull requests 2 to 7 and the preparation (#267) are in it.
 
 ## 11. Risks
 
