@@ -43,3 +43,9 @@ The patch release `2.0.1` (D-236; M7b and the release page of D-232; no format c
 The note on the publication of the minor release 2.1.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 2.3.1 was written; that item still names 2.1.0 in the list of releases and says where this note is.
 
 The minor release `2.1.0` (D-238; several interfaces on one connector, D-237; no format change) was published on 2026-11-17 (annotated tag `v2.1.0` on `97e7d24`, made by the tag workflow, run 43993872749, its fourth use; release workflow run 43993920392, first attempt; signed and attested): the latest full release until 2.1.1.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 2.4.0 (2026-11-18)
+
+The note on the publication of the patch release 2.1.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when 2.4.0 was prepared; that item still names 2.1.1 in the list of releases and says where this note is.
+
+The patch release `2.1.1` (D-239; the three fixes of the end-to-end test of 2.1.0; no format change) was published on 2026-11-17 (annotated tag `v2.1.1` on `5e99d3d`, the merge of #249, a test fix after #245; made by the tag workflow, run 44042970611, its fifth use; release workflow run 44042996462, first attempt; signed and attested): the latest full release until 2.2.0.
