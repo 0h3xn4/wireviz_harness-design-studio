@@ -112,7 +112,7 @@ Numbers are written as numbers, not as text (`"0.5"` is not accepted). The limit
 ## `segmentation.json`
 | Key | Meaning |
 | --- | --- |
-| `mode` | how interfaces are grouped into harnesses: `per_connector_pair` (default), `per_unit_pair`, `per_zone_pair`, `per_connector_group` (since 2.3.0: the interfaces whose device connectors are joined by interfaces share one harness that branches; see [segmentation](models/segmentation.md#one-harness-that-branches)) |
+| `mode` | how interfaces are grouped into harnesses: `per_connector_pair` (default of a file that names no mode, and the mode of a project made before 2.4.0), `per_unit_pair`, `per_zone_pair`, `per_connector_group` (since 2.3.0: the interfaces whose device connectors are joined by interfaces share one harness that branches; a new project starts with it since 2.4.0, D-247; see [segmentation](models/segmentation.md#one-harness-that-branches)) |
 
 ## `segregation.json`
 | Key | Meaning |

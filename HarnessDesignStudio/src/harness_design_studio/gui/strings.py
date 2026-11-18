@@ -3768,10 +3768,10 @@ SETTINGS_SEGMENTATION_TEXT = (
     "undo step and takes effect at the next Generate."
 )
 SETTINGS_SEGMENTATION_CHOICES = {
-    "per_connector_pair": "Per connector pair (the default)",
+    "per_connector_pair": "Per connector pair",
     "per_unit_pair": "Per device pair",
     "per_zone_pair": "Per zone pair",
-    "per_connector_group": "Per connector group",
+    "per_connector_group": "Per connector group (a new project's choice)",
 }
 SETTINGS_SEGMENTATION_ABOUT = {
     "per_connector_pair": "Interfaces between the same two device connectors share a harness.",
@@ -3885,3 +3885,24 @@ LEG_MADE = (
 )
 JOIN_MENU = "Join into one harness…"
 JOIN_MENU_TIP = "Join this harness with another that plugs into {box} (one undo step)"
+
+# ---- 2.4.0: one harness that branches is the default of a new project (D-247) ------------------
+# the notice after Generate in a project that keeps per_connector_pair while a device connector
+# has plugs of several harnesses of Generate (shown once per project; `MainWindow._offer_branching`)
+BRANCH_NOTICE = (
+    "{boxes} {has} the plugs of several harnesses ({harnesses}), and a connector takes one plug. "
+    "This project groups interfaces per connector pair; a new project makes one harness that "
+    "branches here instead."
+)
+BRANCH_NOTICE_DETAIL = (
+    "Make one harness that branches sets how interfaces are grouped to per connector group "
+    "(Settings > Project, one undo step) and offers to Generate again, which then makes one "
+    "harness with one plug on each device connector. Close this notice to keep per connector "
+    "pair; it is not shown again for this project."
+)
+BRANCH_NOTICE_ACTION = "Make one harness that branches"
+BRANCH_NOTICE_DONE = (
+    "Interfaces are grouped per connector group from the next Generate on. Generate again to make "
+    "one harness that branches; Undo puts per connector pair back."
+)
+BRANCH_NOTICE_GENERATE = "Generate again"
