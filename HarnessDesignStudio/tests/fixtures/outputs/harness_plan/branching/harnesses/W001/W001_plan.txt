@@ -1,0 +1,767 @@
+== Cover
+E2	Doc.-No.
+F2	to fill in
+E3	Version
+F3	1.0.0
+E4	Release
+F4	to fill in
+A17	branching
+A19	branching Harness Plan
+A21	to fill in
+A23	harness-design-studio 2.4.0 model f28fdf985b7b
+A24	This file is written by Harness Design Studio. An export overwrites it; work on a copy.
+A25	harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+C36	Contact Information
+D37	to fill in
+== Change_Register
+B2	Change register of W001
+B4	Version
+C4	Sub-Version
+D4	Date
+E4	Name
+F4	Sheets
+G4	Description
+B5	No entry in the change log of this harness yet.
+== W001
+H6	branching
+N6	W001
+Q6	VERSION: v1.0.0 (draft)
+H8	Harness branching-W001: DEV1 + DEV4 <–> DEV2 + DEV3	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_DEV1-J01'.B1]&" + "&[$'CON_DEV4-J01'.B1]&" <–> "&[$'CON_DEV2-J01'.B1]&" + "&[$'CON_DEV3-J01'.B1]
+H10	used Connectors
+H11	No.
+I11	Part No.
+M11	Quantity
+N11	Remark
+H12	1
+I12	EX-MICROD-25-M
+M12	4
+N12	W001-P1, W001-P2, W001-P3, W001-P4
+H14	used Cable Types
+H15	No.
+I15	Part No.
+K15	AWG
+L15	Conductor
+O15	Colours
+R15	No. of wires in cable
+S15	Length [mm]
+H16	1
+I16	EX-WIRE-TWISTED-SHIELDED
+R16	2
+S16	3750	=[.N88]
+H18	used Backshells
+H19	No.
+I19	Part No.
+M19	Quantity
+N19	Remark
+I20	No backshells.
+B22	DEV1-J01
+F25	Device Side
+H25	Harness Side
+W25	DEV2-J01
+AD25	DEV3-J01
+B26	Data from CON_DEV1-J01
+F26	DEV1 [DEV1-J01]: IF-001; IF-003; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[$'CON_DEV1-J01'.B11]
+H26	Micro-D 25-pin, male (example, baseline power and data) [W001:DEV1:DEV1-J01]	="Micro-D 25-pin, male (example, baseline power and data) ["&[.N6]&":"&[$'CON_DEV1-J01'.B1]&":"&[$'CON_DEV1-J01'.B2]&"]"
+W26	Data from CON_DEV2-J01
+AD26	Data from CON_DEV3-J01
+B27	Pin No.
+C27	Function
+D27	Direction
+E27	Level
+F27	Description
+H27	Pinout
+I27	Function
+J27	Direction
+K27	Color
+L27	Cable / Type
+M27	Shielding / (Grouping)
+N27	Length [mm]
+O27	Level
+P27	Cable / Type
+Q27	Color
+R27	Direction
+S27	Function
+T27	Pinout (of DEV2)
+U27	Pinout (of DEV3)
+W27	Pinout
+X27	Function
+Y27	Direction
+Z27	Level
+AA27	Description
+AD27	Pinout
+AE27	Function
+AF27	Direction
+AG27	Level
+AH27	Description
+B28	1	=[$'CON_DEV1-J01'.A19]
+C28	TX+	=[$'CON_DEV1-J01'.B19]
+H28	1	=[.B28]
+I28	TX+	=[.C28]
+K28	to fill in
+L28	1
+M28	W001-S1
+N28	1875
+P28	1	=[.L28]
+Q28	to fill in
+S28	RX+	=[$'CON_DEV2-J01'.B21]
+T28	3
+W28	3
+X28	RX+	=[$'CON_DEV2-J01'.B21]
+B29	2	=[$'CON_DEV1-J01'.A20]
+C29	TX-	=[$'CON_DEV1-J01'.B20]
+H29	2	=[.B29]
+I29	TX-	=[.C29]
+K29	to fill in
+L29	1
+M29	W001-S1
+N29	1875
+P29	1	=[.L29]
+Q29	to fill in
+S29	RX-	=[$'CON_DEV2-J01'.B22]
+T29	4
+W29	4
+X29	RX-	=[$'CON_DEV2-J01'.B22]
+B30	3	=[$'CON_DEV1-J01'.A21]
+C30	RX+	=[$'CON_DEV1-J01'.B21]
+H30	3	=[.B30]
+I30	RX+	=[.C30]
+K30	to fill in
+L30	1
+M30	W001-S2
+N30	1875
+P30	1	=[.L30]
+Q30	to fill in
+S30	TX+	=[$'CON_DEV2-J01'.B19]
+T30	1
+W30	1
+X30	TX+	=[$'CON_DEV2-J01'.B19]
+B31	4	=[$'CON_DEV1-J01'.A22]
+C31	RX-	=[$'CON_DEV1-J01'.B22]
+H31	4	=[.B31]
+I31	RX-	=[.C31]
+K31	to fill in
+L31	1
+M31	W001-S2
+N31	1875
+P31	1	=[.L31]
+Q31	to fill in
+S31	TX-	=[$'CON_DEV2-J01'.B20]
+T31	2
+W31	2
+X31	TX-	=[$'CON_DEV2-J01'.B20]
+B32	5	=[$'CON_DEV1-J01'.A23]
+C32	TX+	=[$'CON_DEV1-J01'.B23]
+H32	5	=[.B32]
+I32	TX+	=[.C32]
+K32	to fill in
+L32	1
+M32	W001-S5
+N32	to fill in
+P32	1	=[.L32]
+Q32	to fill in
+S32	RX+	=[$'CON_DEV3-J01'.B21]
+U32	3
+AD32	3
+AE32	RX+	=[$'CON_DEV3-J01'.B21]
+B33	6	=[$'CON_DEV1-J01'.A24]
+C33	TX-	=[$'CON_DEV1-J01'.B24]
+H33	6	=[.B33]
+I33	TX-	=[.C33]
+K33	to fill in
+L33	1
+M33	W001-S5
+N33	to fill in
+P33	1	=[.L33]
+Q33	to fill in
+S33	RX-	=[$'CON_DEV3-J01'.B22]
+U33	4
+AD33	4
+AE33	RX-	=[$'CON_DEV3-J01'.B22]
+B34	7	=[$'CON_DEV1-J01'.A25]
+C34	RX+	=[$'CON_DEV1-J01'.B25]
+H34	7	=[.B34]
+I34	RX+	=[.C34]
+K34	to fill in
+L34	1
+M34	W001-S6
+N34	to fill in
+P34	1	=[.L34]
+Q34	to fill in
+S34	TX+	=[$'CON_DEV3-J01'.B19]
+U34	1
+AD34	1
+AE34	TX+	=[$'CON_DEV3-J01'.B19]
+B35	8	=[$'CON_DEV1-J01'.A26]
+C35	RX-	=[$'CON_DEV1-J01'.B26]
+H35	8	=[.B35]
+I35	RX-	=[.C35]
+K35	to fill in
+L35	1
+M35	W001-S6
+N35	to fill in
+P35	1	=[.L35]
+Q35	to fill in
+S35	TX-	=[$'CON_DEV3-J01'.B20]
+U35	2
+AD35	2
+AE35	TX-	=[$'CON_DEV3-J01'.B20]
+B36	9	=[$'CON_DEV1-J01'.A27]
+I36	Not connected pins will be marked yellow
+B37	10	=[$'CON_DEV1-J01'.A28]
+B38	11	=[$'CON_DEV1-J01'.A29]
+B39	12	=[$'CON_DEV1-J01'.A30]
+B40	13	=[$'CON_DEV1-J01'.A31]
+B41	14	=[$'CON_DEV1-J01'.A32]
+B42	15	=[$'CON_DEV1-J01'.A33]
+B43	16	=[$'CON_DEV1-J01'.A34]
+B44	17	=[$'CON_DEV1-J01'.A35]
+B45	18	=[$'CON_DEV1-J01'.A36]
+B46	19	=[$'CON_DEV1-J01'.A37]
+B47	20	=[$'CON_DEV1-J01'.A38]
+B48	21	=[$'CON_DEV1-J01'.A39]
+B49	22	=[$'CON_DEV1-J01'.A40]
+B50	23	=[$'CON_DEV1-J01'.A41]
+B51	24	=[$'CON_DEV1-J01'.A42]
+B52	25	=[$'CON_DEV1-J01'.A43]
+B54	DEV4-J01
+F57	Device Side
+H57	Harness Side
+B58	Data from CON_DEV4-J01
+F58	DEV4 [DEV4-J01]: IF-002; IF-004; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[$'CON_DEV4-J01'.B11]
+H58	Micro-D 25-pin, male (example, baseline power and data) [W001:DEV4:DEV4-J01]	="Micro-D 25-pin, male (example, baseline power and data) ["&[.N6]&":"&[$'CON_DEV4-J01'.B1]&":"&[$'CON_DEV4-J01'.B2]&"]"
+B59	Pin No.
+C59	Function
+D59	Direction
+E59	Level
+F59	Description
+H59	Pinout
+I59	Function
+J59	Direction
+K59	Color
+L59	Cable / Type
+M59	Shielding / (Grouping)
+N59	Length [mm]
+O59	Level
+P59	Cable / Type
+Q59	Color
+R59	Direction
+S59	Function
+T59	Pinout (of DEV2)
+U59	Pinout (of DEV3)
+B60	1	=[$'CON_DEV4-J01'.A19]
+C60	TX+	=[$'CON_DEV4-J01'.B19]
+H60	1	=[.B60]
+I60	TX+	=[.C60]
+K60	to fill in
+L60	1
+M60	W001-S3
+N60	to fill in
+P60	1	=[.L60]
+Q60	to fill in
+S60	RX+	=[$'CON_DEV2-J01'.B25]
+T60	7
+W60	7
+X60	RX+	=[$'CON_DEV2-J01'.B25]
+B61	2	=[$'CON_DEV4-J01'.A20]
+C61	TX-	=[$'CON_DEV4-J01'.B20]
+H61	2	=[.B61]
+I61	TX-	=[.C61]
+K61	to fill in
+L61	1
+M61	W001-S3
+N61	to fill in
+P61	1	=[.L61]
+Q61	to fill in
+S61	RX-	=[$'CON_DEV2-J01'.B26]
+T61	8
+W61	8
+X61	RX-	=[$'CON_DEV2-J01'.B26]
+B62	3	=[$'CON_DEV4-J01'.A21]
+C62	RX+	=[$'CON_DEV4-J01'.B21]
+H62	3	=[.B62]
+I62	RX+	=[.C62]
+K62	to fill in
+L62	1
+M62	W001-S4
+N62	to fill in
+P62	1	=[.L62]
+Q62	to fill in
+S62	TX+	=[$'CON_DEV2-J01'.B23]
+T62	5
+W62	5
+X62	TX+	=[$'CON_DEV2-J01'.B23]
+B63	4	=[$'CON_DEV4-J01'.A22]
+C63	RX-	=[$'CON_DEV4-J01'.B22]
+H63	4	=[.B63]
+I63	RX-	=[.C63]
+K63	to fill in
+L63	1
+M63	W001-S4
+N63	to fill in
+P63	1	=[.L63]
+Q63	to fill in
+S63	TX-	=[$'CON_DEV2-J01'.B24]
+T63	6
+W63	6
+X63	TX-	=[$'CON_DEV2-J01'.B24]
+B64	5	=[$'CON_DEV4-J01'.A23]
+C64	TX+	=[$'CON_DEV4-J01'.B23]
+H64	5	=[.B64]
+I64	TX+	=[.C64]
+K64	to fill in
+L64	1
+M64	W001-S7
+N64	to fill in
+P64	1	=[.L64]
+Q64	to fill in
+S64	RX+	=[$'CON_DEV3-J01'.B25]
+U64	7
+AD64	7
+AE64	RX+	=[$'CON_DEV3-J01'.B25]
+B65	6	=[$'CON_DEV4-J01'.A24]
+C65	TX-	=[$'CON_DEV4-J01'.B24]
+H65	6	=[.B65]
+I65	TX-	=[.C65]
+K65	to fill in
+L65	1
+M65	W001-S7
+N65	to fill in
+P65	1	=[.L65]
+Q65	to fill in
+S65	RX-	=[$'CON_DEV3-J01'.B26]
+U65	8
+AD65	8
+AE65	RX-	=[$'CON_DEV3-J01'.B26]
+B66	7	=[$'CON_DEV4-J01'.A25]
+C66	RX+	=[$'CON_DEV4-J01'.B25]
+H66	7	=[.B66]
+I66	RX+	=[.C66]
+K66	to fill in
+L66	1
+M66	W001-S8
+N66	to fill in
+P66	1	=[.L66]
+Q66	to fill in
+S66	TX+	=[$'CON_DEV3-J01'.B23]
+U66	5
+AD66	5
+AE66	TX+	=[$'CON_DEV3-J01'.B23]
+B67	8	=[$'CON_DEV4-J01'.A26]
+C67	RX-	=[$'CON_DEV4-J01'.B26]
+H67	8	=[.B67]
+I67	RX-	=[.C67]
+K67	to fill in
+L67	1
+M67	W001-S8
+N67	to fill in
+P67	1	=[.L67]
+Q67	to fill in
+S67	TX-	=[$'CON_DEV3-J01'.B24]
+U67	6
+AD67	6
+AE67	TX-	=[$'CON_DEV3-J01'.B24]
+B68	9	=[$'CON_DEV4-J01'.A27]
+B69	10	=[$'CON_DEV4-J01'.A28]
+B70	11	=[$'CON_DEV4-J01'.A29]
+B71	12	=[$'CON_DEV4-J01'.A30]
+B72	13	=[$'CON_DEV4-J01'.A31]
+B73	14	=[$'CON_DEV4-J01'.A32]
+B74	15	=[$'CON_DEV4-J01'.A33]
+B75	16	=[$'CON_DEV4-J01'.A34]
+B76	17	=[$'CON_DEV4-J01'.A35]
+B77	18	=[$'CON_DEV4-J01'.A36]
+B78	19	=[$'CON_DEV4-J01'.A37]
+B79	20	=[$'CON_DEV4-J01'.A38]
+B80	21	=[$'CON_DEV4-J01'.A39]
+B81	22	=[$'CON_DEV4-J01'.A40]
+B82	23	=[$'CON_DEV4-J01'.A41]
+B83	24	=[$'CON_DEV4-J01'.A42]
+B84	25	=[$'CON_DEV4-J01'.A43]
+H86	Sum of length of cable type [mm]
+W86	DEV2-J01
+AD86	DEV3-J01
+H87	No.
+I87	Part No.
+N87	Sum of length [mm]
+H88	1
+I88	EX-WIRE-TWISTED-SHIELDED
+N88	3750	=(SUMIF([.L28:.L52];[.H88];[.N28:.N52])+SUMIF([.L60:.L84];[.H88];[.N60:.N84]))/[.R16]
+O88	12 wires without a length
+W88	Data from CON_DEV2-J01
+AD88	Data from CON_DEV3-J01
+W89	Pinout
+X89	Function
+Y89	Direction
+Z89	Level
+AA89	Description
+AB89	Used in Row
+AD89	Pinout
+AE89	Function
+AF89	Direction
+AG89	Level
+AH89	Description
+AI89	Used in Row
+W90	1	=[$'CON_DEV2-J01'.A19]
+X90	TX+	=[$'CON_DEV2-J01'.B19]
+AB90	30	=IF(ISNA(MATCH([.W90];[.W28:.W84];0));"";MATCH([.W90];[.W28:.W84];0)+27)
+AD90	1	=[$'CON_DEV3-J01'.A19]
+AE90	TX+	=[$'CON_DEV3-J01'.B19]
+AI90	34	=IF(ISNA(MATCH([.AD90];[.AD28:.AD84];0));"";MATCH([.AD90];[.AD28:.AD84];0)+27)
+W91	2	=[$'CON_DEV2-J01'.A20]
+X91	TX-	=[$'CON_DEV2-J01'.B20]
+AB91	31	=IF(ISNA(MATCH([.W91];[.W28:.W84];0));"";MATCH([.W91];[.W28:.W84];0)+27)
+AD91	2	=[$'CON_DEV3-J01'.A20]
+AE91	TX-	=[$'CON_DEV3-J01'.B20]
+AI91	35	=IF(ISNA(MATCH([.AD91];[.AD28:.AD84];0));"";MATCH([.AD91];[.AD28:.AD84];0)+27)
+W92	3	=[$'CON_DEV2-J01'.A21]
+X92	RX+	=[$'CON_DEV2-J01'.B21]
+AB92	28	=IF(ISNA(MATCH([.W92];[.W28:.W84];0));"";MATCH([.W92];[.W28:.W84];0)+27)
+AD92	3	=[$'CON_DEV3-J01'.A21]
+AE92	RX+	=[$'CON_DEV3-J01'.B21]
+AI92	32	=IF(ISNA(MATCH([.AD92];[.AD28:.AD84];0));"";MATCH([.AD92];[.AD28:.AD84];0)+27)
+W93	4	=[$'CON_DEV2-J01'.A22]
+X93	RX-	=[$'CON_DEV2-J01'.B22]
+AB93	29	=IF(ISNA(MATCH([.W93];[.W28:.W84];0));"";MATCH([.W93];[.W28:.W84];0)+27)
+AD93	4	=[$'CON_DEV3-J01'.A22]
+AE93	RX-	=[$'CON_DEV3-J01'.B22]
+AI93	33	=IF(ISNA(MATCH([.AD93];[.AD28:.AD84];0));"";MATCH([.AD93];[.AD28:.AD84];0)+27)
+W94	5	=[$'CON_DEV2-J01'.A23]
+X94	TX+	=[$'CON_DEV2-J01'.B23]
+AB94	62	=IF(ISNA(MATCH([.W94];[.W28:.W84];0));"";MATCH([.W94];[.W28:.W84];0)+27)
+AD94	5	=[$'CON_DEV3-J01'.A23]
+AE94	TX+	=[$'CON_DEV3-J01'.B23]
+AI94	66	=IF(ISNA(MATCH([.AD94];[.AD28:.AD84];0));"";MATCH([.AD94];[.AD28:.AD84];0)+27)
+W95	6	=[$'CON_DEV2-J01'.A24]
+X95	TX-	=[$'CON_DEV2-J01'.B24]
+AB95	63	=IF(ISNA(MATCH([.W95];[.W28:.W84];0));"";MATCH([.W95];[.W28:.W84];0)+27)
+AD95	6	=[$'CON_DEV3-J01'.A24]
+AE95	TX-	=[$'CON_DEV3-J01'.B24]
+AI95	67	=IF(ISNA(MATCH([.AD95];[.AD28:.AD84];0));"";MATCH([.AD95];[.AD28:.AD84];0)+27)
+W96	7	=[$'CON_DEV2-J01'.A25]
+X96	RX+	=[$'CON_DEV2-J01'.B25]
+AB96	60	=IF(ISNA(MATCH([.W96];[.W28:.W84];0));"";MATCH([.W96];[.W28:.W84];0)+27)
+AD96	7	=[$'CON_DEV3-J01'.A25]
+AE96	RX+	=[$'CON_DEV3-J01'.B25]
+AI96	64	=IF(ISNA(MATCH([.AD96];[.AD28:.AD84];0));"";MATCH([.AD96];[.AD28:.AD84];0)+27)
+W97	8	=[$'CON_DEV2-J01'.A26]
+X97	RX-	=[$'CON_DEV2-J01'.B26]
+AB97	61	=IF(ISNA(MATCH([.W97];[.W28:.W84];0));"";MATCH([.W97];[.W28:.W84];0)+27)
+AD97	8	=[$'CON_DEV3-J01'.A26]
+AE97	RX-	=[$'CON_DEV3-J01'.B26]
+AI97	65	=IF(ISNA(MATCH([.AD97];[.AD28:.AD84];0));"";MATCH([.AD97];[.AD28:.AD84];0)+27)
+W98	9	=[$'CON_DEV2-J01'.A27]
+AB98		=IF(ISNA(MATCH([.W98];[.W28:.W84];0));"";MATCH([.W98];[.W28:.W84];0)+27)
+AD98	9	=[$'CON_DEV3-J01'.A27]
+AI98		=IF(ISNA(MATCH([.AD98];[.AD28:.AD84];0));"";MATCH([.AD98];[.AD28:.AD84];0)+27)
+W99	10	=[$'CON_DEV2-J01'.A28]
+AB99		=IF(ISNA(MATCH([.W99];[.W28:.W84];0));"";MATCH([.W99];[.W28:.W84];0)+27)
+AD99	10	=[$'CON_DEV3-J01'.A28]
+AI99		=IF(ISNA(MATCH([.AD99];[.AD28:.AD84];0));"";MATCH([.AD99];[.AD28:.AD84];0)+27)
+W100	11	=[$'CON_DEV2-J01'.A29]
+AB100		=IF(ISNA(MATCH([.W100];[.W28:.W84];0));"";MATCH([.W100];[.W28:.W84];0)+27)
+AD100	11	=[$'CON_DEV3-J01'.A29]
+AI100		=IF(ISNA(MATCH([.AD100];[.AD28:.AD84];0));"";MATCH([.AD100];[.AD28:.AD84];0)+27)
+W101	12	=[$'CON_DEV2-J01'.A30]
+AB101		=IF(ISNA(MATCH([.W101];[.W28:.W84];0));"";MATCH([.W101];[.W28:.W84];0)+27)
+AD101	12	=[$'CON_DEV3-J01'.A30]
+AI101		=IF(ISNA(MATCH([.AD101];[.AD28:.AD84];0));"";MATCH([.AD101];[.AD28:.AD84];0)+27)
+W102	13	=[$'CON_DEV2-J01'.A31]
+AB102		=IF(ISNA(MATCH([.W102];[.W28:.W84];0));"";MATCH([.W102];[.W28:.W84];0)+27)
+AD102	13	=[$'CON_DEV3-J01'.A31]
+AI102		=IF(ISNA(MATCH([.AD102];[.AD28:.AD84];0));"";MATCH([.AD102];[.AD28:.AD84];0)+27)
+W103	14	=[$'CON_DEV2-J01'.A32]
+AB103		=IF(ISNA(MATCH([.W103];[.W28:.W84];0));"";MATCH([.W103];[.W28:.W84];0)+27)
+AD103	14	=[$'CON_DEV3-J01'.A32]
+AI103		=IF(ISNA(MATCH([.AD103];[.AD28:.AD84];0));"";MATCH([.AD103];[.AD28:.AD84];0)+27)
+W104	15	=[$'CON_DEV2-J01'.A33]
+AB104		=IF(ISNA(MATCH([.W104];[.W28:.W84];0));"";MATCH([.W104];[.W28:.W84];0)+27)
+AD104	15	=[$'CON_DEV3-J01'.A33]
+AI104		=IF(ISNA(MATCH([.AD104];[.AD28:.AD84];0));"";MATCH([.AD104];[.AD28:.AD84];0)+27)
+W105	16	=[$'CON_DEV2-J01'.A34]
+AB105		=IF(ISNA(MATCH([.W105];[.W28:.W84];0));"";MATCH([.W105];[.W28:.W84];0)+27)
+AD105	16	=[$'CON_DEV3-J01'.A34]
+AI105		=IF(ISNA(MATCH([.AD105];[.AD28:.AD84];0));"";MATCH([.AD105];[.AD28:.AD84];0)+27)
+W106	17	=[$'CON_DEV2-J01'.A35]
+AB106		=IF(ISNA(MATCH([.W106];[.W28:.W84];0));"";MATCH([.W106];[.W28:.W84];0)+27)
+AD106	17	=[$'CON_DEV3-J01'.A35]
+AI106		=IF(ISNA(MATCH([.AD106];[.AD28:.AD84];0));"";MATCH([.AD106];[.AD28:.AD84];0)+27)
+W107	18	=[$'CON_DEV2-J01'.A36]
+AB107		=IF(ISNA(MATCH([.W107];[.W28:.W84];0));"";MATCH([.W107];[.W28:.W84];0)+27)
+AD107	18	=[$'CON_DEV3-J01'.A36]
+AI107		=IF(ISNA(MATCH([.AD107];[.AD28:.AD84];0));"";MATCH([.AD107];[.AD28:.AD84];0)+27)
+W108	19	=[$'CON_DEV2-J01'.A37]
+AB108		=IF(ISNA(MATCH([.W108];[.W28:.W84];0));"";MATCH([.W108];[.W28:.W84];0)+27)
+AD108	19	=[$'CON_DEV3-J01'.A37]
+AI108		=IF(ISNA(MATCH([.AD108];[.AD28:.AD84];0));"";MATCH([.AD108];[.AD28:.AD84];0)+27)
+W109	20	=[$'CON_DEV2-J01'.A38]
+AB109		=IF(ISNA(MATCH([.W109];[.W28:.W84];0));"";MATCH([.W109];[.W28:.W84];0)+27)
+AD109	20	=[$'CON_DEV3-J01'.A38]
+AI109		=IF(ISNA(MATCH([.AD109];[.AD28:.AD84];0));"";MATCH([.AD109];[.AD28:.AD84];0)+27)
+W110	21	=[$'CON_DEV2-J01'.A39]
+AB110		=IF(ISNA(MATCH([.W110];[.W28:.W84];0));"";MATCH([.W110];[.W28:.W84];0)+27)
+AD110	21	=[$'CON_DEV3-J01'.A39]
+AI110		=IF(ISNA(MATCH([.AD110];[.AD28:.AD84];0));"";MATCH([.AD110];[.AD28:.AD84];0)+27)
+W111	22	=[$'CON_DEV2-J01'.A40]
+AB111		=IF(ISNA(MATCH([.W111];[.W28:.W84];0));"";MATCH([.W111];[.W28:.W84];0)+27)
+AD111	22	=[$'CON_DEV3-J01'.A40]
+AI111		=IF(ISNA(MATCH([.AD111];[.AD28:.AD84];0));"";MATCH([.AD111];[.AD28:.AD84];0)+27)
+W112	23	=[$'CON_DEV2-J01'.A41]
+AB112		=IF(ISNA(MATCH([.W112];[.W28:.W84];0));"";MATCH([.W112];[.W28:.W84];0)+27)
+AD112	23	=[$'CON_DEV3-J01'.A41]
+AI112		=IF(ISNA(MATCH([.AD112];[.AD28:.AD84];0));"";MATCH([.AD112];[.AD28:.AD84];0)+27)
+W113	24	=[$'CON_DEV2-J01'.A42]
+AB113		=IF(ISNA(MATCH([.W113];[.W28:.W84];0));"";MATCH([.W113];[.W28:.W84];0)+27)
+AD113	24	=[$'CON_DEV3-J01'.A42]
+AI113		=IF(ISNA(MATCH([.AD113];[.AD28:.AD84];0));"";MATCH([.AD113];[.AD28:.AD84];0)+27)
+W114	25	=[$'CON_DEV2-J01'.A43]
+AB114		=IF(ISNA(MATCH([.W114];[.W28:.W84];0));"";MATCH([.W114];[.W28:.W84];0)+27)
+AD114	25	=[$'CON_DEV3-J01'.A43]
+AI114		=IF(ISNA(MATCH([.AD114];[.AD28:.AD84];0));"";MATCH([.AD114];[.AD28:.AD84];0)+27)
+H116	Block diagram: harnesses/W001/drawing_A3.pdf
+== Notes
+B2	Notes
+B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.
+B6	A yellow row is a pin of the device connector with no wire in this harness.
+B7	[no SGND*] in the header: a pin of the role signal ground (SGND) of a device connector of this harness has no wire.
+B8	Formulas: the device side and the far device side copy the CON_ sheets; Pinout, Function and Level of the harness side copy the device side; the two Direction columns mirror it; a colour by pin code is looked up in its table on this sheet; the title, the connector descriptions, the sums per cable type, the cable type lengths and Used in Row are formulas too. Every other cell is a value of the design.
+B9	The change register lists the change log of this harness (system/changelog.csv of the outputs); it is not typed into this file.
+B10	This file is written by Harness Design Studio. An export overwrites it, formulas and typed changes alike; work on a copy.
+== CON_DEV1-J01
+A1	Device
+B1	DEV1
+A2	Connector ID
+B2	DEV1-J01
+A3	Interface Name
+B3	IF-001; IF-003
+A6	Connector Type
+B6	Micro-D 25-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	25
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	DEV1 [DEV1-J01]: IF-001; IF-003; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	TX+
+A20	2
+B20	TX-
+A21	3
+B21	RX+
+A22	4
+B22	RX-
+A23	5
+B23	TX+
+A24	6
+B24	TX-
+A25	7
+B25	RX+
+A26	8
+B26	RX-
+A27	9
+A28	10
+A29	11
+A30	12
+A31	13
+A32	14
+A33	15
+A34	16
+A35	17
+A36	18
+A37	19
+A38	20
+A39	21
+A40	22
+A41	23
+A42	24
+A43	25
+== CON_DEV2-J01
+A1	Device
+B1	DEV2
+A2	Connector ID
+B2	DEV2-J01
+A3	Interface Name
+B3	IF-001; IF-002
+A6	Connector Type
+B6	Micro-D 25-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	25
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	DEV2 [DEV2-J01]: IF-001; IF-002; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	TX+
+A20	2
+B20	TX-
+A21	3
+B21	RX+
+A22	4
+B22	RX-
+A23	5
+B23	TX+
+A24	6
+B24	TX-
+A25	7
+B25	RX+
+A26	8
+B26	RX-
+A27	9
+A28	10
+A29	11
+A30	12
+A31	13
+A32	14
+A33	15
+A34	16
+A35	17
+A36	18
+A37	19
+A38	20
+A39	21
+A40	22
+A41	23
+A42	24
+A43	25
+== CON_DEV3-J01
+A1	Device
+B1	DEV3
+A2	Connector ID
+B2	DEV3-J01
+A3	Interface Name
+B3	IF-003; IF-004
+A6	Connector Type
+B6	Micro-D 25-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	25
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	DEV3 [DEV3-J01]: IF-003; IF-004; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	TX+
+A20	2
+B20	TX-
+A21	3
+B21	RX+
+A22	4
+B22	RX-
+A23	5
+B23	TX+
+A24	6
+B24	TX-
+A25	7
+B25	RX+
+A26	8
+B26	RX-
+A27	9
+A28	10
+A29	11
+A30	12
+A31	13
+A32	14
+A33	15
+A34	16
+A35	17
+A36	18
+A37	19
+A38	20
+A39	21
+A40	22
+A41	23
+A42	24
+A43	25
+== CON_DEV4-J01
+A1	Device
+B1	DEV4
+A2	Connector ID
+B2	DEV4-J01
+A3	Interface Name
+B3	IF-002; IF-004
+A6	Connector Type
+B6	Micro-D 25-pin, female (example, baseline power and data)
+A7	Number of Pins
+B7	25
+A8	Gender
+B8	female
+A9	Connector Name/Part Number
+B9	Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B6]&" "&[.B7]&" "&[.B8]
+A11	Connector Description
+B11	DEV4 [DEV4-J01]: IF-002; IF-004; Micro-D 25-pin, female (example, baseline power and data) 25 female	=[.B1]&" ["&[.B2]&"]: "&[.B3]&"; "&[.B9]
+A13	Link to ICD
+A14	ICD version
+A15	CON sheet copied from
+A18	Pinout
+B18	Function
+C18	Direction
+D18	Level
+E18	Description
+A19	1
+B19	TX+
+A20	2
+B20	TX-
+A21	3
+B21	RX+
+A22	4
+B22	RX-
+A23	5
+B23	TX+
+A24	6
+B24	TX-
+A25	7
+B25	RX+
+A26	8
+B26	RX-
+A27	9
+A28	10
+A29	11
+A30	12
+A31	13
+A32	14
+A33	15
+A34	16
+A35	17
+A36	18
+A37	19
+A38	20
+A39	21
+A40	22
+A41	23
+A42	24
+A43	25
+== About
+A1	Generated by
+B1	harness-design-studio 2.4.0 model f28fdf985b7b
+A2	Model hash
+B2	f28fdf985b7bcebcdc7d022edcc9c82070c96b58961e3705c29acb8b564258f5
+A3	Notice
+B3	harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.

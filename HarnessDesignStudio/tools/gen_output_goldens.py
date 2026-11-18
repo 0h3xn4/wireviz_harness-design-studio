@@ -9,7 +9,12 @@ every file, and the text files of the drawn harnesses and the system BOM and mas
 
 `splices` (format 3, M6a) is the project with splices of `tests/splice_support.py`
 (`branch_leg_project`: mini3 with a Y harness through two splices and a harness with a splice on a
-branch point's leg): the digest of every file, and the text files of those two harnesses."""
+branch point's leg): the digest of every file, and the text files of those two harnesses.
+
+`harness_plan/` (3.0.0, D-242, pull request 3 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`): the
+harness plans of the four examples and of the branching fixture, made with the plan on
+(`build_outputs(..., harness_plan=True)`): the SHA-256 of each plan in `<project>.json`, and the
+cells of the plans of `first-steps` and `branching` as text in `<project>/` to read in a diff."""
 
 import json
 import shutil
@@ -22,6 +27,7 @@ from harness_design_studio.core.outputs.build import build_outputs
 from harness_design_studio.core.samples import mini3, sat15, sat15_full
 from tests.helpers import output_digests
 from tests.loose_support import generated_loose, golden_text_files
+from tests.plan_support import GOLDEN_PROJECTS, READABLE, golden_files, golden_project
 from tests.splice_support import branch_leg_project
 from tests.splice_support import golden_text_files as splice_text_files
 
@@ -65,6 +71,17 @@ def main() -> None:
     for rel, data in splice_text_files(files).items():
         (text / rel).parent.mkdir(parents=True, exist_ok=True)
         (text / rel).write_bytes(data)
+    plans = ROOT / "harness_plan"
+    shutil.rmtree(plans, ignore_errors=True)
+    plans.mkdir()
+    for name in GOLDEN_PROJECTS:
+        digests, texts = golden_files(build_outputs(golden_project(name), harness_plan=True).files)
+        (plans / f"{name}.json").write_text(
+            json.dumps(digests, indent=1, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+        )
+        for rel, body in texts.items() if name in READABLE else ():
+            (plans / name / rel).parent.mkdir(parents=True, exist_ok=True)
+            (plans / name / rel).write_text(body, encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
