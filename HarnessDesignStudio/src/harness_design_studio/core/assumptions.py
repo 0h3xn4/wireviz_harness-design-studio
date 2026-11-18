@@ -221,13 +221,15 @@ ASSUMPTIONS: dict[str, Assumption] = {
         Assumption(
             "A-SEGMENT-MODE",
             "The mode decides which interfaces share a harness",
-            "Interfaces between the same pair of device connectors (per_connector_pair, the default), "
+            "Interfaces between the same pair of device connectors (per_connector_pair, the "
+            "default of a file that names no mode), "
             "of devices (per_unit_pair) or of zones (per_zone_pair) share a harness. Nominal and "
             "redundant chains never share one while segregation.forbid_nominal_with_redundant is on. "
             "Per device pair and per zone pair, a pyro line (while forbid_pyro_with_other is on) and "
             "the categories listed in category_pairs_to_separate get a harness of their own; per "
             "connector pair the connector decides and the tool only notes it when one harness mixes them. "
-            "Per connector group (per_connector_group, chosen by the project), the groups of "
+            "Per connector group (per_connector_group: the mode a new project starts in since "
+            "2.4.0; a project keeps the mode it names), the groups of "
             "per_connector_pair that plug into one device connector are joined into one harness "
             "with one plug on each device connector, branching where an end has more than one "
             "connector; the two ends come from a walk from the first connector in natural ID "

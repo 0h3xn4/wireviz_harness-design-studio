@@ -54,12 +54,14 @@ class ConfigFile(Entity):
 def default_configs() -> dict[str, ConfigFile]:
     """Starter configuration. Every `placeholder: True` file needs an engineer's review."""
     return {
+        # per_connector_pair | per_unit_pair | per_zone_pair | per_connector_group. This is also
+        # what the loader puts in place of a missing file, so it stays the mode every tool before
+        # 2.4.0 wrote: a project is never switched by a default. A project a person starts gets
+        # per_connector_group (D-247, `samples.start_project`).
         "segmentation": ConfigFile(
             name="segmentation",
             placeholder=True,  # DECISIONS D-10: defaulted, owner must confirm
-            values={
-                "mode": "per_connector_pair"
-            },  # per_connector_pair | per_unit_pair | per_zone_pair | per_connector_group
+            values={"mode": "per_connector_pair"},
         ),
         "segregation": ConfigFile(
             name="segregation",

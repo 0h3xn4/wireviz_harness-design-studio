@@ -7,7 +7,7 @@ that adds an interface or draws a harness).
 
 The users' harness *DEV2 + DEV3 <-> DEV1 + DEV4*: a blank project; `import-pinout` of DEV1 to DEV4,
 one connector each with two RS-422 ports; four interfaces DEV2 -> DEV1, DEV2 -> DEV4, DEV3 -> DEV1,
-DEV3 -> DEV4. Generate in the default mode gives four harnesses and two plugs on every connector;
+DEV3 -> DEV4. Generate in `per_connector_pair` (the mode of a project made before 2.4.0) gives four harnesses and two plugs on every connector;
 `settings --set segmentation.mode="per_connector_group"` and Generate give one harness with four
 plugs, two branch points and a trunk, and no warning. Then the lengths of the five segments
 (`import-lengths`, one typed in as the Routing table does), `export`, `segments.csv`, the sheets
@@ -76,9 +76,12 @@ def pinout(folder: Path) -> Path:
 
 
 def four_devices(folder: Path, capsys: pytest.CaptureFixture[str]) -> Path:
-    """A blank project with DEV1 to DEV4, each with the connector J1 of `pinout`."""
+    """A blank project with DEV1 to DEV4, each with the connector J1 of `pinout`, in
+    `per_connector_pair` as a project made before 2.4.0 (a new blank project starts in
+    `per_connector_group` since then, D-247): the case of 2.3.0 switches the mode itself."""
     proj = folder / "proj"
     ok(capsys, "new", proj, "--template", "blank")
+    ok(capsys, "settings", proj, "--set", 'segmentation.mode="per_connector_pair"')
     csv = pinout(folder)
     for dev in DEVICES:
         out = ok(
@@ -135,7 +138,7 @@ def users_harness(folder: Path, capsys: pytest.CaptureFixture[str]) -> Path:
         assert iid == f"IF-00{n}"
     save_project(p, proj)
 
-    # the default mode: one harness per pair of connectors, two plugs on every connector
+    # per_connector_pair: one harness per pair of connectors, two plugs on every connector
     out = ok(capsys, "generate", proj)
     assert "4 added" in out and out.count("[box_connector_shared]") == 4
     assert "or set segmentation.mode to per_connector_group for one harness that branches" in out

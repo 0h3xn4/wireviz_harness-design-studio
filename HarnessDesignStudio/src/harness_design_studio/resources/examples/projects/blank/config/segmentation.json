@@ -2,6 +2,6 @@
   "name": "segmentation",
   "placeholder": true,
   "values": {
-    "mode": "per_connector_pair"
+    "mode": "per_connector_group"
   }
 }

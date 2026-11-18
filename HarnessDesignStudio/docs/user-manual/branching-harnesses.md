@@ -54,7 +54,9 @@ In the worked example below, the wire from DEV1 to DEV2 runs along three segment
 
 ## 1. Let Generate make the harness
 
-By default Generate makes one harness for each pair of device connectors ([how links become harnesses](generate-harnesses.md#how-links-become-harnesses)). The choice `per_connector_group` joins the harnesses that plug into one device connector into one harness that branches: one plug on each device connector, a branch point on an end with more than one connector, the trunk, and a segment to each plug. It is your choice; the default does not change.
+The choice `per_connector_group` of `segmentation.mode` joins the harnesses that plug into one device connector into one harness that branches: one plug on each device connector, a branch point on an end with more than one connector, the trunk, and a segment to each plug ([how links become harnesses](generate-harnesses.md#how-links-become-harnesses)). **Since 2.4.0 a new project starts with it** (decision D-247): `new FOLDER`, **File > New project** with the empty project, and `create_project` of the scripting interface. For example a 21-pin Micro-D on one device that carries RS-422, RS-485 and CAN to three devices, each with its own connector, gets one harness with one plug on the Micro-D, one branch point and four segments.
+
+A project made before 2.4.0 keeps `per_connector_pair`, one harness for each pair of device connectors, and so do the examples `first-steps`, `minimal-satellite` and `small-satellite`; nothing switches a project's mode by itself. In such a project a device connector with links to several far connectors gets one plug for each harness. After **Generate** the editor then says so once: *OBC-J01 has the plugs of several harnesses (W001, W002 and W003), and a connector takes one plug.* The button **Make one harness that branches** chooses `per_connector_group` (one undo step) and offers **Generate again**. Close the notice to keep `per_connector_pair`; the editor remembers the answer for the project on this computer, not in the project's files.
 
 **In the app:** open **Settings > Project**, find **How interfaces are grouped into harnesses** and choose **Per connector group**. The sentence under it says what the choice does. It is one undo step and takes effect at the next **Generate**.
 
@@ -81,16 +83,17 @@ When a device connector still has plugs of several harnesses that Generate made,
 
 The users' harness *DEV2 + DEV3 to DEV1 + DEV4*: four devices, one connector each, with two RS-422 ports. DEV2 and DEV3 each talk to DEV1 and to DEV4.
 
-1. Make a blank project and import the four pinouts. The file `dev.csv` holds one connector J1 with the ports RS422_1 on pins 1-4 and RS422_2 on pins 5-8 ([a connector with several ports](define-a-device.md#a-connector-with-several-ports-since-210)):
+1. Make a blank project and import the four pinouts. The file `dev.csv` holds one connector J1 with the ports RS422_1 on pins 1-4 and RS422_2 on pins 5-8 ([a connector with several ports](define-a-device.md#a-connector-with-several-ports-since-210)). A new project starts in `per_connector_group`; to see what a project made before 2.4.0 does, this example first sets `per_connector_pair`:
 
    ```
    harness-design-studio new branching --template blank
+   harness-design-studio settings branching --set segmentation.mode="per_connector_pair"
    harness-design-studio import-pinout branching dev.csv --device DEV1 --new-device "Device 1" --subsystem avionics --default-part EX-MICROD-25-F --gender female
    ```
 
    Do the same for DEV2, DEV3 and DEV4. Then connect DEV2 to DEV1, DEV2 to DEV4, DEV3 to DEV1 and DEV3 to DEV4 with RS-422 in the editor (Guided mode chooses the connector and the port of each).
 
-2. Generate in the default mode. Every connector gets two plugs, and Generate warns four times:
+2. Generate in `per_connector_pair`. Every connector gets two plugs, and Generate warns four times:
 
    ```
    $ harness-design-studio generate branching
@@ -294,7 +297,7 @@ A project with branches is still format 2. Versions 2.2.x, 2.1.x and 2.0.x open 
 | `branch:` marks | Kept as marks of a kind it does not know. It never drops them, and its `merge-fix` does not rename them. |
 | A length you entered on a generated harness | Kept by its Generate. |
 
-**Update the whole team together** before anyone chooses `per_connector_group`. After you upgrade from 2.2, nothing changes on open or on Generate: existing harnesses with two plugs on one connector stay as they are until you choose the mode or join them.
+**Update the whole team together** before anyone chooses `per_connector_group`, and before anyone makes a new project with 2.4.0 or later, which starts in it. After you upgrade from 2.2, nothing changes on open or on Generate: existing harnesses with two plugs on one connector stay as they are until you choose the mode or join them.
 
 ## What is not in 2.3.0
 

@@ -7,7 +7,7 @@ Status after the October audit. Decided by you: D-11 and D-12 will be supplied l
 ## D-10 Harness boundary rule (what goes into one harness)
 | Option | Result | Good for | Cost |
 | --- | --- | --- | --- |
-| **A. One harness per pair of connectors** (current default, `per_connector_pair`) | many small harnesses, each a cable between exactly two connectors | modular units with one cable per connector; simplest drawings and tests | many drawings; no shared trunk |
+| **A. One harness per pair of connectors** (`per_connector_pair`; the default of a file that names no mode, and of a new project until 2.4.0, D-247) | many small harnesses, each a cable between exactly two connectors | modular units with one cable per connector; simplest drawings and tests | many drawings; no shared trunk |
 | **B. One harness per pair of units** (`per_unit_pair`) | all connectors between two units become one multi-connector harness | box-to-box cable sets built as one assembly | still point to point |
 | **C. One harness per pair of routing zones** (`per_zone_pair`) | one trunk per zone pair with all signals running along it | flight looms that follow the structure and break out near the units | needs the branch and segment model fully used (breakouts, in-line connectors, trunk lengths); more drawing work |
 | **D. A rule plus your overrides** | A, B or C as the default, and a table "interface to harness" you can edit; locked assignments are never changed | real projects where the manufacturing split is decided by people | an editor for the table and a clear report of what moved |

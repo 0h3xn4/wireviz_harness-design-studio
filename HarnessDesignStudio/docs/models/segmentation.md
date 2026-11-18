@@ -23,10 +23,10 @@ The key depends on `segmentation.mode` (the method is chosen with this key and t
 
 | Mode | Interfaces share a harness when they have the same |
 | --- | --- |
-| `per_connector_pair` (default) | pair of device connectors, and chain |
+| `per_connector_pair` (default of a file that names no mode) | pair of device connectors, and chain |
 | `per_unit_pair` | pair of devices, chain and class |
 | `per_zone_pair` | pair of zones, chain and class |
-| `per_connector_group` (since 2.3.0) | chain, and device connectors joined by interfaces ([below](#one-harness-that-branches)) |
+| `per_connector_group` (since 2.3.0; a new project starts with it since 2.4.0) | chain, and device connectors joined by interfaces ([below](#one-harness-that-branches)) |
 
 - The **chain** is the redundancy (nominal or redundant) of the interface. With `segregation.forbid_nominal_with_redundant` on (the default) the two chains never share a harness.
 - The **class** is `pyro` for a pyro interface (while `forbid_pyro_with_other` is on), otherwise the class of its category in `segregation.category_pairs_to_separate` (categories that must stay apart get different classes), otherwise `main`. In `per_connector_pair` mode the connector decides and the class is not part of the key; the tool notes it when one harness mixes classes.
@@ -43,7 +43,7 @@ The key depends on `segmentation.mode` (the method is chosen with this key and t
 
 ## The assumptions it rests on
 
-- **A-SEGMENT-MODE.** The mode decides which interfaces share a harness; the segregation settings keep chains, pyro lines and listed categories apart. In `per_connector_group` the groups of `per_connector_pair` that plug into one device connector are joined into one harness that branches; a ring, different chains and the interfaces of a released harness are not joined.
+- **A-SEGMENT-MODE.** The mode decides which interfaces share a harness; the segregation settings keep chains, pyro lines and listed categories apart. In `per_connector_group`, the mode a new project starts in since 2.4.0, the groups of `per_connector_pair` that plug into one device connector are joined into one harness that branches; a ring, different chains and the interfaces of a released harness are not joined.
 - **A-ZONE.** The zone of a device is a field of the device. Dragging a device box into another zone in the block diagram rewrites that field (the editor says so in a message), and the grouping per zone pair changes with it. Stays built in: it states where the zone is kept (a field of the device); how the zones group the harnesses is the setting `segmentation.mode`.
 
 ## A worked example
@@ -56,7 +56,7 @@ A mode that is not one of the four is not used: the default is, and the derivati
 
 ## One harness that branches
 
-Since 2.3.0 (decision D-243) `segmentation.mode` can be `per_connector_group`. It is chosen by the project; the default stays `per_connector_pair`. Generate first makes the groups of `per_connector_pair`, then joins them:
+Since 2.3.0 (decision D-243) `segmentation.mode` can be `per_connector_group`. It is chosen by the project. Since 2.4.0 (decision D-247) a new project starts with it (`new FOLDER`, the editor's *New project*, `create_project`); a project keeps the mode it names, so a project made before stays `per_connector_pair`, and a file that names no mode is still read as `per_connector_pair`, the default of the setting. Generate first makes the groups of `per_connector_pair`, then joins them:
 
 1. A graph has a node for each device connector and an edge for each group. Each chain has its own graph while `segregation.forbid_nominal_with_redundant` is on, so the two chains are never joined.
 2. Each connected part of the graph is a candidate. Its connectors are put on two ends by a walk from its first connector in natural ID order (`STR2-J01` before `STR10-J01`), which is end X; the connectors joined to it are end Y, and so on.

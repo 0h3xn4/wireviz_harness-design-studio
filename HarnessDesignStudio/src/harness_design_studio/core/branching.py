@@ -49,8 +49,10 @@ from .origin import harness_link
 from .wires import released_text, used_ids
 
 __all__ = [
+    "BranchOffer",
     "Leg",
     "PlugFix",
+    "branch_offer",
     "plan_add_branch_point",
     "plan_add_leg",
     "plan_add_segment",
@@ -687,3 +689,32 @@ def plug_fix(project: Project, box_id: str) -> PlugFix | None:
     if drafts and mode_of(project) != GROUP_MODE:
         return PlugFix("mode", box_id, ids)
     return None
+
+
+@dataclass(frozen=True)
+class BranchOffer:
+    """What the editor's notice of 2.4.0 (D-247) names: the device connectors with plugs of
+    several drafts of Generate in a project that keeps `per_connector_pair`, and those drafts."""
+
+    boxes: tuple[str, ...]  # in natural ID order
+    harness_ids: tuple[str, ...]  # in ID order
+
+
+def branch_offer(project: Project) -> BranchOffer | None:
+    """The offer of one harness that branches (D-247): a project in `per_connector_pair` whose
+    device connectors carry plugs of several harnesses that Generate made and makes again (every
+    one of them has the fix `mode` of `plug_fix`). None in any other mode, and when no device
+    connector has such plugs. A new project starts in `per_connector_group`; a project in
+    `per_connector_pair` is never switched without a person's choice, so the editor asks once."""
+    from .generate.segmentation import mode_of
+    from .integrity import mating_plugs
+    from .links import natural_key
+
+    if mode_of(project) != "per_connector_pair":
+        return None
+    fixes = [plug_fix(project, box) for box in mating_plugs(project.harnesses.values())]
+    found = [f for f in fixes if f is not None and f.kind == "mode"]
+    if not found:
+        return None
+    boxes = tuple(sorted((f.box_id for f in found), key=natural_key))
+    return BranchOffer(boxes, tuple(sorted({h for f in found for h in f.harness_ids})))

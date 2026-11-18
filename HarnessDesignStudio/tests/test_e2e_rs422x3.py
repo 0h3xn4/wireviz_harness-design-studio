@@ -72,11 +72,22 @@ def files(folder: Path) -> dict[str, bytes]:
     }
 
 
-def imported(tmp_path: Path, capsys: pytest.CaptureFixture[str], obc_csv: str) -> Path:
+def imported(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    obc_csv: str,
+    *,
+    mode: str | None = "per_connector_pair",
+) -> Path:
     """A blank project with OBC1 (J1 from `obc_csv`) and the star trackers STR1-STR3, each with
-    one RS-422 connector, all by the command line."""
+    one RS-422 connector, all by the command line. `mode`: the segmentation of the project; the
+    case of 2.1.0 is a project in `per_connector_pair`, as every project made before 2.4.0 (a new
+    blank project starts in `per_connector_group` since then, D-247); None keeps the new one."""
     proj = tmp_path / "proj"
     assert run(capsys, "new", str(proj), "--template", "blank")[0] == 0
+    if mode is not None:
+        code, out = run(capsys, "settings", str(proj), "--set", f'segmentation.mode="{mode}"')
+        assert code == 0, out
     obc = tmp_path / "obc1.csv"
     obc.write_text(obc_csv, encoding="utf-8")
     code, out = run(
@@ -150,7 +161,7 @@ def test_rs422x3_end_to_end(
     code, out = run(capsys, "generate", str(proj))
     assert code == 0, out
     assert "3 added" in out
-    # per_connector_pair (the default): three harnesses, each with a plug on J1 (opt-in per_connector_group joins them)
+    # per_connector_pair (a project made before 2.4.0): three harnesses, each with a plug on J1 (per_connector_group joins them)
     assert "[box_connector_shared] OBC1-J01 has more than one cable plug on it" in out
     assert ports_used(proj) == {f"IF-00{k}": {f"RS422_{k}"} for k in (1, 2, 3)}
 

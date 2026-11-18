@@ -23,10 +23,25 @@ def _pins(*signals: tuple[str, str | None]) -> list[Pin]:
 
 
 def new_project(name: str = "Untitled project") -> Project:
-    """An empty project with the starter library, interface types and default lanes."""
+    """An empty project with the starter library, interface types and default lanes. Its
+    segmentation is `per_connector_pair`, as in every tool before 2.4.0 (the examples and the tests
+    build on it); a project a person starts is `start_project`."""
     p = Project(meta=ProjectMeta(name=name))
     p.parts = {x.id: x for x in starter_parts()}
     p.interface_types = {x.id: x for x in starter_interface_types()}
+    return p
+
+
+def start_project(name: str = "Untitled project") -> Project:
+    """The project a person starts (the blank example of `new`, the editor's New project):
+    `new_project` with `segmentation.mode` = `per_connector_group`, one harness that branches
+    where a device connector carries interfaces to several devices (owner decision of 2026-11-18,
+    D-247: most connectors are custom and bespoke)."""
+    from .generate.segmentation import NEW_PROJECT_MODE
+
+    p = new_project(name)
+    seg = p.config["segmentation"]
+    p.config["segmentation"] = evolve(seg, values={**seg.values, "mode": NEW_PROJECT_MODE})
     return p
 
 
