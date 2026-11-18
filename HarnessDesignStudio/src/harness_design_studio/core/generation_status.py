@@ -70,7 +70,11 @@ def input_hash(project: Project) -> str:
         # Generate never reads it, so it must not make the plans look out of date
         "parts": dump(x for x in project.parts.values() if x.id != TBD_PART_ID),
         "zones": list(project.zones),
-        "config": {n: _config_dump(c) for n, c in sorted(project.config.items())},
+        # the harness plan's settings (format 3, design of 3.0.0 section 6) are read by the plan
+        # only: a new colour code must not make the harnesses look out of date
+        "config": {
+            n: _config_dump(c) for n, c in sorted(project.config.items()) if n != "harness_plan"
+        },
         "box_connectors": boxes,
         "locked_wires": sorted(
             (w.model_dump(mode="json") for h in generated for w in h.wires if w.locked),

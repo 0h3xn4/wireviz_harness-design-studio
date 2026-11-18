@@ -23,9 +23,9 @@ BANNED_MODULES = {
     "webbrowser", "imaplib", "poplib", "nntplib", "socketserver",
 }  # fmt: skip
 # Core modules that import only the standard library and the program's own core: the `.ods` writer
-# (design of 3.0.0 section 8: no dependency, and nothing that imports network code at import time,
-# such as `xml.sax.saxutils`, which `canvas.escape` replaces)
-STDLIB_AND_CORE_ONLY = ["core/outputs/ods.py"]
+# and the harness plan built on it (design of 3.0.0 section 8: no dependency, and nothing that
+# imports network code at import time, such as `xml.sax.saxutils`, which `canvas.escape` replaces)
+STDLIB_AND_CORE_ONLY = ["core/outputs/ods.py", "core/outputs/harness_plan.py"]
 BANNED_QT = {"QtNetwork", "QtWebEngineCore", "QtWebEngineWidgets", "QtWebChannel", "QtWebSockets"}
 
 
