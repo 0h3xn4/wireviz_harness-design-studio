@@ -16,7 +16,9 @@ configuration file, a table of its properties with a status chip per engineering
 unreviewed placeholder, locked). The end of a cable drawn by hand (kind `cable_end`, a cable
 connector of a harness: M4c) shows its harness, the harness's origin, whether it is plugged in or
 an open end, and the fields to name it, give it a connector part, plug it in or unplug it; a
-harness shows its origin (interfaces, a connection, or drawn by hand). The **Why** tab is a
+harness shows its origin (interfaces, a connection, or drawn by hand). A branch point (kind
+`branch_point`, 2.3.0) shows its name, its harness and each of its segments with its length. The
+**Why** tab is a
 `WhyPanel`. The **Problems** tab hosts the
 `ProblemsPanel` that is handed in; this module does not touch it.
 """
@@ -45,7 +47,7 @@ from harness_design_studio.core import cable_ends, configcheck, describe
 from harness_design_studio.core.build_data import plan_set_part_tool
 from harness_design_studio.core.devices import connector_parts_to_choose
 from harness_design_studio.core.edit import EditError
-from harness_design_studio.core.model import Project
+from harness_design_studio.core.model import BranchPoint, Harness, Project
 from harness_design_studio.core.model.physical import LOOSE_ROLE
 from harness_design_studio.core.origin import harness_link, harness_origin
 from harness_design_studio.core.usedby import KINDS as USED_KINDS
@@ -61,13 +63,14 @@ from harness_design_studio.gui.controller import LIST_DELAY_MS, EditorController
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
 from harness_design_studio.gui.panels import PropertiesPanel, heading, muted
+from harness_design_studio.gui.routing_panel import branch_segments, length_text
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager
 from harness_design_studio.gui.why_panel import WhyPanel
 
 TABS = ("inspector", "why", "problems")
-FACT_KINDS = ("harness", "part", "interface_type", "config", "cable_end")  # a table, not a form
+FACT_KINDS = ("harness", "part", "interface_type", "config", "cable_end", "branch_point")
 MAX_TABLE_ROWS = 4
 
 
@@ -331,12 +334,55 @@ def _cable_end_facts(p: Project, oid: str) -> list[dict[str, Any]]:
     return rows
 
 
+def branch_point_of(p: Project, oid: str) -> tuple[Harness, BranchPoint] | None:
+    """(harness, branch point) of a branch point ID, or None."""
+    for h in p.harnesses.values():
+        for b in h.branch_points:
+            if b.id == oid:
+                return h, b
+    return None
+
+
+def _branch_point_facts(p: Project, oid: str) -> list[dict[str, Any]]:
+    """A branch point (2.3.0): its name, its harness and each of its segments with its length."""
+    found = branch_point_of(p, oid)
+    if found is None:
+        return []
+    h, b = found
+    L = strings.INS_FACT_LABELS
+    pairs = branch_segments(h, b.id)
+    rows = [
+        _fact(L["name"], b.name),
+        _fact(strings.INS_FACT_HARNESS, f"{h.id} · {h.name}"),
+        _fact(strings.INS_FACT_ORIGIN, origin_text(p, h.id), tip=strings.INS_ORIGIN_TIP),
+        _fact(
+            strings.INS_BP_SEGMENTS,
+            str(len(pairs)),
+            strings.STATE_LABELS["pending"] if len(pairs) < 2 else "",
+            "pending" if len(pairs) < 2 else None,
+            strings.INS_BP_NO_SEGMENT if len(pairs) < 2 else "",
+        ),
+    ]
+    ends = {s.id: (s.from_node, s.to_node) for s in h.segments}
+    for sid, metres in pairs:
+        a, z = ends[sid]
+        tip = strings.INS_BP_SEGMENT_TIP.format(segment=sid, a=a, b=z)
+        if metres is None:
+            rows.append(
+                _fact(sid, strings.RT_NO_LENGTH, strings.STATE_LABELS["pending"], "pending", tip)
+            )
+        else:
+            rows.append(_fact(sid, length_text(metres), tip=tip))
+    return rows
+
+
 _FACTS: dict[str, Callable[[Project, str], list[dict[str, Any]]]] = {
     "harness": _harness_facts,
     "part": _part_facts,
     "interface_type": _type_facts,
     "config": _config_facts,
     "cable_end": _cable_end_facts,
+    "branch_point": _branch_point_facts,
 }
 
 
@@ -350,6 +396,8 @@ def facts_for(project: Project, kind: str, object_id: str) -> list[dict[str, Any
     }
     if kind == "cable_end":
         return _cable_end_facts(project, object_id)
+    if kind == "branch_point":
+        return _branch_point_facts(project, object_id)
     if kind not in exists or object_id not in exists[kind]:
         return []
     return _FACTS[kind](project, object_id)
@@ -654,6 +702,8 @@ class Inspector(QWidget):
     def _exists(project: Project, kind: str, oid: str) -> bool:
         if kind == "cable_end":
             return cable_ends.connector_of(project, oid) is not None
+        if kind == "branch_point":
+            return branch_point_of(project, oid) is not None
         tables: dict[str, Mapping[str, Any]] = {
             "unit": project.units,
             "interface": project.interfaces,

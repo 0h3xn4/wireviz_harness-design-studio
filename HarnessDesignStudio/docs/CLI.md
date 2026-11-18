@@ -26,7 +26,7 @@ The examples show the form of each command with example names. They do not all w
 - [JSON output](#json-output): `--json` on every command that has a result in data form
 - Start: [`new`](#harness-design-studio-new), [`templates`](#harness-design-studio-templates), [`schema`](#harness-design-studio-schema)
 - Check: [`validate`](#harness-design-studio-validate), [`check`](#harness-design-studio-check), [`drc`](#harness-design-studio-drc), [`verify`](#harness-design-studio-verify)
-- Explain: [`explain`](#harness-design-studio-explain), [`settings`](#harness-design-studio-settings), [`workflow`](#harness-design-studio-workflow)
+- Explain: [`explain`](#harness-design-studio-explain), [`routing`](#harness-design-studio-routing), [`settings`](#harness-design-studio-settings), [`workflow`](#harness-design-studio-workflow)
 - Overrides and change history: [`override`](#harness-design-studio-override), [`deviation`](#harness-design-studio-deviation), [`journal`](#harness-design-studio-journal)
 - Generate and export: [`generate`](#harness-design-studio-generate), [`export`](#harness-design-studio-export), [`export-data`](#harness-design-studio-export-data)
 - Team use with Git: [`merge-fix`](#harness-design-studio-merge-fix)
@@ -57,6 +57,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `explain --all` | `ok`, `count`, `without_value`, `files` |
 | `explain DEVICE` | `ok`, `device`, `name`, `follows`, `state`, `library`, `file`, `record`, `message` |
 | `explain OBJECT` | `id`, `subject`, `quantity`, `value`, `unit`, `equation`, `inputs`, `steps`, `check`, `assumptions`, `reference`, `missing`, `model_page` |
+| `routing` | `ok`, `harness`, `name`, `origin`, `branches`, `connectors`, `segments`, `branch_points`, `lengths_missing`, `wires_without_route` |
 | `export-data` | `ok`, `count`, `model_hash`, `files`, `run_record` |
 | `generate` | `ok`, `saved`, `added`, `changed`, `unchanged`, `removed`, `frozen`, `kept_locks`, `findings`, `interfaces_checked`, `wires_checked`, `verify_issues` |
 | `export` | `ok`, `written`, `blocked`, `model_hash`, `drawings_removed`, `file_count`, `files`, `issues` |
@@ -242,14 +243,14 @@ harness-design-studio verify my-design --json
 
 ### harness-design-studio explain
 
-Show how the numbers and decisions of one object were made. For a wire: its length, the choice of its gauge (the gauges tried, the limit of each after derating, its drop, the first that passes; not part of --all), the current its gauge may carry after derating, the voltage drop over it and its share of the mass, then its label, its colour, its shield group and the pins at its ends. For a harness: its mass, whether it is ready to build and each check behind that, its test limits, why its interfaces share it, its shield groups and its connectors; HARNESS.T001 explains the limits of one test. For an interface: which harness carries it and why, its connectors, the contact current and its pins. For a connector: why it is the connector (or the mating part) and its label; for CONNECTOR.PIN: why the signal is on that pin; for a shield group (W001-S1): why it exists and its ends. For a part: why the bill of materials has its quantity. For INTERFACE.CONNECTOR (the object of a current-over-contact finding): the limit of the contacts. For each: the equation, the inputs with their units and where each comes from (a key of config/*.json, a field of the design or the program), the intermediate results, what the result is checked against, and the assumptions built into the program that it rests on. The numbers are the ones `generate` and `drc` use. The last line names the page of docs/models/ that explains the model behind each kind of number shown (`Model page: docs/models/wire-sizing.md`). `--json` prints the same as data (a list; each derivation also has the key `model_page`). With `--all --out FOLDER` it writes every derivation of the project to FOLDER as `derivations.json` and `derivations.csv`: no time, user or path is in them, so the same design gives the same files; with `--json` as well it prints how many it wrote instead of the line of text. Without `--out` nothing is written.
+Show how the numbers and decisions of one object were made. For a wire: its length, the choice of its gauge (the gauges tried, the limit of each after derating, its drop, the first that passes; not part of --all), the current its gauge may carry after derating, the voltage drop over it and its share of the mass, then its label, its colour, its shield group and the pins at its ends. For a harness: its mass, whether it is ready to build and each check behind that, its test limits, why its interfaces share it, its shield groups and its connectors; HARNESS.T001 explains the limits of one test. For an interface: which harness carries it and why, its connectors, the contact current and its pins. For a connector: why it is the connector (or the mating part) and its label; for CONNECTOR.PIN: why the signal is on that pin; for a shield group (W001-S1): why it exists and its ends. For a segment of the routing (W001-L3): its two nodes, its length and where the length came from (entered or imported; kept by Generate on a harness Generate made) and the wires through it; for a branch point (W001-B2): the segments that meet it and the connectors beyond each. For a part: why the bill of materials has its quantity. For INTERFACE.CONNECTOR (the object of a current-over-contact finding): the limit of the contacts. For each: the equation, the inputs with their units and where each comes from (a key of config/*.json, a field of the design or the program), the intermediate results, what the result is checked against, and the assumptions built into the program that it rests on. The numbers are the ones `generate` and `drc` use. The last line names the page of docs/models/ that explains the model behind each kind of number shown (`Model page: docs/models/wire-sizing.md`). `--json` prints the same as data (a list; each derivation also has the key `model_page`). With `--all --out FOLDER` it writes every derivation of the project to FOLDER as `derivations.json` and `derivations.csv`: no time, user or path is in them, so the same design gives the same files; with `--json` as well it prints how many it wrote instead of the line of text. Without `--out` nothing is written.
 
 `harness-design-studio explain project [OBJECT] [options]`
 
 | Argument | Meaning |
 | --- | --- |
 | `project` | project folder |
-| `OBJECT` | a wire (W001-001), a harness (W001), a test (W001.T001), an interface (IF-001), a connector (GPSU1-J01), a pin (MTQ1-J01.1), a shield group (W001-S1), a part (EX-WIRE-SINGLE) or INTERFACE.CONNECTOR (IF-001.GPSU1-J01) |
+| `OBJECT` | a wire (W001-001), a harness (W001), a test (W001.T001), an interface (IF-001), a connector (GPSU1-J01), a pin (MTQ1-J01.1), a shield group (W001-S1), a segment (W001-L3), a branch point (W001-B2), a part (EX-WIRE-SINGLE) or INTERFACE.CONNECTOR (IF-001.GPSU1-J01) |
 | `--json` | print the derivations as JSON |
 | `--all` | every derivation of the project (instead of OBJECT) |
 | `--out OUT` | with --all: the folder for derivations.json and derivations.csv |
@@ -266,6 +267,27 @@ harness-design-studio explain wheel-link IF-001.GPSU1-J01
 harness-design-studio explain wheel-link W001-001 --json
 harness-design-studio explain wheel-link PCDU1
 harness-design-studio explain wheel-link --all --out wheel-link-derivations --json
+harness-design-studio explain flatsat-build W005-L3
+harness-design-studio explain flatsat-build W005-B1
+```
+
+### harness-design-studio routing
+
+Show the routing tree of one harness, read only. For each segment (in natural ID order): its two nodes (a cable connector with the device connector it plugs into, or a branch point with its name), its length and where the length came from (entered; imported, with the file and the row of the import record; not set) and, on a harness Generate made, that Generate keeps it; then the wires through it, those whose one path between their connectors takes the segment. For each branch point: the connectors beyond it on each segment that meets it. The rows are those of segments.csv and of the sheet Routing that `export` writes for a harness with a branch point. A harness with no branch point prints its segments, if any, and says that it does not branch. Changes nothing. Lengths are entered in the editor or with `import-lengths`; `explain DIR SEGMENT` and `explain DIR BRANCH-POINT` explain one of them.
+
+`harness-design-studio routing project HARNESS [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `HARNESS` | the harness (W001) |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio routing flatsat-build W005
+harness-design-studio routing flatsat-build W005 --json
 ```
 
 ### harness-design-studio settings

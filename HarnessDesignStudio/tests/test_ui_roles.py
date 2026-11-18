@@ -3,7 +3,8 @@
 # mypy: disable-error-code="no-untyped-def,no-untyped-call,attr-defined,has-type"
 """M5 (D-176): the two roles on screen. REQ-GUI-14, REQ-GUI-15.
 
-The question of the first start, the silent role of an existing user, switching in both directions
+The question of the first start (since the owner's feedback of 2026-11-17 a section on Home, not a
+window of its own), the silent role of an existing user, switching in both directions
 without a restart, nothing hidden that cannot be reached, both themes, names and tooltips."""
 
 from pathlib import Path
@@ -18,7 +19,6 @@ from PySide6.QtWidgets import QApplication, QLabel, QPushButton  # noqa: E402
 
 from harness_design_studio.gui import areas, roles, strings  # noqa: E402
 from harness_design_studio.gui.main_window import MainWindow  # noqa: E402
-from harness_design_studio.gui.role_dialog import RoleDialog  # noqa: E402
 from harness_design_studio.gui.theme import ThemeManager  # noqa: E402
 from tests.ux_rel import themed  # noqa: E402
 
@@ -41,21 +41,16 @@ def make(qtbot, tmp_path, *, first_run=False, name="ui.ini", theme=None, **value
     return w
 
 
-class Asked:
-    """The `run_dialog` hook: records the question and answers it like a person would."""
+class NoWindow:
+    """The `run_dialog` hook: the first start opens no window of its own any more (the owner's
+    feedback of 2026-11-17: the question is on Home, not in a window of its own)."""
 
-    def __init__(self, answer: str | None) -> None:
-        self.answer = answer
-        self.dialogs: list[RoleDialog] = []
+    def __init__(self) -> None:
+        self.dialogs: list[object] = []
 
     def __call__(self, dlg) -> int:
-        assert isinstance(dlg, RoleDialog)
         self.dialogs.append(dlg)
-        if self.answer == "systems":
-            dlg.systems_btn.click()
-        elif self.answer == "electrical":
-            dlg.electrical_btn.click()
-        return 1
+        return 0
 
 
 @pytest.fixture
@@ -64,145 +59,176 @@ def no_hook(monkeypatch):
     monkeypatch.setattr(roles, "FIRST_RUN_ROLE", None)
 
 
-def show(qtbot, w: MainWindow, asked: Asked | None = None) -> MainWindow:
-    if asked is not None:
-        w.run_dialog = asked  # type: ignore[assignment]
+def show(qtbot, w: MainWindow) -> MainWindow:
     w.show()
     QApplication.processEvents()
     QApplication.processEvents()
     return w
 
 
+def start(qtbot, w: MainWindow, watch: NoWindow | None = None) -> MainWindow:
+    """The start as `app.main` does it: the landing page, then the window."""
+    if watch is not None:
+        w.run_dialog = watch  # type: ignore[assignment]
+    w.show_landing()
+    w.show()
+    for _ in range(3):
+        QApplication.processEvents()
+    return w
+
+
+def asked(w: MainWindow) -> bool:
+    """The question of the first start is on Home, on screen."""
+    page = w.home_page
+    return w.area() == "home" and page.role_card.isVisibleTo(w)
+
+
+def choose(w: MainWindow, role: str) -> None:
+    w.home_page.role_buttons[role].click()
+    QApplication.processEvents()
+
+
 # ---- the question of the first start -----------------------------------------------------------
-def test_a_new_settings_file_without_a_hook_asks_once(qtbot, tmp_path, no_hook) -> None:
-    asked = Asked("systems")
-    w = show(qtbot, make(qtbot, tmp_path, first_run=True), asked)
-    assert len(asked.dialogs) == 1
+def test_a_new_settings_file_without_a_hook_asks_once_on_home(qtbot, tmp_path, no_hook) -> None:
+    watch = NoWindow()
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True), watch)
+    assert asked(w) and w.landing()
+    for role in roles.ROLES:
+        assert w.home_page.role_buttons[role].isVisibleTo(w)
+    choose(w, "systems")
+    assert watch.dialogs == []  # no window: the question is on the page
     assert w.role == "systems" and w.settings.value("ui/role") == "systems"
+    assert not w.home_page.role_card.isVisibleTo(w)  # answered: the section goes
+    assert w.landing() and w.area() == "home" and w.ctl.root is None  # still Home, nothing open
     w.settings.sync()
     # a second start on the same file does not ask again
-    again = Asked(None)
-    w2 = show(qtbot, make(qtbot, tmp_path, first_run=True), again)
-    assert again.dialogs == [] and w2.role == "systems"
+    w2 = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    assert not asked(w2) and not w2.home_page.role_card.isVisibleTo(w2) and w2.role == "systems"
 
 
 def test_choosing_systems_stores_the_role_and_applies_its_layout(qtbot, tmp_path, no_hook) -> None:
-    w = show(qtbot, make(qtbot, tmp_path, first_run=True), Asked("systems"))
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    choose(w, "systems")
     assert w.role == "systems" and w.act_role_systems.isChecked()
-    assert w.area() == "next" and w.rail.current() == "next"
-    assert not w.dock_left.isVisibleTo(w) and not w.dock_right.isVisibleTo(w)
-    assert not w.act_minimap.isChecked() and not w.problem_notices_on()
-    assert not w.rail.buttons["home"].isVisibleTo(w.rail)
     assert w.settings_page.role_combo.currentData() == "systems"
+    assert not w.act_minimap.isChecked() and not w.problem_notices_on()
+    # Home stays until the person goes on; then the Systems engineer's layout is there
+    assert not w.top_toolbar.isVisibleTo(w) and not w.dock_left.isVisibleTo(w)
+    w.set_area("next")
+    assert not w.landing() and w.top_toolbar.isVisibleTo(w)
+    assert not w.dock_left.isVisibleTo(w) and not w.dock_right.isVisibleTo(w)
     assert w.next_page.links.isVisibleTo(w.next_page)
 
 
 def test_choosing_electrical_stores_the_role_and_shows_everything(qtbot, tmp_path, no_hook) -> None:
-    w = show(qtbot, make(qtbot, tmp_path, first_run=True), Asked("electrical"))
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    choose(w, "electrical")
     assert w.role == "electrical" and w.settings.value("ui/role") == "electrical"
-    assert w.act_role_electrical.isChecked() and w.area() == "model"
+    assert w.act_role_electrical.isChecked() and w.landing() and w.area() == "home"
     assert all(w.rail.buttons[k].isVisibleTo(w.rail) for k in areas.listed_areas("electrical"))
     assert not w.rail.buttons["asbuilt"].isVisibleTo(w.rail)  # the AIT engineer's page
     assert w.problem_notices_on()
 
 
-def test_closing_the_question_without_choosing_means_electrical(qtbot, tmp_path, no_hook) -> None:
-    asked = Asked(None)
-    w = show(qtbot, make(qtbot, tmp_path, first_run=True), asked)
-    assert len(asked.dialogs) == 1 and asked.dialogs[0].choice is None
-    assert w.role == "electrical" and w.settings.value("ui/role") == "electrical"
+def test_choosing_ait_stores_the_role(qtbot, tmp_path, no_hook) -> None:
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    choose(w, "ait")
+    assert w.role == "ait" and w.settings.value("ui/role") == "ait" and w.landing()
 
 
-def test_the_tour_comes_after_the_question(qtbot, tmp_path, no_hook) -> None:
-    w = show(qtbot, make(qtbot, tmp_path, first_run=True), Asked("systems"))
-    qtbot.waitUntil(lambda: w.tour.active, timeout=3000)
-    assert w.tour.card.isVisible()
-    w.tour.stop()
+def test_until_it_is_answered_the_window_is_an_electrical_engineer_and_view_role_answers_it(
+    qtbot, tmp_path, no_hook
+) -> None:
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    assert asked(w) and w.role == "electrical" and not w.settings.contains("ui/role")
+    w.act_role_ait.trigger()  # View > Role answers the question too
+    assert w.role == "ait" and w.settings.value("ui/role") == "ait"
+    w.set_area("home")
+    assert not w.home_page.role_card.isVisibleTo(w)
 
 
 def test_no_question_for_an_existing_user_a_hook_or_a_window_that_is_not_a_first_start(
     qtbot, tmp_path, no_hook, monkeypatch
 ) -> None:
     # an existing user: values and no role -> Electrical / AIT engineer, silently, stored
-    old = Asked(None)
-    w = show(qtbot, make(qtbot, tmp_path, name="old.ini", first_run=True, ui__theme="dark"), old)
-    assert old.dialogs == [] and w.role == "electrical"
+    w = start(qtbot, make(qtbot, tmp_path, name="old.ini", first_run=True, ui__theme="dark"))
+    assert not asked(w) and w.role == "electrical"
     assert w.settings.value("ui/role") == "electrical"
     # not a first start (tools, screenshots): no question, nothing stored
-    quiet = Asked(None)
-    w = show(qtbot, make(qtbot, tmp_path, name="quiet.ini", first_run=False), quiet)
-    assert quiet.dialogs == [] and w.role == "electrical" and not w.settings.contains("ui/role")
+    w = start(qtbot, make(qtbot, tmp_path, name="quiet.ini", first_run=False))
+    assert not asked(w) and w.role == "electrical" and not w.settings.contains("ui/role")
     # the hook of tests and CI
     monkeypatch.setattr(roles, "FIRST_RUN_ROLE", "systems")
-    hooked = Asked(None)
-    w = show(qtbot, make(qtbot, tmp_path, name="hook.ini", first_run=True), hooked)
-    assert hooked.dialogs == [] and w.role == "systems" and w.settings.value("ui/role") == "systems"
+    w = start(qtbot, make(qtbot, tmp_path, name="hook.ini", first_run=True))
+    assert not asked(w) and w.role == "systems" and w.settings.value("ui/role") == "systems"
 
 
 def test_the_choice_of_1_7_0_carries_over_silently(qtbot, tmp_path, no_hook) -> None:
-    asked = Asked(None)
-    w = show(
-        qtbot, make(qtbot, tmp_path, name="a.ini", first_run=True, ui__workspace="simple"), asked
-    )
-    assert w.role == "systems" and w.settings.value("ui/role") == "systems"
-    w = show(
-        qtbot, make(qtbot, tmp_path, name="b.ini", first_run=True, ui__workspace="full"), asked
-    )
-    assert w.role == "electrical"
-    assert asked.dialogs == []
+    w = start(qtbot, make(qtbot, tmp_path, name="a.ini", first_run=True, ui__workspace="simple"))
+    assert not asked(w) and w.role == "systems" and w.settings.value("ui/role") == "systems"
+    w = start(qtbot, make(qtbot, tmp_path, name="b.ini", first_run=True, ui__workspace="full"))
+    assert not asked(w) and w.role == "electrical"
 
 
 def test_a_hand_edited_role_falls_back(qtbot, tmp_path, no_hook) -> None:
-    w = show(qtbot, make(qtbot, tmp_path, first_run=False, ui__role="pink", ui__theme="dark"))
+    w = start(qtbot, make(qtbot, tmp_path, first_run=False, ui__role="pink", ui__theme="dark"))
     assert w.role == "electrical" and w.settings.value("ui/role") == "electrical"
 
 
-# ---- the question window -----------------------------------------------------------------------
+def test_the_role_dialog_is_gone() -> None:
+    import importlib.util
+
+    assert importlib.util.find_spec("harness_design_studio.gui.role_dialog") is None
+    assert not hasattr(MainWindow, "ask_role_flow")
+
+
+# ---- the question on Home ----------------------------------------------------------------------
 @pytest.mark.parametrize("mode", ["light", "dark"])
-def test_the_question_window_in_both_themes(qtbot, mode) -> None:
+def test_the_question_on_home_in_both_themes(qtbot, tmp_path, no_hook, mode) -> None:
     theme = themed(mode)
-    dlg = RoleDialog(None, theme)
-    qtbot.addWidget(dlg)
-    dlg.show()
-    QApplication.processEvents()
-    assert dlg.windowTitle() == "Who are you working as?" and dlg.isModal()
-    for button, title, sentence in (
-        (dlg.systems_btn, strings.ROLE_SYSTEMS, strings.ROLE_DIALOG_SYSTEMS_TEXT),
-        (dlg.electrical_btn, strings.ROLE_ELECTRICAL, strings.ROLE_DIALOG_ELECTRICAL_TEXT),
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True, theme=theme))
+    page = w.home_page
+    assert page.role_card.accessibleName() == strings.HOME_ROLE_NAME
+    texts = [label.text() for label in page.role_card.findChildren(QLabel)]
+    assert strings.HOME_ROLE_TITLE in texts and strings.HOME_ROLE_LATER in texts
+    assert "View > Role" in strings.HOME_ROLE_LATER
+    for role, title, sentence in (
+        ("systems", strings.ROLE_SYSTEMS, strings.HOME_ROLE_SYSTEMS_TEXT),
+        ("electrical", strings.ROLE_ELECTRICAL, strings.HOME_ROLE_ELECTRICAL_TEXT),
+        ("ait", strings.ROLE_AIT, strings.HOME_ROLE_AIT_TEXT),
     ):
+        button = page.role_buttons[role]
         assert isinstance(button, QPushButton)
         assert button.accessibleName() == title and button.accessibleDescription() == sentence
-        assert button.toolTip() and button.isVisibleTo(dlg)
-        assert button.height() >= theme.control_height() * 2
-    assert not dlg.grab().isNull()
-    texts = [label.text() for label in dlg.findChildren(QLabel)]
-    assert strings.ROLE_DIALOG_LATER in texts and "View > Role" in strings.ROLE_DIALOG_LATER
+        assert button.toolTip() and button.isVisibleTo(w)
+        assert button.height() >= theme.control_height() * 2  # a large button
+    assert not page.grab().isNull()
 
 
-def test_the_buttons_set_the_choice_and_close_the_window(qtbot) -> None:
-    for attr, role in (("systems_btn", "systems"), ("electrical_btn", "electrical")):
-        dlg = RoleDialog(None, themed("light"))
-        qtbot.addWidget(dlg)
-        dlg.show()
-        getattr(dlg, attr).click()
-        assert dlg.choice == role and not dlg.isVisible()
-    dlg = RoleDialog(None, themed("light"))
-    qtbot.addWidget(dlg)
-    dlg.show()
-    dlg.reject()
-    assert dlg.choice is None
+@pytest.mark.parametrize("width", [900, 1440])
+def test_the_question_on_home_has_room_for_its_text(qtbot, tmp_path, no_hook, width) -> None:
+    from tests.layout_audit import audit
+
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    w.resize(width, 700)
+    for _ in range(5):
+        QApplication.processEvents()
+    assert asked(w)
+    assert audit(w.home_page.role_card) == []
+    # the three buttons are one below the other, each as wide as the others
+    b = [w.home_page.role_buttons[r].geometry() for r in roles.ROLES]
+    assert b[0].bottom() < b[1].top() and b[1].bottom() < b[2].top()
 
 
-def test_the_tab_walk_of_the_question_window_visits_both_buttons(qtbot) -> None:
-    dlg = RoleDialog(None, themed("light"))
-    qtbot.addWidget(dlg)
-    dlg.show()
-    QApplication.processEvents()
-    seen = {dlg.focusWidget()}
+def test_the_tab_walk_of_the_question_visits_the_three_buttons(qtbot, tmp_path, no_hook) -> None:
+    w = start(qtbot, make(qtbot, tmp_path, first_run=True))
+    w.activateWindow()
+    w.home_page.role_buttons["systems"].setFocus()
+    seen = {QApplication.focusWidget()}
     for _ in range(3):
-        dlg.focusNextChild()
-        seen.add(dlg.focusWidget())
-    assert {dlg.systems_btn, dlg.electrical_btn} <= seen
+        w.focusNextChild()
+        seen.add(QApplication.focusWidget())
+    assert set(w.home_page.role_buttons.values()) <= seen
 
 
 # ---- switching live -----------------------------------------------------------------------------
@@ -367,7 +393,5 @@ def test_names_and_tooltips(qtbot, tmp_path) -> None:
     assert combo.objectName() == "settings-role"
     for button in (w.next_page.library, w.next_page.everything):
         assert button.accessibleName() and button.toolTip()
-    last = strings.TOUR_STEPS[-1]
-    assert last[0] == "role" and "View > Role" in last[1] and w.tour.targets["role"] is w.rail
     for text in (strings.NEXT_SHOW_EVERYTHING_TIP, strings.SETTINGS_ROLE_HINT):
         assert "workspace" not in text.lower() and "Simple" not in text and "Full" not in text

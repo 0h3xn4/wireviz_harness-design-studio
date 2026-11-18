@@ -32,7 +32,7 @@ In the app, **File > New project from an example…** makes a project from any o
 
 ## Which build do you have?
 
-`harness-design-studio --version` prints `harness 2.2.0` for this version (1.0.0 and later list the same five examples). If you still have the 0.1.0 packages, you can tell them by the examples they have. Ask the tool:
+`harness-design-studio --version` prints `harness 2.3.0` for this version (1.0.0 and later list the same five examples). If you still have the 0.1.0 packages, you can tell them by the examples they have. Ask the tool:
 
 ```
 harness-design-studio new --list
@@ -217,7 +217,7 @@ Model hash: `<hash>`. Rules run: 39.
 Open: 0 error(s), 28 warning(s), 47 note(s). Waived: 0.
 ```
 
-`harness-design-studio export my-flatsat` writes `89 files written to my-flatsat/outputs (model <hash>).` The figures in [`FLATSAT_EXAMPLE.md`](../FLATSAT_EXAMPLE.md) (23 devices, 44 interfaces, 8 harnesses, 103 wires, and per harness 18, 26, 2, 22, 7, 16, 8 and 4 wires; 329.6 m of wire and 2.25 kg with margin in `outputs/system/mass_length.csv`) agree with the files this run produced. `generate` reports `8 unchanged` because nothing needs to be made. **Next:** open it in the app and click `PDU2`: only its links stay in colour.
+`harness-design-studio export my-flatsat` writes `95 files written to my-flatsat/outputs (model <hash>).` The figures in [`FLATSAT_EXAMPLE.md`](../FLATSAT_EXAMPLE.md) (23 devices, 44 interfaces, 8 harnesses, 103 wires, and per harness 18, 26, 2, 22, 7, 16, 8 and 4 wires; 329.6 m of wire and 2.25 kg with margin in `outputs/system/mass_length.csv`) agree with the files this run produced. `generate` reports `8 unchanged` because nothing needs to be made. **Next:** open it in the app and click `PDU2`: only its links stay in colour.
 
 ## Does every example run?
 
@@ -229,7 +229,7 @@ Every example was run through `new`, `validate`, `generate` (where it is not alr
 | `first-steps` | 0 errors | 2 added, 6 wires | 0 errors, 10 warnings, 8 notes | 35 files | 0 errors |
 | `minimal-satellite` | 0 errors | 11 added, 24 wires | 0 errors, 15 warnings, 17 notes | 116 files | 0 errors |
 | `small-satellite` | 0 errors | 24 added, 54 wires | 0 errors, 20 warnings, 28 notes | 233 files | 0 errors |
-| `flatsat` | 0 errors | 8 unchanged, 103 wires | 0 errors, 28 warnings, 47 notes | 89 files | 0 errors |
+| `flatsat` | 0 errors | 8 unchanged, 103 wires | 0 errors, 28 warnings, 47 notes | 95 files | 0 errors |
 
 The file counts are those of `export` without `--drawings` (a build workbook for every harness, no harness drawings). This is new in 1.7.0: with 1.6.0 and earlier, `export` wrote the drawings and no build workbook, and the counts were 38, 137, 280 and 112. With `export --drawings` the counts are 40, 148, 304 and 120 (the old count plus one build workbook for each harness: 2, 11, 24 and 8). `verify --outputs` ends with 0 errors in both cases.
 

@@ -50,32 +50,6 @@ GLOSSARY: list[tuple[str, str]] = [
     ),
 ]
 
-TOUR_STEPS: list[tuple[str, str]] = [
-    (
-        "add",
-        "Start here: press Add in the project panel and pick Device. Each device is a box in your system, like a computer or a wheel.",
-    ),
-    (
-        "canvas",
-        "This is your block diagram. Drag devices to move them. The lane a device sits in is its zone.",
-    ),
-    (
-        "types",
-        "To connect two devices, press Connect and click the two devices. The Link connectors window opens and proposes the pairs of pins by name; you can also pair by pin number or paste a pairing, and nothing is paired until you accept it. To connect by interface type instead, use the arrow next to Connect, or Edit > Connect with an interface type.",
-    ),
-    (
-        "problems",
-        "Problems and a to-do list appear in the Problems tab here and update as you work. Click any line to jump to the item.",
-    ),
-    (
-        "generate",
-        "Generate harnesses builds the harness plans from this diagram. You see a preview first, and one Undo takes it back.",
-    ),
-    (
-        "role",
-        "The bar on the left lists the areas of the program. What it lists depends on your role: change the role any time in View > Role.",
-    ),
-]
 
 PROPERTIES = "Properties"
 NOTHING_SELECTED = (
@@ -184,11 +158,6 @@ ISSUES_RECOVERED = "Some parts could not be loaded. Everything else was loaded. 
 SAVE_SALVAGED = "Save salvaged copy…"
 COMMANDS_TITLE = "Commands"
 COMMANDS_PLACEHOLDER = "Type a command or an ID…"
-TOUR_SKIP = "Skip tour"
-TOUR_BACK = "Back"
-TOUR_NEXT = "Next"
-TOUR_FINISH = "Finish"
-TOUR_STEP = "Step {} of {}"
 UNDO = "Undo"
 REDO = "Redo"
 DELETE = "Delete"
@@ -281,7 +250,6 @@ A_DARK = "Dark theme"
 A_LABELS = "Show all link labels"
 A_SCALE = "Interface size"
 A_COMMANDS = "Search and commands"
-A_TOUR = "Replay the tour"
 A_GLOSSARY = "Glossary"
 A_SAMPLE = "Open the sample project"
 A_ABOUT = "About"
@@ -1657,6 +1625,7 @@ INS_FACT_KIND = {
     "part": "Part",
     "interface_type": "Interface type",
     "config": "Configuration",
+    "branch_point": "Branch point",
 }
 INS_FACT_LABELS = {
     "name": "Name",
@@ -3157,22 +3126,21 @@ SETTINGS_ROLE_HINT = (
     "build data, the outputs, the as-built records and the workflow. It only changes what is "
     "shown: nothing is locked and nothing is stored in the project."
 )
-ROLE_DIALOG_TITLE = "Who are you working as?"
-ROLE_DIALOG_TEXT = "Pick the one that fits your work. It decides what the screen shows first."
-ROLE_DIALOG_SYSTEMS = "Systems engineer"
-ROLE_DIALOG_SYSTEMS_TEXT = (
+# the question of the first start, a section of Home (since the owner's feedback of 2026-11-17;
+# before, a window of its own): the three roles as big buttons, each with one sentence
+HOME_ROLE_TITLE = "Who are you working as?"
+HOME_ROLE_TEXT = "Pick the one that fits your work. It decides what the screen shows first."
+HOME_ROLE_SYSTEMS_TEXT = (
     "I think in devices, the connections between them, subsystems and the library."
 )
-ROLE_DIALOG_ELECTRICAL = "Electrical engineer"
-ROLE_DIALOG_ELECTRICAL_TEXT = (
+HOME_ROLE_ELECTRICAL_TEXT = (
     "I work with connectors, pinouts, harnesses, wires, the engineering values and the models."
 )
-ROLE_DIALOG_AIT = "AIT engineer"
-ROLE_DIALOG_AIT_TEXT = (
+HOME_ROLE_AIT_TEXT = (
     "I build and test the harnesses: build data, build sheets, as-built records and the workflow."
 )
-ROLE_DIALOG_LATER = "You can change this later in View > Role."
-ROLE_DIALOG_NAME = "Choose your role"
+HOME_ROLE_LATER = "You can change this later in View > Role."
+HOME_ROLE_NAME = "Choose your role"
 
 # ---- 1.8.1: the library never replaces a different device without asking (D4, D18) ----
 LIB_DAMAGED_ONE = "1 file in the folder could not be used and is not listed."
@@ -3295,25 +3263,6 @@ PART_APPROVED = "Part {0} is approved."
 RELEASE_TEXT_GAUGE = "Fill in the engineering values (Engineering values, in the Checks area) or set the gauge by hand."
 RELEASE_TEXT_LENGTHS = "Enter the routing segment lengths in the Harness tab, or load them from a table with File > Import > Segment lengths."
 
-# the tour of the Systems engineer role: the Next step page, the first button, Connect, the rail
-TOUR_STEPS_SYSTEMS: list[tuple[str, str]] = [
-    (
-        "next",
-        "This is the Next step page. It says what to do now, in one sentence, and it stays here after each step. The steps of the work are listed below it.",
-    ),
-    (
-        "next_button",
-        "This button does the next step. At the start it is Add a device: give the device a name and, if you like, its first connector. Later it connects two devices, generates, checks and exports.",
-    ),
-    (
-        "connect",
-        "To connect two devices, press Connect and click both. A window proposes the pairs of pins, by name or by pin number, or you paste a pairing. Nothing is paired until you accept it.",
-    ),
-    (
-        "role",
-        "The bar on the left lists the areas of the program. What it lists depends on your role: change the role any time in View > Role. Every command is still in the search (Ctrl+K).",
-    ),
-]
 PROBLEMS_BUTTON_OF = "Problems ({0} of {1})"
 INS_TAB_PROBLEMS_TIP = "{0} errors and warnings of the {1} open items. The Problems list at the bottom of the window shows all of them, notes included."
 DV_COL_ROLE = "Role"
@@ -3811,3 +3760,128 @@ A_PROJECT_LIBRARIES_TIP = (
 )
 SAVE_AS_POINTER_FAILED = "{file} was not copied to the new folder: {why}"
 DV_LIB_ROW_TAKEN = "{0} is in this project already: you choose what to do after you press Add."
+
+# ---- 2.3.0: branching harnesses in the editor (D-243, pull request 6) ---------------------------
+SETTINGS_SEGMENTATION = "How interfaces are grouped into harnesses"
+SETTINGS_SEGMENTATION_TEXT = (
+    "Generate reads this choice of the project (config/segmentation.json, mode). A change is one "
+    "undo step and takes effect at the next Generate."
+)
+SETTINGS_SEGMENTATION_CHOICES = {
+    "per_connector_pair": "Per connector pair (the default)",
+    "per_unit_pair": "Per device pair",
+    "per_zone_pair": "Per zone pair",
+    "per_connector_group": "Per connector group",
+}
+SETTINGS_SEGMENTATION_ABOUT = {
+    "per_connector_pair": "Interfaces between the same two device connectors share a harness.",
+    "per_unit_pair": "Interfaces between the same two devices share a harness.",
+    "per_zone_pair": "Interfaces between the same two zones share a harness.",
+    "per_connector_group": (
+        "Interfaces whose device connectors are joined by interfaces share a harness: one plug on "
+        "each device connector, branching where needed."
+    ),
+}
+SETTINGS_SEGMENTATION_TIP = (
+    "segmentation.mode of the project: which interfaces Generate puts into one harness"
+)
+SETTINGS_SEGMENTATION_UNKNOWN = "The project names {} here, which this version does not know."
+STEP_SET_SEGMENTATION = "Group interfaces {}"
+SEGMENTATION_SET = "Interfaces are grouped {} from the next Generate on."
+# the Routing of the Harness tab: segments and branch points
+RT_TITLE = "Routing"
+RT_TABLE = "Segments of the harness"
+RT_BRANCH_TABLE = "Branch points of the harness"
+RT_COL_SEGMENT = "Segment"
+RT_COL_FROM = "From"
+RT_COL_TO = "To"
+RT_COL_LENGTH = "Length"
+RT_COL_WIRES = "Wires"
+RT_COL_BRANCH = "Branch point"
+RT_COL_NAME = "Name"
+RT_COL_SEGMENTS = "Segments and lengths"
+RT_NO_LENGTH = "to fill in"
+RT_NO_LENGTH_TIP = "No length yet: double-click the cell to enter it in metres"
+RT_LENGTH_TIP = "{m:g} m; double-click the cell to change it (empty clears it)"
+RT_WIRES_TIP = "{n} wires run through {segment}: {ids}"
+RT_NODE_TIP = "{id}: {name}"
+RT_SEGMENT_LENGTH = "{segment} {length}"
+RT_SEGMENT_NO_LENGTH = "{segment} (no length)"
+RT_KEPT_BY_GENERATE = (
+    "Generate made this routing. A length you enter here is kept by Generate, by the two ends of "
+    "its segment."
+)
+RT_DRAWN_HINT = (
+    "Double-click a length to enter it in metres. Add branch points and segments to draw the tree "
+    "the bundle follows."
+)
+RT_EMPTY = "No routing yet: add a branch point or a segment."
+RT_ADD_BRANCH = "Add branch point"
+RT_ADD_BRANCH_TIP = "Add a branch point to this harness; join it with segments"
+RT_ADD_SEGMENT = "Add segment…"
+RT_ADD_SEGMENT_TIP = "Add a segment between two connectors or branch points, with a length or none"
+RT_RENAME = "Rename…"
+RT_RENAME_TIP = "Give the chosen branch point another name"
+RT_RENAME_WHY = "Choose a branch point in the list of branch points first."
+RT_DELETE = "Delete"
+RT_DELETE_TIP = "Delete the chosen segment, or the chosen branch point with its segments"
+RT_DELETE_WHY = "Choose a segment or a branch point first."
+RT_RENAME_TITLE = "Rename {}"
+RT_RENAME_LABEL = "Name of the branch point"
+STEP_RT_LENGTH = "Length of {}"
+STEP_RT_ADD_BRANCH = "Add branch point {}"
+STEP_RT_ADD_SEGMENT = "Add segment {}"
+STEP_RT_RENAME = "Rename {}"
+STEP_RT_DELETE = "Delete {}"
+SEG_DIALOG_TITLE = "Add a segment to {}"
+SEG_DIALOG_INTRO = (
+    "A segment is the bundle between two nodes: a connector or a branch point of this harness. "
+    "Its length runs from the rear of a connector to the centre of a branch point. The segments "
+    "form a tree, so a segment that would close a loop is refused."
+)
+SEG_FROM = "From"
+SEG_FROM_TIP = "The connector or branch point where the segment starts"
+SEG_TO = "To"
+SEG_TO_TIP = "The connector or branch point where the segment ends"
+SEG_LENGTH = "Length (m), optional"
+SEG_LENGTH_TIP = "The length in metres, for example 0.75; leave it empty to enter it later"
+SEG_OK = "Add segment"
+SEG_OK_TIP = "Add the segment as one undo step"
+SEG_NODE = "{id} ({name})"
+# the inspector of a branch point
+INS_BP_SEGMENTS = "Segments"
+INS_BP_SEGMENT_TIP = "{segment} runs from {a} to {b}"
+INS_BP_NO_SEGMENT = "A branch point needs two segments or more; add them in the Routing table."
+# the fix of a device connector with plugs of several harnesses (box_connector_mated_twice)
+FIX_JOIN = "Join into one harness"
+FIX_JOIN_TIP = (
+    "Join the harnesses {harnesses}, which plug into {box}, into {keep}: one plug on {box} and a "
+    "branch point (one undo step)"
+)
+FIX_MODE = "Use per_connector_group"
+FIX_MODE_TIP = (
+    "Open Settings at how interfaces are grouped into harnesses: with per connector group the next "
+    "Generate makes one harness with one plug on {box}"
+)
+JOIN_NO_OTHER = "No other harness drawn by hand plugs into {box}."
+JOIN_TITLE = "Join into one harness"
+JOIN_QUESTION = (
+    "Join a harness that plugs into {box} into {keep}? Its wires move onto the plug of {keep}, "
+    "a branch point joins the legs, and the other harness is deleted (one undo step)."
+)
+JOIN_INTO = "Join {other} into {keep}"
+JOIN_DONE = "{other} joined into {keep}: one plug on {box}."
+JOIN_MORE_LEFT = " {box} still has plugs of {n} harnesses: join again."
+STEP_JOIN = "Join {other} into {keep}"
+# the diagram: branch points of cables drawn by hand, a new leg, the join
+BRANCH_TIP = (
+    "Branch point {branch} ({name}) of harness {harness}, between {connectors}. Drag it to move it "
+    "on the diagram; that changes no written file."
+)
+STEP_MOVE_BRANCH = "Move branch point {}"
+STEP_ADD_LEG = "New leg of {}"
+LEG_MADE = (
+    "A new leg of {harness}: the loose end {end} from {port}. Choose its part, or plug it in."
+)
+JOIN_MENU = "Join into one harness…"
+JOIN_MENU_TIP = "Join this harness with another that plugs into {box} (one undo step)"

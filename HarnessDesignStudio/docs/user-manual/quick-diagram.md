@@ -36,7 +36,7 @@ Quick mode changes what the window shows and what it asks. It never changes a pr
 | the top bar buttons **Generate**, **Check**, **Release** and **Export…**, the model hash, the revision and the status chip | **Design** and **File** menus, Ctrl+K, and the keys Ctrl+G, F5 and Ctrl+E |
 | the problem notices: the **Problems** count, the badges on the diagram, the *out of date* banner (whatever you chose in **Show problem notices**, which comes back when you leave) | **Run checks** (F5) and the **Checks** area still work |
 | the *Checking the design rules* progress in the status bar (the check still runs in the background; one you ask for with Check still shows its progress) and the *N pending* chips of the **Configuration** rows in the project tree | the **Checks** area, which says what is pending, and the tooltip of a **Configuration** row |
-| the tour and the question about your role at the first start | **Help > Replay the tour** |
+| the question about your role at the first start | **View > Role** and the **Role** button |
 | the long window *Link connectors* when you connect, and the ID, subsystem and connector questions when you add a device | **Edit pairs** in the message after Connect; **Edit > Link connectors…** (Ctrl+Shift+K) opens the window when the project has more than two devices; the **Devices** tab |
 
 The banner of the sample project stays, in a shorter form.

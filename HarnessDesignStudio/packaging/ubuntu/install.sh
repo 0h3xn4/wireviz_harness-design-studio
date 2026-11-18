@@ -57,14 +57,19 @@ for item in $items; do   # installing would delete the package this script is ru
 done
 if [ "$mode" = system ]; then
   bindir=/usr/local/bin; appdir=/usr/share/applications; icondir=/usr/share/icons/hicolor/scalable/apps
+  metadir=/usr/share/metainfo
 else
   base="${XDG_DATA_HOME:-$HOME/.local/share}"
   bindir="${HOME}/.local/bin"; appdir="$base/applications"; icondir="$base/icons/hicolor/scalable/apps"
+  metadir="$base/metainfo"
 fi
 # --prefix with an explicit test root keeps links inside it
 if [ -n "${HARNESS_INSTALL_ROOT:-}" ]; then
   bindir="$HARNESS_INSTALL_ROOT/bin"; appdir="$HARNESS_INSTALL_ROOT/share/applications"; icondir="$HARNESS_INSTALL_ROOT/share/icons"
+  metadir="$HARNESS_INSTALL_ROOT/share/metainfo"
 fi
+# the App Center data (AppStream); its name is the component ID of tools/appstream.py
+metainfo=io.github._0h3xn4.harness_design_studio.metainfo.xml
 # never replace a program the user put there themselves: only links to our own programs are replaced
 # (the second shape of a name is the link that version 1.0.0 made, replaced when upgrading)
 is_ours() {   # LINK_TEXT SHAPE...
@@ -140,6 +145,10 @@ while IFS= read -r line; do
   printf '%s\n' "$line" >> "$appdir/harness-design-studio.desktop"
 done < "$here/harness-design-studio.desktop.in"
 cp "$here/harness-design-studio.svg" "$icondir/harness-design-studio.svg"
+if [ -f "$here/$metainfo" ]; then   # a package built before the App Center data has none
+  mkdir -p "$metadir"
+  cp "$here/$metainfo" "$metadir/$metainfo"
+fi
 echo "Installed to $prefix. Start it from the application menu or run: harness-design-studio-gui"
 echo "The command line tool is harness-design-studio (the short name harness works too)."
 # The program carries its own Python and Qt; what it cannot carry is the machine's own graphics and

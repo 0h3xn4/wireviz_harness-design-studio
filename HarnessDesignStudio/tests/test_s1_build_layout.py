@@ -474,6 +474,9 @@ def test_every_kind_a_project_makes_is_listed_with_its_page(tmp_path: Path) -> N
             {d.id for d in explain_all(project)} & ON_DEMAND
         )  # derivations.json is as before
         produced_on_demand |= {d.id for d in explain_object(project, wid)} & ON_DEMAND
+        for h in project.harnesses.values():  # a segment and a branch point (2.3.0)
+            for oid in [s.id for s in h.segments[:1]] + [b.id for b in h.branch_points[:1]]:
+                produced_on_demand |= {d.id for d in explain_object(project, oid)} & ON_DEMAND
     assert produced <= set(KINDS), produced - set(KINDS)
     assert set(KINDS) <= produced | produced_on_demand, set(KINDS) - produced
     assert produced_on_demand == ON_DEMAND

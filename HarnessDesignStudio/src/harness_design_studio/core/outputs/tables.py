@@ -23,6 +23,7 @@ when the end is decided`); the mass never counts it (`generate/mass.py`). The in
 (`verify.py`) words all of it again on its own."""
 
 import math
+import re
 from collections import defaultdict
 from collections.abc import Collection, Iterator
 from dataclasses import dataclass
@@ -35,7 +36,7 @@ from harness_design_studio.core.deviations import (
     uses_overrides,
     wire_marks,
 )
-from harness_design_studio.core.generate.lengths import clear_length_cache, wire_length
+from harness_design_studio.core.generate.lengths import clear_length_cache, path_trail, wire_length
 from harness_design_studio.core.generate.mass import harness_mass, pins_in_use
 from harness_design_studio.core.model import Connector, Harness, Link, Pin, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE
@@ -442,6 +443,88 @@ def accessories(h: Harness) -> Table:
             data_num(a.length_mm), str(a.quantity), a.note,
         ])  # fmt: skip
     return rows
+
+
+# The routing of a harness that branches (2.3.0, D-243 B7): `segments.csv`, the sheet *Segments* of
+# `<ID>.xlsx` and the first block of the sheet *Routing* of the build workbook; the second block of
+# *Routing* is one row per branch point. Only a harness with a branch point has them, so a straight
+# harness keeps its bytes. The independent verifier works the rows out again on its own.
+SEGMENT_HEADER = ["Segment", "From", "To", "Length (m)", "Number of wires", "Wires"]
+BRANCH_HEADER = ["Branch point", "Name", "Connectors beyond it, by segment"]
+
+
+def has_branches(h: Harness) -> bool:
+    """True for a harness with at least one branch point: only such a harness has the routing
+    outputs."""
+    return bool(h.branch_points)
+
+
+def natural_key(text: str) -> tuple[list[int | str], str]:
+    """The order a person reads IDs in: `W001-L2` before `W001-L10` (the routing rows)."""
+    parts = re.split(r"(\d+)", text)
+    return [int(x) if n % 2 else x for n, x in enumerate(parts)], text
+
+
+def segment_wires(h: Harness) -> dict[str, list[str]]:
+    """The wires that run through each segment, by segment ID: those whose one path in the tree
+    (`lengths.path_trail`, the path of the wire's length) takes the segment, sorted by ID. A wire
+    with no single path (no route, or a loop) runs through none."""
+    through: dict[str, list[str]] = {s.id: [] for s in h.segments}
+    paths: dict[tuple[str, str], list[tuple[str, float | None]] | None] = {}
+    for w in h.wires:
+        ends = (w.from_connector, w.to_connector)
+        if ends not in paths:
+            paths[ends] = path_trail(h, *ends)
+        for sid, _length in paths[ends] or []:
+            through[sid].append(w.id)
+    return {sid: sorted(ids) for sid, ids in through.items()}
+
+
+def segments(h: Harness) -> Table:
+    """One row per segment in natural ID order: segment, from, to, length (empty while unknown),
+    the number of wires through it and their IDs."""
+    through = segment_wires(h)
+    rows: Table = [SEGMENT_HEADER]
+    for s in sorted(h.segments, key=lambda x: natural_key(x.id)):
+        ids = through[s.id]
+        rows.append([s.id, s.from_node, s.to_node, data_num(s.length_m), str(len(ids)), ";".join(ids)])  # fmt: skip
+    return rows
+
+
+def branch_sides(h: Harness) -> list[tuple[str, str, list[tuple[str, list[str]]]]]:
+    """Each branch point in natural ID order with its name and its sides: for each segment that
+    meets it (natural order), the connectors of the harness reached through that segment without
+    passing the branch point again (natural order)."""
+    graph: dict[str, list[str]] = defaultdict(list)
+    for s in h.segments:
+        graph[s.from_node].append(s.to_node)
+        graph[s.to_node].append(s.from_node)
+    connectors = {c.id for c in h.connectors}
+    out = []
+    for b in sorted(h.branch_points, key=lambda x: natural_key(x.id)):
+        sides = []
+        for s in sorted(h.segments, key=lambda x: natural_key(x.id)):
+            if b.id not in (s.from_node, s.to_node):
+                continue
+            start = s.to_node if s.from_node == b.id else s.from_node
+            seen = {start} if start != b.id else set()
+            todo = list(seen)
+            while todo:
+                for nxt in graph[todo.pop()]:
+                    if nxt != b.id and nxt not in seen:
+                        seen.add(nxt)
+                        todo.append(nxt)
+            sides.append((s.id, sorted(seen & connectors, key=natural_key)))
+        out.append((b.id, b.name, sides))
+    return out
+
+
+def side_text(sides: list[tuple[str, list[str]]]) -> str:
+    """The sides of a branch point for a cell, on one line, `; ` between them:
+    `W001-L1: W001-P3, W001-P4; W001-L2: W001-P1`. Never a line break: the plain workbook writer
+    stores a sheet through a text-mode file, so a line break in a cell becomes CR LF on Windows
+    and the workbook differs by platform (a footer is not affected: openpyxl escapes it)."""
+    return "; ".join(f"{sid}: {', '.join(ids) or '(none)'}" for sid, ids in sides)
 
 
 MASS_HEADER = [

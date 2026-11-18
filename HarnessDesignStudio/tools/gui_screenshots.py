@@ -54,10 +54,12 @@ def main() -> int:
         return a
 
     app.processEvents()
+    win.show_landing()  # the start of the program: Home, with the question of the first start
+    win.home_page.show_role_question(True)
+    shot("01-first-start-home")
+    win.home_page.show_role_question(False)
+    win.go_to("diagram")
     win.view.fit()
-    win.tour.start()
-    shot("01-first-run-tour")
-    win.tour.stop()
     shot("02-guided-main")
     action("menu-add-sensor").trigger()  # Edit > Add unit (was the Palette's button)
     action("menu-connect-power_primary").trigger()  # Edit > Connect with

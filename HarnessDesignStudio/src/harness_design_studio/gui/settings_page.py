@@ -125,6 +125,7 @@ class SettingsPage(QWidget):
         open_library: Callable[[], None] = lambda: None,
         add_project_library: Callable[[], None] = lambda: None,
         remove_project_library: Callable[[str], None] = lambda _path: None,
+        set_segmentation: Callable[[str], None] = lambda _mode: None,
         shortcut_rows: Callable[[], list[tuple[str, str]]],
         settings_file: str = "",
     ) -> None:
@@ -243,6 +244,25 @@ class SettingsPage(QWidget):
         self.values_btn.setAccessibleName(strings.SETTINGS_PROJECT_BUTTON.rstrip("…"))
         self.values_btn.clicked.connect(lambda _c=False: open_values())
         col.addWidget(self.values_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        # how Generate groups interfaces into harnesses (a value of the project, one undo step)
+        segmentation_title = QLabel(strings.SETTINGS_SEGMENTATION)
+        segmentation_title.setProperty("heading", True)
+        col.addWidget(segmentation_title)
+        col.addWidget(_muted(strings.SETTINGS_SEGMENTATION_TEXT))
+        self.segmentation_combo = QComboBox()
+        self.segmentation_combo.setObjectName("settings-segmentation")
+        self.segmentation_combo.setAccessibleName(strings.SETTINGS_SEGMENTATION)
+        self.segmentation_combo.setToolTip(strings.SETTINGS_SEGMENTATION_TIP)
+        for value, text in strings.SETTINGS_SEGMENTATION_CHOICES.items():
+            self.segmentation_combo.addItem(text, value)
+        self.segmentation_combo.currentIndexChanged.connect(
+            lambda _i: self._segmentation_picked(set_segmentation)
+        )
+        col.addWidget(self.segmentation_combo, 0, Qt.AlignmentFlag.AlignLeft)
+        self.segmentation_about = _muted("")
+        self.segmentation_about.setObjectName("settings-segmentation-about")
+        col.addWidget(self.segmentation_about)
+        self._segmentation_why_not = ""
         # the library folder (per person; the library window reads it)
         library_title = QLabel(strings.SETTINGS_LIBRARY_FOLDER)
         library_title.setProperty("heading", True)
@@ -487,6 +507,32 @@ class SettingsPage(QWidget):
         item = self.project_libraries.currentItem()
         if item is not None:
             remove(item.text())
+
+    def _segmentation_picked(self, set_segmentation: Callable[[str], None]) -> None:
+        mode = self.segmentation_combo.currentData()
+        if isinstance(mode, str):
+            set_segmentation(mode)  # the window shows the outcome (`show_segmentation`)
+
+    def show_segmentation(self, mode: str, why_not: str = "") -> None:
+        """Show the segmentation mode of the open project; `why_not` says why it cannot change
+        now ("" when it can: a read-only project, a release that froze it)."""
+        combo = self.segmentation_combo
+        self._segmentation_why_not = why_not
+        combo.blockSignals(True)
+        while combo.count() > len(strings.SETTINGS_SEGMENTATION_CHOICES):
+            combo.removeItem(combo.count() - 1)
+        i = combo.findData(mode)
+        if i < 0:  # a mode of a newer version: shown, never written back by this page
+            combo.addItem(mode, mode)
+            i = combo.count() - 1
+        combo.setCurrentIndex(i)
+        combo.blockSignals(False)
+        about = strings.SETTINGS_SEGMENTATION_ABOUT.get(
+            mode, strings.SETTINGS_SEGMENTATION_UNKNOWN.format(mode)
+        )
+        self.segmentation_about.setText(" ".join(t for t in (about, why_not) if t))
+        combo.setEnabled(not why_not)
+        combo.setToolTip(why_not or strings.SETTINGS_SEGMENTATION_TIP)
 
     def show_library_folder(self, folder: str) -> None:
         """Show the library folder the window uses ('' for none)."""

@@ -69,7 +69,8 @@ HARNESS_FILES = (
     "tests.csv",
     "labels.csv",
     "wireviz.yaml",
-)  # plus accessories.csv for a harness that has accessories (D-170)
+)  # plus accessories.csv for a harness that has accessories (D-170) and segments.csv for one
+# that has a branch point (2.3.0, D-243 B7)
 SYSTEM_FILES = (
     "bom.csv", "mass_length.csv", "mating_matrix.csv", "traceability.csv", "box_pinouts.csv",
     "drc_findings.csv", "drc_report.md", "changelog.csv", "revision_report.md", "export.json", "provenance.json", "system.xlsx",
@@ -340,6 +341,7 @@ def _harness(r: VerifyReport, project: Project, h: Harness, files: dict[str, byt
     _harness_cells(r, project, h, files)
     _harness_tables(r, project, h, files)
     _build_workbook(r, project, h, files)
+    _routing(r, h, files)
     if _has_drawings(files):  # D-169: the drawings are optional, but all or none of the harnesses
         _drawings(r, project, h, files)
 
@@ -1746,11 +1748,25 @@ def _build_workbook(r: VerifyReport, project: Project, h: Harness, files: dict[s
     what = f"The build workbook of {h.id}"
     sheets = _xlsx_values(data)
     wanted = list(_BUILD_SHEETS)
+    branching = bool(h.branch_points)
+    if branching:  # 2.3.0: only a harness with a branch point has the routing
+        wanted.insert(wanted.index("Cut list") + 1, _ROUTING)
     if any(rec.harness_id == h.id for rec in project.asbuilt.values()):
         wanted.insert(wanted.index("About"), "As-built")  # S9: only for a harness with records
+    if (_ROUTING in sheets) != branching:
+        if branching:
+            r.error("out_routing", f"{what} has no {_ROUTING} sheet, but {h.id} has a branch point.", h.id)  # fmt: skip
+        else:
+            r.error("out_routing", f"{what} has a {_ROUTING} sheet, but {h.id} has no branch point.", h.id)  # fmt: skip
+        return
     if list(sheets) != wanted:
         r.error("out_build", f"{what} does not have the sheets {', '.join(wanted)}.", h.id)
         return
+    listed = any(row[:1] == [_ROUTING] for row in sheets["Start here"])
+    if listed != branching:
+        r.error("out_routing", f"{what} (Start here) lists the {_ROUTING} sheet wrongly.", h.id)
+    if branching:
+        _build_routing(r, h, what, sheets[_ROUTING])
     if "As-built" in sheets:
         _build_asbuilt(r, project, h, what, sheets["As-built"])
     _build_cut(r, h, what, sheets["Cut list"])
@@ -1965,6 +1981,166 @@ def _build_start(
             r.error("out_build", f"{what} (Start here) does not list the placeholder files.", h.id)
     if ready != want_ready:
         r.error("out_build", f"{what} (Start here) shows the wrong 'Ready to build' answer.", h.id)
+
+
+# ---- the routing of a harness that branches (2.3.0, D-243 B7) -----------------------------------
+# `segments.csv`, the sheet *Segments* of `<ID>.xlsx` and the sheet *Routing* of the build workbook,
+# worked out here from the segments and wires alone: the route of each wire is walked here, and the
+# wires per segment and the connectors beyond each side of a branch point are counted here.
+
+_ROUTING = "Routing"
+_SEGMENTS_SHEET = "Segments"
+_SEGMENT_HEADER = ["Segment", "From", "To", "Length (m)", "Number of wires", "Wires"]
+_BRANCH_HEADER = ["Branch point", "Name", "Connectors beyond it, by segment"]
+
+
+def _natural(text: str) -> tuple[list[int | str], str]:
+    """`W001-L2` before `W001-L10`: the digits of an ID compared as numbers."""
+    pieces = re.split(r"(\d+)", text)
+    return [int(x) if n % 2 else x for n, x in enumerate(pieces)], text
+
+
+def _route(links: dict[str, list[tuple[str, str]]], a: str, b: str) -> list[str] | None:
+    """The segments of the one route between nodes `a` and `b`: a route found depth first, kept
+    only when none of its segments can be gone round (a loop gives a wire no single route)."""
+
+    def walk(avoid: str) -> list[str] | None:
+        seen = {a}
+        stack: list[tuple[str, list[str]]] = [(a, [])]
+        while stack:
+            node, trail = stack.pop()
+            if node == b:
+                return trail
+            for nxt, sid in links.get(node, []):
+                if sid != avoid and nxt not in seen:
+                    seen.add(nxt)
+                    stack.append((nxt, [*trail, sid]))
+        return None
+
+    trail = walk("")
+    if trail is None or any(walk(sid) is not None for sid in trail):
+        return None
+    return trail
+
+
+def _through(h: Harness) -> dict[str, list[str]]:
+    """The wires through each segment, sorted: those whose route takes it."""
+    links: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for s in h.segments:
+        links[s.from_node].append((s.to_node, s.id))
+        links[s.to_node].append((s.from_node, s.id))
+    found: dict[str, list[str]] = {s.id: [] for s in h.segments}
+    routes: dict[tuple[str, str], list[str] | None] = {}
+    for w in h.wires:
+        key = (w.from_connector, w.to_connector)
+        if key not in routes:
+            routes[key] = _route(links, *key)
+        for sid in routes[key] or []:
+            found[sid].append(w.id)
+    return {sid: sorted(wids) for sid, wids in found.items()}
+
+
+def _beyond(h: Harness, bid: str) -> str:
+    """The sides of branch point `bid` as the sheet words them: one part per segment that meets it,
+    `; ` between them, with the connectors reached through it without passing the branch point
+    again."""
+    near: dict[str, set[str]] = defaultdict(set)
+    for s in h.segments:
+        near[s.from_node].add(s.to_node)
+        near[s.to_node].add(s.from_node)
+    conns = {c.id for c in h.connectors}
+    lines = []
+    for s in sorted(h.segments, key=lambda x: _natural(x.id)):
+        if bid not in (s.from_node, s.to_node):
+            continue
+        first = s.from_node if s.to_node == bid else s.to_node
+        reached: set[str] = set()
+        frontier = [first] if first != bid else []
+        while frontier:
+            node = frontier.pop()
+            if node in reached:
+                continue
+            reached.add(node)
+            frontier.extend(n for n in near[node] if n != bid and n not in reached)
+        names = sorted(reached & conns, key=_natural)
+        lines.append(f"{s.id}: {', '.join(names) if names else '(none)'}")
+    return "; ".join(lines)
+
+
+def _segment_rows(h: Harness, joiner: str, unknown: Cell) -> list[list[Cell]]:
+    """The segments in natural ID order: ID, ends, length (`unknown` while there is none), the
+    number of wires and the wires joined by `joiner`."""
+    through = _through(h)
+    return [
+        [s.id, s.from_node, s.to_node, unknown if s.length_m is None else s.length_m,
+         float(len(through[s.id])), joiner.join(through[s.id])]
+        for s in sorted(h.segments, key=lambda x: _natural(x.id))
+    ]  # fmt: skip
+
+
+def _ordered_rows(
+    r: VerifyReport,
+    what: str,
+    got: list[list[str]],
+    header: list[str],
+    want: list[list[Cell]],
+    obj: str,
+) -> None:
+    """Every cell, then the order of the rows (natural ID order), as `out_routing`."""
+    _compare_rows(r, "out_routing", what, got, header, want, (0,), obj)
+    if got and got[0] == header and [row[0] for row in got[1:]] != [str(row[0]) for row in want]:
+        r.error("out_routing", f"{what} is not in the order of the IDs.", obj)
+
+
+def _routing(r: VerifyReport, h: Harness, files: dict[str, bytes]) -> None:
+    """`segments.csv` and the *Segments* sheet: exactly for a harness with a branch point, with the
+    rows worked out here."""
+    base = f"harnesses/{h.id}"
+    rel = f"{base}/segments.csv"
+    branching = bool(h.branch_points)
+    if branching and rel not in files:
+        r.error("out_missing", f"{rel} was not generated.", h.id)
+    if not branching and rel in files:
+        r.error("out_routing", f"{h.id} has no branch point but {rel} was written.", h.id)
+    table = _table(files, rel)
+    want = _segment_rows(h, ";", None)
+    if table and branching:
+        _ordered_rows(r, f"The segments of {h.id}", table, _SEGMENT_HEADER, want, h.id)
+    x = files.get(f"{base}/{h.id}.xlsx")
+    if x is None:
+        return
+    sheets = _xlsx_sheets(x)
+    if (_SEGMENTS_SHEET in sheets) != branching:
+        r.error("out_routing", f"The workbook of {h.id} must have a {_SEGMENTS_SHEET} sheet exactly when the harness has a branch point.", h.id)  # fmt: skip
+    elif branching:
+        _ordered_rows(r, f"The '{_SEGMENTS_SHEET}' sheet of the workbook of {h.id}", sheets[_SEGMENTS_SHEET], _SEGMENT_HEADER, want, h.id)  # fmt: skip
+
+
+def _build_routing(r: VerifyReport, h: Harness, what: str, rows: list[list[str]]) -> None:
+    """The *Routing* sheet of the build workbook: the segments (a length or *to fill in*, the number
+    of wires and the wires joined by `; `), an empty row, then the branch points with the
+    connectors beyond each side."""
+    trimmed = [row[: max((n + 1 for n, cell in enumerate(row) if cell), default=0)] for row in rows]
+    blocks: list[list[list[str]]] = [[]]
+    for row in trimmed:
+        if row:
+            blocks[-1].append(row)
+        elif blocks[-1]:
+            blocks.append([])
+    blocks = [b for b in blocks if b]
+    what = f"{what} ({_ROUTING})"
+    if len(blocks) != 2:
+        r.error("out_routing", f"{what} does not have a block of segments and a block of branch points.", h.id)  # fmt: skip
+        return
+    segs, points = (
+        [[*row, *[""] * (len(header) - len(row))] for row in block]
+        for block, header in zip(blocks, (_SEGMENT_HEADER, _BRANCH_HEADER), strict=True)
+    )
+    _ordered_rows(r, what, segs, _SEGMENT_HEADER, _segment_rows(h, "; ", _TO_FILL), h.id)
+    want_points: list[list[Cell]] = [
+        [b.id, b.name, _beyond(h, b.id)] for b in sorted(h.branch_points, key=lambda x: _natural(x.id))
+    ]  # fmt: skip
+    _ordered_rows(r, what, points, _BRANCH_HEADER, want_points, h.id)
 
 
 def _yaml_values(r: VerifyReport, h: Harness, text: str) -> None:

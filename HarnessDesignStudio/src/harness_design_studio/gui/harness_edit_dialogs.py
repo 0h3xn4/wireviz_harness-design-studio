@@ -4,7 +4,7 @@
 *Change group…*.
 
     dlg = BulkWireDialog(parent, theme, project, "W001", selected=["W001-0001", "W001-0002"])
-    if dlg.exec() and dlg.ops():
+    if run_dialog(dlg) and dlg.ops():   # (dialog_base.run_dialog)
         ctl.run(strings.STEP_BULK_WIRES.format(dlg.wire_count(), "W001"), dlg.ops())
 
     dlg = ChangeGroupDialog(parent, theme, project, "W001-S3")

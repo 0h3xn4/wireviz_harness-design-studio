@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from harness_design_studio import __version__
+from tools import appstream
 
 ROOT = Path(__file__).resolve().parents[1]
 # libc6: the bundled libpython (Python 3.14 of the build host) needs GLIBC_2.38 and the
@@ -78,6 +79,7 @@ def build(app: Path, out_dir: Path) -> Path:
         "README.txt",  # tells the reader to run ./install.sh
         "harness-design-studio.desktop.in",  # dpkg installs the finished entry and the icon below
         "harness-design-studio.svg",
+        appstream.FILE_NAME,  # the App Center data, installed below
     ):  # dpkg owns these files; the scripts are for tarballs
         (opt / script).unlink(missing_ok=True)
     (stage / "usr" / "bin").mkdir(parents=True)
@@ -99,6 +101,8 @@ def build(app: Path, out_dir: Path) -> Path:
     icons = stage / "usr" / "share" / "icons" / "hicolor" / "scalable" / "apps"
     icons.mkdir(parents=True)
     shutil.copy(pk / "harness-design-studio.svg", icons / "harness-design-studio.svg")
+    # the App Center page (AppStream), with the releases made from CHANGELOG.md (tools/appstream.py)
+    appstream.write(stage / "usr" / "share" / "metainfo" / appstream.FILE_NAME)
     doc = stage / "usr" / "share" / "doc" / "harness-design-studio"
     doc.mkdir(parents=True)
     (doc / "copyright").write_text(COPYRIGHT)

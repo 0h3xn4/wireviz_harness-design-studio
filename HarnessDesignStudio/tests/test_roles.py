@@ -31,7 +31,7 @@ def test_the_names_on_screen_are_the_role_names() -> None:
     assert strings.ROLE_ELECTRICAL == "Electrical engineer"
     assert strings.ROLE_AIT == "AIT engineer"
     assert strings.M_ROLE == strings.SETTINGS_ROLE == "Role"
-    assert "View > Role" in strings.ROLE_DIALOG_LATER
+    assert "View > Role" in strings.HOME_ROLE_LATER
 
 
 def test_a_file_with_nothing_stored_gets_the_hook_or_asks(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -103,10 +103,10 @@ def test_the_rail_of_each_role() -> None:
 
 
 def test_the_role_sentences_name_the_work_of_each_role() -> None:
-    systems = strings.ROLE_DIALOG_SYSTEMS_TEXT.lower()
-    electrical = strings.ROLE_DIALOG_ELECTRICAL_TEXT.lower()
+    systems = strings.HOME_ROLE_SYSTEMS_TEXT.lower()
+    electrical = strings.HOME_ROLE_ELECTRICAL_TEXT.lower()
     assert "devices" in systems and "connections" in systems and "library" in systems
-    ait = strings.ROLE_DIALOG_AIT_TEXT.lower()
+    ait = strings.HOME_ROLE_AIT_TEXT.lower()
     for word in ("connectors", "pinouts", "harnesses", "wires", "engineering values", "models"):
         assert word in electrical
     for word in ("build data", "build sheets", "as-built", "workflow"):

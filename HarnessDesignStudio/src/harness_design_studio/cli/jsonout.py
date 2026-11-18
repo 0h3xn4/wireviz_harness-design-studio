@@ -44,6 +44,12 @@ SHAPES: dict[str, tuple[str, ...]] = {
         "id", "subject", "quantity", "value", "unit", "equation", "inputs", "steps", "check",
         "assumptions", "reference", "missing", "model_page",
     ),
+    # the routing tree of a harness (2.3.0); each segment: id, from, to, length_m, source
+    # (unset, entered, imported), kept_by_generate, source_text, wires
+    "routing": (
+        "ok", "harness", "name", "origin", "branches", "connectors", "segments", "branch_points",
+        "lengths_missing", "wires_without_route",
+    ),
     "export-data": ("ok", "count", "model_hash", "files", "run_record"),
     "generate": (
         "ok", "saved", "added", "changed", "unchanged", "removed", "frozen", "kept_locks",

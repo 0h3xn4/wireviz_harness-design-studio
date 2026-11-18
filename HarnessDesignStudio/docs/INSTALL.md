@@ -1,6 +1,6 @@
 # Install
 
-The tool runs on **Ubuntu 24.04 or newer** (64-bit, x86) and, from version 1.2.0, also on **Windows 10 and 11** (64-bit). It needs no network, no administrator account for the per-user install, and no other software to be installed first (Python and Qt are inside the package). Version 1.1.0 and older are packaged for Ubuntu only; the Windows section below describes the packages from 1.2.0. The newest full release is 2.1.1 (2026-11-17; tag `v2.1.1` on commit `5e99d3d`, release workflow run 44042996462; not signed off by the owner), a patch release of 2.1.0 with three fixes and no format change; its page has the four packages, `SHA256SUMS`, its signature `SHA256SUMS.sigstore.json` and one release bundle, which holds the signature of each package (D-232). Before it came the minor release 2.1.0 (2026-11-17; tag `v2.1.0` on commit `97e7d24`, release workflow run 43993920392; not signed off by the owner) with several interfaces on one connector, and the patch release 2.0.1 (2026-11-16; tag `v2.0.1` on commit `69c5aac`, release workflow run 43903192546; not signed off by the owner); their pages have seven files too. Before them came the full release 2.0.0 (2026-11-15; tag `v2.0.0` on commit `e6a6763`, release workflow run 43743439114; not signed off by the owner), the first full release that writes format 2; each of its packages has a `.sigstore.json` bundle beside it. 2.0.0, 2.0.1, 2.1.0 and 2.1.1 save a project only in format 2, after a one-time upgrade ([Upgrade a project to format 2](user-manual/upgrade-a-project.md)); a 1.x tool then opens that project read-only. Before 2.0.0 came the release candidate 2.0.0rc1, published as a pre-release on 2026-11-12 (tag `v2.0.0rc1` on commit `8d1c268`, release workflow run 43175697733; not signed off by the owner), and the full release 1.17.1 (2026-11-11; tag `v1.17.1` on commit `cb72a3c`, release workflow run 43117202544), the first full release with signed packages. Before 1.17.1 came the release candidate 1.17.1rc2, the first signed release, published as a pre-release on 2026-11-11 (tag `v1.17.1rc2` on commit `7fae805`, release workflow run 43067874134; not signed off by the owner), and the full release 1.17.0 (2026-11-09; tag `v1.17.0` on commit `4c5a56c`, release workflow run 42616427035). The versions before it, what each added and how each was published are in [`STATUS.md`](STATUS.md) and the [changelog](../CHANGELOG.md). The releases 1.2.0 to 1.5.0 also carry macOS disk images; macOS is not supported any more (decision D-168) and 1.6.0 and later have none. The file names are listed under [Get the package](#get-the-package). The releases up to 1.17.0 are not signed; the releases after 1.17.0 are signed and attested (see [Check the signature](#check-the-signature)).
+The tool runs on **Ubuntu 24.04 or newer** (64-bit, x86) and, from version 1.2.0, also on **Windows 10 and 11** (64-bit). It needs no network, no administrator account for the per-user install, and no other software to be installed first (Python and Qt are inside the package). Version 1.1.0 and older are packaged for Ubuntu only; the Windows section below describes the packages from 1.2.0. The newest full release is 2.2.0 (2026-11-17; tag `v2.2.0` on commit `a90ef82`, release workflow run 44137517372; not signed off by the owner), a minor release with the device library and no format change; its page has the four packages, `SHA256SUMS`, its signature `SHA256SUMS.sigstore.json` and one release bundle, which holds the signature of each package (D-232). Before it came the patch release 2.1.1 (2026-11-17; tag `v2.1.1` on commit `5e99d3d`, release workflow run 44042996462; not signed off by the owner) with three fixes of 2.1.0, the minor release 2.1.0 (2026-11-17; tag `v2.1.0` on commit `97e7d24`, release workflow run 43993920392; not signed off by the owner) with several interfaces on one connector, and the patch release 2.0.1 (2026-11-16; tag `v2.0.1` on commit `69c5aac`, release workflow run 43903192546; not signed off by the owner); their pages have seven files too. Before them came the full release 2.0.0 (2026-11-15; tag `v2.0.0` on commit `e6a6763`, release workflow run 43743439114; not signed off by the owner), the first full release that writes format 2; each of its packages has a `.sigstore.json` bundle beside it. 2.0.0, 2.0.1, 2.1.0, 2.1.1 and 2.2.0 save a project only in format 2, after a one-time upgrade ([Upgrade a project to format 2](user-manual/upgrade-a-project.md)); a 1.x tool then opens that project read-only. Before 2.0.0 came the release candidate 2.0.0rc1, published as a pre-release on 2026-11-12 (tag `v2.0.0rc1` on commit `8d1c268`, release workflow run 43175697733; not signed off by the owner), and the full release 1.17.1 (2026-11-11; tag `v1.17.1` on commit `cb72a3c`, release workflow run 43117202544), the first full release with signed packages. Before 1.17.1 came the release candidate 1.17.1rc2, the first signed release, published as a pre-release on 2026-11-11 (tag `v1.17.1rc2` on commit `7fae805`, release workflow run 43067874134; not signed off by the owner), and the full release 1.17.0 (2026-11-09; tag `v1.17.0` on commit `4c5a56c`, release workflow run 42616427035). The versions before it, what each added and how each was published are in [`STATUS.md`](STATUS.md) and the [changelog](../CHANGELOG.md). The releases 1.2.0 to 1.5.0 also carry macOS disk images; macOS is not supported any more (decision D-168) and 1.6.0 and later have none. The file names are listed under [Get the package](#get-the-package). The releases up to 1.17.0 are not signed; the releases after 1.17.0 are signed and attested (see [Check the signature](#check-the-signature)).
 
 ## Contents
 
@@ -43,34 +43,34 @@ You also need about 500 MB of free disk space for the program (`df -h ~` shows i
 
 You need one file, either `harness-design-studio_<version>_amd64.deb` (way A), `harness-design-studio-<version>-linux-<arch>.tar.gz` (way B), `harness-design-studio-<version>-windows-x86_64-setup.exe` or `harness-design-studio-<version>-windows-x86_64.zip` (way D). Ask your tool administrator, or take it from one of these places:
 
-- the **Releases** page of the project's repository (look for the newest version number). Version 2.1.1 (tag `v2.1.1`, published 2026-11-17) has these seven files attached (D-232); the release workflow (`.github/workflows/release.yml`) attaches them when a tag `vX.Y.Z` is pushed:
+- the **Releases** page of the project's repository (look for the newest version number). Version 2.2.0 (tag `v2.2.0`, published 2026-11-17) has these seven files attached (D-232); the release workflow (`.github/workflows/release.yml`) attaches them when a tag `vX.Y.Z` is pushed:
 
   | File | For | Way |
   | --- | --- | --- |
-  | `harness-design-studio_2.1.1_amd64.deb` | Ubuntu 24.04 and newer, 64-bit | A |
-  | `harness-design-studio-2.1.1-linux-x86_64.tar.gz` | Linux, without administrator rights | B |
-  | `harness-design-studio-2.1.1-windows-x86_64-setup.exe` | Windows 10 and 11, 64-bit, the setup program | D |
-  | `harness-design-studio-2.1.1-windows-x86_64.zip` | Windows 10 and 11, 64-bit, portable | D |
+  | `harness-design-studio_2.2.0_amd64.deb` | Ubuntu 24.04 and newer, 64-bit | A |
+  | `harness-design-studio-2.2.0-linux-x86_64.tar.gz` | Linux, without administrator rights | B |
+  | `harness-design-studio-2.2.0-windows-x86_64-setup.exe` | Windows 10 and 11, 64-bit, the setup program | D |
+  | `harness-design-studio-2.2.0-windows-x86_64.zip` | Windows 10 and 11, 64-bit, portable | D |
   | `SHA256SUMS` | the SHA-256 checksum of each package and of the release bundle | |
   | `SHA256SUMS.sigstore.json` | the Sigstore signature of `SHA256SUMS` | |
-  | `harness-design-studio-2.1.1-release-bundle.tar` | everything else: the signatures of the packages, the SBOMs, the inventories, the notices, the offline-audit report and the source of the LGPL and GPL components; not needed to install | |
+  | `harness-design-studio-2.2.0-release-bundle.tar` | everything else: the signatures of the packages, the SBOMs, the inventories, the notices, the offline-audit report and the source of the LGPL and GPL components; not needed to install | |
 
-  Versions 1.0.0 and 1.1.0 have only the `.deb`, the `.tar.gz` and a `SHA256SUMS` file; 1.2.0 to 1.5.0 have the same packages as 1.6.0 to 2.1.1 and two macOS disk images that are not maintained any more (D-168); every release from 1.6.0 to 1.17.0 has the same four packages and `SHA256SUMS` as 2.1.1, without the Sigstore bundles, and 1.17.1rc2, 1.17.1, 2.0.0rc1 and 2.0.0 have them with the Sigstore bundles, and every other file of the release attached on its own (221 files for 2.0.0). From 2.0.1 (D-232; first used for 2.0.1, published on 2026-11-16, and used again for 2.1.0 and 2.1.1, both published on 2026-11-17) a page has seven files: the four packages, `SHA256SUMS`, its signature `SHA256SUMS.sigstore.json` and one release bundle, `harness-design-studio-<version>-release-bundle.tar`, that holds everything else (see *Check the signature*). The release record (`compliance/SIGNOFF.md`, the *Publication* sections) says how each version was published. If the page of the version you want lists no package, use one of the other places or way C;
+  Versions 1.0.0 and 1.1.0 have only the `.deb`, the `.tar.gz` and a `SHA256SUMS` file; 1.2.0 to 1.5.0 have the same packages as 1.6.0 to 2.2.0 and two macOS disk images that are not maintained any more (D-168); every release from 1.6.0 to 1.17.0 has the same four packages and `SHA256SUMS` as 2.2.0, without the Sigstore bundles, and 1.17.1rc2, 1.17.1, 2.0.0rc1 and 2.0.0 have them with the Sigstore bundles, and every other file of the release attached on its own (221 files for 2.0.0). From 2.0.1 (D-232; first used for 2.0.1, published on 2026-11-16, and used again for 2.1.0, 2.1.1 and 2.2.0, all three published on 2026-11-17) a page has seven files: the four packages, `SHA256SUMS`, its signature `SHA256SUMS.sigstore.json` and one release bundle, `harness-design-studio-<version>-release-bundle.tar`, that holds everything else (see *Check the signature*). The release record (`compliance/SIGNOFF.md`, the *Publication* sections) says how each version was published. If the page of the version you want lists no package, use one of the other places or way C;
 - the build artifacts of a CI run (Actions, then the run, then *Artifacts*): the artifact `harness-design-studio-ubuntu-24.04` of the CI run holds the `.deb`, the `.tar.gz` and the software bill of materials and licence report (no checksum file); the run of the workflow `harness-design-studio packages (Windows)` on a branch `pkg/...` keeps the Windows packages as the artifact `harness-design-studio-windows-x86_64`. Such a build is made again on another machine and is not the file of a release.
 
 You can also build it yourself (way C, last section). That route needs no release files at all.
 
 Copy the file to the machine. It never needs to reach the network.
 
-**Check the file** if it came over a network or on a stick. The release lists a SHA-256 checksum for each file: the `SHA256SUMS` file on the release page (one file for all the packages of a release from 1.2.0) and `compliance/evidence/release_<version>_SHA256SUMS` in the repository (every release from 0.1.0 to 2.1.1, and the release candidates 1.17.1rc2 and 2.0.0rc1). For 2.1.1 they are:
+**Check the file** if it came over a network or on a stick. The release lists a SHA-256 checksum for each file: the `SHA256SUMS` file on the release page (one file for all the packages of a release from 1.2.0) and `compliance/evidence/release_<version>_SHA256SUMS` in the repository (every release from 0.1.0 to 2.2.0, and the release candidates 1.17.1rc2 and 2.0.0rc1). For 2.2.0 they are:
 
 | File | SHA-256 |
 | --- | --- |
-| `harness-design-studio_2.1.1_amd64.deb` | `f6c2d66f2dc8ef38ab13c0a314b4250131fc883e1166292294370dbe3a44fc8d` |
-| `harness-design-studio-2.1.1-linux-x86_64.tar.gz` | `3c4ef61982932607335016513cbd29d278269286399ba9165cfad4a0269ed815` |
-| `harness-design-studio-2.1.1-windows-x86_64-setup.exe` | `8974827ee544850a9f0dacc18ca77817a8d6005d33b4b8e892c22dc62f9504c0` |
-| `harness-design-studio-2.1.1-windows-x86_64.zip` | `123cf1eda3df5dccb8c516fea863f65f94e1af5b28eea02bc31407ce23fd0efa` |
-| `harness-design-studio-2.1.1-release-bundle.tar` | `682560bd1d0a7f22d73614f7dff75ce40d5151737f54153779b9baef3dabb844` |
+| `harness-design-studio_2.2.0_amd64.deb` | `c1712d3144a4fce956545cfe24551625c60025fb7118cc519ad1c98d487dc5a4` |
+| `harness-design-studio-2.2.0-linux-x86_64.tar.gz` | `6aea122df6541ffebf3a00f3b6cfdea19ad8aa894ea4c072ce3bdaff529af111` |
+| `harness-design-studio-2.2.0-windows-x86_64-setup.exe` | `79a2dfd016f02080f1562a40883620ff04acc480ad39dabdd909bfced074eb6d` |
+| `harness-design-studio-2.2.0-windows-x86_64.zip` | `6887bc40598ff0b5358d184984ac1fd15647674828f14cc401657d08702b3bcd` |
+| `harness-design-studio-2.2.0-release-bundle.tar` | `d14602c52c9eb5e3ff8b32bae01dc4b222bde08855d0aa154ab20a389162d821` |
 
 On Linux, put the package you downloaded and `SHA256SUMS` in one folder and run:
 
@@ -134,10 +134,12 @@ harness-design-studio --version
 ```
 
 ```
-harness 2.2.0
+harness 2.3.0
 ```
 
 Remove it later with `sudo apt remove harness-design-studio`. Upgrade by installing the newer `.deb` the same way.
+
+The `.deb` also brings the program's page for Ubuntu's App Center (an AppStream file, `/usr/share/metainfo/io.github._0h3xn4.harness_design_studio.metainfo.xml`, with the summary, the licence, the age rating and the newest releases). App Center loads the screenshots of that page from the web, so on an offline computer the page shows without them; the program itself never uses the network. App Center still says *Provided by a third party* and *No Software Repository Included* for any `.deb` installed from a file: the program comes from no apt repository, Snap or Flatpak.
 
 ## B. The `.tar.gz` without administrator rights
 
@@ -147,7 +149,7 @@ cd harness-design-studio
 ./install.sh
 ```
 
-This installs for **your user only**, into `~/.local/opt/harness-design-studio`, and adds links in `~/.local/bin` and an entry in your application menu.
+This installs for **your user only**, into `~/.local/opt/harness-design-studio`, and adds links in `~/.local/bin`, an entry in your application menu and the App Center data in `~/.local/share/metainfo`.
 
 If `install.sh` ends with a note that `~/.local/bin` is not on your PATH, the commands `harness-design-studio-gui`, `harness-design-studio` and `harness` are not found yet. Fix it once:
 
@@ -177,7 +179,7 @@ harness-design-studio-gui --selftest    # opens the editor offscreen, makes a pr
 
 `--selftest` exists only in the installed editor (`harness-design-studio-gui` of the `.deb` and the `.tar.gz`). When you run from source (way C) the app command is also called `harness-design-studio-gui` (and `harness-gui`), but that one does not know the flag and simply starts the app. From source, check with `harness-design-studio --version`, then the five-minute check below, and `pytest` if you installed the `dev` extras.
 
-Then start **Harness Design Studio** from the application menu. The first start asks *Who are you working as?* (Systems engineer, Electrical engineer or AIT engineer; you can change it any time in **View > Role**), opens a built-in sample project and offers a short tour.
+Then start **Harness Design Studio** from the application menu. It opens on **Home** with nothing open. The first time, Home asks *Who are you working as?* on the page itself (Systems engineer, Electrical engineer or AIT engineer, three big buttons; you can change it any time in **View > Role**).
 
 **What you should see:** a window with the title *Harness Design Studio* (with the name of the project in front of it), a navigation rail down the left edge (*Next step*, *Home*, *Model*, *Checks*, *Drawings*, *Outputs*, *As-built*, *Revisions*, *Settings*; each role lists fewer of them), one row at the top with the project name, **Undo** and **Redo**, **Guided** and **Expert**, **Show panels**, **Search**, the steps *Generate*, *Check* and *Release…*, **Export…**, the **Role** button (for example *Role: Systems engineer*) and a status chip, and the menus **File**, **Edit**, **View**, **Design**, **Go** and **Help**. A Systems engineer or an AIT engineer lands on the page headed *What to do next*: one card with one button, the six steps of the work with *done*, *next* or *to do* beside each, and, for a Systems engineer, the links **Library…** and **Show everything**. In the window of the **Systems engineer** the project tree, the Inspector and the Problems panel are closed, and the rail lists only *Next step*, *Model*, *Checks*, *Revisions* and *Settings*. An Electrical engineer lands on the diagram.
 
@@ -256,7 +258,7 @@ harness-design-studio --version
 ```
 
 ```
-harness 2.2.0
+harness 2.3.0
 ```
 
 You now have the command line tool `harness-design-studio` (and its short alias `harness`) and the editor `harness-design-studio-gui`. For a script or a shared machine, the setup program also runs without windows: `harness-design-studio-<version>-windows-x86_64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /CURRENTUSER /DIR="C:\Tools\Harness Design Studio"` (add `/LOG=setup.log` to keep a log). Remove it with *Settings > Apps*, or run `unins000.exe` in the install folder (`/VERYSILENT` makes that silent too). Your projects are never inside the install folder, and uninstalling does not touch them.

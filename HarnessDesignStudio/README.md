@@ -48,7 +48,7 @@ You need the tool installed ([`docs/INSTALL.md`](docs/INSTALL.md); `sudo apt ins
    harness-design-studio export wheel-link
    ```
 
-5. **Open it in the app** (4 minutes). Start **Harness Design Studio**, choose **File > Open project…** and pick `wheel-link`. The first start asks *Who are you working as?* (the **Role** button or **View > Role** changes it). A Systems engineer lands on the **Next step** page, which names one thing to do (so does an AIT engineer); an Electrical engineer lands on the diagram. Look at **Model** (the diagram), **Checks** (what passed and what is *not checked*, and why) and, as an Electrical engineer, **Drawings** (a harness, and its **Why** tab with the reason for every choice).
+5. **Open it in the app** (4 minutes). Start **Harness Design Studio**, choose **File > Open project…** and pick `wheel-link`. The program starts on **Home** with nothing open; the first time, Home asks *Who are you working as?* on the page itself (the **Role** button or **View > Role** changes it later). A Systems engineer lands on the **Next step** page, which names one thing to do (so does an AIT engineer); an Electrical engineer lands on the diagram. Look at **Model** (the diagram), **Checks** (what passed and what is *not checked*, and why) and, as an Electrical engineer, **Drawings** (a harness, and its **Why** tab with the reason for every choice).
 
 That is the whole idea. The full tutorial with the output of every command is [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) (45 minutes); [`docs/LEARNING_PATH.md`](docs/LEARNING_PATH.md) is the route in nine steps.
 
@@ -58,7 +58,7 @@ That is the whole idea. The full tutorial with the output of every command is [`
 | --- | --- |
 | do a task (a quick block diagram, draw, generate, edit a wire, import, devices, export, release, Git, CI) | [`docs/user-manual/`](docs/user-manual/README.md): one page per task, and [`docs/user-manual/quick-diagram.md`](docs/user-manual/quick-diagram.md) for a picture in five minutes |
 | look something up | [`docs/CLI.md`](docs/CLI.md), the user guide ([`docs/guide/USER_GUIDE.md`](docs/guide/USER_GUIDE.md), **F1** in the app), [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md), [`docs/GLOSSARY.md`](docs/GLOSSARY.md) |
-| upgrade a project saved by 1.17.1 or older to format 2 (since 2.0.0rc1; the full release 2.0.0 is the first full release that writes it, and 2.0.1, 2.1.0 and 2.1.1 write it too) | [`docs/user-manual/upgrade-a-project.md`](docs/user-manual/upgrade-a-project.md) |
+| upgrade a project saved by 1.17.1 or older to format 2 (since 2.0.0rc1; the full release 2.0.0 is the first full release that writes it, and 2.0.1, 2.1.0, 2.1.1 and 2.2.0 write it too) | [`docs/user-manual/upgrade-a-project.md`](docs/user-manual/upgrade-a-project.md) |
 | fix a problem | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md), [`docs/FAQ.md`](docs/FAQ.md) |
 | see what each step uses and makes, or record what was built and measured | [`docs/user-manual/follow-the-workflow.md`](docs/user-manual/follow-the-workflow.md), [`docs/user-manual/record-what-was-built.md`](docs/user-manual/record-what-was-built.md), [`docs/models/asbuilt.md`](docs/models/asbuilt.md) |
 | supply engineering values or review | [`docs/CONFIG.md`](docs/CONFIG.md), [`docs/PLACEHOLDERS.md`](docs/PLACEHOLDERS.md), [`docs/RULES.md`](docs/RULES.md), [`docs/OUTPUTS.md`](docs/OUTPUTS.md) |

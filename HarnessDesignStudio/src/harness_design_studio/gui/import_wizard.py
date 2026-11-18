@@ -3,7 +3,7 @@
 """The import wizard: one pattern for every kind of import.
 
     wizard = ImportWizard(ctl, theme, parent)
-    wizard.exec()                       # applies itself on Finish: one undo step, "Import 12 rows"
+    run_dialog(wizard)                  # applies itself on Finish: one undo step, "Import 12 rows"
     wizard.imported.connect(...)        # rows imported (after the undo step exists)
 
 Four pages: 1 what and which file, 2 matching the columns (or the unit, the meaning of the approval

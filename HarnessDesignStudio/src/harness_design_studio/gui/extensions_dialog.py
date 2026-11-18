@@ -3,8 +3,8 @@
 """Extensions of the open project (D-191 (5), S8): the page under **Help > Extensions** and the
 question that names the code before a Python plug-in is loaded.
 
-    ExtensionsDialog(parent, theme, ctl).exec()
-    TrustDialog(parent, theme, info, source).exec()
+    run_dialog(ExtensionsDialog(parent, theme, ctl))      # (dialog_base.run_dialog)
+    run_dialog(TrustDialog(parent, theme, info, source))
 
 Nothing here runs a plug-in. The page lists what `harness-design-studio extensions` lists (the
 declarative files, the Python plug-ins, the registered items, the problems). The trust question shows
@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 from harness_design_studio.core.extensions import manager, plugins, trust
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.controller import EditorController
-from harness_design_studio.gui.dialog_base import Dialog
+from harness_design_studio.gui.dialog_base import Dialog, run_dialog
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
 
 MAX_SOURCE_SHOWN = 200_000  # characters of a plug-in's code shown in the question
@@ -133,7 +133,7 @@ class TrustDialog(Dialog):
 
 
 def _exec(dlg: QDialog) -> int:
-    return int(dlg.exec())
+    return run_dialog(dlg)  # (not exec(): a modal dialog cannot be moved apart on GNOME)
 
 
 def _table(headers: tuple[str, ...], name: str) -> QTableWidget:

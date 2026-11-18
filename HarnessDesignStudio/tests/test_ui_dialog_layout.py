@@ -131,6 +131,141 @@ def test_a_window_that_gets_more_text_than_it_was_built_for_grows(qtbot) -> None
     assert audit(dlg) == [] and dlg.height() >= needed_height(dlg)
 
 
+# ---- the window shrinks back (the owner's feedback of 2026-11-17) -----------------------------------
+# On a real display (Ubuntu, scaling 1.25) the first-start window was taller than the main window,
+# with big gaps between its parts: the base had grown it while it was narrow (a wrapped text has
+# many lines then) and never gave the height back once the window was wide again.
+
+MARGIN = 8  # what "content plus a small margin" allows (rounding of a scaled display)
+
+
+class _Wrapped(Dialog):
+    """A window of wrapped texts and a button, nothing that wants extra height."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        lay = QVBoxLayout(self)
+        for _ in range(3):
+            label = QLabel("Pick the one that fits your work, it decides what shows first. " * 2)
+            label.setWordWrap(True)
+            lay.addWidget(label)
+        lay.addWidget(QPushButton("OK"))
+
+
+def test_a_window_made_tall_by_a_narrow_width_shrinks_back_when_it_is_wide_again(qtbot) -> None:
+    dlg = _Wrapped()
+    qtbot.addWidget(dlg)
+    dlg.resize(520, 10)
+    dlg.show()
+    settle()
+    normal = dlg.height()
+    assert normal <= needed_height(dlg) + MARGIN
+    dlg.resize(160, dlg.height())  # narrow: the texts wrap into many lines and the window grows
+    settle()
+    tall = dlg.height()
+    assert tall > normal + 40 and audit(dlg) == []
+    dlg.resize(520, dlg.height())  # wide again (what a window manager or the person does)
+    settle()
+    assert dlg.width() >= 520
+    assert dlg.height() < tall
+    assert dlg.height() <= needed_height(dlg) + MARGIN, (dlg.height(), needed_height(dlg))
+    assert audit(dlg) == []
+
+
+def test_a_window_never_shrinks_below_its_content_or_the_authors_floor(qtbot) -> None:
+    dlg = _Wrapped()
+    dlg.setMinimumHeight(400)  # the author's floor
+    qtbot.addWidget(dlg)
+    dlg.resize(520, 10)
+    dlg.show()
+    settle()
+    dlg.resize(160, dlg.height())
+    settle()
+    dlg.resize(520, dlg.height())
+    settle()
+    assert dlg.height() >= 400 and dlg.height() >= needed_height(dlg)
+    assert audit(dlg) == []
+
+
+def test_a_height_the_person_chose_is_kept(qtbot) -> None:
+    """Only the height the base added goes again: a window the person made taller stays so."""
+    dlg = _Wrapped()
+    qtbot.addWidget(dlg)
+    dlg.resize(520, 10)
+    dlg.show()
+    settle()
+    dlg.resize(520, dlg.height() + 150)  # the person drags the lower edge
+    settle()
+    chosen = dlg.height()
+    dlg.resize(560, chosen)
+    settle()
+    assert dlg.height() == chosen
+
+
+def test_a_height_the_code_set_is_kept(qtbot) -> None:
+    """A dialog that its code makes larger than it needs (the glossary: `resize(560, 520)`) opens at
+    that size; only a height the base itself added is given back."""
+    from harness_design_studio.gui.dialogs import GlossaryDialog
+
+    dlg = GlossaryDialog(None)
+    qtbot.addWidget(dlg)
+    dlg.show()
+    settle()
+    assert dlg.height() == 520 > needed_height(dlg) + MARGIN
+    dlg.resize(dlg.width() + 100, dlg.height())
+    settle()
+    assert dlg.height() == 520
+    plain = _Wrapped()
+    qtbot.addWidget(plain)
+    plain.resize(520, 600)  # (before it is shown, as a dialog's __init__ does)
+    plain.show()
+    settle()
+    assert plain.height() == 600
+
+
+@pytest.mark.parametrize("cls", [NewDeviceDialog, QuickDeviceDialog])
+def test_a_dialog_of_the_program_gives_the_height_back(qtbot, cls) -> None:
+    dlg = open_dialog(cls)
+    qtbot.addWidget(dlg)
+    width, normal = dlg.width(), dlg.height()
+    dlg.resize(dlg.minimumWidth(), normal)
+    settle()
+    dlg.resize(width + 200, dlg.height())
+    settle()
+    assert dlg.height() <= max(normal, needed_height(dlg)) + MARGIN
+    assert audit(dlg) == []
+
+
+# ---- the first start on Home (also on the real platforms of REQ-GUI-26, at scale 1 and 1.25) ------
+
+
+@pytest.mark.parametrize("size", [(1100, 700), (1440, 900)])
+def test_home_with_the_role_question_fits_without_gaps(qtbot, tmp_path, monkeypatch, size) -> None:
+    """The question of the first start is on Home (2026-11-17), not in a window that a window
+    manager can open taller than the main window: the section has room for its text, nothing in
+    it lies over anything else, each big button is as high as its text needs and no higher (no
+    gaps), and it is no wider than the page."""
+    from harness_design_studio.gui import roles
+    from tests.gui_helpers import make_window
+
+    monkeypatch.setattr(roles, "FIRST_RUN_ROLE", None)
+    win = make_window(tmp_path, first_run=True)
+    qtbot.addWidget(win)
+    win.show_landing()
+    win.resize(*size)
+    settle()
+    page = win.home_page
+    assert win.landing() and page.role_card.isVisible()
+    assert audit(page.role_card) == []
+    for button in page.role_buttons.values():
+        need = button.heightForWidth(button.width())
+        floor = button.minimumHeight()  # (the style's height of a big button, 72 px at 100 %)
+        top = max(need, floor) + MARGIN
+        assert need <= button.height() <= top, (button.objectName(), button.height(), need, floor)
+    assert page.role_card.geometry().right() <= page.viewport().width()
+    assert page.role_card.height() < win.height()
+
+
 def test_a_wrapped_label_in_a_split_pane_counts_all_its_lines(qtbot) -> None:
     """A splitter does not ask for height for width: the label's minimum height has to follow."""
     from PySide6.QtWidgets import QSplitter
@@ -222,7 +357,10 @@ def test_the_audit_sees_a_child_that_reaches_out_of_its_parent(qtbot) -> None:
     host = QWidget()
     child = QPushButton("cut off", host)
     host.resize(100, 60)
-    child.setGeometry(60, 10, 100, 30)
+    # at least its own minimum: an earlier test of the worker may have left a larger app font,
+    # and this test is about `outside` alone, not `squeezed`
+    hint = child.minimumSizeHint()
+    child.setGeometry(60, 10, max(100, hint.width()), max(30, hint.height()))
     shown(qtbot, host)
     assert [f.rule for f in audit(host)] == ["outside"]
 
