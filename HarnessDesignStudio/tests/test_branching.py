@@ -72,7 +72,7 @@ def straight(p, history=None, pins=("1", "2")):
 
 
 def released(p, hid):
-    p.harnesses[hid] = evolve(p.harnesses[hid], status="released", revision="A")
+    p.harnesses[hid] = evolve(p.harnesses[hid], status="released", version="1.0.0")
 
 
 def generated_mini3():
@@ -178,7 +178,7 @@ def test_the_plans_of_a_drawn_tree_refuse_a_generated_a_released_and_an_unknown_
         lambda: plan_add_leg(q, hid, "OBC-J01"),
     ):
         with pytest.raises(
-            EditError, match="W001 is released \\(revision A\\); start a new revision"
+            EditError, match="W001 is released \\(version 1.0.0\\); start a new version"
         ):
             call()
 
@@ -462,12 +462,12 @@ def test_a_join_is_refused_with_the_reason():
         plan_join_harnesses(p, keep, other)
     p.harnesses[other] = h
     # a release history of the harness that would be deleted
-    p.baselines["W002.A"] = Baseline(
-        id="W002.A", harness_id=other, revision="A", content_hash="x", snapshot=snapshot_for(p, h), released_on="2026-11-17", by="Ann", comment="first release"
+    p.baselines["W002.1.0.0"] = Baseline(
+        id="W002.1.0.0", harness_id=other, version="1.0.0", content_hash="x", snapshot=snapshot_for(p, h), released_on="2026-11-17", by="Ann", comment="first release"
     )  # fmt: skip
     with pytest.raises(EditError, match="W002 has a release history.*Join W001 into W002 instead"):
         plan_join_harnesses(p, keep, other)
-    del p.baselines["W002.A"]
+    del p.baselines["W002.1.0.0"]
     released(p, other)
     with pytest.raises(EditError, match="W002 is released"):
         plan_join_harnesses(p, keep, other)

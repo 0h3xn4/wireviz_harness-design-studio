@@ -43,7 +43,7 @@ def test_a_saved_release_cannot_be_undone_and_saved_away(tmp_path: Path) -> None
     hist = do_release(p, hid, exported(p, tmp_path))
     root = tmp_path / "proj"
     save_project(p, root)
-    baseline = root / "baselines" / hid / f"{hid}.A.json"
+    baseline = root / "baselines" / hid / f"{hid}.1.0.0.json"
     assert baseline.is_file() and not hist.can_undo
     with pytest.raises(TransactionError, match="it cannot be undone"):
         hist.undo()
@@ -298,7 +298,7 @@ def test_a_released_harness_cannot_be_replaced_by_a_non_draft_copy(tmp_path: Pat
     p, hid = _released(tmp_path)
     h = p.harnesses[hid]
     for status in ("in_review", "released"):
-        new = evolve(h, revision="B", status=status)
+        new = evolve(h, version="2.0.0", status=status)
         with pytest.raises(TransactionError):
             History(p).execute("x", [Put("harnesses", new)])
 
@@ -306,10 +306,10 @@ def test_a_released_harness_cannot_be_replaced_by_a_non_draft_copy(tmp_path: Pat
 def test_a_released_harness_cannot_be_edited_under_the_same_revision(tmp_path: Path) -> None:  # M32
     p, hid = _released(tmp_path)
     h = p.harnesses[hid]
-    new = evolve(h, status="draft", revision=h.revision)
+    new = evolve(h, status="draft", version=h.version)
     with pytest.raises(TransactionError):
         History(p).execute("x", [Put("harnesses", new)])
-    new = evolve(h, status="draft", revision=h.revision, wires=h.wires[1:])
+    new = evolve(h, status="draft", version=h.version, wires=h.wires[1:])
     with pytest.raises(TransactionError):
         History(p).execute("x", [Put("harnesses", new)])
 

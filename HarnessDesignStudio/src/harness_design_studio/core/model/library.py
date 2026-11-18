@@ -8,7 +8,7 @@ from pydantic import Field
 
 from harness_design_studio.core.ids import Id
 
-from .base import MAX_PIN_COUNT, Entity, IsoDate, Name, NonNegative, SparseEntity, Text
+from .base import MAX_PIN_COUNT, Entity, IsoDate, Name, NonNegative, SparseEntity, Text, WebLink
 
 PartCategory = Literal["connector", "contact", "backshell", "wire", "sleeving", "label"]
 PART_CATEGORIES: tuple[PartCategory, ...] = (
@@ -18,7 +18,7 @@ Approval = Literal["approved", "pending", "not_approved"]
 
 
 class Part(SparseEntity):
-    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"tool", "conductors"})
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"tool", "conductors", "link"})
 
     id: Id
     category: PartCategory
@@ -39,6 +39,7 @@ class Part(SparseEntity):
     # wire that names the part is one conductor of it, so the bill of materials and the mass count
     # the sum of their lengths divided by this number: the metres of the cable (1.11, D-188).
     conductors: Annotated[int, Field(ge=1, le=64)] = 1
+    link: WebLink | None = None  # the part's page on the web (a datasheet, a shop; format 3)
 
 
 class LibraryInfo(Entity):

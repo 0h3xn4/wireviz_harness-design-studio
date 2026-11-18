@@ -108,12 +108,12 @@ def release_state(project: Project, h: Harness) -> tuple[str, str]:
     """(state key, text) of a harness for the header chip: draft, in review, released, or revised
     (a draft that has an earlier released revision)."""
     if h.status == "released":
-        return "released", strings.HV_REL_RELEASED.format(h.revision)
+        return "released", strings.HV_REL_RELEASED.format(h.version)
     if h.status == "in_review":
-        return "in-review", strings.HV_REL_REVIEW.format(h.revision)
+        return "in-review", strings.HV_REL_REVIEW.format(h.version)
     if any(b.harness_id == h.id for b in project.baselines.values()):
-        return "revised", strings.HV_REL_REVISED.format(h.revision)
-    return "draft", strings.HV_REL_DRAFT.format(h.revision)
+        return "revised", strings.HV_REL_REVISED.format(h.version)
+    return "draft", strings.HV_REL_DRAFT.format(h.version)
 
 
 def _wire_state(

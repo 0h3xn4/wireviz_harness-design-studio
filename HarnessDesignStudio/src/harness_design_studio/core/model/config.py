@@ -10,7 +10,12 @@ from .base import Entity, Name
 
 CONFIG_NAMES: tuple[str, ...] = (
     "segmentation", "segregation", "derating", "naming", "emc", "titleblock", "generation", "model",
+    "harness_plan",
 )  # fmt: skip
+# Optional files: not in `default_configs`, so a project that does not use them has no such file.
+# `harness_plan` (format 3, design of 3.0.0 section 4.1) holds the colour rule, the colour codes and
+# the note lines of the harness plans.
+OPTIONAL_CONFIGS: frozenset[str] = frozenset({"model", "harness_plan"})
 
 
 ABOUT_KEY = "_about"  # the reserved top-level key of a config file that carries the comments
@@ -126,7 +131,7 @@ def default_configs() -> dict[str, ConfigFile]:
                     "project",
                     "harness_id",
                     "title",
-                    "revision",
+                    "version",
                     "date",
                     "author",
                     "checker",

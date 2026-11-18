@@ -133,7 +133,8 @@ A rule or a table that applies to an object can read the fields of that object a
 | `interface.wires` |  | number | The number of wires that implement it, in every harness. |
 | `harness.id` |  | text | The harness's ID. |
 | `harness.name` |  | text | The harness's name. |
-| `harness.revision` |  | text | The revision letter. |
+| `harness.version` |  | text | The version, MAJOR.MINOR.PATCH (1.2.0). |
+| `harness.revision` |  | text | The older name of harness.version, kept through 3.0.x: the version (D-242). |
 | `harness.status` |  | text | draft, in_review or released. |
 | `harness.wires` |  | number | The number of wires. |
 | `harness.connectors` |  | number | The number of cable connectors. |

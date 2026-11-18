@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""Review, release and new-revision workflow.
+"""Review, release and new-version workflow.
 
 A release needs a comment, a name, and a design that passes the gate: no verifier or rule
 errors for the harness, harness plans current, every wire sized and measured, outputs that
@@ -11,7 +11,7 @@ kept in the change log and the baseline (D-135). A project that switches on `rel
 (`config/naming.json`, off by default) also needs complete as-built records and no length out of
 tolerance, or a written reason of the same kind (`asbuilt_blockers`); the records are not frozen. It writes a baseline (a frozen snapshot) and a change log
 entry, and locks the harness (see `locks`). The only way to change it afterwards is a new
-revision, which keeps the old baseline.
+version (major, minor or patch), which keeps the old baseline.
 """
 
 import os
@@ -36,6 +36,7 @@ from .consistency import release_integrity
 from .hashing import content_hash
 from .roles import date_problem, distinct_roles_on, same_person
 from .snapshot import carried_interfaces, normalize, related_ids, snapshot_for
+from .versions import KINDS, VersionKind, bump, version_key
 
 MIN_COMMENT = 10
 MAX_COMMENT = 2000  # the baseline keeps the comment; its limit is in core/model/review.py
@@ -81,21 +82,13 @@ class ReleasePlan:
         return not self.blockers
 
 
-def next_revision(rev: str) -> str:
-    """A -> B ... Z -> AA -> AB (spreadsheet-style letters)."""
-    if not re.fullmatch(r"[A-Z]+", rev):
-        raise ReleaseError(
-            f"Revision '{rev}' is not letters; rename it before starting a new revision."
-        )
-    chars = list(rev)
-    k = len(chars) - 1
-    while k >= 0:
-        if chars[k] != "Z":
-            chars[k] = chr(ord(chars[k]) + 1)
-            return "".join(chars)
-        chars[k] = "A"
-        k -= 1
-    return "A" + "".join(chars)
+def next_version(version: str, kind: VersionKind = "major") -> str:
+    """The version after a released `version` (design of 3.0.0 section 5.3): from `1.4.2`, major
+    gives `2.0.0`, minor `1.5.0`, patch `1.4.3`."""
+    try:
+        return bump(version, kind)
+    except ValueError as exc:
+        raise ReleaseError(str(exc)) from exc
 
 
 def _next_entry_id(project: Project) -> str:
@@ -109,7 +102,7 @@ def _entry(
     return ChangeEntry(
         id=_next_entry_id(project),
         harness_id=h.id,
-        revision=h.revision,
+        version=h.version,
         kind=kind,
         by=by,
         when=when,
@@ -547,7 +540,7 @@ def release_blockers(
         out.append(
             Blocker(
                 "already_released",
-                f"{hid} is already released (revision {h.revision}). Start a new revision to change it.",
+                f"{hid} is already released (version {h.version}). Start a new version to change it.",
                 hid,
             )
         )
@@ -597,12 +590,12 @@ def release_blockers(
             )
         )
     out.extend(outputs_blockers(project, outputs_folder, hid))
-    existing = f"{hid}.{h.revision}"
+    existing = f"{hid}.{h.version}"
     if existing in project.baselines:
         out.append(
             Blocker(
                 "baseline_exists",
-                f"Revision {h.revision} of {hid} already has a baseline; start a new revision.",
+                f"Version {h.version} of {hid} already has a baseline; start a new version.",
                 hid,
             )
         )
@@ -725,38 +718,91 @@ def plan_release(
     )
     entry = _entry(project, released, "release", by.strip(), when, full_comment)
     baseline = Baseline(
-        id=f"{hid}.{h.revision}", harness_id=hid, revision=h.revision, released_on=when, by=by.strip(),
+        id=f"{hid}.{h.version}", harness_id=hid, version=h.version, released_on=when, by=by.strip(),
         comment=full_comment, content_hash=content_hash(project), snapshot=snapshot,
     )  # fmt: skip
     plan.ops = [Put("harnesses", released), Put("baselines", baseline), Put("changelog", entry)]
-    plan.label = f"Release {hid} revision {h.revision}"
+    plan.label = f"Release {hid} version {h.version}"
     return plan
 
 
-def plan_new_revision(
-    project: Project, hid: str, *, by: str, comment: str, when: str
+MAX_BASELINE_ID = 64  # the longest ID (`core.ids`); a baseline ID is `<harness>.<version>`
+
+
+def plan_new_version(
+    project: Project, hid: str, *, kind: str, by: str, comment: str, when: str
 ) -> ReleasePlan:
+    """A new version of a released harness (design of 3.0.0 section 5.3): the person chooses the
+    kind, major, minor or patch, and the next version is worked out from the released one (from
+    `1.4.2`: `2.0.0`, `1.5.0`, `1.4.3`). The harness becomes a draft at that version, the
+    baseline of the released version stays, and the change log gets one entry of kind
+    `new_version`. Refused: a harness that is not released, a kind that is not one of the three,
+    a version that is not higher than every baseline of the harness (`version_not_higher`, also
+    when a merge brought one in) and a baseline ID that would be longer than an ID may be."""
     blockers = _common(project, hid, by, comment, when)
     h = project.harnesses.get(hid)
     if h is not None and h.status != "released":
         blockers.append(
             Blocker("not_released", f"{hid} is not released, so it can be edited directly.", hid)
         )
-    plan = ReleasePlan(blockers=blockers, label=f"New revision of {hid}")
+    if kind not in KINDS:
+        blockers.append(
+            Blocker(
+                "kind_unknown",
+                f"'{kind}' is not a kind of version: choose major, minor or patch.",
+                about="kind",
+            )
+        )
+    plan = ReleasePlan(blockers=blockers, label=f"New version of {hid}")
     if blockers or h is None:
+        return plan
+    version = next_version(h.version, kind)  # type: ignore[arg-type]
+    higher = [
+        b.version
+        for b in project.baselines.values()
+        if b.harness_id == hid and version_key(b.version) >= version_key(version)
+    ]
+    if higher:
+        blockers.append(
+            Blocker(
+                "version_not_higher",
+                f"Version {version} of {hid} is not higher than its baseline {max(higher, key=version_key)}; "
+                "choose a larger kind (minor or major).",
+                hid,
+                "kind",
+            )
+        )
+    if len(f"{hid}.{version}") > MAX_BASELINE_ID:
+        blockers.append(
+            Blocker(
+                "baseline_id_too_long",
+                f"The baseline of {hid} version {version} would be called '{hid}.{version}', "
+                f"longer than {MAX_BASELINE_ID} characters; give the harness a shorter ID first.",
+                hid,
+            )
+        )
+    if blockers:
         return plan
     new = evolve(
         h,
-        revision=next_revision(h.revision),
+        version=version,
         status="draft",
         checker=None,
         approver=None,
         released_on=None,
     )
-    entry = _entry(project, new, "new_revision", by.strip(), when, comment.strip())
+    entry = _entry(project, new, "new_version", by.strip(), when, comment.strip())
     plan.ops = [Put("harnesses", new), Put("changelog", entry)]
-    plan.label = f"New revision {new.revision} of {hid}"
+    plan.label = f"New version {new.version} of {hid}"
     return plan
+
+
+def plan_new_revision(
+    project: Project, hid: str, *, by: str, comment: str, when: str
+) -> ReleasePlan:
+    """The older name of `plan_new_version` with the major step, which is the step a letter of
+    format 2 took (A to B is 1.0.0 to 2.0.0, D-242); kept for scripts and tests."""
+    return plan_new_version(project, hid, kind="major", by=by, comment=comment, when=when)
 
 
 def plan_submit_review(project: Project, hid: str, *, by: str, when: str) -> ReleasePlan:
@@ -787,8 +833,9 @@ __all__ = [
     "Blocker",
     "ReleaseError",
     "ReleasePlan",
-    "next_revision",
+    "next_version",
     "plan_new_revision",
+    "plan_new_version",
     "part_blockers",
     "part_note",
     "placeholder_blockers",

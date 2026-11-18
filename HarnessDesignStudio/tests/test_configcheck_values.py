@@ -237,7 +237,7 @@ def test_a_value_frozen_by_a_release_is_refused_with_the_lock_sentence(tmp_path:
     do_release(p, hid, exported(p, tmp_path))
     plan = configcheck.plan_set_value(p, "derating", "spare_pin_fraction", 0.31)
     assert not plan.ok and plan.ops == []
-    assert hid in (plan.error or "") and "new revision" in (plan.error or "")
+    assert hid in (plan.error or "") and "new version" in (plan.error or "")
     fields = by_key(configcheck.engineering_values(p))
     assert fields[("derating", "spare_pin_fraction")].locked == plan.error
     assert fields[("generation", "service_loop_m")].locked is None

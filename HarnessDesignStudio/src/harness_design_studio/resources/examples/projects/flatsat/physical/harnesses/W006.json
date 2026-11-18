@@ -1935,7 +1935,6 @@
   "name": "bus to payload",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W006-B1",
@@ -2102,6 +2101,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": "red",

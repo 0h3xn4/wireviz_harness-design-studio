@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Load a project folder. Never raises on bad content: problems become issues and quarantine."""
 
+import copy
 import hashlib
 import json
 import re
@@ -57,7 +58,7 @@ from .layout import (
     prune_orphan_marks,
     serialize,
 )
-from .migrate import migrate_raw, schema_version_of
+from .migrate import SetVersions, migrate_raw, schema_version_of
 
 
 @dataclass
@@ -391,10 +392,14 @@ def _build(files: dict[str, Any], project: Project, issues: list[Issue]) -> None
         _journal(b, journals)
 
 
-def load_project(root: Path | str, *, migrate: bool = True) -> LoadResult:
+def load_project(
+    root: Path | str, *, migrate: bool = True, set_versions: SetVersions | None = None
+) -> LoadResult:
     """Open a project folder, migrating old formats in memory and recovering what it can.
     `migrate=False` reads the files as they are, without the steps that bring an older format up to
-    date: the migration safety net (`core.io.upgrade`) uses it to see a project as it was saved."""
+    date: the migration safety net (`core.io.upgrade`) uses it to see a project as it was saved.
+    `set_versions` are the versions a person gave for revisions of format 2 that the step to format
+    3 cannot map (`migrate --set-version`)."""
     root = Path(root)
     base = long_path(root)
     if not base.is_dir():
@@ -402,7 +407,7 @@ def load_project(root: Path | str, *, migrate: bool = True) -> LoadResult:
     if not (base / "project.json").is_file():
         raise LoadError(f"'{root}' is not a harness project folder (no project.json).")
     files, broken, issues = read_tree(root)
-    result = load_from_files(files, broken, issues, migrate=migrate)
+    result = load_from_files(files, broken, issues, migrate=migrate, set_versions=set_versions)
     _add_lines(root, result)
     if (base / "extensions").is_dir():  # S8: nothing is reached for a project without the folder
         from harness_design_studio.core.extensions import attach
@@ -417,6 +422,7 @@ def load_from_files(
     issues: list[Issue] | None = None,
     *,
     migrate: bool = True,
+    set_versions: SetVersions | None = None,
 ) -> LoadResult:
     """Build a project from already-parsed files (also used to restore an autosave journal).
     `migrate=False` leaves a file tree of an older format as it is (no step is run, nothing is said
@@ -431,7 +437,7 @@ def load_from_files(
         issues.append(Issue("warning", "newer_version", f"This project was saved by a newer version of the tool (format {version}; this tool understands up to {SCHEMA_VERSION}). It is opened read-only.", "project.json"))  # fmt: skip
         files_for_build = files
     elif version < SCHEMA_VERSION and migrate:
-        files_for_build = migrate_raw(files, version)
+        files_for_build = migrate_raw(files, version, set_versions=set_versions)
         project.migrated_from = version
         issues.append(Issue("info", "migrated", f"The project is in format {version}; this tool read it as format {SCHEMA_VERSION} in memory. Nothing was changed on disk. To edit it, upgrade it first: `harness-design-studio migrate DIR` (`--dry-run` shows what changes), or open it in the editor and choose Upgrade.", "project.json"))  # fmt: skip
     else:
@@ -487,9 +493,36 @@ def non_canonical_files(root: Path | str, project: Project) -> list[str]:
         meta = json.loads(expected["project.json"])
         meta["schema_version"] = project.migrated_from
         expected["project.json"] = canonical.dumps(meta)
+    changed_by_step: set[str] = set()
+    if project.migrated_from is not None and project.migrated_from < 3:
+        # the step to format 3 renames keys and maps the revisions (D-242), so a file it changes
+        # cannot be held against what a save would write now; it is held against the tool's
+        # formatting of its own content instead
+        changed_by_step = _changed_by_versions_step(root, project.migrated_from)
     out = []
     for rel, data in expected.items():
         path = base / rel
-        if path.is_file() and path.read_bytes() != data:
+        if rel in changed_by_step or not path.is_file():
+            continue
+        if path.read_bytes() != data:
             out.append(rel)
-    return sorted(out)
+    for rel in sorted(changed_by_step):
+        path = base / rel
+        if path.is_file() and rel != JOURNAL_FILE:
+            raw = path.read_bytes()
+            try:
+                if canonical.dumps(canonical.loads_strict(raw)) != raw:
+                    out.append(rel)
+            except ValueError:
+                out.append(rel)
+    return sorted(set(out))
+
+
+def _changed_by_versions_step(root: Path | str, from_version: int) -> set[str]:
+    """The files of an older project whose content the steps up to format 3 change (or whose name
+    they change), under both their old and their new names."""
+    files, _broken, _issues = read_tree(Path(root))
+    before = migrate_raw(copy.deepcopy(files), from_version, to_version=2)
+    after = migrate_raw(copy.deepcopy(before), 2, to_version=3)
+    names = set(before) | set(after)
+    return {rel for rel in names if rel != "project.json" and before.get(rel) != after.get(rel)}

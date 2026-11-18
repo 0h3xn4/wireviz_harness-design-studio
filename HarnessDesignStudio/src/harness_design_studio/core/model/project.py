@@ -3,12 +3,14 @@
 """In-memory project: the single mutable container. Change it only through `commands`."""
 
 from dataclasses import dataclass, field
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from pydantic import Field
 
+from harness_design_studio.core.ids import Id
+
 from .asbuilt import AsBuiltRecord
-from .base import Entity, Name, Text
+from .base import Entity, Label, Name, SparseEntity, Text
 from .config import ConfigFile, default_configs
 from .generation import GenerationRecord
 from .imports import ImportRecord
@@ -18,15 +20,62 @@ from .logical import InterfaceInstance, InterfaceType, Link, Unit
 from .physical import Connector, Harness
 from .review import Baseline, ChangeEntry, DiagramMark, Placement, Waiver
 
-SCHEMA_VERSION = 2  # format 2 since D-226 (format 1 plus the number; frozen at the 2.0.0 tag)
+# Format 3 since D-242 (the versions MAJOR.MINOR.PATCH with the keys `version`, and the fields of
+# the harness plan; design of 3.0.0 section 4). Format 2 (D-226) is frozen at the 2.0.0 tag.
+SCHEMA_VERSION = 3
 DEFAULT_ZONES = ("panel-A", "panel-B")
+MAX_CONTACT_LINES = 8
 
 
-class ProjectMeta(Entity):
+class ContactLine(Entity):
+    """One line of the contact information on the Cover of a harness plan: `Phone`, `+49 …`."""
+
+    label: Name
+    value: Label = ""
+
+
+class PlanDocument(SparseEntity):
+    """The document data of one harness's plan (the Cover of `<ID>_plan.ods`, Q25): each text is
+    left out while it is empty. `version` is the plan document's own version, a person's text, not
+    the harness version."""
+
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
+        {"number", "version", "release", "title"}
+    )
+
+    number: Label = ""
+    version: Label = ""
+    release: Label = ""
+    title: Label = ""
+
+
+class DocumentInfo(SparseEntity):
+    """The document data of the harness plans (format 3, design of 3.0.0 section 4.4): the system
+    code, title, company and contact lines are the same in every plan of the project; `plans` holds
+    what belongs to one harness's plan, by harness ID. Set by a person only; it goes into the Cover
+    of the plans and nowhere else. Each part is left out while it is empty."""
+
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
+        {"system", "title", "company", "contact", "plans"}
+    )
+
+    system: Label = ""
+    title: Label = ""
+    company: Label = ""
+    contact: Annotated[list[ContactLine], Field(max_length=MAX_CONTACT_LINES)] = []
+    plans: dict[Id, PlanDocument] = {}
+
+
+class ProjectMeta(SparseEntity):
+    # sparse for `document` only (format 3), so that `project.json` keeps its bytes apart from the
+    # number while a project has no document data
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"document"})
+
     name: Name = "Untitled project"
     description: Text = ""
     schema_version: Annotated[int, Field(ge=1)] = SCHEMA_VERSION
     tool_version: str = ""  # version of the tool that last saved the project
+    document: DocumentInfo | None = None  # the Cover of the harness plans (format 3)
 
 
 @dataclass

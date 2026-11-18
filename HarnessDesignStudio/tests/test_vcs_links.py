@@ -69,12 +69,12 @@ def released(tmp_path: Path) -> tuple[Project, str, History]:
 
 def test_the_link_of_a_released_harness_is_locked_with_the_reason(tmp_path: Path) -> None:
     p, hid, _hist = released(tmp_path)
-    ref = lockview.LockRef(hid, p.harnesses[hid].revision)
+    ref = lockview.LockRef(hid, p.harnesses[hid].version)
     assert lockview.locked_objects(p)[("link", "L1")] == [ref]
     why = lockview.lock_reason(p, "link", "L1")
     assert (
         why
-        == f"Link L1 belongs to {hid}, which is released. {hid} is released (revision A); start a new revision to change it."
+        == f"Link L1 belongs to {hid}, which is released. {hid} is released (version 1.0.0); start a new version to change it."
     )
     assert lockview.field_lock_reason(p, "link", "L1", "pairs") == why
     assert lockview.release_locks(p, hid).links == ("L1",)
@@ -119,7 +119,7 @@ def test_the_baseline_keeps_the_link_and_a_change_made_behind_the_tool_is_found(
     tmp_path: Path,
 ) -> None:
     p, hid, _hist = released(tmp_path)
-    baseline = p.baselines[f"{hid}.A"]
+    baseline = p.baselines[f"{hid}.1.0.0"]
     assert baseline.snapshot.links == [p.links["L1"]]
     assert ("link", "L1") in flatten_snapshot(baseline.snapshot)
     assert not [i for i in release_integrity(p) if i.object_id == hid]
@@ -137,5 +137,5 @@ def test_a_baseline_of_a_harness_without_a_link_has_no_links_key(tmp_path: Path)
     p = full()
     hid = releasable(p)
     do_release(p, hid, exported(p, tmp_path))
-    snapshot = p.baselines[f"{hid}.A"].snapshot
+    snapshot = p.baselines[f"{hid}.1.0.0"].snapshot
     assert snapshot.links is None and "links" not in snapshot.model_dump(mode="json")

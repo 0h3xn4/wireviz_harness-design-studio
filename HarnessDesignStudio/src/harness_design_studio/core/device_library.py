@@ -75,7 +75,16 @@ __all__ = [
 ]
 
 FORMAT = "harness-device-library"
-VERSION = 1
+# The newest version this program reads and writes. A file is written as version 2 only when one
+# of its devices or parts uses a field of format 3 (D-242, design of 3.0.0 section 4.5: a pin
+# level, the role `signal_ground`, a connector's source, a part's link), and as version 1
+# otherwise, so that a 2.2 tool still reads every file that holds nothing it would refuse
+# (`content_version`).
+VERSION = 2
+FIRST_VERSION = 1
+FORMAT3_CONNECTOR_KEYS = frozenset({"source_doc", "source_version", "source_link"})
+FORMAT3_PIN_KEYS = frozenset({"level"})
+FORMAT3_PART_KEYS = frozenset({"link"})
 MAX_BYTES = 8 * 1024 * 1024
 MAX_DEVICES = 500
 MAX_CONNECTORS = 64  # per device
@@ -271,11 +280,11 @@ def export_devices(
         devices.append({"unit": unit_data, "connectors": out})
     return {
         "format": FORMAT,
-        "version": VERSION,
+        "version": FIRST_VERSION,
         "devices": devices,
         "parts": [parts[k].model_dump(mode="json") for k in sorted(parts)],
         "interface_types": [types[k].model_dump(mode="json") for k in sorted(types)],
-    }
+    } | {"version": content_version({"devices": devices, "parts": list(parts.values())})}
 
 
 _RANK = {"not_approved": 0, "pending": 1, "approved": 2}
@@ -324,15 +333,42 @@ def merge_with_notes(
                 by_id[k] = rec
         return [by_id[k] for k in sorted(by_id)]
 
-    return {
+    out = {
         "format": FORMAT,
-        "version": VERSION,
+        "version": FIRST_VERSION,
         "devices": merged("devices", lambda d: _ident_of(d, "unit", "id"), "Device"),
         "parts": merged("parts", lambda p: _ident_of(p, "id"), "Part", True),
         "interface_types": merged(
             "interface_types", lambda t: _ident_of(t, "id"), "Interface type"
         ),
-    }, notes
+    }
+    out["version"] = content_version(out)
+    return out, notes
+
+
+def content_version(content: dict[str, Any]) -> int:
+    """The version a device library file with this content is written as: 2 when a device or a
+    part uses a field of format 3 (a pin's `level`, the role `signal_ground`, a connector's
+    `source_doc`, `source_version` or `source_link`, a part's `link`), else 1 (design of 3.0.0
+    section 4.5). The parts may be given as models or as their JSON."""
+
+    def keys(rec: Any) -> set[str]:
+        if isinstance(rec, dict):
+            return set(rec)
+        dumped = rec.model_dump(mode="json") if hasattr(rec, "model_dump") else {}
+        return set(dumped)
+
+    for device in _dicts(content.get("devices", [])):
+        for c in _dicts(device.get("connectors", [])):
+            if FORMAT3_CONNECTOR_KEYS & set(c):
+                return VERSION
+            for pin in _dicts(c.get("pins", [])):
+                if FORMAT3_PIN_KEYS & set(pin) or pin.get("role") == "signal_ground":
+                    return VERSION
+    for part in content.get("parts", []) or []:
+        if FORMAT3_PART_KEYS & keys(part):
+            return VERSION
+    return FIRST_VERSION
 
 
 def merge_library(existing: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:

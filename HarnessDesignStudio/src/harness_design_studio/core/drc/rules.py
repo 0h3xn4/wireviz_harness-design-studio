@@ -877,7 +877,7 @@ RULES: tuple[Rule, ...] = (
          "Correct the value in config/*.json; `harness-design-studio config DIR` lists what is missing or invalid.", _config_invalid),
     Rule("released-modified", "error", "Released items",
          "A released harness must match its baseline exactly; otherwise the released drawings no longer describe what is stored.",
-         "Restore the harness from its baseline, or start a new revision for the change.", _released_modified),
+         "Restore the harness from its baseline, or start a new version for the change.", _released_modified),
     Rule("unchecked-config", "info", "Checks not run",
          "A rule that needs a number nobody has entered, or an analysis outside the tool, cannot say anything, and silence must not look like a pass.",
          "Fill in the missing value (see docs/PLACEHOLDERS.md), or do the analysis the note names and record it in the design review.", _unchecked),

@@ -33,7 +33,7 @@ from harness_design_studio.core.samples import sat15, sat15_full
 from harness_design_studio.core.vcs import diff as vd
 from harness_design_studio.core.vcs.hashing import content_hash
 from harness_design_studio.core.vcs.release import (
-    next_revision,
+    next_version,
     plan_new_revision,
     plan_release,
     plan_submit_review,
@@ -43,7 +43,7 @@ from harness_design_studio.core.vcs.release import (
 from harness_design_studio.core.vcs.report import (
     baselines_of,
     changelog_rows,
-    revision_report,
+    version_report,
     working_diff,
 )
 from tests._state_cache import copy_state
@@ -170,7 +170,7 @@ def test_the_reason_and_the_files_are_kept_in_the_change_log_and_the_baseline(
     names = p.placeholder_configs()
     do_release(p, hid, exported(p, tmp_path))
     entry = next(iter(p.changelog.values()))
-    for text in (entry.comment, p.baselines[f"{hid}.A"].comment):
+    for text in (entry.comment, p.baselines[f"{hid}.1.0.0"].comment):
         assert REASON in text and "Ada" in text
         assert all(n in text for n in names)
 
@@ -238,7 +238,7 @@ def test_the_parts_reason_is_kept_in_the_change_log_and_the_baseline(tmp_path: P
     ids = unapproved_parts(p, p.harnesses[hid])
     do_release(p, hid, exported(p, tmp_path))
     entry = next(iter(p.changelog.values()))
-    for text in (entry.comment, p.baselines[f"{hid}.A"].comment):
+    for text in (entry.comment, p.baselines[f"{hid}.1.0.0"].comment):
         assert REASON in text and ids[0] in text and "not approved" in text
 
 
@@ -246,17 +246,20 @@ def test_the_parts_reason_is_kept_in_the_change_log_and_the_baseline(tmp_path: P
 
 
 @pytest.mark.parametrize(
-    "before,after", [("A", "B"), ("Y", "Z"), ("Z", "AA"), ("AZ", "BA"), ("ZZ", "AAA")]
+    "before,after",
+    [("1.0.0", "2.0.0"), ("2.0.0", "3.0.0"), ("26.0.0", "27.0.0"), ("1.4.2", "2.0.0")],
 )
-def test_next_revision(before: str, after: str) -> None:
-    assert next_revision(before) == after
+def test_next_version(before: str, after: str) -> None:
+    # format 3 (D-242): without a kind, the next version is the major step a letter took (A to B
+    # is 1.0.0 to 2.0.0); `new-version --kind` chooses minor or patch
+    assert next_version(before) == after
 
 
-def test_next_revision_needs_letters() -> None:
+def test_next_version_needs_a_version() -> None:
     from harness_design_studio.core.vcs.release import ReleaseError
 
     with pytest.raises(ReleaseError):
-        next_revision("1.0")
+        next_version("1.0")
 
 
 # ---- release gate ----------------------------------------------------------------------------------
@@ -372,15 +375,15 @@ def test_release_writes_baseline_changelog_and_locks(tmp_path: Path) -> None:
     before_content = content_hash(p)
     do_release(p, hid, folder)
     h = p.harnesses[hid]
-    assert (h.status, h.revision, h.approver, h.checker, h.author, h.released_on) == (
+    assert (h.status, h.version, h.approver, h.checker, h.author, h.released_on) == (
         "released",
-        "A",
+        "1.0.0",
         "Ada",
         "Bob",
         "Ada",
         WHEN,
     )
-    b = p.baselines[f"{hid}.A"]
+    b = p.baselines[f"{hid}.1.0.0"]
     assert b.comment.startswith("First release for the CDR") and REASON in b.comment
     assert b.snapshot.harnesses[0].status == "released"
     assert {i.id for i in b.snapshot.interfaces} == {
@@ -480,19 +483,22 @@ def test_new_revision_unlocks_keeps_the_baseline_and_can_be_released_again(tmp_p
     )
     hist.execute(plan.label, plan.ops)
     h = p.harnesses[hid]
-    assert (h.revision, h.status, h.approver, h.released_on) == ("B", "draft", None, None)
-    assert f"{hid}.A" in p.baselines
+    assert (h.version, h.status, h.approver, h.released_on) == ("2.0.0", "draft", None, None)
+    assert f"{hid}.1.0.0" in p.baselines
     w = h.wires[0]
     hist.execute(
         "colour", [Put("harnesses", evolve(h, wires=[evolve(w, colour="WHT"), *h.wires[1:]]))]
     )
-    diff = working_diff(p, p.harnesses[hid], p.baselines[f"{hid}.A"])
+    diff = working_diff(p, p.harnesses[hid], p.baselines[f"{hid}.1.0.0"])
     assert {(c.kind, c.id) for c in diff.changes} == {("harness", hid), ("wire", w.id)}
     folder2 = tmp_path / "second"
     write_outputs(p, folder2)
     do_release(p, hid, folder2, hist, when="2026-04-02", comment="Second release, colours added")
-    assert p.harnesses[hid].revision == "B" and set(p.baselines) == {f"{hid}.A", f"{hid}.B"}
-    assert [e.kind for e in p.changelog.values()] == ["release", "new_revision", "release"]
+    assert p.harnesses[hid].version == "2.0.0" and set(p.baselines) == {
+        f"{hid}.1.0.0",
+        f"{hid}.2.0.0",
+    }
+    assert [e.kind for e in p.changelog.values()] == ["release", "new_version", "release"]
     assert [e.id for e in p.changelog.values()] == ["C0001", "C0002", "C0003"]
 
 
@@ -564,7 +570,7 @@ def test_baselines_and_changelog_survive_save_and_load(tmp_path: Path) -> None:
     hid = releasable(p)
     do_release(p, hid, exported(p, tmp_path))
     save_project(p, tmp_path / "p")
-    assert (tmp_path / "p" / "baselines" / hid / f"{hid}.A.json").is_file() and (
+    assert (tmp_path / "p" / "baselines" / hid / f"{hid}.1.0.0.json").is_file() and (
         tmp_path / "p" / "changelog.json"
     ).is_file()
     q = load_project(tmp_path / "p").project
@@ -724,10 +730,10 @@ def test_title_block_and_revision_outputs_after_a_release(tmp_path: Path) -> Non
     for needle in ("released", "Ada", "Bob", WHEN):
         assert needle in svg
     log = parse_csv(built.files["system/changelog.csv"])
-    assert log[1][:4] == ["C0001", hid, "A", "released"] and log[1][6].startswith(
+    assert log[1][:4] == ["C0001", hid, "1.0.0", "released"] and log[1][6].startswith(
         "First release for the CDR"
     )
-    report = built.files["system/revision_report.md"].decode()
+    report = built.files["system/version_report.md"].decode()
     assert hid in report and "First release for the CDR" in report
     assert verify_outputs(p, built.files).ok
 
@@ -742,13 +748,13 @@ def test_verifier_catches_changelog_problems(tmp_path: Path) -> None:
     files["system/changelog.csv"] = csv_bytes(table, stamp_of(p))
     assert "out_changelog" in {i.code for i in verify_outputs(p, files).errors}
     files = build_outputs(p).files
-    files["system/revision_report.md"] = files["system/revision_report.md"].replace(
+    files["system/version_report.md"] = files["system/version_report.md"].replace(
         hid.encode(), b"XXXX"
     )
     assert "out_changelog" in {i.code for i in verify_outputs(p, files).errors}
 
 
-def test_revision_report_shows_differences_between_revisions(tmp_path: Path) -> None:
+def test_version_report_shows_differences_between_revisions(tmp_path: Path) -> None:
     p = full()
     hid = releasable(p)
     folder = exported(p, tmp_path)
@@ -759,13 +765,13 @@ def test_revision_report_shows_differences_between_revisions(tmp_path: Path) -> 
     hist.execute(
         "c", [Put("harnesses", evolve(h, wires=[evolve(h.wires[0], colour="WHT"), *h.wires[1:]]))]
     )
-    text = revision_report(p, stamp_of(p).line)
-    assert "working design against revision A" in text and "colour: (none) -> WHT" in text
+    text = version_report(p, stamp_of(p).line)
+    assert "working design against version 1.0.0" in text and "colour: (none) -> WHT" in text
     assert len(baselines_of(p, hid)) == 1 and len(changelog_rows(p, hid)) == 3
 
 
-def test_empty_revision_report() -> None:
-    assert "No harness has been put into review" in revision_report(full(), "x")
+def test_empty_version_report() -> None:
+    assert "No harness has been put into review" in version_report(full(), "x")
 
 
 # ---- CLI ------------------------------------------------------------------------------------------
@@ -817,8 +823,10 @@ def test_cli_full_change_control_cycle(tmp_path: Path, capsys: pytest.CaptureFix
     assert (
         cli_main(
             [
-                "revise",
+                "new-version",
                 *args,
+                "--kind",
+                "major",
                 "--by",
                 "Ada",
                 "--comment",
@@ -831,11 +839,11 @@ def test_cli_full_change_control_cycle(tmp_path: Path, capsys: pytest.CaptureFix
     )
     assert cli_main(["diff", *args]) == 0
     text = capsys.readouterr().out
-    assert "revision: A -> B" in text
-    assert cli_main(["diff", *args, "--from", "A", "--to", "A"]) == 0
+    assert "version: 1.0.0 -> 2.0.0" in text
+    assert cli_main(["diff", *args, "--from", "1.0.0", "--to", "1.0.0"]) == 0
     assert cli_main(["diff", *args, "--from", "Q"]) == 2
     assert cli_main(["log", str(proj)]) == 0
-    assert "new revision started" in capsys.readouterr().out
+    assert "new version started" in capsys.readouterr().out
     assert cli_main(["review", *args, "--by", "Ada", "--date", "2026-04-02"]) == 0
 
 

@@ -85,15 +85,75 @@ def fake_next(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
 
 def as_format(root: Path, version: int) -> Path:
     """Write the number of `project.json` as `version`, in the bytes the tool writes (canonical
-    JSON). With 1 it is the project as a version 1.17.x tool wrote it: the step from 1 to 2 writes
-    the number (D-226) and moves the journal from `journal.json` to `journal.jsonl` (M7a, D-228),
-    so a journal is written back as `journal.json` the way 1.17.x wrote it (`as_old_journal`)."""
+    JSON). With 2 or less it is the project as a 2.x tool wrote it: the step from 2 to 3 maps each
+    revision letter to its version and renames the keys (D-242), so the files are written back with
+    letters under the old keys (`as_revisions`). With 1 it is the project as a version 1.17.x tool
+    wrote it: the step from 1 to 2 writes the number (D-226) and moves the journal from
+    `journal.json` to `journal.jsonl` (M7a, D-228), so a journal is written back as `journal.json`
+    the way 1.17.x wrote it (`as_old_journal`)."""
+    if version < 3:
+        as_revisions(root)
     f = root / "project.json"
     doc = json.loads(f.read_bytes())
     doc["schema_version"] = version
     f.write_bytes(canonical.dumps(doc))
     if version < 2:
         as_old_journal(root)
+    return root
+
+
+def version_to_letter(version: str) -> str:
+    """The letter of format 2 that maps to `version` (`1.0.0` is A, `27.0.0` is AA): the step from
+    2 to 3 backwards. Only versions N.0.0 have a letter."""
+    major, minor, patch = (int(x) for x in version.split("."))
+    assert (minor, patch) == (0, 0) and major >= 1, version
+    out = ""
+    while major:
+        major, rest = divmod(major - 1, 26)
+        out = chr(ord("A") + rest) + out
+    return out
+
+
+def _with_revision(data: dict[str, Any]) -> None:
+    if "version" in data:
+        data["revision"] = version_to_letter(data.pop("version"))
+
+
+def _old_fields(values: Any) -> None:
+    if isinstance(values, dict) and isinstance(values.get("fields"), list):
+        values["fields"] = ["revision" if f == "version" else f for f in values["fields"]]
+
+
+def as_revisions(root: Path) -> Path:
+    """Write the harnesses, baselines and change log of a format 3 project as a 2.x tool wrote
+    them: the key `revision` with the letter of each version, the kind `new_revision`, the title
+    block field `revision`, each baseline under its old ID and file name."""
+    for path in sorted((root / "physical" / "harnesses").glob("*.json")):
+        doc = json.loads(path.read_bytes())
+        _with_revision(doc)
+        path.write_bytes(canonical.dumps(doc))
+    log = root / "changelog.json"
+    if log.is_file():
+        doc = json.loads(log.read_bytes())
+        for e in doc.get("changelog", []):
+            _with_revision(e)
+            if e.get("kind") == "new_version":
+                e["kind"] = "new_revision"
+        log.write_bytes(canonical.dumps(doc))
+    for path in sorted((root / "baselines").glob("*/*.json")):
+        doc = json.loads(path.read_bytes())
+        _with_revision(doc)
+        for h in doc.get("snapshot", {}).get("harnesses", []):
+            _with_revision(h)
+        _old_fields(doc.get("snapshot", {}).get("config", {}).get("titleblock"))
+        doc["id"] = f"{doc['harness_id']}.{doc['revision']}"
+        path.unlink()
+        (path.parent / f"{doc['id']}.json").write_bytes(canonical.dumps(doc))
+    tb = root / "config" / "titleblock.json"
+    if tb.is_file():
+        doc = json.loads(tb.read_bytes())
+        _old_fields(doc.get("values"))
+        tb.write_bytes(canonical.dumps(doc))
     return root
 
 

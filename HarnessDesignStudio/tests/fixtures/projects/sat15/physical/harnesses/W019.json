@@ -204,7 +204,6 @@
   "name": "PCDU1-J05 to RW1-J01",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W019-P1",
@@ -227,6 +226,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

@@ -177,7 +177,6 @@
   "name": "GYRO1-J01 to PCDU1-J01",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W001-P1",
@@ -200,6 +199,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

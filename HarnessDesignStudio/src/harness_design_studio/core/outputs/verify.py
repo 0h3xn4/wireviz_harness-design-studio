@@ -73,7 +73,7 @@ HARNESS_FILES = (
 # that has a branch point (2.3.0, D-243 B7)
 SYSTEM_FILES = (
     "bom.csv", "mass_length.csv", "mating_matrix.csv", "traceability.csv", "box_pinouts.csv",
-    "drc_findings.csv", "drc_report.md", "changelog.csv", "revision_report.md", "export.json", "provenance.json", "system.xlsx",
+    "drc_findings.csv", "drc_report.md", "changelog.csv", "version_report.md", "export.json", "provenance.json", "system.xlsx",
     "block_diagram.svg",
     "block_diagram.pdf", "harness_overview.svg", "harness_overview.pdf",
 )  # fmt: skip
@@ -959,7 +959,13 @@ def _system(r: VerifyReport, project: Project, files: dict[str, bytes]) -> None:
                 and ("links" in doc) == bool(project.links)
                 and sum(len(h["wires"]) for h in doc["harnesses"]) == len(wires)
                 and not missing_units(doc)  # a file from before 1.13 has no field_units: no demand
-                and {h["id"]: h for h in doc["harnesses"]}
+                # `revision` is the older name of `version` through 3.0.x (D-242, Q29): the two
+                # must agree, then the harness without it is compared with the design
+                and all(h.get("revision") == h.get("version") for h in doc["harnesses"])
+                and {
+                    h["id"]: {k: v for k, v in h.items() if k != "revision"}
+                    for h in doc["harnesses"]
+                }
                 == {h.id: _saved_order(h) for h in project.harnesses.values()}
                 and all(
                     {o["id"]: o for o in doc[key]}
@@ -1023,12 +1029,12 @@ def _system(r: VerifyReport, project: Project, files: dict[str, bytes]) -> None:
             "The change log table does not list exactly the change log entries.",
             "changelog",
         )
-    rr = files.get("system/revision_report.md")
+    rr = files.get("system/version_report.md")
     if rr is not None:
         words = set(rr.decode().replace("`", " ").replace("(", " ").split())
         for hid in sorted({b.harness_id for b in project.baselines.values()}):
             if hid not in words:
-                r.error("out_changelog", f"The revision report does not mention {hid}.", hid)
+                r.error("out_changelog", f"The version report does not mention {hid}.", hid)
     md = files.get("system/drc_report.md")
     if md is not None and "Waived:" not in md.decode():
         r.error("out_drc", "The DRC report is incomplete.", "drc_report")

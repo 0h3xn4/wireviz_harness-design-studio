@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""Change-control commands: review, release, revise, diff, compare, log."""
+"""Change-control commands: review, release, new-version (older name revise), diff, compare, log."""
 
 import argparse
 import sys
@@ -17,15 +17,17 @@ from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.vcs import diff as vdiff
 from harness_design_studio.core.vcs.release import (
     ReleasePlan,
-    plan_new_revision,
+    plan_new_version,
     plan_release,
     plan_submit_review,
 )
 from harness_design_studio.core.vcs.report import baselines_of, changelog_rows, working_diff
+from harness_design_studio.core.vcs.versions import KINDS
 
-COMMANDS = ("review", "release", "revise", "diff", "compare", "log")
+COMMANDS = ("review", "release", "new-version", "revise", "diff", "compare", "log")
+NEW_VERSION = ("new-version", "revise")  # `revise` is the older name of `new-version` (Q30)
 OPTIONS = {
-    "by": "--by", "comment": "--comment", "checker": "--checker", "date": "--date",
+    "by": "--by", "comment": "--comment", "checker": "--checker", "date": "--date", "kind": "--kind",
     "reason": "--accept-placeholders / --accept-unapproved-parts / --accept-loose-ends / --accept-asbuilt",
 }  # fmt: skip
 
@@ -34,8 +36,15 @@ _PARSERS: dict[str, argparse.ArgumentParser] = {}
 
 
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    def add(name: str, text: str, *, harness: bool = True) -> argparse.ArgumentParser:
-        p = sub.add_parser(name, help=text, description=text)
+    def add(
+        name: str, text: str, *, harness: bool = True, listed: bool = True
+    ) -> argparse.ArgumentParser:
+        # a command that is not listed is an older name: it works, but `--help` lists the new one
+        p = (
+            sub.add_parser(name, help=text, description=text)
+            if listed
+            else sub.add_parser(name, description=text)
+        )
         _PARSERS[name] = p
         p.add_argument("project", type=Path, help="project folder")
         if harness:
@@ -98,19 +107,37 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "and not plugged into a device): the reason (at least 10 characters) is kept in the "
         "change log and the baseline",
     )
-    who(add("revise", "start a new revision of a released harness"), True)
+    for name, listed in (("new-version", True), ("revise", False)):
+        text = (
+            "start a new version of a released harness: --kind major (not compatible with the "
+            "versions before it), minor (adds something and stays compatible) or patch (a fix that "
+            "stays compatible); `revise` is the older name of this command"
+            if listed
+            else "the older name of `new-version`: start a new version of a released harness "
+            "(--kind major, minor or patch)"
+        )
+        nv = add(name, text, listed=listed)
+        who(nv, True)
+        nv.add_argument(
+            "--kind",
+            required=True,
+            choices=KINDS,
+            help="major: not compatible with the versions before it; minor: adds something and "
+            "stays compatible; patch: a fix that stays compatible (from 1.4.2: 2.0.0, 1.5.0 or "
+            "1.4.3)",
+        )
     d = add("diff", "show what changed in a harness since a baseline (or between two baselines)")
     d.add_argument(
         "--from",
         dest="rev_from",
         default=None,
-        help="baseline revision to compare from (default: latest)",
+        help="baseline version to compare from (default: latest)",
     )
     d.add_argument(
         "--to",
         dest="rev_to",
         default=None,
-        help="baseline revision to compare to (default: the working design)",
+        help="baseline version to compare to (default: the working design)",
     )
     c = sub.add_parser(
         "compare",
@@ -125,7 +152,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
 
 
 NOT_COMPARED = (
-    "Not compared: the generation record, the contents of baselines (only their revision, date, "
+    "Not compared: the generation record, the contents of baselines (only their version, date, "
     "name, comment and hash), and the files of the outputs folders."
 )
 
@@ -135,7 +162,7 @@ def _today(value: str | None) -> str:
     return date.today().isoformat() if value is None else value
 
 
-def _apply(path: Path, plan: ReleasePlan, rep: Report, by: str) -> int:
+def _apply(path: Path, plan: ReleasePlan, rep: Report, by: str, **extra: Any) -> int:
     if not plan.ok:
         for b in plan.blockers:
             option = OPTIONS.get(b.about or "")
@@ -144,6 +171,7 @@ def _apply(path: Path, plan: ReleasePlan, rep: Report, by: str) -> int:
         rep.put(
             action=plan.label,
             by=by,
+            **extra,
             blockers=[
                 {"code": b.code, "message": b.message, "about": b.about} for b in plan.blockers
             ],
@@ -199,8 +227,10 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         for row in rows:
             rep.say(" | ".join(row))
         if rep.as_json:
-            keys = ["entry", "harness", "revision", "event", "by", "date", "comment"]
+            keys = ["entry", "harness", "version", "event", "by", "date", "comment"]
             entries = [dict(zip(keys, r, strict=True)) for r in rows[1:]]
+            for entry in entries:  # the older name of `version`, through 3.0.x (D-242, Q29)
+                entry["revision"] = entry["version"]
             rep.put(harness=args.harness, entries=entries)
         return 0
     if cmd == "diff":
@@ -232,9 +262,12 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
             accept_asbuilt=args.accept_asbuilt,
             accept_loose_ends=args.accept_loose_ends,
         )
-    else:
-        plan = plan_new_revision(project, args.harness, by=by, comment=args.comment, when=when)
-    blocked = _apply(args.project, plan, rep, by)
+    else:  # new-version, or its older name revise
+        plan = plan_new_version(
+            project, args.harness, kind=args.kind, by=by, comment=args.comment, when=when
+        )
+    extra = {"kind": args.kind} if cmd in NEW_VERSION else {}  # `--json` adds the kind
+    blocked = _apply(args.project, plan, rep, by, **extra)
     if blocked:
         return blocked
     try:
@@ -244,7 +277,7 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         print(blocked_text(exc), file=sys.stderr)
         return 2 if isinstance(exc, SaveError) else 1
     rep.say(f"{plan.label}: done.")
-    rep.put(action=plan.label, by=by, blockers=[], outputs=None)
+    rep.put(action=plan.label, by=by, **extra, blockers=[], outputs=None)
     if cmd == "release":
         return _restamp(args.project, rep)
     return 0
@@ -301,33 +334,31 @@ def _diff(project: object, args: argparse.Namespace, rep: Report) -> int:
     if h is None:
         print(f"error: harness {args.harness} does not exist.", file=sys.stderr)
         return 2
-    bases = {b.revision: b for b in baselines_of(project, h.id)}
+    bases = {b.version: b for b in baselines_of(project, h.id)}
     if not bases:
         print(f"error: {h.id} has no baseline yet; release it first.", file=sys.stderr)
         return 2
     start = bases.get(args.rev_from) if args.rev_from else list(bases.values())[-1]
     if start is None:
-        print(f"error: {h.id} has no baseline for revision {args.rev_from}.", file=sys.stderr)
+        print(f"error: {h.id} has no baseline for version {args.rev_from}.", file=sys.stderr)
         return 2
     if args.rev_to:
         end = bases.get(args.rev_to)
         if end is None:
-            print(f"error: {h.id} has no baseline for revision {args.rev_to}.", file=sys.stderr)
+            print(f"error: {h.id} has no baseline for version {args.rev_to}.", file=sys.stderr)
             return 2
         diff = vdiff.diff_snapshots(start.snapshot, end.snapshot)
         rep.say(
-            vdiff.render_markdown(f"{h.id}: revision {start.revision} to {end.revision}", diff),
+            vdiff.render_markdown(f"{h.id}: version {start.version} to {end.version}", diff),
             end="",
         )
-        to = end.revision
+        to = end.version
     else:
         diff = working_diff(project, h, start)
         rep.say(
-            vdiff.render_markdown(
-                f"{h.id}: working design against revision {start.revision}", diff
-            ),
+            vdiff.render_markdown(f"{h.id}: working design against version {start.version}", diff),
             end="",
         )
         to = "working"
-    rep.put(harness=h.id, **{"from": start.revision, "to": to}, **_diff_doc(diff))
+    rep.put(harness=h.id, **{"from": start.version, "to": to}, **_diff_doc(diff))
     return 0

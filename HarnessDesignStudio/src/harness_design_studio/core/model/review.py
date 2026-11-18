@@ -15,7 +15,7 @@ from pydantic import (
 
 from harness_design_studio.core.ids import Id
 
-from .base import Entity, IsoDate, Name, SparseEntity, Text, _no_control_chars
+from .base import Entity, IsoDate, Name, SparseEntity, Text, Version, _no_control_chars
 from .library import Part
 from .logical import InterfaceInstance, InterfaceType, Link, Unit
 from .physical import Connector, Harness
@@ -135,11 +135,11 @@ class Snapshot(Entity):
 
 
 class Baseline(Entity):
-    """Frozen snapshot made when a harness revision is released. `id` is `<harness>.<revision>`."""
+    """Frozen snapshot made when a harness version is released. `id` is `<harness>.<version>`."""
 
     id: Id
     harness_id: Id
-    revision: Name
+    version: Version
     released_on: IsoDate
     by: Name
     comment: Justification
@@ -147,7 +147,9 @@ class Baseline(Entity):
     snapshot: Snapshot
 
 
-ChangeKind = Literal["review", "release", "new_revision"]
+# `new_version` was `new_revision` in format 2; `version_changed` is the kind of a new version
+# chosen again on a draft before its review (format 3, design of 3.0.0 section 5.3, Q22).
+ChangeKind = Literal["review", "release", "new_version", "version_changed"]
 
 
 class ChangeEntry(Entity):
@@ -155,7 +157,7 @@ class ChangeEntry(Entity):
 
     id: Id  # C0001, C0002, ...
     harness_id: Id
-    revision: Name
+    version: Version
     kind: ChangeKind
     by: Name
     when: IsoDate

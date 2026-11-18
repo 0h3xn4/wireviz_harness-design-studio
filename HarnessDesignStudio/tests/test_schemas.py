@@ -90,7 +90,8 @@ def test_the_two_files_outside_the_project_have_a_schema(tmp_path: Path) -> None
     docs = schemas.schemas()
     device = docs["device-file"]
     assert device["properties"]["format"]["const"] == "harness-device-library"
-    assert device["properties"]["version"]["const"] == 1
+    version = device["properties"]["version"]
+    assert (version["minimum"], version["maximum"]) == (1, 2)  # 2: a field of format 3 (D-242)
     assert (
         device["properties"]["devices"]["minItems"],
         device["properties"]["devices"]["maxItems"],

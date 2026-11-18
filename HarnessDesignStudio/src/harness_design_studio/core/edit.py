@@ -672,7 +672,7 @@ def _shared_note(
             continue
         notes.append(
             f"{h.id} is released and plugs into {c.id}: the new interface is wired only after a"
-            f" new revision of {h.id}."
+            f" new version of {h.id}."
         )
     return " ".join(notes)
 
@@ -949,8 +949,8 @@ def _blocked_text(project: Project, harness_ids: tuple[str, ...] | list[str]) ->
     parts = []
     if released:
         parts.append(
-            f"{', '.join(released)} is released. Start a new revision of it first "
-            "(Harness plans, New revision) so it can be changed."
+            f"{', '.join(released)} is released. Start a new version of it first "
+            "(Harness plans, New version) so it can be changed."
         )
     if by_hand:
         parts.append(
@@ -976,7 +976,7 @@ def ops_delete_harness(project: Project, harness_id: str) -> list[Op]:
         raise EditError(f"Harness '{harness_id}' does not exist.")
     if h.status == "released":
         raise EditError(
-            f"{harness_id} is released and cannot be deleted. Start a new revision to change it."
+            f"{harness_id} is released and cannot be deleted. Start a new version to change it."
         )
     # a link that made this harness no longer has one
     ops: list[Op] = [

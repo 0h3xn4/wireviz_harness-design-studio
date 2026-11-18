@@ -7,6 +7,7 @@ scripting interface (`harness_design_studio.api`), so that they cannot disagree.
 from pathlib import Path
 
 from harness_design_studio.core.io.loader import LoadResult, load_project, non_canonical_files
+from harness_design_studio.core.io.migrate import SetVersions
 from harness_design_studio.core.issues import Issue
 
 NOT_CANONICAL = (
@@ -16,13 +17,13 @@ NOT_CANONICAL = (
 
 
 def validate_folder(
-    path: Path | str, *, merge_check: bool = False
+    path: Path | str, *, merge_check: bool = False, set_versions: SetVersions | None = None
 ) -> tuple[LoadResult, list[Issue]]:
     """The loaded project and the issues found after loading it (not yet merged with the issues
     of loading). `merge_check` is what `check` adds to `validate`: files that differ from the
     tool's own formatting and released harnesses that were edited."""
     path = Path(path)
-    result = load_project(path)
+    result = load_project(path, set_versions=set_versions)
     extra: list[Issue] = []
     if merge_check:
         if result.project.read_only:

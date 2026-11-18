@@ -30,10 +30,11 @@ from harness_design_studio.core.samples import mini3, sat15
 from harness_design_studio.core.vcs.lockview import cosmetic_fields
 
 # The model hashes of three projects as they were before the field existed (release 1.15.0 and the
-# device looks): the field must not move them.
-HASH_MINI3 = "96af3561a17d17ef46e574fccb94aa841453bf779ed9c826aa56db8c496bbde8"
-HASH_SAT15 = "abb178f717365cb52205240d39494f47cb3d737d48228a9e930a12ccc0a49fe0"
-HASH_FLATSAT = "05048f43a772957311b07099015a6e04d9c9511ead8276d5ba6b54e4d74dee2b"
+# device looks): the field must not move them. Made again once for format 3 (D-242), whose
+# harnesses carry the version 1.0.0 where they carried the revision A; nothing else moved.
+HASH_MINI3 = "d3df8be717b603302d7f2b1900aac6670d450694f808b2edc3d6033add045567"
+HASH_SAT15 = "b76dd26c972505d71ea1b6c4075f0eeb071573680855ecf4a34f83ff26edbf23"
+HASH_FLATSAT = "d204bc401184875e767d04a3ff14350591b855f21a4c168b1ffd2ec4d6afbb2f"
 
 
 def with_kind(project, uid: str, kind: str | None):

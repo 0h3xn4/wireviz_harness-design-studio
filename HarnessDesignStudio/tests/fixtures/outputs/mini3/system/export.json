@@ -515,11 +515,12 @@
    "name": "PCDU to RW1 power",
    "notes": "",
    "released_on": null,
-   "revision": "A",
+   "revision": "1.0.0",
    "segments": [],
    "shields": [],
    "splices": [],
    "status": "draft",
+   "version": "1.0.0",
    "wires": [
     {
      "colour": null,
@@ -685,7 +686,7 @@
    "name": "OBC-J01 to RW1-J02",
    "notes": "",
    "released_on": null,
-   "revision": "A",
+   "revision": "1.0.0",
    "segments": [
     {
      "from_node": "W002-P1",
@@ -718,6 +719,7 @@
    ],
    "splices": [],
    "status": "draft",
+   "version": "1.0.0",
    "wires": [
     {
      "colour": null,
@@ -1285,7 +1287,7 @@
    "voltage_v": null
   }
  ],
- "model_hash": "7926ec3639f30e94b87960cab8ab613ddf18ec2a4f25c3e25bc33a6be6d37ca2",
+ "model_hash": "7782f43c535178a882c8f6c6d56f3c0010ebcc84f36443aaa645ef28656876d8",
  "parts": [
   {
    "approval": "pending",

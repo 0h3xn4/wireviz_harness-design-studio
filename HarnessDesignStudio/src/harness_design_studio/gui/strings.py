@@ -371,6 +371,8 @@ UPGRADE_TITLE = "Older project format"
 UPGRADE_BODY = "This project is in format {old}. Upgrade? A copy of the original stays in {backup}. Older tools can no longer edit it."
 UPGRADE_DETAIL = "Nothing is generated and no ID changes. After the upgrade the tool reloads the project and checks that the model hash, the findings, the released baselines and a full export are the same; if any differ, the original files are put back."
 UPGRADE = "Upgrade"
+# the upgrade to format 3 (D-242): the revisions become versions, so the model hash changes once
+UPGRADE_DETAIL_VERSIONS = "The harness revisions become versions: A becomes 1.0.0, B becomes 2.0.0, and so on; a revision that is not a letter is given its version with `harness-design-studio migrate DIR --set-version`. Nothing is generated. After the upgrade the tool reloads the project and checks that only the versions changed: the same design, findings and released harnesses, and the same full export; if anything differs, the original files are put back."
 UPGRADE_ASK = "Upgrade…"
 UPGRADED = "Upgraded from format {old} to {new}. The original files are in {backup}."
 UPGRADED_EXPORT_AGAIN = (
@@ -757,6 +759,14 @@ REVISE_EXPLAIN = (
     "a frozen baseline that you can compare with. What only {0} locks becomes editable again, "
     "and the change log records who started the revision and why."
 )
+# the kind of a new version (D-242, design of 3.0.0 section 5.3): none is chosen at the start
+NV_KIND_HEAD = "Kind of the new version"
+NV_KINDS = {
+    "major": "Major: not compatible with the versions before it ({} → {})",
+    "minor": "Minor: adds something and stays compatible ({} → {})",
+    "patch": "Patch: a fix that stays compatible ({} → {})",
+}
+HINT_KIND = "choose major, minor or patch"
 REVISE_EDITABLE_HEAD = "What becomes editable: {}."
 REVISE_EDITABLE_NONE = "What becomes editable: nothing besides the harness itself."
 REVISE_EDITABLE_TREE = "What becomes editable"
@@ -1968,7 +1978,7 @@ RAIL_COLLAPSE = "Show icons only"
 RAIL_EXPAND = "Show the names"
 CRUMB_SEPARATOR = "  ›  "
 CRUMBS_NAME = "Where you are"
-TB_REVISION = "Revision {}"
+TB_REVISION = "v{}"  # the short form of Q32 (D-242): a version is longer than a letter
 TB_REVISION_TIP = "The revision of the released harnesses ({})"
 GO_HOME = "Go to Home"
 GO_SETTINGS = "Go to Settings"

@@ -34,10 +34,10 @@ def test_the_timeline_has_one_row_per_entry_with_the_same_words_as_the_log(tmp_p
     log = changelog_rows(p)[1:]
     assert [r.id for r in rows] == [row[0] for row in log]
     assert [r.event for r in rows] == [row[3] for row in log]
-    assert [(r.harness_id, r.revision, r.by, r.when, r.comment) for r in rows] == [
+    assert [(r.harness_id, r.version, r.by, r.when, r.comment) for r in rows] == [
         (row[1], row[2], row[4], row[5], row[6]) for row in log
     ]
-    assert {r.kind for r in rows} == {"release", "new_revision"}
+    assert {r.kind for r in rows} == {"release", "new_version"}
     assert timeline.timeline(p, "W999") == []
     assert all(r.harness_id == hid for r in timeline.timeline(p, hid))
 
@@ -47,7 +47,7 @@ def test_rows_say_whether_a_baseline_exists_to_compare(tmp_path: Path) -> None:
     rows = timeline.timeline(p, hid)
     by_kind = {r.kind: r for r in rows}
     assert by_kind["release"].has_baseline is True
-    assert by_kind["new_revision"].has_baseline is False
+    assert by_kind["new_version"].has_baseline is False
 
 
 def test_comments_are_one_line(tmp_path: Path) -> None:
@@ -61,18 +61,18 @@ def test_a_project_without_a_log_has_an_empty_timeline() -> None:
 
 def test_compare_revisions_uses_the_baselines_and_the_working_design(tmp_path: Path) -> None:
     p, hid = two_revisions(tmp_path)
-    work = timeline.compare_revisions(p, hid, "A")
+    work = timeline.compare_revisions(p, hid, "1.0.0")
     assert not work.empty
     kinds = {c.kind for c in work.changes}
     assert "wire" in kinds
-    assert timeline.compare_revisions(p, hid, "A", "A").empty
+    assert timeline.compare_revisions(p, hid, "1.0.0", "1.0.0").empty
 
 
 def test_unknown_revisions_are_a_plain_error(tmp_path: Path) -> None:
     import pytest
 
     p, hid = two_revisions(tmp_path)
-    with pytest.raises(timeline.ReleaseError, match="revision Z"):
+    with pytest.raises(timeline.ReleaseError, match="version Z"):
         timeline.compare_revisions(p, hid, "Z")
 
 
@@ -95,7 +95,7 @@ def test_scalar_values_read_exactly_like_the_diff_reports() -> None:
 
 def test_diff_rows_are_flat_and_readable(tmp_path: Path) -> None:
     p, hid = two_revisions(tmp_path)
-    diff = timeline.compare_revisions(p, hid, "A")
+    diff = timeline.compare_revisions(p, hid, "1.0.0")
     rows = timeline.diff_rows(diff)
     assert rows and all(isinstance(r, timeline.DiffRow) for r in rows)
     assert all("None" not in r.before + r.after for r in rows)
@@ -139,5 +139,5 @@ def test_nothing_in_it_changes_the_project(tmp_path: Path) -> None:
     p, hid = two_revisions(tmp_path)
     clone = edit.clone_with(p, [])
     timeline.timeline(p)
-    timeline.diff_groups(timeline.compare_revisions(p, hid, "A"))
+    timeline.diff_groups(timeline.compare_revisions(p, hid, "1.0.0"))
     assert clone.baselines == p.baselines and clone.changelog == p.changelog

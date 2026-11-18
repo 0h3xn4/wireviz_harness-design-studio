@@ -126,7 +126,7 @@ def test_a_missing_name_is_never_taken_from_git(
     for command in (
         ["release", str(folder), hid, "--comment", "a long enough comment"],
         ["review", str(folder), hid, "--date", WHEN],
-        ["revise", str(folder), hid, "--comment", "a long enough comment"],
+        ["revise", str(folder), hid, "--comment", "a long enough comment", "--kind", "minor"],
     ):
         with pytest.raises(SystemExit) as exc:
             cli_main(command)
@@ -301,7 +301,7 @@ def test_on_the_baseline_dates_count_too() -> None:
     hid = releasable(p)
     switch(p)
     assert roles.latest_date(p) is None
-    p.baselines["X.A"] = type("B", (), {"released_on": "2026-04-01", "harness_id": hid})()  # type: ignore[assignment]
+    p.baselines["X.1.0.0"] = type("B", (), {"released_on": "2026-04-01", "harness_id": hid})()  # type: ignore[assignment]
     assert roles.latest_date(p) == ("2026-04-01", hid)
 
 

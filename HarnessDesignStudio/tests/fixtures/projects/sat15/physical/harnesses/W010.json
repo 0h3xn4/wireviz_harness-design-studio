@@ -456,7 +456,6 @@
   "name": "OBC1-J05 to ST1-J02",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W010-P1",
@@ -489,6 +488,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

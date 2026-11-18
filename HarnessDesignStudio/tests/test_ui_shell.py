@@ -127,7 +127,7 @@ def test_the_top_bar_is_one_full_width_row_with_everything_in_it(win) -> None:
               win.findChild(type(win.mode_guided), "undo-button"),
               win.findChild(type(win.mode_guided), "redo-button")):  # fmt: skip
         assert w is not None and bar.isAncestorOf(w)
-    assert bar.revision_label.text() == strings.TB_REVISION.format("A") or not bar.revision_label.text()  # fmt: skip
+    assert bar.revision_label.text() == strings.TB_REVISION.format("1.0.0") or not bar.revision_label.text()  # fmt: skip
 
 
 def test_arrange_and_the_filters_sit_with_the_diagram_tabs(win) -> None:

@@ -1,6 +1,6 @@
 {
   "description": "Minimal 3-unit example.",
   "name": "mini3 (example data)",
-  "schema_version": 2,
+  "schema_version": 3,
   "tool_version": "2.4.0"
 }

@@ -161,7 +161,7 @@ def test_a_locked_link_shows_who_holds_it_and_how_to_revise(released, theme, qtb
     reason = lock_reason(ctl.project, "interface", iid)
     assert reason and reason in w.banner.sentence.text()
     assert w.banner.chip.state() == "released"
-    assert hid in (w.banner.chip.text() or "") and ctl.project.harnesses[hid].revision in (
+    assert hid in (w.banner.chip.text() or "") and ctl.project.harnesses[hid].version in (
         w.banner.chip.text() or ""
     )
     assert "Names and notes can still be changed" in w.banner.sentence.text()
@@ -196,11 +196,11 @@ def test_banner_for_covers_every_state_without_qt() -> None:
     p = full()
     h = next(iter(p.harnesses.values()))
     for status, rev, state in (
-        ("draft", "A", "draft"),
-        ("in_review", "A", "in-review"),
-        ("draft", "B", "revised"),
+        ("draft", "1.0.0", "draft"),
+        ("in_review", "1.0.0", "in-review"),
+        ("draft", "2.0.0", "revised"),
     ):
-        p.harnesses[h.id] = evolve(h, status=status, revision=rev)
+        p.harnesses[h.id] = evolve(h, status=status, version=rev)
         info = ins.banner_for(p, "harness", h.id)
         assert info is not None and info.state == state and info.revise is None
     assert ins.banner_for(p, "unit", next(iter(p.units))) is None

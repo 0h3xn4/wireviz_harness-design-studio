@@ -658,7 +658,7 @@ def _title_block(
     x0, y0 = sheet.width - MARGIN - TB_W, sheet.height - MARGIN - TB_H
     sheet.add(Rect(x0, y0, TB_W, TB_H, width=0.5))
     values = {
-        "project": project.meta.name, "harness_id": h.id, "title": h.name, "revision": h.revision,
+        "project": project.meta.name, "harness_id": h.id, "title": h.name, "version": h.version,
         "status": h.status, "sheet": f"{n} / {total}", "date": h.released_on or "-", "author": h.author or "-", "checker": h.checker or "-", "approver": h.approver or "-",
     }  # fmt: skip
     cols, rows_n = 2, (len(fields) + 1) // 2
@@ -752,9 +752,7 @@ def _sheet_head(h: Harness, w_mm: float, h_mm: float, head_h: float) -> Sheet:
         )
     )
     sh.add(
-        Text(
-            MARGIN, MARGIN + 9.0, f"Revision {h.revision}  status {h.status}", size=2.8, color=GREY
-        )
+        Text(MARGIN, MARGIN + 9.0, f"Version {h.version}  status {h.status}", size=2.8, color=GREY)
     )
     return sh
 

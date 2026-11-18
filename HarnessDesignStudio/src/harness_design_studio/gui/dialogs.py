@@ -11,6 +11,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPlainTextEdit,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
@@ -46,7 +48,7 @@ from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.vcs.diff import SCREEN_KIND_NAMES, Diff
 from harness_design_studio.core.vcs.lockview import ReleaseLocks, release_locks
-from harness_design_studio.core.vcs.release import ReleaseError, next_revision
+from harness_design_studio.core.vcs.release import ReleaseError, next_version
 from harness_design_studio.core.wirecolours import COLOURS, name_of
 from harness_design_studio.gui import lock_tree, strings
 from harness_design_studio.gui.dialog_base import Dialog
@@ -117,7 +119,8 @@ class UpgradeDialog(Dialog):
         self.body = QLabel(strings.UPGRADE_BODY.format(old=old, backup=f".migration-backup-v{old}"))
         self.body.setWordWrap(True)
         lay.addWidget(self.body)
-        self.detail = QLabel(strings.UPGRADE_DETAIL)
+        crosses = old < 3 <= new  # the revisions become versions (format 3, D-242)
+        self.detail = QLabel(strings.UPGRADE_DETAIL_VERSIONS if crosses else strings.UPGRADE_DETAIL)
         self.detail.setWordWrap(True)
         lay.addWidget(self.detail)
         row = QHBoxLayout()
@@ -608,6 +611,14 @@ class GeneratePreviewDialog(Dialog):
         self.setMinimumWidth(520)
 
 
+def _bumped(version: str, kind: str) -> str:
+    """The version after `version` for a kind, or "?" when it cannot be worked out."""
+    try:
+        return next_version(version, kind)  # type: ignore[arg-type]
+    except ReleaseError:
+        return "?"
+
+
 class ChangeDialog(Dialog):
     """Review, release and new-revision steps: who, optional checker, mandatory comment, and
     anything that blocks the step (shown as plain sentences; OK stays disabled until clear, and a
@@ -635,10 +646,14 @@ class ChangeDialog(Dialog):
         unlocks: lock_tree.RevisionUnlocks | None = None,
         rule_note: str = "",
         roles_check: Callable[[str, str], list[str]] | None = None,
+        kinds: tuple[str, str] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setObjectName("change-dialog")
+        # a new version: (harness ID, released version); the person chooses the kind (D-242)
+        self._kinds = kinds
+        self.kind_buttons: dict[str, QRadioButton] = {}
         self._roles_check = roles_check
         self._comment_needed = ask_comment
         self._placeholders = placeholders or []
@@ -691,6 +706,16 @@ class ChangeDialog(Dialog):
             self.locks_tree.hide()
         lay.addWidget(self.locks_summary)
         lay.addWidget(self.locks_tree)
+        if kinds is not None:
+            lay.addWidget(QLabel(strings.NV_KIND_HEAD))
+            group = QButtonGroup(self)
+            for kind, text in strings.NV_KINDS.items():
+                button = QRadioButton(text.format(kinds[1], _bumped(kinds[1], kind)))
+                button.setObjectName(f"change-kind-{kind}")
+                group.addButton(button)
+                lay.addWidget(button)
+                self.kind_buttons[kind] = button
+                button.toggled.connect(self._kind_chosen)
         lay.addWidget(QLabel(strings.YOUR_NAME))
         self.by = QLineEdit(by)
         self.by.setObjectName("change-by")
@@ -803,21 +828,18 @@ class ChangeDialog(Dialog):
     def for_revise(
         cls, parent: QWidget | None, project: Project, harness_id: str, title: str, *, by: str
     ) -> ChangeDialog:
-        """The new-revision dialog: explains what happens and what becomes editable."""
+        """The new-version dialog: the three kinds (none chosen at the start), what happens and
+        what becomes editable."""
         unlocks = lock_tree.revision_unlocks(project, harness_id)
-        h = project.harnesses.get(harness_id)
-        try:
-            new = next_revision(h.revision) if h is not None else "?"
-        except ReleaseError:  # a revision that is not letters: the plan itself will refuse
-            new = "?"
         return cls(
             parent,
             title,
             by=by,
             blockers=[],
             ok_text=strings.NEW_REV_CONFIRM,
-            explain=strings.REVISE_EXPLAIN.format(harness_id, unlocks.revision, new),
+            explain=strings.REVISE_EXPLAIN.format(harness_id, unlocks.version, "…"),
             unlocks=unlocks,
+            kinds=(harness_id, unlocks.version),
         )
 
     # ---- the lock lists ---------------------------------------------------------------------
@@ -878,7 +900,23 @@ class ChangeDialog(Dialog):
         if self._roles_check is not None:
             by, checker = self.by.text().strip(), self.checker.text().strip()
             todo.extend(t.rstrip(".") for t in self._roles_check(by, checker))
+        if self._kinds is not None and self.kind() is None:
+            todo.append(strings.HINT_KIND)
         return todo
+
+    def kind(self) -> str | None:
+        """The kind of the new version the person chose (None until one is chosen)."""
+        return next((k for k, b in self.kind_buttons.items() if b.isChecked()), None)
+
+    def _kind_chosen(self) -> None:
+        kind = self.kind()
+        if self._kinds is not None and kind is not None and not self.blockers:
+            hid, released = self._kinds
+            self.status.setText(
+                strings.REVISE_EXPLAIN.format(hid, released, _bumped(released, kind))
+            )
+        if hasattr(self, "ok"):
+            self._validate()
 
     def _validate(self) -> None:
         todo = self.missing()

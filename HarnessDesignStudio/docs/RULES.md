@@ -47,7 +47,7 @@ A project can add rules of its own with an extension (a data file or a Python pl
 | `link-signal-mismatch` | warning (waivable) | Signal names across a link | A pair whose two signal names differ may join the wrong pins. | Check the pairing, or rename a signal. | none |
 | `link-power-return` | warning (waivable) | Power and return of a link | A power pair with no return pair on the same link leaves the current no path back. | Pair the return pin, or set the role of the return pin to Return. | none |
 | `config-invalid` | error (not waivable) | Engineering values | A value outside its possible range (a factor above 1, a table that falls as the wire grows) would silently produce wrong gauges and checks. | Correct the value in config/*.json; `harness-design-studio config DIR` lists what is missing or invalid. | none |
-| `released-modified` | error (not waivable) | Released items | A released harness must match its baseline exactly; otherwise the released drawings no longer describe what is stored. | Restore the harness from its baseline, or start a new revision for the change. | none |
+| `released-modified` | error (not waivable) | Released items | A released harness must match its baseline exactly; otherwise the released drawings no longer describe what is stored. | Restore the harness from its baseline, or start a new version for the change. | none |
 | `unchecked-config` | info (not waivable) | Checks not run | A rule that needs a number nobody has entered, or an analysis outside the tool, cannot say anything, and silence must not look like a pass. | Fill in the missing value (see docs/PLACEHOLDERS.md), or do the analysis the note names and record it in the design review. | none |
 
 ## Logical rules (instant, in the editor)

@@ -142,11 +142,13 @@ def test_a_name_may_keep_accents_and_joiners() -> None:
 
 def test_release_dates_must_be_dates() -> None:
     snap = Snapshot()
-    kw = {"harness_id": "W001", "revision": "A", "by": "Ada", "comment": "a long enough text"}
+    kw = {"harness_id": "W001", "version": "1.0.0", "by": "Ada", "comment": "a long enough text"}
     with pytest.raises(ValidationError):
-        Baseline(id="W001.A", released_on="soon", content_hash="x", snapshot=snap, **kw)
+        Baseline(id="W001.1.0.0", released_on="soon", content_hash="x", snapshot=snap, **kw)
     with pytest.raises(ValidationError):
-        ChangeEntry(id="C0001", harness_id="W001", revision="A", kind="release", by="Ada", when="x")
+        ChangeEntry(
+            id="C0001", harness_id="W001", version="1.0.0", kind="release", by="Ada", when="x"
+        )
 
 
 def test_layout_zones_with_control_characters_are_set_aside(tmp_path: Path) -> None:
@@ -181,9 +183,9 @@ def test_a_connector_for_a_missing_interface_type_is_reported() -> None:
     assert found and found[0].severity == "warning"
 
 
-def _baseline(p: Project, bid: str, hid: str, rev: str = "A") -> Baseline:
+def _baseline(p: Project, bid: str, hid: str, rev: str = "1.0.0") -> Baseline:
     return Baseline(
-        id=bid, harness_id=hid, revision=rev, released_on="2026-01-02", by="Ada",
+        id=bid, harness_id=hid, version=rev, released_on="2026-01-02", by="Ada",
         comment="a long enough comment", content_hash="x", snapshot=Snapshot(),
     )  # fmt: skip
 
@@ -191,26 +193,26 @@ def _baseline(p: Project, bid: str, hid: str, rev: str = "A") -> Baseline:
 def test_release_records_must_belong_to_a_harness_and_match_their_id() -> None:
     p = t.base()
     hid = next(iter(p.harnesses))
-    p.baselines[f"{hid}.A"] = _baseline(p, f"{hid}.A", hid)
+    p.baselines[f"{hid}.1.0.0"] = _baseline(p, f"{hid}.1.0.0", hid)
     assert not codes(p) & {"unknown_harness", "baseline_id_mismatch"}
-    p.baselines["GHOST.A"] = _baseline(p, "GHOST.A", "GHOST")
+    p.baselines["GHOST.1.0.0"] = _baseline(p, "GHOST.1.0.0", "GHOST")
     assert "unknown_harness" in codes(p)
-    p.baselines["GHOST.A"] = _baseline(p, "GHOST.A", hid)
+    p.baselines["GHOST.1.0.0"] = _baseline(p, "GHOST.1.0.0", hid)
     assert "baseline_id_mismatch" in codes(p)
 
 
 def test_baselines_that_differ_only_by_case_are_reported() -> None:
     p = t.base()
     hid = next(iter(p.harnesses))
-    p.baselines[f"{hid}.A"] = _baseline(p, f"{hid}.A", hid, "A")
-    p.baselines[f"{hid}.a"] = _baseline(p, f"{hid}.a", hid, "a")
+    p.baselines[f"{hid}.1.0.0"] = _baseline(p, f"{hid}.1.0.0", hid)
+    p.baselines[f"{hid.lower()}.1.0.0"] = _baseline(p, f"{hid.lower()}.1.0.0", hid)
     assert any(i.code == "duplicate_id" and "baselines" in i.message for i in check_integrity(p))
 
 
 def test_a_change_log_entry_of_a_deleted_harness_is_only_a_warning() -> None:
     p = t.base()
     p.changelog["C0001"] = ChangeEntry(
-        id="C0001", harness_id="GONE", revision="A", kind="review", by="Ada", when="2026-01-02"
+        id="C0001", harness_id="GONE", version="1.0.0", kind="review", by="Ada", when="2026-01-02"
     )
     found = [i for i in check_integrity(p) if i.object_id == "C0001"]
     assert found and all(i.severity == "warning" for i in found)

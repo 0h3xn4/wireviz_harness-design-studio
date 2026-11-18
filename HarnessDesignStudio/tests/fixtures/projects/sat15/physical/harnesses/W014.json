@@ -402,7 +402,6 @@
   "name": "OBC1-J11 to SA1-J02",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W014-P1",
@@ -425,6 +424,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

@@ -39,7 +39,7 @@ def used_part(p: Project, hid: str) -> str:
 
 def test_the_baseline_records_used_parts_types_and_configuration(tmp_path: Path) -> None:
     p, hid, _ = released(tmp_path)
-    snap = p.baselines[f"{hid}.A"].snapshot
+    snap = p.baselines[f"{hid}.1.0.0"].snapshot
     assert snap.parts is not None and snap.interface_types is not None and snap.config is not None
     assert {x.id for x in snap.parts} == used_part_ids(p, p.harnesses[hid])
     assert {t.id for t in snap.interface_types} == used_interface_type_ids(p, p.harnesses[hid])
@@ -56,7 +56,7 @@ def test_editing_a_used_part_is_refused_and_says_how_to_proceed(tmp_path: Path) 
     with pytest.raises(TransactionError) as err:
         hist.execute("edit", [Put("parts", evolve(part, approval="not_approved"))])
     text = " ".join([str(err.value), *err.value.problems])
-    assert pid in text and hid in text and "new revision" in text
+    assert pid in text and hid in text and "new version" in text
     with pytest.raises(TransactionError):
         hist.execute("edit", [Put("parts", evolve(part, mass_g=123.0))])
     with pytest.raises(TransactionError):
@@ -133,8 +133,8 @@ def test_hand_edits_after_release_are_reported(tmp_path: Path) -> None:
     p.parts[pid] = evolve(p.parts[pid], mass_g=999.0)
     issues = release_integrity(p)
     assert [i.code for i in issues] == ["released_modified"]
-    assert pid in issues[0].message and "new revision" in issues[0].message
-    p.parts[pid] = evolve(p.parts[pid], mass_g=p.baselines[f"{hid}.A"].snapshot.parts[0].mass_g)  # type: ignore[index]
+    assert pid in issues[0].message and "new version" in issues[0].message
+    p.parts[pid] = evolve(p.parts[pid], mass_g=p.baselines[f"{hid}.1.0.0"].snapshot.parts[0].mass_g)  # type: ignore[index]
 
     tid = sorted(used_interface_type_ids(p, p.harnesses[hid]))[0]
     saved_type = p.interface_types[tid]
@@ -169,7 +169,7 @@ def test_old_baselines_without_the_new_records_load_clean_and_are_written_back_u
 ) -> None:
     p, hid, _ = released(tmp_path)
     files = serialize(p)
-    name = f"baselines/{hid}/{hid}.A.json"
+    name = f"baselines/{hid}/{hid}.1.0.0.json"
     data = json.loads(files[name])
     for key in ("parts", "interface_types", "config", "waivers"):
         del data["snapshot"][key]  # what a baseline made by an earlier version looks like
@@ -180,7 +180,7 @@ def test_old_baselines_without_the_new_records_load_clean_and_are_written_back_u
     (folder / name).write_bytes(old_bytes)
     loaded = load_project(folder)
     assert not loaded.project.recovered
-    snap = loaded.project.baselines[f"{hid}.A"].snapshot
+    snap = loaded.project.baselines[f"{hid}.1.0.0"].snapshot
     assert snap.parts is None and snap.interface_types is None and snap.config is None
     assert not release_integrity(loaded.project)  # nothing recorded: nothing compared
     assert serialize(loaded.project)[name] == old_bytes  # a save does not rewrite it
@@ -200,6 +200,6 @@ def test_waivers_are_recorded_but_not_locked(tmp_path: Path) -> None:
     w = Waiver(id=f"r.{hid}", rule="r", object_id=hid, justification="accepted by the team")
     p.waivers[w.id] = w
     hist = do_release(p, hid, exported(p, tmp_path))
-    assert [x.id for x in p.baselines[f"{hid}.A"].snapshot.waivers or []] == [w.id]
+    assert [x.id for x in p.baselines[f"{hid}.1.0.0"].snapshot.waivers or []] == [w.id]
     hist.execute("waive", [Put("waivers", evolve(w, justification="accepted again, rev 2"))])
     assert not release_integrity(p)

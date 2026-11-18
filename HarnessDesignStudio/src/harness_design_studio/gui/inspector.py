@@ -96,15 +96,15 @@ def banner_for(project: Project, kind: str, object_id: str) -> BannerInfo | None
         if state == "released":
             word = strings.STATE_LABELS["released"]
             sentence = lock_reason(project, "harness", object_id) or ""
-            return BannerInfo(state, f"{word} {h.revision}", sentence, h.id)
+            return BannerInfo(state, f"{word} {h.version}", sentence, h.id)
         sentence = {
             "in-review": strings.INS_BANNER_IN_REVIEW,
             "revised": strings.INS_BANNER_REVISED,
             "draft": strings.INS_BANNER_DRAFT,
-        }[state].format(h.id, h.revision)
+        }[state].format(h.id, h.version)
         text = strings.STATE_LABELS[state]
         return BannerInfo(
-            state, f"{text} {h.revision}" if state == "revised" else text, sentence, None
+            state, f"{text} {h.version}" if state == "revised" else text, sentence, None
         )
     locked = locked_objects(project)
     refs = locked.get((kind, object_id))
@@ -116,7 +116,7 @@ def banner_for(project: Project, kind: str, object_id: str) -> BannerInfo | None
     ref = refs[0]
     return BannerInfo(
         "released",
-        strings.INS_BANNER_RELEASED.format(ref.harness_id, ref.revision),
+        strings.INS_BANNER_RELEASED.format(ref.harness_id, ref.version),
         sentence,
         ref.harness_id,
     )
@@ -207,7 +207,7 @@ def _harness_facts(p: Project, oid: str) -> list[dict[str, Any]]:
     rows = [
         _fact(L["name"], h.name),
         _fact(strings.INS_FACT_ORIGIN, origin_text(p, oid), tip=strings.INS_ORIGIN_TIP),
-        _fact(L["revision"], h.revision),
+        _fact(L["revision"], h.version),
         _fact(L["state"], "", strings.STATE_LABELS[state], state),
         _fact(L["interfaces"], str(len(h.interfaces))),
         _fact(L["connectors"], str(len(h.connectors))),
@@ -741,7 +741,7 @@ class Inspector(QWidget):
         p = self.ctl.project
         return (
             id(p),
-            tuple((h.id, h.revision, h.status) for h in p.harnesses.values()),
+            tuple((h.id, h.version, h.status) for h in p.harnesses.values()),
             tuple(id(c) for c in p.config.values()),
             self.current(),
         )

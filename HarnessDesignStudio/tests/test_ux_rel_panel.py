@@ -83,7 +83,7 @@ def test_the_timeline_lists_every_step_with_state_chips(qtbot, released, tmp_pat
     assert not panel.timeline_empty.isVisible()
     ev, base = column(panel, "event"), column(panel, "baseline")
     assert model.state_at(0, ev) == "released" and model.text_at(0, ev) == "released"
-    assert model.state_at(0, base) == "released" and model.text_at(0, base) == "Baseline A"
+    assert model.state_at(0, base) == "released" and model.text_at(0, base) == "Baseline 1.0.0"
     assert [model.text_at(r, column(panel, "harness")) for r in range(2)] == ["W001", "W003"]
     view_index = panel.timeline.proxy.index(0, ev)
     assert view_index.data(STATE_ROLE) == "released"
@@ -103,11 +103,11 @@ def test_a_review_and_a_new_revision_get_their_own_chips(qtbot, released, tmp_pa
     assert kinds == {
         "released": "released",
         "submitted for review": "in-review",
-        "new revision started": "revised",
+        "new version started": "revised",
     }
     # a new revision has no frozen copy of its own: the baseline cell stays empty, not "none"
     rows = dict_rows(panel.timeline_model)
-    revised = next(r for r in rows if r["kind"] == "new_revision")
+    revised = next(r for r in rows if r["kind"] == "new_version")
     assert panel.timeline_model.text_at(rows.index(revised), column(panel, "baseline")) == ""
     assert panel.timeline_model.state_at(rows.index(revised), column(panel, "baseline")) is None
 
@@ -117,7 +117,7 @@ def test_choosing_a_harness_filters_the_timeline_and_names_its_state(qtbot, rele
     assert panel.harness.count() == 1 + len(released.project.harnesses)
     assert panel.select_harness("W003")
     assert [r["harness"] for r in dict_rows(panel.timeline_model)] == ["W003"]
-    assert panel.state.state() == "released" and "A" in (panel.state.text() or "")
+    assert panel.state.state() == "released" and "1.0.0" in (panel.state.text() or "")
     assert panel.select_harness("W002")
     assert panel.timeline_empty.isVisible()
     assert panel.timeline_empty.text() == strings.REL_EMPTY_ONE.format("W002")
@@ -170,7 +170,7 @@ def test_differences_group_by_kind_with_counts_and_no_raw_none(qtbot, released, 
     panel = make_panel(qtbot, released, tmp_path)
     panel.select_harness("W001")
     # revision A (the baseline) against the working design is the default
-    assert panel.before.currentData() == "A" and panel.after.currentData() == ""
+    assert panel.before.currentData() == "1.0.0" and panel.after.currentData() == ""
     assert "compared with" in panel.summary.text()
     names = [panel.group_model.item(r).text() for r in range(panel.group_model.rowCount())]
     assert names[0].startswith(strings.REL_ALL_KINDS)
@@ -195,10 +195,10 @@ def test_differences_group_by_kind_with_counts_and_no_raw_none(qtbot, released, 
 def test_compare_two_revisions_and_the_same_revision(qtbot, released, tmp_path) -> None:
     revise_and_edit(released)
     panel = make_panel(qtbot, released, tmp_path)
-    assert panel.compare("W001", "A", None)
+    assert panel.compare("W001", "1.0.0", None)
     assert panel.diff_model.rowCount() > 0
     assert not panel.compare("W001", "Z", None)
-    panel.after.setCurrentIndex(panel.after.findData("A"))  # revision A with revision A
+    panel.after.setCurrentIndex(panel.after.findData("1.0.0"))  # revision A with revision A
     assert panel.summary.text() == strings.REL_DIFF_SAME
     assert panel.diff_model.rowCount() == 0 and not panel.mark.isEnabled()
 
@@ -213,7 +213,7 @@ def test_a_harness_without_a_baseline_says_so(qtbot, released, tmp_path) -> None
 def test_an_unchanged_released_harness_has_no_differences(qtbot, released, tmp_path) -> None:
     panel = make_panel(qtbot, released, tmp_path)
     panel.select_harness("W001")
-    assert panel.summary.text() == strings.REL_DIFF_NONE.format("Revision A", "Working design")
+    assert panel.summary.text() == strings.REL_DIFF_NONE.format("Revision 1.0.0", "Working design")
     assert panel.group_model.rowCount() == 1  # only "All kinds (0)"
     assert not panel.mark.isEnabled()
 

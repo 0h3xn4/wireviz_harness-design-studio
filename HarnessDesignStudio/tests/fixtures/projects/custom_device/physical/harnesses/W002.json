@@ -321,7 +321,6 @@
   "name": "GYRO1-J02 to OBC1-J01",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W002-P1",
@@ -354,6 +353,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

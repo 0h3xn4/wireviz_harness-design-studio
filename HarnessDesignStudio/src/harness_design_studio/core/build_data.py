@@ -260,7 +260,7 @@ def plan_set_part_tool(project: Project, part_id: str, tool: str | None) -> list
     users = _released_users(project, part_id)
     if text != part.tool and users:
         raise EditError(
-            f"Part {part_id} is used by {users[0]}, which is released; start a new revision "
+            f"Part {part_id} is used by {users[0]}, which is released; start a new version "
             "of it to change the tool."
         )
     return [Put("parts", evolve(part, tool=text))] if text != part.tool else []

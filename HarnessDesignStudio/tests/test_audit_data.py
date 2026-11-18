@@ -129,8 +129,8 @@ def test_two_baselines_never_share_a_file(tmp_path: Path) -> None:
     hid = releasable(p)
     do_release(p, hid, exported(p, tmp_path))
     b = next(iter(p.baselines.values()))
-    other = evolve(b, id=f"{hid}.zz", revision="é")
-    third = evolve(b, id=f"{hid}.yy", revision="ü")
+    other = evolve(b, id=f"{hid}.zz", version="1.0.1")
+    third = evolve(b, id=f"{hid}.yy", version="1.0.2")
     p.baselines[other.id] = other
     p.baselines[third.id] = third
     names = [n for n in serialize(p) if n.startswith("baselines/")]
@@ -301,7 +301,7 @@ def test_delete_blocked_by_a_released_harness_says_what_to_do(tmp_path: Path) ->
     hid = releasable(p)
     do_release(p, hid, exported(p, tmp_path))
     iid = sorted({w.interface_id for w in p.harnesses[hid].wires if w.interface_id})[0]
-    with pytest.raises(EditError, match="new revision"):
+    with pytest.raises(EditError, match="new version"):
         edit.ops_delete_interface(p, iid)
 
 

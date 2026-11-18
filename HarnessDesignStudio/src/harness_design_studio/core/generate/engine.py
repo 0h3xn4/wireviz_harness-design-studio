@@ -37,7 +37,7 @@ from harness_design_studio.core.model import (
     Wire,
     evolve,
 )
-from harness_design_studio.core.model.base import Name
+from harness_design_studio.core.model.base import FIRST_VERSION, Name
 from harness_design_studio.core.ports import read_signal
 from harness_design_studio.core.vcs.snapshot import carried_interfaces
 from harness_design_studio.core.wirecolours import signal_colour
@@ -286,7 +286,7 @@ def plan_generation(
                 ctx.finding(
                     "warning",
                     "frozen_changed",
-                    f"{iid} is carried by {frozen_owned[iid]}, which is released, so it was not wired again. A new revision of {frozen_owned[iid]} is needed.",
+                    f"{iid} is carried by {frozen_owned[iid]}, which is released, so it was not wired again. A new version of {frozen_owned[iid]} is needed.",
                     iid,
                 )
         if mine:
@@ -312,7 +312,7 @@ def plan_generation(
                 ctx.finding(
                     "warning",
                     "frozen_changed",
-                    f"{old.id} is released, so it was not updated although its interfaces changed. A new revision is needed.",
+                    f"{old.id} is released, so it was not updated although its interfaces changed. A new version is needed.",
                     old.id,
                 )
     kept_keys = {g.key for g in seg.groups}
@@ -930,7 +930,7 @@ def _build_harness(
             f"segmentation: {', '.join(interfaces)} share a harness because they have the same {_describe(group)} and chain ({group.chain or 'nominal or redundant'})",
         )
     built = Harness(
-        id=hid, name=group.label, revision=old.revision if old else "A", status=old.status if old else "draft",
+        id=hid, name=group.label, version=old.version if old else FIRST_VERSION, status=old.status if old else "draft",
         connectors=sorted(cables.values(), key=lambda c: c.id), wires=sorted(wires, key=lambda x: x.id),
         shields=sorted(shields, key=lambda x: x.id), branch_points=sorted(branches, key=lambda x: x.id),
         segments=segments,

@@ -19,7 +19,16 @@ from .physical import (
     Splice,
     Wire,
 )
-from .project import DEFAULT_ZONES, SCHEMA_VERSION, Project, ProjectMeta, QuarantinedItem
+from .project import (
+    DEFAULT_ZONES,
+    SCHEMA_VERSION,
+    ContactLine,
+    DocumentInfo,
+    PlanDocument,
+    Project,
+    ProjectMeta,
+    QuarantinedItem,
+)
 from .review import (
     Baseline,
     ChangeEntry,
@@ -41,6 +50,8 @@ __all__ = [
     "BranchPoint",
     "ChangeEntry",
     "ConfigFile",
+    "ContactLine",
+    "DocumentInfo",
     "Connector",
     "DiagramMark",
     "mark_is_along",
@@ -60,6 +71,7 @@ __all__ = [
     "Pin",
     "PinPair",
     "Placement",
+    "PlanDocument",
     "Project",
     "ProjectMeta",
     "QuarantinedItem",

@@ -25,6 +25,13 @@ When a test fails, it names what moved: the wire, the finding or the file. Renew
 
 ## Entries
 
+### 2026-11-18: format 3, the versions and the word *Version* (3.0.0, D-242; both stored files written again)
+
+- **Before.** A harness had a revision letter (`A`); the drawings said *REVISION* `A` and `Revision A  status draft`, *Start here* `Revision A · status …`, the change log the heading *Revision* and *new revision started*, the report was `system/revision_report.md`, and `system/export.json` had `"revision": "A"`.
+- **After.** The harness has a version (`1.0.0`; a letter becomes `N.0.0`, D-242 Q18) and the files say *Version* (Q23): the list of every word change is `tests/fixtures/format3/word_changes.json`, the report is `system/version_report.md` (Q31), and `export.json` has `"version"` beside `"revision"` (Q29). The model hash changes once, so the stamp of every file changes.
+- **The numbers.** No gauge, length, part, colour, lock or finding moves: `tests/test_format3.py` compares the readable numbers of the snapshot of 2.x (`tests/fixtures/format3/before/numbers-2.x.json`) with the new snapshot, and every written file of 2.x (the record `tests/fixtures/format3/before/`) with the file of 3.0 after the stamp, the file name and the word list (design of 3.0.0 section 5.6). Only the digests of the files and the name of the report changed.
+- **Renewed.** `docs/ui/OUTPUT_HASHES_BASELINE.json` (the one of 2.x kept as `docs/ui/OUTPUT_HASHES_2.x.json`) and `tests/fixtures/numbers/snapshot.json`.
+
 ### 2026-11-17: the routing of a harness that branches (2.3.0, D-243 B7; the stored hashes are written again for those harnesses only)
 
 - **Before.** A harness with a branch point had the files of every harness: its build workbook had no sheet of the segments and branch points, and no file listed them.

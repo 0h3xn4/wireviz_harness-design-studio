@@ -378,10 +378,10 @@ def why_lines(project: Project, kind: str, ident: str) -> list[str]:
 
 def harness_state(harness: Harness) -> str:
     """The state of a harness in change control as a key of `gui.states`: "draft", "in-review",
-    "released", or "revised" for a draft that is a later revision of a released harness (its
-    revision is not the first, "A", `vcs.versions.is_first`)."""
+    "released", or "revised" for a draft that is a later version of a released harness (its
+    version is not the first, `1.0.0`, `vcs.versions.is_first`)."""
     if harness.status == "released":
         return "released"
     if harness.status == "in_review":
         return "in-review"
-    return "draft" if is_first(harness.revision) else "revised"
+    return "draft" if is_first(harness.version) else "revised"

@@ -94,11 +94,11 @@
   "name": "PCDU to RW1 power",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [],
   "shields": [],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

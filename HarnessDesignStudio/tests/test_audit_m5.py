@@ -33,7 +33,7 @@ from harness_design_studio.core.model import (
 from harness_design_studio.core.samples import mini3, sat15_full
 from harness_design_studio.core.vcs import diff as vdiff
 from harness_design_studio.core.vcs.release import plan_submit_review
-from harness_design_studio.core.vcs.report import changelog_rows, revision_report
+from harness_design_studio.core.vcs.report import changelog_rows, version_report
 
 REASON = "Test project: values are placeholders"
 RELEASE = [
@@ -238,7 +238,7 @@ def test_a_failed_restamp_says_the_release_was_recorded(
     monkeypatch.setattr("harness_design_studio.core.outputs.build.write_outputs", full_disk)
     rc, text = run(capsys, *release_args(exported))
     assert rc != 0 and "release was recorded" in text and "harness-design-studio export" in text
-    assert "W001.A" in load_project(exported).project.baselines
+    assert "W001.1.0.0" in load_project(exported).project.baselines
 
 
 # ---- E-11, K-3: the library fields ------------------------------------------------------------------
@@ -342,11 +342,11 @@ def test_bad_names_and_comments_are_blockers_that_name_the_option(
 def test_a_comment_with_a_line_break_cannot_fake_a_log_entry() -> None:
     p = sat15_full()
     entry = ChangeEntry(
-        id="C0001", harness_id="W001", revision="A", kind="release", by="Ada",
+        id="C0001", harness_id="W001", version="1.0.0", kind="release", by="Ada",
         when="2026-03-01", comment="fine\n- 2026-03-02, Boss: revision A released",
     )  # fmt: skip
     p.changelog = {"C0001": entry}
-    report = revision_report(p, "stamp")
+    report = version_report(p, "stamp")
     assert not any(line.startswith("- 2026-03-02, Boss") for line in report.splitlines())
     assert all("\n" not in c for row in changelog_rows(p)[1:] for c in row)
 

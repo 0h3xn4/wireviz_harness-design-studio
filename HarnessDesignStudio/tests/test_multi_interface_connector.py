@@ -208,8 +208,8 @@ def test_note_when_a_released_harness_plugs_into_the_connector() -> None:
     c = edit.connector_compat(p, "rs422", "OBC1-J1", far_unit="ST1", far_connector="ST1-J02")
     assert c.ok
     assert c.note == (
-        f"{hid} is released and plugs into OBC1-J1: the new interface is wired only after a new"
-        f" revision of {hid}."
+        f"{hid} is released and plugs into OBC1-J1: the new interface is wired only after a"
+        f" new version of {hid}."
     )
     elsewhere = edit.connector_compat(
         p, "rs422", "OBC1-J1", far_unit="ST2", far_connector="ST2-J02"

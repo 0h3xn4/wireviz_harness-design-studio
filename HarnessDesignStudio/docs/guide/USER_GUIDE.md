@@ -399,7 +399,7 @@ All commands take the project folder. Exit code 0 means success, 1 means the pro
 | `harness-design-studio export-data DIR --out FOLDER [--run-record]` | write every intermediate and final result (wire sizing with the cross-section in mm², rule results, lengths, mass, bill of materials, findings, settings and more) as JSON and CSV, so that a number can be checked from the files alone; with `--run-record` also `run_record.json` (time, operator, versions), outside every hash |
 | `harness-design-studio review DIR HARNESS --by NAME` | submit a draft for review |
 | `harness-design-studio release DIR HARNESS --by NAME --comment TEXT [--checker NAME] [--accept-placeholders REASON] [--accept-unapproved-parts REASON] [--accept-asbuilt REASON]` | release (blocked while checks fail, or while values are placeholders or parts are not approved and no reason is given; in a project that sets `release_requires_asbuilt`, also while the as-built records are incomplete or a recorded length is out of its tolerance) and re-export |
-| `harness-design-studio revise DIR HARNESS --by NAME --comment TEXT` | start a new revision |
+| `harness-design-studio new-version DIR HARNESS --kind major\|minor\|patch --by NAME --comment TEXT` | start a new version of a released harness (`harness-design-studio revise` is its older name) |
 | `harness-design-studio diff DIR HARNESS [--from REV] [--to REV]` | what changed since a baseline |
 | `harness-design-studio compare OLD NEW` | compare two project folders (for example two Git checkouts); the last line names what is not compared |
 | `harness-design-studio log DIR [HARNESS]` | print the change log |

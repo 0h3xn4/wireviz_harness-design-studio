@@ -21,7 +21,7 @@ V1 = FIXTURES / "v1_project"  # written by 1.17.1 (tests/test_format2.py)
 def test_every_old_version_has_a_migration_and_fixture() -> None:
     # every format before the current one has its step and a fixture written in it
     assert sorted(MIGRATIONS) == list(range(SCHEMA_VERSION))
-    assert V0.is_dir() and V1.is_dir() and SCHEMA_VERSION == 2
+    assert V0.is_dir() and V1.is_dir() and SCHEMA_VERSION == 3
 
 
 def test_v0_loads_migrated_in_memory(tmp_path: Path) -> None:

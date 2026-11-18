@@ -180,9 +180,9 @@ STEPS: Final[tuple[StepDef, ...]] = (
         "release", "Review and release",
         "Submit a harness for review, then release it: the release freezes what it was made from.",
         (_p("physical/harnesses/<harness>.json"), _o("manifest.json"), _p("waivers.json")),
-        (_p("baselines/<harness>/<baseline>.json"), _p("changelog.json"), _o("system/revision_report.md"), _o("system/changelog.csv")),  # fmt: skip
-        "release", "Revisions",
-        (Inspect("What a release froze, and what changed since", "diff DIR HARNESS; log DIR HARNESS", "start a new revision (revise)"),),  # fmt: skip
+        (_p("baselines/<harness>/<baseline>.json"), _p("changelog.json"), _o("system/version_report.md"), _o("system/changelog.csv")),  # fmt: skip
+        "release", "Versions",
+        (Inspect("What a release froze, and what changed since", "diff DIR HARNESS; log DIR HARNESS", "start a new version (new-version)"),),  # fmt: skip
     ),
     StepDef(
         "as-built", "Record what was built",

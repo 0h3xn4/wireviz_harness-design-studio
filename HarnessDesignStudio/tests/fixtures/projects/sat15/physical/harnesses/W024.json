@@ -204,7 +204,6 @@
   "name": "OBC1-R-J01 to PCDU1-R-J01 (redundant)",
   "notes": "",
   "released_on": null,
-  "revision": "A",
   "segments": [
     {
       "from_node": "W024-P1",
@@ -227,6 +226,7 @@
   ],
   "splices": [],
   "status": "draft",
+  "version": "1.0.0",
   "wires": [
     {
       "colour": null,

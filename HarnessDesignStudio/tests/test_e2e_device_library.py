@@ -297,7 +297,7 @@ def release(proj: Path, capsys: pytest.CaptureFixture[str]) -> None:
         "First release for the CDR", "--date", "2026-03-05", "--accept-placeholders", REASON,
         "--accept-unapproved-parts", REASON,
     )  # fmt: skip
-    assert "Release W001 revision A: done." in out
+    assert "Release W001 version 1.0.0: done." in out
 
 
 def test_the_device_library_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

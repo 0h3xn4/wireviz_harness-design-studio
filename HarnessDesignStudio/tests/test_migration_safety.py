@@ -6,15 +6,18 @@
 What is checked: the model hash does not depend on the format number, and the hashes of format-1
 projects (those stored in `tests/fixtures/migration/hashes.json`, made with the code that had no such
 rule) are what they were; the step from format 1 to 2 (real since D-226; it was a fake of the tests
-in 1.17.0) is run over every fixture, example and scenario of `tests/migration_support.py`, written
-in format 1, and changes no hash, no finding, no baseline and no byte of a full export; the dry run
-writes nothing; the record is written; the check after the write puts everything back on any
+in 1.17.0) writes the number and moves the journal and nothing else; the steps from format 1 to 3
+(the step from 2 to 3 maps the revisions to versions, D-242) are run over every fixture, example and
+scenario of `tests/migration_support.py`, written in format 1, and give back the files of format 3
+the project was written from, byte for byte, with the same hashes, findings and full export; the dry
+run writes nothing; the record is written; the check after the write puts everything back on any
 difference; and a killed upgrade, a read-only folder and a linked file leave the project as it was.
 A fake format one ahead of this tool (never shipped) gives the refusals something to refuse."""
 
 import hashlib
 import json
 import os
+import shutil
 import stat
 import tempfile
 from pathlib import Path
@@ -124,71 +127,83 @@ def test_released_baselines_keep_the_content_hash_they_were_released_with(tmp_pa
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_the_step_from_1_to_2_changes_no_hash_no_finding_no_baseline_and_no_byte_of_an_export(
+def test_the_step_from_1_to_2_writes_the_number_and_moves_the_journal_and_nothing_else(
     name: str, tmp_path: Path
 ) -> None:
+    import copy
+
+    from harness_design_studio.core.io import migrate
+    from harness_design_studio.core.io.loader import read_tree
+
+    root = as_format(build(name, tmp_path / "p"), 1)
+    files, _broken, _issues = read_tree(root)
+    two = migrate.migrate_raw(copy.deepcopy(files), 1, to_version=2)
+    differing = {k for k in set(files) | set(two) if files.get(k) != two.get(k)}
+    assert differing <= {"project.json", "journal.json", "journal.jsonl"}
+    assert two["project.json"] == {**files["project.json"], "schema_version": 2}
+    if "journal.json" in files:
+        assert two["journal.jsonl"] == files["journal.json"] and "journal.json" not in two
+
+
+JOURNALS = {"journal.json", "journal.jsonl"}
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_the_upgrade_from_format_1_gives_back_the_files_of_format_3_and_changes_nothing_else(
+    name: str, tmp_path: Path
+) -> None:
+    """The steps from 1 to 3 over a project that this tool wrote in format 3 and that was then
+    written back as format 1 (`as_format`: letters under the key `revision`, the old journal):
+    the upgrade gives back the files of format 3 byte for byte (the journal has one more entry),
+    with the same hashes, findings, IDs and full export (design of 3.0.0 section 5.6)."""
     root = build(name, tmp_path / "p")
+    if (upgrade.format_of(root) or 0) < 3:  # a fixture kept in an older format: bring it up first
+        first = upgrade.upgrade_project(root)
+        assert first is not None
+        shutil.rmtree(root / first.backup)
+    want = managed(root)
+    want_hashes, want_export = hashes_of(root), full_export(root)
+    want_findings, want_ids = upgrade._folder_findings(root), ids_of(root)
     as_format(root, 1)
     had_journal = (root / "journal.json").exists()
     files = folder_bytes(root)
-    old_export = full_export(root, migrate_old=False)
-    old_hashes = hashes_of(root)
-    old_findings = upgrade._folder_findings(root)
-    old_ids = ids_of(root)
 
     plan = upgrade.plan_upgrade(root)  # the dry run
     assert folder_bytes(root) == files  # writes nothing
     assert plan is not None and plan.ok, plan.lost
-    assert plan.hash_equal and plan.exports_equal and plan.baselines_intact is True
-    if not plan.notes:  # (a note says a missing file is written with the values already in use)
-        assert plan.counts_before == plan.counts_after or plan.journal_entry
+    assert plan.nothing_but_versions is True and plan.versions_mapped is True
+    assert plan.hash_before is None and plan.exports_equal is None  # not readable as it is
+    assert plan.hash_after == want_hashes["model_hash"]
     assert plan.journal_entry is had_journal
-    assert plan.hash_before == plan.hash_after
+    assert all(" → version " in line for line in plan.versions)
 
     done = upgrade.upgrade_project(root)
     assert done is not None and all(done.self_check.values()), done.self_check
-    after = folder_bytes(root)
-    assert json.loads(after["project.json"])["schema_version"] == 2
-    changed = {
-        k for k in files if after.get(k) != files[k] and is_managed(k)
-    }  # (the files the tool manages, not litter such as .bak)
-    journal_files = {"journal.json"} if had_journal else set()  # moved to journal.jsonl (D-228)
-    assert changed >= {"project.json"} | journal_files
+    after = managed(root)
+    assert json.loads(after["project.json"])["schema_version"] == 3
+    assert {k: v for k, v in after.items() if k not in JOURNALS} == {
+        k: v for k, v in want.items() if k not in JOURNALS
+    }  # every file of format 3 as this tool wrote it
     assert {k for k in {*after, *files} if is_managed(k) and files.get(k) != after.get(k)} == {
         k for k in plan.files if is_managed(k)
     }  # the dry run said exactly which files would change (or go)
-    if not plan.notes:
-        assert changed == {"project.json"} | journal_files
-    assert {k for k in after if is_managed(k)} == {
-        k for k in files if is_managed(k)
-    } - journal_files | {
-        k for k, how in plan.files.items() if how == "new" and is_managed(k)
-    }  # (a file that was missing is written with the values in use; nothing else is removed)
-    assert {k for k, how in plan.files.items() if how == "removed"} == journal_files
-    if had_journal:
-        assert after["journal.json.bak"] == files["journal.json"]  # (and in the backup folder)
-    assert hashes_of(root) == old_hashes
-    assert upgrade._folder_findings(root) == old_findings
-    assert full_export(root) == old_export  # byte for byte
-    assert ids_of(root) == old_ids  # no new ID
-    for rel in files:
-        if rel.startswith("baselines/"):
-            assert after[rel] == files[rel]  # a baseline file is not touched
+    if had_journal:  # (and in the backup folder)
+        assert folder_bytes(root)["journal.json.bak"] == files["journal.json"]
+    assert hashes_of(root) == want_hashes
+    assert upgrade._folder_findings(root) == want_findings
+    assert full_export(root) == want_export  # byte for byte
+    assert ids_of(root) == want_ids  # no new ID
     backup = root / done.backup
     for rel, data in files.items():
         if is_managed(rel):
             assert (backup / rel).read_bytes() == data  # the original is in the backup
     record = json.loads((root / done.record).read_text(encoding="utf-8"))
-    assert (record["status"], record["from_version"], record["to_version"]) == ("complete", 1, 2)
-    assert record["model_hash"] == {
-        "before": old_hashes["model_hash"],
-        "after": old_hashes["model_hash"],
-    }
+    assert (record["status"], record["from_version"], record["to_version"]) == ("complete", 1, 3)
+    assert record["model_hash"] == {"before": None, "after": want_hashes["model_hash"]}
+    assert record["proof"] == {"nothing_but_versions": True, "versions_mapped": True}
+    assert record["versions"] == plan.versions and record["exports"].startswith("not compared")
     assert record["files"]["before"] == {
         k: hashlib.sha256(v).hexdigest() for k, v in files.items() if is_managed(k)
-    }
-    assert set(record["files"]["after"]) == set(record["files"]["before"]) - journal_files | {
-        k for k, how in plan.files.items() if how == "new" and is_managed(k)
     }
     assert record["counts"]["before"] == plan.counts_before
     assert upgrade.upgrade_project(root) is None  # now current
@@ -196,8 +211,9 @@ def test_the_step_from_1_to_2_changes_no_hash_no_finding_no_baseline_and_no_byte
 
 def test_the_record_is_outside_the_hash_and_every_output(tmp_path: Path) -> None:
     root = build("mini3", tmp_path / "p")
+    export = full_export(root)
     as_format(root, 1)
-    fingerprint, export = disk_fingerprint(root), full_export(root, migrate_old=False)
+    fingerprint = disk_fingerprint(root)
     done = upgrade.upgrade_project(root)
     assert (root / done.record).is_file()
     assert not is_managed(done.record) and not layout.MANAGED_RE.match(done.record)
@@ -205,7 +221,7 @@ def test_the_record_is_outside_the_hash_and_every_output(tmp_path: Path) -> None
     assert full_export(root) == export
     assert (
         disk_fingerprint(root) != fingerprint
-    )  # (project.json says 2) but not because of the record
+    )  # (project.json says 3, the versions) but not because of the record
     assert upgrade.RECORD_NAME not in {k.split("/")[-1] for k in managed(root)}
 
 
@@ -223,8 +239,10 @@ def test_a_migration_writes_one_journal_entry_and_only_for_a_project_with_a_jour
     assert len(entries) == len(before) + 1
     assert entries[: len(before)] == list(before)
     last = entries[-1]
-    assert (last.kind, last.object, last.reason) == ("edit", "project", "migrated from format 1")
-    assert (last.old, last.new) == (1, 2)
+    assert (last.kind, last.object) == ("edit", "project")
+    assert last.reason.startswith("migrated from format 1; ")  # with the mapping of the versions
+    assert "W001: revision A → version 1.0.0" in last.reason
+    assert (last.old, last.new) == (1, 3)
     plain = as_format(build("mini3", tmp_path / "m"), 1)
     assert upgrade.upgrade_project(plain) is not None
     assert not (plain / "journal.json").exists()  # a migration does not start a journal
@@ -260,18 +278,22 @@ def test_the_dry_run_prints_what_would_happen_and_writes_nothing(tmp_path: Path,
     out = capsys.readouterr().out
     assert "changed  project.json" in out and "removed  journal.json" in out
     assert "new      journal.jsonl" in out
-    assert "Model hash:" in out and "(equal)" in out and "identical" in out
+    assert "Model hash: not comparable before" in out and "→ version 1.0.0" in out
+    assert "Only the versions change" in out and "is the mapping of its revision: yes" in out
     assert "devices: " in out and "harness wires: " in out
     assert "migrated from format 1" in out and "Nothing is lost" in out
     assert folder_bytes(root) == files
     assert main(["migrate", str(root), "--dry-run", "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert list(doc) == list(SHAPES["migrate --dry-run"])
-    assert doc["ok"] and doc["hash_equal"] and doc["exports_equal"] and doc["lost"] == []
-    assert doc["model_hash_before"] == doc["model_hash_after"]
-    assert {f["file"] for f in doc["files"]} - {".gitattributes"} == {
-        "project.json", "journal.json", "journal.jsonl",
-    }  # fmt: skip
+    assert doc["ok"] and doc["lost"] == [] and doc["hash_equal"] is None
+    assert doc["nothing_but_versions"] is True and doc["versions_mapped"] is True
+    assert doc["model_hash_before"] is None and doc["exports_equal"] is None
+    assert {f["file"] for f in doc["files"]} - {".gitattributes"} >= {
+        "project.json",
+        "journal.json",
+        "journal.jsonl",
+    }  # fmt: skip (and the harness files, whose revisions become versions)
     assert doc["counts_before"]["devices"] == doc["counts_after"]["devices"]
     assert folder_bytes(root) == files
 
@@ -280,7 +302,7 @@ def test_the_dry_run_of_a_real_old_project(tmp_path: Path, capsys) -> None:
     root = copy_project(V0, tmp_path / "p")
     files = folder_bytes(root)
     assert main(["migrate", str(root), "--dry-run"]) == 0
-    assert "Project format 0; this tool writes format 2." in capsys.readouterr().out
+    assert "Project format 0; this tool writes format 3." in capsys.readouterr().out
     assert folder_bytes(root) == files
 
 
@@ -303,7 +325,7 @@ def test_the_dry_run_fails_when_something_would_be_lost_or_changed(
     # and the upgrade itself refuses, before it writes a byte or makes a backup
     assert main(["migrate", str(root)]) == 1
     assert managed(root) == {k: v for k, v in files.items() if is_managed(k)}
-    assert not (root / ".migration-backup-v2").exists()  # (the fake is one format ahead)
+    assert not (root / ".migration-backup-v3").exists()  # (the fake is one format ahead)
 
 
 def test_a_project_in_a_newer_format_cannot_be_upgraded(tmp_path: Path, capsys) -> None:
@@ -343,7 +365,7 @@ def test_migrate_prints_the_record_and_the_check_and_is_then_up_to_date(
     assert main(["migrate", str(root), "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert list(doc) == list(SHAPES["migrate"])
-    assert doc["migrated"] and (doc["from_version"], doc["to_version"]) == (1, 2)
+    assert doc["migrated"] and (doc["from_version"], doc["to_version"]) == (1, 3)
     assert doc["backup"] == ".migration-backup-v1" and doc["record"].endswith("MIGRATION.json")
     assert all(doc["self_check"].values())
     assert main(["migrate", str(root)]) == 0
@@ -354,7 +376,7 @@ def test_migrating_a_real_old_project_writes_the_record_and_checks_itself(tmp_pa
     root = copy_project(V0, tmp_path / "p")
     original = managed(root)
     done = upgrade.upgrade_project(root)
-    assert done is not None and (done.from_version, done.to_version) == (0, 2)
+    assert done is not None and (done.from_version, done.to_version) == (0, 3)
     assert done.self_check["reload"] and done.self_check["exports"]
     for rel, data in original.items():
         assert (root / ".migration-backup-v0" / rel).read_bytes() == data
@@ -618,9 +640,7 @@ def test_an_earlier_backup_is_never_overwritten(tmp_path: Path) -> None:
     as_format(root, 1)
     upgrade.upgrade_project(root)
     # the project goes back to format 1 (a Git checkout of an older state); the backup is still there
-    meta = json.loads((root / "project.json").read_text(encoding="utf-8"))
-    meta["schema_version"] = 1
-    (root / "project.json").write_bytes(canonical.dumps(meta))
+    as_format(root, 1)
     with pytest.raises(upgrade.UpgradeError, match="earlier upgrade"):
         upgrade.upgrade_project(root)
 
@@ -640,7 +660,7 @@ _NAMES = st.text(
     st.booleans(),
     st.booleans(),
 )
-def test_the_step_from_1_to_2_changes_nothing_in_a_random_project(
+def test_the_steps_from_1_to_3_change_nothing_but_the_versions_in_a_random_project(
     base, names, generate, journal_on
 ) -> None:
     from harness_design_studio.core import journal

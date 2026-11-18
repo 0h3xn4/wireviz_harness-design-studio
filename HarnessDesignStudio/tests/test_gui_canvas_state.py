@@ -256,7 +256,7 @@ def test_a_released_unit_shows_the_lock_the_harness_and_the_revision(released) -
     locked = [u for u in released.ctl.project.units if scene.states.of("unit", u).locks]
     assert locked
     uid = locked[0]
-    rev = released.ctl.project.harnesses["W001"].revision
+    rev = released.ctl.project.harnesses["W001"].version
     card = layout_of(released, uid)
     assert card.lock is not None and card.lock[1] == f"W001 {rev}"
     colour = released.theme.color("locked")

@@ -81,7 +81,7 @@ def test_same_far_connector_joins_the_frozen_group_and_the_revision_carries_both
     )
     assert plan.ok, [x.message for x in plan.blockers]
     History(p).execute(plan.label, plan.ops)
-    assert p.harnesses[hid].revision == "B"
+    assert p.harnesses[hid].version == "2.0.0"
     found = codes(p)
     assert "frozen_changed" not in found
     assert sorted(p.harnesses[hid].interfaces) == sorted([a, b])
