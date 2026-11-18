@@ -1,50 +1,42 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The one place where the editor hands a web address to the system browser (3.0.0, design of the
-harness plan section 10: the link of a part and the source link of a connector, opened on a
-person's click).
+"""The links of parts and connector sources (3.0.0, design of the harness plan section 10): the
+editor never opens them in a browser (the owner's decision of 2026-11-18, "Never open browser at
+all"). A click on *Copy link* puts the saved link on the clipboard, so that a person can paste it
+where they choose.
 
-A link is opened only when the model's own rule accepts it (`devices.check_web_link`: `https://`
-or `http://`, no spaces, at most 2000 characters) and Qt parses it strictly as a valid address with
-that scheme. Anything else (a `file:` or `javascript:` address, a path, a text with spaces) is not
-opened, and the caller gets False. The tool itself never connects anywhere: the browser opens the
-page, on the person's click. `tests/test_security.py` allows `QDesktopServices` in this module
-only, beside the local files of the guide and the export.
+Only a link the model's own rule accepts (`devices.check_web_link`: `https://` or `http://`, no
+spaces, at most 2000 characters) is copied; any other text is not, and the caller gets False. This
+module does not use `QDesktopServices` (`tests/test_security.py`).
 """
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QGuiApplication
 
 from harness_design_studio.core.devices import check_web_link
 from harness_design_studio.core.edit import EditError
 
-WEB_SCHEMES = ("https", "http")
 
-
-def web_url(link: object) -> QUrl | None:
-    """The address to open for `link`, or None when it is not a web link the model accepts."""
+def web_link(link: object) -> str | None:
+    """`link` as the model stores a web link, or None when it is not one."""
     try:
-        checked = check_web_link(link, "The link")
+        return check_web_link(link, "The link")
     except EditError:
         return None
-    if checked is None:
-        return None
-    url = QUrl(checked, QUrl.ParsingMode.StrictMode)
-    if not url.isValid() or url.scheme().lower() not in WEB_SCHEMES or not url.host():
-        return None
-    return url
 
 
-def system_opener(url: QUrl) -> bool:
-    """Hand `url` to the system's browser (the default opener; tests pass their own)."""
-    return bool(QDesktopServices.openUrl(url))
+def system_clipboard(text: str) -> None:
+    """Put `text` on the system clipboard (the default; tests pass their own)."""
+    clipboard = QGuiApplication.clipboard()
+    if clipboard is not None:
+        clipboard.setText(text)
 
 
-def open_web_link(link: object, opener: Callable[[QUrl], bool] = system_opener) -> bool:
-    """Open `link` in the browser when it is a web link the model accepts; False otherwise."""
-    url = web_url(link)
-    if url is None:
+def copy_web_link(link: object, put: Callable[[str], None] = system_clipboard) -> bool:
+    """Copy `link` to the clipboard when it is a web link the model accepts; False otherwise."""
+    text = web_link(link)
+    if text is None:
         return False
-    return bool(opener(url))
+    put(text)
+    return True

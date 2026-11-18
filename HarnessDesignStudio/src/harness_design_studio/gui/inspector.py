@@ -27,7 +27,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from PySide6.QtCore import QModelIndex, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QModelIndex, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -1153,7 +1153,7 @@ class PartLinkBox(QWidget):
         self.ctl = ctl
         self.setObjectName("part-link-box")
         self.part_id = ""
-        self.opener: Callable[[QUrl], bool] = weblinks.system_opener
+        self.copier: Callable[[str], None] = weblinks.system_clipboard
         lay = QVBoxLayout(self)
         lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
         lay.setSpacing(theme.space(4))
@@ -1169,8 +1169,8 @@ class PartLinkBox(QWidget):
         self.set_btn.setObjectName("part-link-set")
         icon_button(self.set_btn, "pass", theme, strings.INS_PART_LINK_SET_TIP, text=strings.INS_PART_LINK_SET)  # fmt: skip
         self.open_btn = QPushButton()
-        self.open_btn.setObjectName("part-link-open")
-        icon_button(self.open_btn, "export", theme, strings.INS_PART_LINK_OPEN_TIP, text=strings.INS_PART_LINK_OPEN)  # fmt: skip
+        self.open_btn.setObjectName("part-link-copy")
+        icon_button(self.open_btn, "link", theme, strings.INS_PART_LINK_COPY_TIP, text=strings.INS_PART_LINK_COPY)  # fmt: skip
         row = QHBoxLayout()
         row.addWidget(self.edit, 1)
         row.addWidget(self.set_btn)
@@ -1187,7 +1187,7 @@ class PartLinkBox(QWidget):
         lay.addWidget(self.error)
         self.edit.returnPressed.connect(self.apply)
         self.set_btn.clicked.connect(self.apply)
-        self.open_btn.clicked.connect(self.open_link)
+        self.open_btn.clicked.connect(self.copy_link)
 
     def show_part(self, part_id: str, *, reload: bool = True) -> None:
         changed = part_id != self.part_id
@@ -1220,11 +1220,12 @@ class PartLinkBox(QWidget):
             message=strings.PART_LINK_SET.format(self.part_id),
         )
 
-    def open_link(self) -> bool:
-        """Open the saved link (never the text being typed) in the web browser."""
+    def copy_link(self) -> bool:
+        """Copy the saved link (never the text being typed) to the clipboard; the editor never
+        opens a browser (`gui/weblinks.py`)."""
         part = self.ctl.project.parts.get(self.part_id)
         link = part.link if part is not None else None
-        return weblinks.open_web_link(link, self.opener)
+        return weblinks.copy_web_link(link, self.copier)
 
 
 def _alive(widget: QWidget, root: QWidget) -> bool:

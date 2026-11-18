@@ -29,7 +29,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSettings, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -264,7 +264,7 @@ class DevicesView(QWidget):
         self.ctl, self.theme, self.settings = ctl, theme, settings
         self.setObjectName("devices-view")
         self.setAccessibleName(strings.DV_ACCESSIBLE)
-        self.opener: Callable[[QUrl], bool] = weblinks.system_opener  # a hook for the tests
+        self.copier: Callable[[str], None] = weblinks.system_clipboard  # a hook for the tests
         self._dirty = True
         self._syncing = False
         self._unit: str | None = None
@@ -683,9 +683,9 @@ class DevicesView(QWidget):
             if field == "source_link":
                 mark_mono(edit)
                 self.source_open = QPushButton()
-                self.source_open.setObjectName("devices-card-source-open")
-                icon_button(self.source_open, "export", theme, strings.DV_CARD_SOURCE_OPEN_TIP, text=strings.DV_CARD_SOURCE_OPEN)  # fmt: skip
-                self.source_open.clicked.connect(self.open_source_link)
+                self.source_open.setObjectName("devices-card-source-copy")
+                icon_button(self.source_open, "link", theme, strings.DV_CARD_SOURCE_COPY_TIP, text=strings.DV_CARD_SOURCE_COPY)  # fmt: skip
+                self.source_open.clicked.connect(self.copy_source_link)
                 link_box = QHBoxLayout()
                 link_box.addWidget(edit, 1)
                 link_box.addWidget(self.source_open)
@@ -1634,12 +1634,13 @@ class DevicesView(QWidget):
         ):
             self._reload()
 
-    def open_source_link(self) -> bool:
-        """Open the saved source link of the connector (never the text being typed)."""
+    def copy_source_link(self) -> bool:
+        """Copy the saved source link of the connector (never the text being typed) to the
+        clipboard; the editor never opens a browser (`gui/weblinks.py`)."""
         cid = self._cid
         c = self.ctl.project.connectors.get(cid) if cid is not None else None
         link = c.source_link if c is not None else None
-        return weblinks.open_web_link(link, self.opener)
+        return weblinks.copy_web_link(link, self.copier)
 
     def _carries_toggled(self) -> None:
         cid = self._cid

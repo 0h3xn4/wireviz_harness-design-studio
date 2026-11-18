@@ -31,7 +31,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QEvent, QModelIndex, QSettings, Qt, QUrl, Signal
+from PySide6.QtCore import QEvent, QModelIndex, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -392,7 +392,7 @@ class LibraryWindow(QWidget):
         self.setWindowTitle(strings.LIB_TITLE)
         self.setAccessibleName(strings.LIB_TITLE)
         self.run_dialog: Callable[[QDialog], int] = run_dialog
-        self.opener: Callable[[QUrl], bool] = weblinks.system_opener  # a part's link (3.0.0)
+        self.copier: Callable[[str], None] = weblinks.system_clipboard  # a part's link (3.0.0)
         self.ask_choice: Callable[[str, str, list[str]], int] = self._ask_choice
         # the states of the devices by where their library comes from (D-240): the project's
         # libraries, and the person's folder on its own
@@ -1048,14 +1048,14 @@ class LibraryWindow(QWidget):
     def _part_activated(self, index: QModelIndex) -> None:
         row = self.part_table.row_at(index)
         if isinstance(row, dict):
-            self.open_part_link(str(row.get("part", "")))
+            self.copy_part_link(str(row.get("part", "")))
 
-    def open_part_link(self, part_id: str) -> bool:
-        """Open the link of a part of the device shown in the web browser (`https://` or
-        `http://` only; `describe_parts` leaves any other out)."""
+    def copy_part_link(self, part_id: str) -> bool:
+        """Copy the link of a part of the device shown to the clipboard (`https://` or `http://`
+        only; `describe_parts` leaves any other out); the editor never opens a browser."""
         for row in self.part_model.rows():
             if isinstance(row, dict) and row.get("part") == part_id and row.get("link"):
-                return weblinks.open_web_link(row["link"], self.opener)
+                return weblinks.copy_web_link(row["link"], self.copier)
         return False
 
     # ---- buttons ----------------------------------------------------------------------------------

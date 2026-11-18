@@ -20,7 +20,6 @@ import pytest
 pytest.importorskip("PySide6")
 pytestmark = pytest.mark.gui
 
-from PySide6.QtCore import QUrl  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
 from harness_design_studio.core import document, library_folder, plan_config  # noqa: E402
@@ -390,14 +389,14 @@ def test_the_plan_document_of_a_harness_is_one_undo_step(win):
     assert not box.isVisibleTo(ins) and ins.link_box.isVisibleTo(ins)
 
 
-def test_the_link_of_a_part_is_set_refused_when_it_is_not_a_web_link_and_opened(win):
+def test_the_link_of_a_part_is_set_refused_when_it_is_not_a_web_link_and_copied(win):
     ins = win.inspector
     part = connector_part(win)
     ins.show_object("part", part)
     settle()
     box = ins.link_box
-    opened: list[QUrl] = []
-    box.opener = lambda url: opened.append(url) or True
+    copied: list[str] = []
+    box.copier = copied.append
     assert not box.open_btn.isEnabled()
     box.edit.setText("file:///srv/share/datasheet.pdf")
     assert not box.apply()
@@ -409,8 +408,9 @@ def test_the_link_of_a_part_is_set_refused_when_it_is_not_a_web_link_and_opened(
     settle()
     assert win.ctl.project.parts[part].link == EXAMPLE_LINK and steps(win) == n + 1
     box.show_part(part)
-    assert box.open_btn.isEnabled() and box.open_link()
-    assert opened == [QUrl(EXAMPLE_LINK)]
+    assert box.open_btn.isEnabled()
+    done = box.copy_link()
+    assert done and copied == [EXAMPLE_LINK]
     box.edit.setText("")
     assert box.apply()
     assert win.ctl.project.parts[part].link is None
@@ -479,10 +479,10 @@ def test_a_cable_pin_offers_no_level(win):
     assert strings.DV_COL_LEVEL not in headers
 
 
-def test_the_source_of_a_connector_is_set_and_its_link_opened(win):
+def test_the_source_of_a_connector_is_set_and_its_link_copied(win):
     view, c = devices_on_box_connector(win)
-    opened: list[QUrl] = []
-    view.opener = lambda url: opened.append(url) or True
+    copied: list[str] = []
+    view.copier = copied.append
     edits = view.source_edits
     assert set(edits) == {"source_doc", "source_version", "source_link"}
     assert edits["source_doc"].accessibleName() == strings.DV_CARD_SOURCE
@@ -507,8 +507,9 @@ def test_the_source_of_a_connector_is_set_and_its_link_opened(win):
     assert win.ctl.project.connectors[c.id].source_link == EXAMPLE_LINK
     view.refresh()
     settle()
-    assert view.source_open.isEnabled() and view.open_source_link()
-    assert opened == [QUrl(EXAMPLE_LINK)]
+    assert view.source_open.isEnabled()
+    done = view.copy_source_link()
+    assert done and copied == [EXAMPLE_LINK]
     # the Inspector of the device names the source on its connector card
     win.ctl.set_mode("expert")  # (the connector cards are in Expert mode)
     win.ctl.select("unit", c.unit_id)
@@ -536,10 +537,25 @@ def test_the_parts_of_a_device_in_the_library_window_have_their_links(win, qtbot
     assert rows == [{"part": "P-1", "description": "Example connector", "link": EXAMPLE_LINK}]
     lib = LibraryWindow(win.ctl, win.theme, win.settings, win)
     qtbot.addWidget(lib)
-    opened: list[QUrl] = []
-    lib.opener = lambda url: opened.append(url) or True
+    copied: list[str] = []
+    lib.copier = copied.append
     lib.part_model.set_rows(rows)
     assert [c.header for c in lib.part_model.columns] == list(strings.LIB_PREVIEW_PART_COLUMNS)
     assert lib.part_table.accessibleName() == strings.LIB_PREVIEW_TABLE_PARTS
-    assert lib.open_part_link("P-1") and opened == [QUrl(EXAMPLE_LINK)]
-    assert not lib.open_part_link("P-9")
+    done = lib.copy_part_link("P-1")
+    assert done and copied == [EXAMPLE_LINK]
+    missing = lib.copy_part_link("P-9")
+    assert not missing
+
+
+def test_the_editor_copies_a_link_and_opens_no_browser(win):
+    """The owner's decision of 2026-11-18, "Never open browser at all": the main window hands the
+    link boxes a copier, which puts the link on the clipboard and says so in the status bar."""
+    from PySide6.QtGui import QGuiApplication
+
+    assert win.inspector.link_box.copier == win._copy_link
+    assert win.devices_view.copier == win._copy_link
+    win._copy_link(EXAMPLE_LINK)
+    clipboard = QGuiApplication.clipboard()
+    assert clipboard is not None and clipboard.text() == EXAMPLE_LINK
+    assert EXAMPLE_LINK in win.statusBar().currentMessage()

@@ -123,7 +123,7 @@ from harness_design_studio.core.vcs.report import baselines_of, changelog_rows, 
 from harness_design_studio.core.vcs.roles import distinct_roles_on
 from harness_design_studio.core.vcs.versions import sort_versions
 from harness_design_studio.core.verify import VerifyReport
-from harness_design_studio.gui import areas, diagram_export, recent, strings
+from harness_design_studio.gui import areas, diagram_export, recent, strings, weblinks
 from harness_design_studio.gui.asbuilt_page import AsBuiltPage
 from harness_design_studio.gui.assumptions_dialog import AssumptionsDialog
 from harness_design_studio.gui.cable_end_dialog import CableEndDialog
@@ -1202,7 +1202,7 @@ class MainWindow(QMainWindow):
         self.problems.segmentationRequested.connect(self.segmentation_flow)
         self.inspector = Inspector(self.ctl, self.theme, props=self.props, problems=self.problems)
         self.inspector.plugRequested.connect(self.plug_loose_flow)
-        self.inspector.link_box.opener = self._open_link  # (the hook `open_url`, read late)
+        self.inspector.link_box.copier = self._copy_link  # the editor opens no browser
         self.harness_view.routing.branchPicked.connect(
             lambda _hid, bid: self.inspector.show_object("branch_point", bid)
         )
@@ -1211,7 +1211,7 @@ class MainWindow(QMainWindow):
         self.install_view("harness", self.harness_view)
         self.install_view("lists", self.lists_panel)
         self.devices_view = DevicesView(self.ctl, self.theme, self.settings)
-        self.devices_view.opener = self._open_link  # the source link of a connector's pinout
+        self.devices_view.copier = self._copy_link  # the source link of a connector's pinout
         self.install_view("devices", self.devices_view)
         self.install_view("tree", self.project_tree)
         self.install_view("inspector", self.inspector)
@@ -1794,7 +1794,7 @@ class MainWindow(QMainWindow):
             win = LibraryWindow(self.ctl, self.theme, self.settings, self)
             win.run_dialog = lambda dlg: self.run_dialog(dlg)
             win.ask_choice = lambda title, text, buttons: self.ask_choice(title, text, buttons)
-            win.opener = self._open_link
+            win.copier = self._copy_link
             win.folderChangeRequested.connect(self.choose_library_folder_flow)
             win.libraryWritten.connect(lambda: self.library_links.refresh())
             self.library_window = win
@@ -4203,9 +4203,11 @@ class MainWindow(QMainWindow):
             strings.DOCUMENT_SET,
         )
 
-    def _open_link(self, url: QUrl) -> bool:
-        """A web link of a part or of a pinout's source, in the browser (`open_url`, a hook)."""
-        return bool(self.open_url(url))
+    def _copy_link(self, link: str) -> None:
+        """A web link of a part or of a pinout's source, copied to the clipboard and said in the
+        status bar: the editor opens no browser (the owner's decision of 2026-11-18)."""
+        weblinks.system_clipboard(link)
+        self.statusBar().showMessage(strings.LINK_COPIED.format(link), 5000)
 
     def set_plan_settings(self, **changes: Any) -> bool:
         """Settings > Harness plan: the colour rule, the codes or the note lines."""

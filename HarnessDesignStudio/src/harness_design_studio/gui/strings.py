@@ -4113,8 +4113,9 @@ INS_PART_LINK = "Link"
 INS_PART_LINK_TIP = "The part's page on the web (a datasheet, a supplier), https:// or http://"
 INS_PART_LINK_SET = "Set"
 INS_PART_LINK_SET_TIP = "Save the link of this part (one undo step)"
-INS_PART_LINK_OPEN = "Open link"
-INS_PART_LINK_OPEN_TIP = "Open the link of this part in the web browser"
+LINK_COPIED = "Link copied to the clipboard: {}"
+INS_PART_LINK_COPY = "Copy link"
+INS_PART_LINK_COPY_TIP = "Copy the link of this part to the clipboard (the editor opens no browser)"
 STEP_SET_PART_LINK = "Set the link of {0}"
 PART_LINK_SET = "The link of {0} is set."
 # the Devices tab: the level of a pin, the source of a connector's pinout (section 4.1, Q5)
@@ -4131,15 +4132,15 @@ DV_CARD_SOURCE_LINK = "Source link"
 DV_CARD_SOURCE_LINK_TIP = (
     "A web link to that document, https:// or http:// (a path on a share goes into Source as text)"
 )
-DV_CARD_SOURCE_OPEN = "Open"
-DV_CARD_SOURCE_OPEN_TIP = "Open the source link in the web browser"
+DV_CARD_SOURCE_COPY = "Copy"
+DV_CARD_SOURCE_COPY_TIP = "Copy the source link to the clipboard (the editor opens no browser)"
 INS_SOURCE = "Source: {0}"
 INS_SOURCE_VERSION = "{0}, version {1}"
 # the library window: the parts of a device and their links
 LIB_PREVIEW_TABLE_PARTS = "Parts of the device"
 LIB_PREVIEW_PART_COLUMNS = ("Part", "Description", "Link")
 LIB_PREVIEW_PARTS_TIP = (
-    "Double-click or press Enter on a row with a link to open it in the web browser"
+    "Double-click or press Enter on a row with a link to copy the link to the clipboard"
 )
 
 # ---- 3.0.0: splices in the Harness tab (format 3, M6a; design of 2.3.0 section 6.6) -------------
