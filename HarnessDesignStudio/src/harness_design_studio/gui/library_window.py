@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QEvent, QModelIndex, QSettings, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence, QShowEvent
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -57,7 +57,7 @@ from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.library_folder import LibraryConflict, LibraryEntry, LibraryScan
 from harness_design_studio.core.model import Project
-from harness_design_studio.gui import strings
+from harness_design_studio.gui import strings, weblinks
 from harness_design_studio.gui.background import Job, JobRunner
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.devices_dialogs import _PlannerDialog
@@ -392,7 +392,7 @@ class LibraryWindow(QWidget):
         self.setWindowTitle(strings.LIB_TITLE)
         self.setAccessibleName(strings.LIB_TITLE)
         self.run_dialog: Callable[[QDialog], int] = run_dialog
-        self.opener: Callable[[QUrl], bool] = QDesktopServices.openUrl  # a part's link (3.0.0)
+        self.opener: Callable[[QUrl], bool] = weblinks.system_opener  # a part's link (3.0.0)
         self.ask_choice: Callable[[str, str, list[str]], int] = self._ask_choice
         # the states of the devices by where their library comes from (D-240): the project's
         # libraries, and the person's folder on its own
@@ -1055,7 +1055,7 @@ class LibraryWindow(QWidget):
         `http://` only; `describe_parts` leaves any other out)."""
         for row in self.part_model.rows():
             if isinstance(row, dict) and row.get("part") == part_id and row.get("link"):
-                return bool(self.opener(QUrl(str(row["link"]))))
+                return weblinks.open_web_link(row["link"], self.opener)
         return False
 
     # ---- buttons ----------------------------------------------------------------------------------

@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSettings, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QGuiApplication, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -56,7 +56,7 @@ from harness_design_studio.core.model import Project
 from harness_design_studio.core.outputs import exports
 from harness_design_studio.core.outputs.stamp import Table, csv_bytes, stamp_of
 from harness_design_studio.core.vcs.lockview import field_lock_reason
-from harness_design_studio.gui import strings
+from harness_design_studio.gui import strings, weblinks
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.devices_pin_table import (
     PinDelegate,
@@ -264,7 +264,7 @@ class DevicesView(QWidget):
         self.ctl, self.theme, self.settings = ctl, theme, settings
         self.setObjectName("devices-view")
         self.setAccessibleName(strings.DV_ACCESSIBLE)
-        self.opener: Callable[[QUrl], bool] = QDesktopServices.openUrl  # a hook for the tests
+        self.opener: Callable[[QUrl], bool] = weblinks.system_opener  # a hook for the tests
         self._dirty = True
         self._syncing = False
         self._unit: str | None = None
@@ -1639,9 +1639,7 @@ class DevicesView(QWidget):
         cid = self._cid
         c = self.ctl.project.connectors.get(cid) if cid is not None else None
         link = c.source_link if c is not None else None
-        if not link or not link.startswith(("https://", "http://")):
-            return False
-        return bool(self.opener(QUrl(link)))
+        return weblinks.open_web_link(link, self.opener)
 
     def _carries_toggled(self) -> None:
         cid = self._cid

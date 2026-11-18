@@ -184,13 +184,17 @@ def test_the_code_never_evaluates_data_or_starts_programs() -> None:
 
 
 def test_the_code_never_replaces_the_process_or_opens_a_browser() -> None:
-    """No os.exec*/os.spawn*/os.system/os.popen, no webbrowser; the only QDesktopServices use is
+    """No os.exec*/os.spawn*/os.system/os.popen, no webbrowser; the only QDesktopServices uses are
     the Help menu opening the local guide and the Export dialog's Open / Reveal in folder for files
-    the export wrote (both pass QUrl.fromLocalFile)."""
+    the export wrote (both pass QUrl.fromLocalFile), and `gui/weblinks.py`, the one place that
+    hands a person's click on a part link or a connector's source link to the browser (3.0.0,
+    design of the harness plan section 10); it opens only what the model accepts as an https or
+    http link (`test_weblinks_open_only_web_links`)."""
     allowed = {
         "gui/main_window.py": {"QDesktopServices"},
         "gui/export_dialog.py": {"QDesktopServices"},
         "gui/outputs_files.py": {"QDesktopServices"},
+        "gui/weblinks.py": {"QDesktopServices"},
     }
     found = {}
     for path in SRC.rglob("*.py"):
@@ -440,3 +444,36 @@ def test_the_length_cache_is_bounded() -> None:
     for k in range(lengths._PATHS_LIMIT * 3):
         assert lengths.wire_length(evolve(base, name=f"copy {k}"), wire) == 1.0
     assert len(lengths._PATHS) <= lengths._PATHS_LIMIT
+
+
+def test_weblinks_open_only_web_links() -> None:
+    """`gui/weblinks.py` opens an https or http link the model accepts, and nothing else: no
+    `file:`, `javascript:` or other scheme, no path, no text with spaces, no empty link."""
+    pytest.importorskip("PySide6")
+    from harness_design_studio.gui import weblinks
+
+    opened: list[str] = []
+
+    def opener(url: object) -> bool:
+        opened.append(str(url.toString()))  # type: ignore[attr-defined]
+        return True
+
+    for good in ("https://example.org/part/123", "http://example.org/a?b=c"):
+        done = weblinks.open_web_link(good, opener)
+        assert done, good
+    refused = [
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "ftp://example.org/x",
+        "/home/user/doc.pdf",
+        "C:\\docs\\a.pdf",
+        "https://exa mple.org/",
+        "https://",
+        "",
+        None,
+        "mailto:plans@example.org",
+    ]
+    for bad in refused:
+        done = weblinks.open_web_link(bad, opener)
+        assert not done, bad
+    assert opened == ["https://example.org/part/123", "http://example.org/a?b=c"]

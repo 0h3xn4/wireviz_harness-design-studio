@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from PySide6.QtCore import QModelIndex, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QResizeEvent, QShowEvent
+from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -59,7 +59,7 @@ from harness_design_studio.core.vcs.lockview import (
     lock_reason,
     locked_objects,
 )
-from harness_design_studio.gui import strings
+from harness_design_studio.gui import strings, weblinks
 from harness_design_studio.gui.controller import LIST_DELAY_MS, EditorController
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
@@ -1153,7 +1153,7 @@ class PartLinkBox(QWidget):
         self.ctl = ctl
         self.setObjectName("part-link-box")
         self.part_id = ""
-        self.opener: Callable[[QUrl], bool] = QDesktopServices.openUrl
+        self.opener: Callable[[QUrl], bool] = weblinks.system_opener
         lay = QVBoxLayout(self)
         lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
         lay.setSpacing(theme.space(4))
@@ -1224,9 +1224,7 @@ class PartLinkBox(QWidget):
         """Open the saved link (never the text being typed) in the web browser."""
         part = self.ctl.project.parts.get(self.part_id)
         link = part.link if part is not None else None
-        if not link or not link.startswith(("https://", "http://")):
-            return False
-        return bool(self.opener(QUrl(link)))
+        return weblinks.open_web_link(link, self.opener)
 
 
 def _alive(widget: QWidget, root: QWidget) -> bool:
