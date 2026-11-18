@@ -411,18 +411,21 @@ def export(
     drawings: bool = False,
     run_record: bool = False,
     operator: str | None = None,
+    harness_plan: bool = False,
 ) -> ExportResult:
     """The command `export`: build every output file of the project, check them independently and
     write them to `out` (default: the `outputs` folder of the project). The PDF and SVG drawings of
-    the harnesses are written only with `drawings=True`. Takes the project lock. Nothing is written
-    (`written` is false, `blocked` says why) when there is nothing to export or the independent
-    check of the outputs fails. With `run_record=True` a written export also gets `run_record.json`
-    next to its manifest (time, operator, tool version, model hash): it is not listed in the
-    manifest and is in no hash; `operator` is as for `generate`."""
+    the harnesses are written only with `drawings=True`, the harness plans
+    (`harnesses/<ID>/<ID>_plan.ods`) only with `harness_plan=True`. Takes the project lock.
+    Nothing is written (`written` is false, `blocked` says why) when there is nothing to export
+    or the independent check of the outputs fails. With `run_record=True` a written export also
+    gets `run_record.json` next to its manifest (time, operator, tool version, model hash): it is
+    not listed in the manifest and is in no hash; `operator` is as for `generate`."""
     from harness_design_studio.core.outputs.build import (
         DEFAULT_FOLDER,
         build_outputs,
         drawings_exported,
+        harness_plan_exported,
         write_outputs,
     )
     from harness_design_studio.core.outputs.verify import verify_outputs
@@ -433,17 +436,21 @@ def export(
         _writable(project)
         if not project.harnesses and not project.links:  # connections alone are enough
             return records.export_refused("nothing_to_export")
-        built = build_outputs(project, drawings=drawings)
+        built = build_outputs(project, drawings=drawings, harness_plan=harness_plan)
         report = verify_outputs(project, built.files)
         if not report.ok:
             return records.export_refused("outputs_failed_check", built.stamp.short, report.issues)
         target = Path(out) if out is not None else path / DEFAULT_FOLDER
         had_drawings = drawings_exported(target)
+        had_plans = harness_plan_exported(target)
         write_outputs(project, target, built)
         if run_record:
             _write_run_record(project, target, operator)
     return records.export_result(
-        built, report.issues, drawings_removed=had_drawings and not drawings
+        built,
+        report.issues,
+        drawings_removed=had_drawings and not drawings,
+        harness_plans_removed=had_plans and not harness_plan,
     )
 
 

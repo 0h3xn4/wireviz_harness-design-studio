@@ -10,6 +10,14 @@ leaves it unset, 1.9.0). An optional Port column (2.1.0, D-237) names the port o
 import writes it into the signal name (`RS422_2` and `TX+` give `RS422_2_TX+`), because a port is a
 naming convention on the signal, not a field (`core/ports.py`, `docs/IMPORTS.md`).
 
+The users' sheets of the harness plan (3.0.0, design section 4.3) are read as well: *Description*
+is the pin's function (a sheet with Function and Description reads Function as the signal), *Level*
+the pin's level, and the Direction words `PWR`, `PWR-RET`, `GND`, `SGND`, `SHIELD` and `SPARE` the
+pin's role (`IN`, `OUT` and `IN/OUT` its direction). Any other word, such as `TEST`, sets neither:
+the row is imported, and the import record lists the word under the converted values. The columns
+*Source* (also *ICD*), *Source version* and *Source link* say where the pinout of a connector comes
+from; the rows of one connector give one value.
+
 The tool knows no program's table format: columns are matched by their headings (with common
 aliases), the way the parts import does. Columns it cannot store (remarks,
 a voltage) are named in a warning and left out; the file format has no field for them.
@@ -63,6 +71,10 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("part", "Part"),
     ("gender", "Gender"),
     ("port", "Port"),
+    ("level", "Level"),
+    ("source_doc", "Source"),
+    ("source_version", "Source version"),
+    ("source_link", "Source link"),
 )
 _ALIASES = {
     "connector": ("connector", "conn", "connectorid", "connectorname", "ref", "reference"),
@@ -75,18 +87,28 @@ _ALIASES = {
         "function",
         "pinfunction",
         "functiondescription",
-    ),  # "function" alone means the signal
+        "description",
+    ),  # "function" alone means the signal; "description" is the users' word for it (3.0.0)
     # "contact" alone is the pin when the sheet has no other pin heading (as it always was)
     "contact_part": ("cablecontact", "contactpart", "cablecontactpart", "contact"),
     "direction": ("direction", "pindirection", "dir", "iomode"),
     "part": ("part", "partid", "partnumber", "connectorpart"),
     "gender": ("gender", "sex"),
     "port": ("port", "portname", "portid"),
+    "level": ("level", "signallevel", "pinlevel"),
+    "source_doc": ("source", "icd", "sourcedocument", "sourcedoc"),
+    "source_version": ("sourceversion", "icdversion", "sourcedocumentversion"),
+    "source_link": ("sourcelink", "icdlink", "sourceurl", "icdurl"),
 }
+# the fields that belong to a connector, not to a pin: the rows of one connector give one value
+CONNECTOR_COLUMNS = ("source_doc", "source_version", "source_link")
+DIRECTION_UNIT = "Direction word"
+NOT_SET = "not set"
+WORDS = "PWR, PWR-RET, GND, SGND, SHIELD, SPARE, IN, OUT, IN/OUT"
 # headings the file format has no field for: named in a warning, never written
 _UNSTORED = frozenset(
     {
-        "description", "remarks", "remark", "notes", "note", "comment",
+        "remarks", "remark", "notes", "note", "comment",
         "comments", "voltage", "current", "class",
     }
 )  # fmt: skip
@@ -158,6 +180,17 @@ class PinoutRow:
     signal: str = ""  # the signal the pin gets: with the port of a Port column written into it
 
 
+@dataclass(frozen=True)
+class WordConversion:
+    """A Direction word the import does not know (`TEST`): the row is imported, and the pin's role
+    and direction are not set from it (design of 3.0.0 section 4.3)."""
+
+    row: int
+    connector: str
+    pin: str
+    word: str
+
+
 # the longest signal name the file format takes (`Pin.signal` is a `Name`)
 MAX_SIGNAL = 200
 
@@ -205,6 +238,7 @@ class PinoutPlan:
     unit_id: str = ""
     new_unit: bool = False
     ports: list[PortReport] = field(default_factory=list)  # per connector, then per type ID
+    words: list[WordConversion] = field(default_factory=list)  # unknown Direction words
 
     @property
     def port_lines(self) -> list[str]:
@@ -286,6 +320,7 @@ def plan_pinout_import(
     names: dict[str, str] = {}  # casefolded connector name -> the name as first written
     order: list[str] = []
     fixed_column = "mode" in mapping and _norm(header[mapping["mode"]]) == "fixed"
+    words: list[tuple[int, str]] = []  # (row, word) of the Direction words that set nothing
 
     for n, row in enumerate(table[1:], start=2):
 
@@ -301,6 +336,17 @@ def plan_pinout_import(
         record = {k: cell(k) for k, _ in FIELDS if k in mapping}
         if fixed_column:  # a "Fixed" column holds yes/no, not a mode word
             record["mode"] = "fixed" if record.get("mode", "").casefold() in _YES else ""
+        if "direction" in record:  # the users' words: a role word or a direction word (3.0.0)
+            said = devices.read_direction_word(record["direction"])
+            typed = record.pop("direction")
+            if said is None:
+                words.append((n, typed))
+                plan.warnings.append(
+                    f"Row {n}: the Direction word '{typed}' is not one the tool reads ({WORDS}); "
+                    "the pin's role and direction are not set from it."
+                )
+            else:
+                record[said[0]] = said[1]
         if not cell("pin"):
             plan.rows.append(PinoutRow(n, False, "The pin is empty", name, ""))
             continue
@@ -365,7 +411,10 @@ def plan_pinout_import(
                 r = {**r, "signal": signal}
             written_rows.append((n, r))
         rows = written_rows
-        sheet = [{k: v for k, v in r.items() if k in devices.ROW_COLUMNS} for _n, r in rows]
+        source, clash = _connector_source(rows)
+        if clash:
+            refused[clash[0]] = clash[1]
+        sheet = [{k: v for k, v in r.items() if k in devices.IMPORT_ROW_COLUMNS} for _n, r in rows]
         pins = devices.plan_pin_rows(
             work, cid, sheet, replace=replace or is_new, row_numbers=[n for n, _r in rows]
         )
@@ -383,6 +432,9 @@ def plan_pinout_import(
             continue
         try:
             set_ops = devices.ops_set_pinout(work, cid, list(pins.pins))
+            if source:
+                after = edit.clone_with(work, set_ops)
+                set_ops += devices.ops_update_connector(after, cid, **source)
         except (EditError, HarnessError) as exc:
             plan.rows += [PinoutRow(n, False, str(exc), name, r.get("pin", "")) for n, r in rows]
             continue
@@ -403,6 +455,9 @@ def plan_pinout_import(
             if sig and not is_signal_of(sig, all_types):
                 plan.unmatched_signals.setdefault(sig, []).append(f"{cid} pin {r['pin']}")
         _report_ports(plan, work.connectors[cid], types, with_port)
+        plan.words += [
+            WordConversion(n, cid, r["pin"], w) for n, r in rows for m, w in words if m == n
+        ]
         for n, r in rows:
             word = "added" if is_new else "unchanged" if same else "updated"
             seen_rows.append((n, PinoutRow(n, True, word, cid, r["pin"], r.get("signal", ""))))
@@ -411,6 +466,34 @@ def plan_pinout_import(
     if plan.bad_count:
         plan.ops = []  # a sheet with a bad row is not imported at all
     return plan
+
+
+def _connector_source(
+    rows: Sequence[tuple[int, dict[str, str]]],
+) -> tuple[dict[str, str], tuple[int, str] | None]:
+    """The source of a connector's pinout that its rows give (`CONNECTOR_COLUMNS` present in the
+    sheet; an empty cell does not count), and the first row that gives a second value, with the
+    reason. A column whose cells are all empty clears the value."""
+    out: dict[str, str] = {}
+    first: dict[str, int] = {}
+    for n, r in rows:
+        for key in CONNECTOR_COLUMNS:
+            if key not in r:
+                continue
+            value = r[key]
+            out.setdefault(key, "")
+            if not value:
+                continue
+            if not out[key]:
+                out[key], first[key] = value, n
+            elif out[key] != value:
+                word = dict(FIELDS)[key]
+                return out, (
+                    n,
+                    f"{word} '{value}' differs from '{out[key]}' in row {first[key]}: the rows "
+                    "of one connector give one value",
+                )
+    return out, None
 
 
 def _types_of(project: Project, connector: Connector) -> list[InterfaceType]:

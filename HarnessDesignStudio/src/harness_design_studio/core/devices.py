@@ -42,7 +42,7 @@ from .model import (
     Unit,
     evolve,
 )
-from .model.base import MAX_PIN_COUNT, Name
+from .model.base import MAX_PIN_COUNT, Name, WebLink
 from .model.logical import Category, Construction, Direction, Shielding, Side
 from .model.physical import TBD_PART_ID, Gender, PinDirection, PinRole, Termination
 from .outputs.stamp import Table
@@ -56,10 +56,14 @@ PIN_MODES: tuple[PinMode, ...] = get_args(PinMode)
 PIN_FIELDS = frozenset(
     {
         "signal", "contact_size", "termination", "fixed", "locked", "function", "contact_part",
-        "role", "direction",
+        "role", "direction", "level",
     }
 )  # fmt: skip
-CONNECTOR_FIELDS = frozenset({"name", "gender", "keying", "carries", "notes", "label"})
+# the source of a box connector's pinout (format 3, design of 3.0.0 section 4.1)
+SOURCE_FIELDS: tuple[str, ...] = ("source_doc", "source_version", "source_link")
+CONNECTOR_FIELDS = frozenset(
+    {"name", "gender", "keying", "carries", "notes", "label", *SOURCE_FIELDS}
+)
 _GENDERS: tuple[str, ...] = get_args(Gender)
 _TERMINATIONS: tuple[str, ...] = get_args(Termination)
 PIN_ROLES: tuple[str, ...] = get_args(PinRole)
@@ -90,6 +94,45 @@ def parse_pin_direction(value: object) -> str:
 
 
 _NAME = TypeAdapter(Name)
+_WEB_LINK = TypeAdapter(WebLink)
+
+# The users' Direction words (design of 3.0.0 section 4.3) that say what a pin is for: an import
+# reads them into the role. `IN`, `OUT` and `IN/OUT` are direction words (`_DIRECTION_WORDS`).
+ROLE_WORDS: dict[str, PinRole] = {
+    "pwr": "power", "pwr-ret": "return", "gnd": "ground", "sgnd": "signal_ground",
+    "shield": "shield", "spare": "spare",
+}  # fmt: skip
+
+
+def read_direction_word(value: object) -> tuple[str, str] | None:
+    """What a Direction cell of a sheet says: `("role", ROLE)` for a role word (`PWR`, `PWR-RET`,
+    `GND`, `SGND`, `SHIELD`, `SPARE`), `("direction", DIRECTION)` for a direction word (`IN`,
+    `OUT`, `IN/OUT` and the words of `parse_pin_direction`; an empty cell is the direction not
+    set), or None for any other word (the template's `TEST`), which sets neither."""
+    word = "" if value is None else str(value).strip().casefold()
+    if word in ROLE_WORDS:
+        return "role", ROLE_WORDS[word]
+    if word in _DIRECTION_WORDS:
+        return "direction", _DIRECTION_WORDS[word]
+    return None
+
+
+def _web_link(value: object, what: str) -> str | None:
+    """A web link of a cell (`https://` or `http://`), an empty cell is None."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise EditError(f"{what} must be text.")
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return _WEB_LINK.validate_python(text, strict=True)
+    except ValidationError as exc:
+        raise EditError(
+            f"{what} must be a web link that starts with https:// or http://, without spaces, "
+            "at most 2000 characters."
+        ) from exc
 
 
 # ---- small helpers -----------------------------------------------------------------------------
@@ -406,7 +449,8 @@ def ops_add_connector(
 
 
 def ops_update_connector(project: Project, connector_id: str, **changes: object) -> list[Op]:
-    """Change name, gender, keying, carries or notes of a box connector. Gender and keying are
+    """Change name, gender, keying, carries, notes, label or the source of the pinout
+    (`source_doc`, `source_version`, `source_link`) of a box connector. Gender and keying are
     refused while a release uses the connector (`pin_set_frozen`)."""
     _writable(project)
     c = _box(project, connector_id)
@@ -423,6 +467,11 @@ def ops_update_connector(project: Project, connector_id: str, **changes: object)
             new[key] = _text(value, "The keying")
         elif key == "label":
             new[key] = _text(value, "The label")
+        elif key in ("source_doc", "source_version"):
+            word = "The source" if key == "source_doc" else "The source version"
+            new[key] = _text(value, word)
+        elif key == "source_link":
+            new[key] = _web_link(value, "The source link")
         elif key == "carries":
             if isinstance(value, str) or not isinstance(value, Iterable):
                 raise EditError("Carries is a list of interface types.")
@@ -618,11 +667,12 @@ def _edit_pin(pin: Pin, changes: Mapping[str, object], project: Project | None =
     for key, value in changes.items():
         if key == "mode":
             new.update(_mode_flags(value))
-        elif key in ("signal", "contact_size", "function"):
+        elif key in ("signal", "contact_size", "function", "level"):
             what = {
                 "signal": "A signal",
                 "contact_size": "A contact size",
                 "function": "A function",
+                "level": "A level",
             }
             new[key] = _text(value, what[key])
         elif key == "termination":
@@ -642,7 +692,7 @@ def _edit_pin(pin: Pin, changes: Mapping[str, object], project: Project | None =
             if text not in PIN_ROLES:
                 raise EditError(
                     "A pin role is one of power, return, ground, signal, shield, spare, "
-                    "or empty (taken from the signal name)."
+                    "signal_ground, or empty (taken from the signal name)."
                 )
             new[key] = text
         else:
@@ -899,6 +949,9 @@ def ops_set_pinout(project: Project, connector_id: str, pins: Sequence[Pin]) -> 
 ROW_COLUMNS = (
     "pin", "signal", "mode", "contact_size", "termination", "function", "contact_part", "direction",
 )  # fmt: skip
+# what the pinout import may also write per pin (format 3): the level, and the role that a
+# Direction word such as PWR or SGND gives (`read_direction_word`)
+IMPORT_ROW_COLUMNS = (*ROW_COLUMNS, "level", "role")
 
 
 @dataclass(frozen=True)
@@ -943,7 +996,7 @@ def plan_pin_rows(
     replace: bool = False,
     row_numbers: Sequence[int] | None = None,
 ) -> PinRowsPlan:
-    """Pin rows (keys of `ROW_COLUMNS`; only the keys present are written) merged into the pins
+    """Pin rows (keys of `IMPORT_ROW_COLUMNS`; only the keys present are written) merged into the pins
     of a connector: a row whose `pin` exists changes that pin, any other adds a pin at the end.
     With `replace` the pins that no row names are dropped (an import of a whole pinout). Every
     row that cannot be used gets a reason; nothing is raised for a bad row. `row_numbers` says what
@@ -990,6 +1043,10 @@ def plan_pin_rows(
                 changes["contact_part"] = row["contact_part"]
             if "direction" in row:
                 changes["direction"] = row["direction"]
+            if "level" in row:
+                changes["level"] = row["level"]
+            if "role" in row:
+                changes["role"] = row["role"]
             if "mode" in row:
                 word = _MODE_WORDS.get(row["mode"].strip().casefold(), "?")
                 if word == "?":
@@ -1265,6 +1322,49 @@ def pinout_table(project: Project, unit_id: str) -> Table:
     if unit_id not in project.units:
         raise EditError(f"Device '{unit_id}' does not exist.")
     return box_pinouts(project, {c.id for c in unit_connectors(project, unit_id)})
+
+
+# the columns `export-pinout` adds to the rows of `pinout_table` while one of the device uses them
+# (format 3): the level of a pin, and the source of a connector's pinout on each of its rows
+PINOUT_EXTRA_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("level", "Level"),
+    ("source_doc", "Source"),
+    ("source_version", "Source version"),
+    ("source_link", "Source link"),
+)
+
+
+def pinout_sheet(project: Project, unit_id: str) -> Table:
+    """What `export-pinout` writes: the rows of `pinout_table`, and the columns Level, Source,
+    Source version and Source link, each only while a pin or a connector of this device has a
+    value for it, so that the file reads back through `import-pinout`."""
+    table = pinout_table(project, unit_id)
+    conns = {c.id: c for c in unit_connectors(project, unit_id)}
+    pins = {(c.id, p.id): p for c in conns.values() for p in c.pins}
+    used = [
+        (key, heading)
+        for key, heading in PINOUT_EXTRA_COLUMNS
+        if (
+            any(p.level for p in pins.values())
+            if key == "level"
+            else any(getattr(c, key) for c in conns.values())
+        )
+    ]
+    if not used:
+        return table
+    out = [[*table[0], *(heading for _key, heading in used)]]
+    for row in table[1:]:
+        cid, pid = row[0], row[4]
+        extra = []
+        for key, _heading in used:
+            if key == "level":
+                pin = pins.get((cid, pid))
+                extra.append((pin.level if pin else None) or "")
+            else:
+                c = conns.get(cid)
+                extra.append((getattr(c, key) if c else None) or "")
+        out.append([*row, *extra])
+    return out
 
 
 # ---- inline checks (editor only; not design rules) ---------------------------------------------
@@ -2243,6 +2343,10 @@ __all__ = [
     "PIN_MODES",
     "PIN_ROLES",
     "ROW_COLUMNS",
+    "IMPORT_ROW_COLUMNS",
+    "PINOUT_EXTRA_COLUMNS",
+    "ROLE_WORDS",
+    "SOURCE_FIELDS",
     "ConnectorImpact",
     "DeviceState",
     "PartChange",
@@ -2304,8 +2408,10 @@ __all__ = [
     "pin_rows",
     "pin_set_frozen",
     "pinout_problems",
+    "pinout_sheet",
     "pinout_table",
     "plan_change_part",
+    "read_direction_word",
     "parse_pin_direction",
     "plan_pin_rows",
     "suggest_carries",

@@ -56,8 +56,8 @@ SHAPES: dict[str, tuple[str, ...]] = {
         "findings", "interfaces_checked", "wires_checked", "verify_issues",
     ),
     "export": (
-        "ok", "written", "blocked", "model_hash", "drawings_removed", "file_count", "files",
-        "issues",
+        "ok", "written", "blocked", "model_hash", "drawings_removed", "harness_plans_removed",
+        "file_count", "files", "harness_plans", "issues",
     ),
     "merge-fix": (
         "ok", "result", "conflicts", "problem", "generate", "check", "dry_run", "renamed",
@@ -96,6 +96,11 @@ SHAPES: dict[str, tuple[str, ...]] = {
     "export-pinout": ("ok", "device", "pin_rows", "columns", "rows", "written"),
     "export-devices": ("ok", "devices", "connectors", "notes"),
     "export-subsystem": ("ok", "name", "devices", "connectors", "connections"),
+    # the document data of the harness plans (3.0.0); `plans` by harness ID, each with number,
+    # version, release and title
+    "document": (
+        "ok", "changed", "harness", "system", "title", "company", "contact", "plans",
+    ),
     "review": ("ok", "action", "by", "blockers", "outputs"),
     "release": ("ok", "action", "by", "blockers", "outputs"),
     "new-version": ("ok", "action", "by", "kind", "blockers", "outputs"),

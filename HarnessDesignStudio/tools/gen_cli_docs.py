@@ -18,7 +18,7 @@ GROUPS = (
     ("Check", ("validate", "check", "drc", "verify")),
     ("Explain", ("explain", "routing", "settings", "workflow")),
     ("Overrides and change history", ("override", "deviation", "journal")),
-    ("Generate and export", ("generate", "export", "export-data")),
+    ("Generate and export", ("generate", "export", "export-data", "document")),
     ("Team use with Git", ("merge-fix",)),
     (
         "Bring in data",
@@ -147,8 +147,15 @@ EXAMPLES: dict[str, list[str]] = {
     "export": [
         "harness-design-studio export my-design",
         "harness-design-studio export my-design --drawings",
+        "harness-design-studio export my-design --harness-plan --json",
         "harness-design-studio export my-design --out my-outputs --json",
         'harness-design-studio export my-design --run-record --author "A. Engineer"',
+    ],
+    "document": [
+        "harness-design-studio document my-design",
+        'harness-design-studio document my-design --set company="Example Ltd" --contact E-mail=plans@example.org',
+        "harness-design-studio document my-design --harness W001 --set number=HP-W001 --json",
+        "harness-design-studio document my-design --clear contact",
     ],
     "export-data": [
         "harness-design-studio export-data my-design --out my-design-data",

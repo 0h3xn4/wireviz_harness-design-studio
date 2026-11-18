@@ -295,14 +295,21 @@ def _restamp(path: Path, rep: Report) -> int:
         DEFAULT_FOLDER,
         build_outputs,
         drawings_exported,
+        harness_plan_exported,
         write_outputs,
     )
     from harness_design_studio.core.outputs.verify import verify_outputs
 
     try:
         project = load_project(path).project
-        # the same set as the export before the release: with the drawings only if it had them
-        built = build_outputs(project, drawings=drawings_exported(path / DEFAULT_FOLDER))
+        # the same set as the export before the release: with the drawings and the harness plans
+        # only if it had them
+        folder = path / DEFAULT_FOLDER
+        built = build_outputs(
+            project,
+            drawings=drawings_exported(folder),
+            harness_plan=harness_plan_exported(folder),
+        )
         if not verify_outputs(project, built.files).ok:
             print(
                 "error: the re-exported outputs failed their self-check; nothing was written.",
