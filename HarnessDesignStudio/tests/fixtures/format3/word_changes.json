@@ -1,0 +1,21 @@
+{
+ "about": "The fixed list of word changes of 3.0.0 (D-242, design of 3.0.0 section 5.6, step 3): what a written file of 2.x says that the same file of 3.0 says otherwise. {L} and {L2} stand for a revision letter and {V} and {V2} for its version by the mapping of section 5.5; {*} is any text, kept; {field} is one field of a CSV line, kept; {^} is the start of a line. A scope of `item` replaces whole text items of a drawing, `cell` whole cells of a workbook (in the sheets named, if any), `text` matches in the text of a file. `after` names the item that must come just before (the title block field). The entries apply in the order of the list; tests/test_format3.py fails on any other difference and on an entry that matches nowhere.",
+ "changes": [
+  {"files": ["harnesses/*/drawing_*.svg", "harnesses/*/drawing_*.pdf"], "scope": "item", "old": "REVISION", "new": "VERSION", "why": "the title block field (the name of the field of config/titleblock.json, Q28)"},
+  {"files": ["harnesses/*/drawing_*.svg", "harnesses/*/drawing_*.pdf"], "scope": "item", "after": "VERSION", "old": "{L}", "new": "{V}", "why": "the title block value"},
+  {"files": ["harnesses/*/drawing_*.svg", "harnesses/*/drawing_*.pdf"], "scope": "item", "old": "Revision {L}  status {*}", "new": "Version {V}  status {*}", "why": "the header line of a drawing"},
+  {"files": ["harnesses/*/*_build.xlsx"], "scope": "cell", "old": "Revision {L}   ·   status {*}", "new": "Version {V}   ·   status {*}", "why": "the line of Start here"},
+  {"files": ["system/changelog.csv"], "scope": "text", "old": "{^}Entry,Harness,Revision,Event,", "new": "{^}Entry,Harness,Version,Event,", "why": "the heading of the third column"},
+  {"files": ["system/changelog.csv"], "scope": "text", "old": "{^}{field},{field},{L},", "new": "{^}{field},{field},{V},", "why": "the third cell of a row"},
+  {"files": ["system/changelog.csv"], "scope": "text", "old": "new revision started", "new": "new version started", "why": "the event of a new version"},
+  {"files": ["system/system.xlsx"], "sheets": ["Change log"], "scope": "cell", "old": "Revision", "new": "Version", "why": "the heading of the third column"},
+  {"files": ["system/system.xlsx"], "sheets": ["Change log"], "scope": "cell", "old": "{L}", "new": "{V}", "why": "the third cell of a row"},
+  {"files": ["system/system.xlsx"], "sheets": ["Change log"], "scope": "cell", "old": "new revision started", "new": "new version started", "why": "the event of a new version"},
+  {"files": ["system/version_report.md"], "scope": "text", "old": "# Revision report: ", "new": "# Version report: ", "why": "the title of the report (its file was revision_report.md, Q31)"},
+  {"files": ["system/version_report.md"], "scope": "text", "old": "revision {L} to {L2}", "new": "version {V} to {V2}", "why": "the heading of a comparison of two baselines"},
+  {"files": ["system/version_report.md"], "scope": "text", "old": "  - revision: {L} -> {L2}", "new": "  - version: {V} -> {V2}", "why": "the changed field of a harness in a comparison (the key of Q28); its line moves to its place among the fields sorted by name"},
+  {"files": ["system/version_report.md"], "scope": "text", "old": "new revision started", "new": "new version started", "why": "the event of a new version"},
+  {"files": ["system/version_report.md"], "scope": "text", "old": "revision {L}", "new": "version {V}", "why": "a version in the history of a harness"},
+  {"files": ["system/export.json"], "scope": "export", "old": "\"revision\": \"{L}\"", "new": "\"revision\": \"{V}\", and \"version\": \"{V}\" added beside it", "why": "the dump of each harness writes the key version and keeps revision through 3.0.x (Q29)"}
+ ]
+}

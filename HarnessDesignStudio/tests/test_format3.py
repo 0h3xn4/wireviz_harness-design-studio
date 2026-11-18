@@ -695,3 +695,112 @@ def test_the_change_log_and_the_report_say_version(tmp_path: Path) -> None:
     report = version_report(p, "stamp")
     assert "\n# Version report: " in report
     assert "version 2.0.0 new version started" in report
+
+
+# ---- the written files of 2.x and of 3.0 (section 5.6, part 3) ---------------------------------------
+
+OUTPUT_HASHES_2X = Path(__file__).parent.parent / "docs" / "ui" / "OUTPUT_HASHES_2.x.json"
+
+
+def test_the_record_holds_the_projects_of_the_design() -> None:
+    from tests import format3_support as f3
+
+    assert f3.recorded() == [
+        "custom_device", "example-first-steps", "example-flatsat", "example-minimal-satellite",
+        "example-small-satellite", "mini3", "mini3-released",
+    ]  # fmt: skip
+    size = sum(p.stat().st_size for p in f3.BEFORE.glob("*.json"))
+    assert size < 5_100_000, size  # about 5 MB: small enough for the repository
+    released = f3.record("mini3-released")["files"]
+    assert "revision A to B" in released["system/revision_report.md"]["text"]
+
+
+@pytest.mark.parametrize("name", ["example-first-steps", "example-minimal-satellite", "example-small-satellite", "example-flatsat", "mini3"])  # fmt: skip
+def test_the_record_is_what_2x_wrote(name: str) -> None:
+    """Each recorded file and each member of a recorded workbook has the digest that the output-hash
+    baseline of 2.x (the examples) or the golden of 2.x (mini3) holds for it; a recorded text hashes
+    to that digest itself."""
+    from tests import format3_support as f3
+
+    files = f3.record(name)["files"]
+    if name.startswith("example-"):
+        reference = json.loads(OUTPUT_HASHES_2X.read_text(encoding="utf-8"))[
+            name.removeprefix("example-")
+        ]
+        key = "sha256"
+    else:
+        reference = json.loads((f3.BEFORE / f"golden-{name}.json").read_text(encoding="utf-8"))
+        key = "golden"
+    assert set(reference) == set(files) - {
+        "manifest.json"
+    }  # (the manifest is written by an export)
+    for rel, digest in reference.items():
+        assert files[rel][key] == digest, rel
+        if "members" in files[rel] and key == "sha256":  # the workbook digest is of its members
+            import hashlib
+
+            parts = json.dumps(sorted(files[rel]["members"].items())).encode()
+            assert hashlib.sha256(parts).hexdigest() == digest, rel
+        if "text" in files[rel] and key == "sha256":
+            import hashlib
+
+            assert hashlib.sha256(files[rel]["text"].encode()).hexdigest() == digest, rel
+
+
+@pytest.mark.slow
+def test_the_written_files_of_3_0_are_those_of_2x_after_the_word_list() -> None:
+    """Every file of every recorded project, as this tool writes it, equals the file of 2.x after
+    the steps of section 5.6 (`tests/format3_support.py`): the stamp, the file name, the word
+    list, the length rule and the manifest. Any other difference fails, and so does an entry of
+    the list that matches nowhere in the whole set."""
+    from tests import format3_support as f3
+
+    used = [0] * len(f3.word_changes())
+    problems: list[str] = []
+    for name in f3.recorded():
+        new, raw = f3.dump_now(name)
+        problems += [f"{name}: {p}" for p in f3.compare(f3.record(name)["files"], new, raw, used)]
+    assert problems == []
+    unused = [c["old"] for c, n in zip(f3.word_changes(), used, strict=True) if n == 0]
+    assert unused == []
+
+
+def test_a_word_change_left_out_of_the_list_fails_the_comparison(monkeypatch) -> None:
+    """A mutation: without the entry for the header line of a drawing, one *Revision* stays in the
+    2.x file after the list, and the comparison says so."""
+    from tests import format3_support as f3
+
+    changes = [c for c in f3.word_changes() if not c["old"].startswith("Revision {L}  status")]
+    monkeypatch.setattr(f3, "word_changes", lambda: changes)
+    new, raw = f3.dump_now("mini3")
+    problems = f3.compare(f3.record("mini3")["files"], new, raw, [0] * len(changes))
+    assert problems and all("drawing_" in p for p in problems), problems
+
+
+def test_the_report_rule_moves_only_the_renamed_field() -> None:
+    from tests.format3_support import _resort_field
+
+    text = "- Harness `W001`\n  - released_on: a -> b\n  - version: 1.0.0 -> 2.0.0\n  - wires: x\n## Next\n  - name: a -> b"
+    moved = _resort_field(
+        text.replace("  - version: 1.0.0 -> 2.0.0\n  - wires", "  - wires").replace(
+            "  - released_on", "  - version: 1.0.0 -> 2.0.0\n  - released_on"
+        )
+    )
+    assert moved == text  # the version line goes back after released_on, before wires
+    assert _resort_field("  - b: 1\n  - a: 2") == "  - b: 1\n  - a: 2"  # no version: untouched
+
+
+def test_the_numbers_snapshot_keeps_every_readable_number() -> None:
+    """The snapshot of 3.0 against the one of 2.x (its readable part, kept in the record): every
+    gauge, length, part, colour and lock of every wire and every finding with its text is equal;
+    only the digests of the files and the name of the version report changed (section 5.6)."""
+    from tests import format3_support as f3
+
+    old = json.loads((f3.BEFORE / "numbers-2.x.json").read_text(encoding="utf-8"))
+    new = json.loads((FIXTURES / "numbers" / "snapshot.json").read_text(encoding="utf-8"))
+    assert set(old) == set(new)
+    for name in old:
+        assert new[name]["wires"] == old[name]["wires"], name
+        assert new[name]["findings"] == old[name]["findings"], name
+        renamed = sorted(f3.NEW_REPORT if r == f3.OLD_REPORT else r for r in old[name]["files"])
+        assert sorted(new[name]["files"]) == renamed, name
