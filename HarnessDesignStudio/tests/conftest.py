@@ -13,7 +13,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-# The real-platform lane on Linux (`harness-real-platform.yml`, REQ-GUI-26) runs its tests in
+# The real-platform lane on Linux (`harness-real-platform.yml`) runs its tests in
 # parallel workers under `xvfb-run`. One X display has one pointer: `QTest.mouseMove` on `xcb` moves
 # it (`QCursor::setPos`), so a move of one worker reached the window of another worker's test and
 # took its hover away (`test_the_pointer_over_a_port_lights_it_and_shows_the_open_hand`, seen once
