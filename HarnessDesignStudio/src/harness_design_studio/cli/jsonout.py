@@ -48,7 +48,7 @@ SHAPES: dict[str, tuple[str, ...]] = {
     # (unset, entered, imported), kept_by_generate, source_text, wires
     "routing": (
         "ok", "harness", "name", "origin", "branches", "connectors", "segments", "branch_points",
-        "lengths_missing", "wires_without_route",
+        "lengths_missing", "wires_without_route", "splices",
     ),
     "export-data": ("ok", "count", "model_hash", "files", "run_record"),
     "generate": (

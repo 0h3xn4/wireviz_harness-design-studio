@@ -27,13 +27,13 @@ them, so `derivations.json` is as it was.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from harness_design_studio.core.derive import Derivation, Input, Step, text_step
 from harness_design_studio.core.generate.lengths import path_trail
-from harness_design_studio.core.model import Harness, Project, Segment
-from harness_design_studio.core.model.physical import LOOSE_ROLE
+from harness_design_studio.core.model import Connector, Harness, Project, Segment
+from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 from harness_design_studio.core.origin import harness_origin
 from harness_design_studio.core.outputs.tables import (
     branch_sides,
@@ -95,6 +95,8 @@ def _node_text(h: Harness, node: str) -> str:
         if c.id == node:
             if c.role == LOOSE_ROLE:
                 return f"{c.id} (loose end)"
+            if c.role == SPLICE_ROLE:
+                return f"{c.id} (splice)"
             return f"{c.id} ({c.mates_with})" if c.mates_with else c.id
     for b in h.branch_points:
         if b.id == node:
@@ -129,6 +131,8 @@ class RoutingTree:
     lengths_missing: list[str]  # the segments without a length
     wires_without_route: list[str]  # the wires with no single path through the segments
     node_words: dict[str, str]  # each node of a segment in words (the text only)
+    # the splices (format 3): id, part_id, nodes (node, termination, wires); empty without one
+    splices: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -141,6 +145,7 @@ class RoutingTree:
             "branch_points": self.branch_points,
             "lengths_missing": self.lengths_missing,
             "wires_without_route": self.wires_without_route,
+            "splices": self.splices,
         }
 
     def lines(self) -> list[str]:
@@ -178,6 +183,14 @@ class RoutingTree:
                 out.append("    no segment meets it")
             for side in b["sides"]:
                 out.append(f"    {side['segment']}: {', '.join(side['connectors']) or '(none)'}")
+        if self.splices:
+            out.append("")
+            out.append("Splices (nodes of the routing tree; the wires each node joins):")
+        for x in self.splices:
+            out.append(f"  {x['id']} ({x['part_id']})")
+            for n in x["nodes"]:
+                how = f", {n['termination']}" if n["termination"] != "unspecified" else ""
+                out.append(f"    node {n['node']}{how}: {', '.join(n['wires']) or 'no wire'}")
         if self.lengths_missing:
             out.append("")
             out.append("Segments without a length: " + ", ".join(self.lengths_missing) + ".")
@@ -233,7 +246,34 @@ def routing_tree(project: Project, harness_id: str) -> RoutingTree:
         lengths_missing=[s["id"] for s in segments if s["length_m"] is None],
         wires_without_route=_unrouted(h),
         node_words=nodes,
+        splices=[
+            _splice_row(h, c)
+            for c in sorted(h.connectors, key=lambda x: natural_key(x.id))
+            if c.role == SPLICE_ROLE
+        ],
     )
+
+
+def _on_node(h: Harness, cid: str, pin: str) -> list[str]:
+    return sorted(
+        (
+            w.id
+            for w in h.wires
+            if (cid, pin) in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin))
+        ),
+        key=natural_key,
+    )
+
+
+def _splice_row(h: Harness, c: Connector) -> dict[str, Any]:
+    return {
+        "id": c.id,
+        "part_id": c.part_id,
+        "nodes": [
+            {"node": p.id, "termination": p.termination, "wires": _on_node(h, c.id, p.id)}
+            for p in c.pins
+        ],
+    }
 
 
 # ---- explain ------------------------------------------------------------------------------------
@@ -346,6 +386,65 @@ def _mates(h: Harness, ids: list[str]) -> list[tuple[str, str | None]]:
     ]
 
 
+def splice_derivation(project: Project, h: Harness, c: Connector) -> Derivation:
+    """A splice (format 3): its part, and for each node the wires it joins and the net they make,
+    with the ends of the net (the pins not on a splice) and the other splices on it."""
+    from harness_design_studio.core.nets import harness_nets
+
+    nets = harness_nets(h)
+    inputs: list[Input] = [Input("Part", c.part_id, "", f"splice {c.id}: part_id")]
+    steps: list[Step] = []
+    texts: list[str] = []
+    for p in c.pins:
+        wires = _on_node(h, c.id, p.id)
+        inputs.append(
+            Input(
+                f"Node {p.id}",
+                ", ".join(wires) or "(no wire)",
+                "",
+                f"{p.termination} (termination)",
+            )
+        )
+        net = next((n for n in nets if (c.id, p.id) in n.pins), None)
+        ends = ", ".join(f"{cid}.{pin}" for cid, pin in net.ends) if net else ""
+        other = [x for x in net.splices if x != c.id] if net else []
+        joined = ends or "(no end)"
+        steps.append(
+            text_step(
+                f"The net of node {p.id}",
+                "the pins its wires join, through every splice on the way: the ends of the net",
+                joined + (f"; also through {', '.join(other)}" if other else ""),
+            )
+        )
+        texts.append(f"node {p.id}: {joined}")
+    return Derivation(
+        "splice",
+        f"Splice {c.id} of harness {h.id}",
+        "The nets of the splice",
+        None,
+        "",
+        "a net is the set of pins joined by wires; each node of a splice joins every wire on it",
+        tuple(inputs),
+        tuple(steps),
+        None,
+        ("A-PIN-ONE-WIRE",),
+        "The tests of the test sheet follow the nets: one continuity test per pair of ends of a "
+        "net through a splice, and one isolation test of the net.",
+        () if any(_on_node(h, c.id, p.id) for p in c.pins) else (f"a wire on {c.id}",),
+        "; ".join(texts),
+    )
+
+
+def explain_splice(project: Project, object_id: str) -> list[Derivation]:
+    """A splice by its ID, or as HARNESS.ID; [] for anything else."""
+    for hid in sorted(project.harnesses, key=natural_key):
+        h = project.harnesses[hid]
+        for c in h.connectors:
+            if c.role == SPLICE_ROLE and object_id in (c.id, f"{h.id}.{c.id}"):
+                return [splice_derivation(project, h, c)]
+    return []
+
+
 def explain_routing_object(project: Project, object_id: str) -> list[Derivation]:
     """A segment (W001-L3) or a branch point (W001-B2) by its ID, or as HARNESS.ID; [] for
     anything else. The first harness in natural ID order that has it."""
@@ -365,7 +464,9 @@ __all__ = [
     "RoutingTree",
     "branch_point_derivation",
     "explain_routing_object",
+    "explain_splice",
     "length_source",
     "routing_tree",
     "segment_derivation",
+    "splice_derivation",
 ]

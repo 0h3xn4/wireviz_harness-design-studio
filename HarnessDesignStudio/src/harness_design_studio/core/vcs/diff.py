@@ -41,6 +41,7 @@ class ObjectChange:
     change: str  # "added" | "removed" | "changed"
     fields: tuple[FieldChange, ...] = ()
     loose: bool = False  # a cable connector that is (after the change) a loose end
+    splice: bool = False  # a cable connector that is a splice (format 3)
 
 
 @dataclass
@@ -157,14 +158,24 @@ def _loose(kind: str, data: dict[str, Any]) -> bool:
     return kind == "cable_connector" and data.get("role") == "loose"
 
 
+def _splice(kind: str, data: dict[str, Any]) -> bool:
+    return kind == "cable_connector" and data.get("role") == "splice"
+
+
 def diff_flat(before: Flat, after: Flat) -> Diff:
     out = Diff()
     for key in sorted(set(before) | set(after)):
         kind, id_ = key
         if key not in before:
-            out.changes.append(ObjectChange(kind, id_, "added", loose=_loose(kind, after[key])))
+            d = after[key]
+            out.changes.append(
+                ObjectChange(kind, id_, "added", loose=_loose(kind, d), splice=_splice(kind, d))
+            )
         elif key not in after:
-            out.changes.append(ObjectChange(kind, id_, "removed", loose=_loose(kind, before[key])))
+            d = before[key]
+            out.changes.append(
+                ObjectChange(kind, id_, "removed", loose=_loose(kind, d), splice=_splice(kind, d))
+            )
         else:
             a, b = before[key], after[key]
             names = sorted(set(a) | set(b))
@@ -174,7 +185,9 @@ def diff_flat(before: Flat, after: Flat) -> Diff:
                 if _norm(a.get(n)) != _norm(b.get(n))
             )
             if changed:
-                out.changes.append(ObjectChange(kind, id_, "changed", changed, _loose(kind, b)))
+                out.changes.append(
+                    ObjectChange(kind, id_, "changed", changed, _loose(kind, b), _splice(kind, b))
+                )
     return out
 
 
@@ -207,11 +220,15 @@ KIND_NAMES = {
 # What the screen calls the kinds: a "unit" of the files is a "device" (the reports written to disk
 # keep `KIND_NAMES`, so a wording change never changes a generated file).
 SCREEN_KIND_NAMES = {**KIND_NAMES, "unit": "Device"}
+SPLICE_NAME = "Splice"  # what the reports call a cable connector that is a splice
 LOOSE_END_NAME = "Loose end"  # what the reports call a cable connector that is a loose end
 
 
 def kind_name(c: ObjectChange, names: dict[str, str] = KIND_NAMES) -> str:
-    """The kind of a changed object in words: *Loose end* for a loose cable end, else `names`."""
+    """The kind of a changed object in words: *Loose end* for a loose cable end, *Splice* for a
+    splice (format 3), else `names`."""
+    if c.splice:
+        return SPLICE_NAME
     return LOOSE_END_NAME if c.loose else names.get(c.kind, c.kind)
 
 
