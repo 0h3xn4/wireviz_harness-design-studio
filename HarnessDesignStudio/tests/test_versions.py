@@ -737,7 +737,9 @@ def test_the_loader_names_a_key_or_letter_of_format_2_and_merge_fix_rewrites_it(
     r = load_project(root)
     found = [i for i in r.issues if i.code == "revision_not_version"]
     assert {i.location for i in found} == {
-        f"physical/harnesses/{hid}.json", "changelog.json", f"baselines/{hid}/{hid}.A.json"
+        f"physical/harnesses/{hid}.json",
+        "changelog.json",
+        f"baselines/{hid}/{hid}.A.json",
     }
     assert any(
         f"harness {hid} holds the revision 'A' of format 2; in format 3 that is version 1.0.0"

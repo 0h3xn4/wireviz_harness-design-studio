@@ -237,9 +237,7 @@ def test_the_revisions_area_says_what_a_release_locks(qtbot, released, tmp_path)
     panel.select_harness("W001")
     counts = panel.lock_counts("W001")
     assert counts.get("unit", 0) > 0 and counts.get("interface", 0) > 0
-    assert (
-        panel.locks.isVisibleTo(panel) and "W001 version 1.0.0 is released" in panel.locks.text()
-    )
+    assert panel.locks.isVisibleTo(panel) and "W001 version 1.0.0 is released" in panel.locks.text()
     assert f"{counts['unit']} device(s)" in panel.locks.text()
     panel.select_harness("W002")  # a draft locks nothing
     assert panel.lock_counts("W002") == {} and not panel.locks.isVisibleTo(panel)
