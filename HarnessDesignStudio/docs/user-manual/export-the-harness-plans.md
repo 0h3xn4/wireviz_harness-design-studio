@@ -13,6 +13,7 @@ This page shows how to write the harness plan of each harness, a spreadsheet in 
 - [4. Colour the ends by pin number](#4-colour-the-ends-by-pin-number)
 - [5. A release, and an export without the plans](#5-a-release-and-an-export-without-the-plans)
 - [6. In the editor](#6-in-the-editor)
+- [A harness with splices](#a-harness-with-splices)
 - [Common mistakes](#common-mistakes)
 
 ## Before you start
@@ -76,6 +77,16 @@ The harness plans of the earlier export were removed; add --harness-plan to writ
 - **The Cover.** **Settings > Document** (also **Design > Document data of the plans…**) holds the system code, the title, the company and the contact lines. The Inspector of a harness has **Plan document**: the document number, the plan document version, the release and the title of that harness's plan, saved with **Set**. Each change is one undo step.
 - **The colours and notes.** **Settings > Harness plan** (also **Design > Harness plan settings…**) has the colour rule, the colour codes (parts, the table of pins and colours with **Paste pins and colours**, the **Example** mark), the note lines and **Use the example colour code…**, which asks for the connector parts the code is for. It lists the notes of `check` on the plans as well.
 - **Pins, connectors and parts.** In the Devices tab, the pin table has **Level** and the role **Signal ground**, and the connector card has **Source**, **Source version** and **Source link** with **Copy**. A cable pin has no level: the level belongs to the device's pin. The Inspector of a part has **Link** with **Copy link**, and the library window lists the parts of a device with their links. The editor never opens a browser: **Copy** and **Copy link** put the link on the clipboard, and a double-click on a part in the library window does the same.
+
+## A harness with splices
+
+A harness you drew can join wires at a splice ([splices](splices.md)). Its plan follows the wires through the splices:
+
+- **The two ends.** The connectors are split into the near end and the far end as for any harness, with the splices left out: two connectors whose wires meet at a splice are on opposite ends. A Y harness through a splice puts its two branches at one end and the trunk at the other.
+- **The rows.** A near row lists every far pin its wire reaches through a splice. A row that reaches two far connectors has a pin in each far column; two pins of one far connector read `3 + 4`; the far *Cable / Type*, *Color*, *Direction* and *Function* list the values of each far wire, joined by ` + `.
+- ***Further wires*** lists the wires beyond a splice with the other wires that end on no near pin, so every wire of the harness is in exactly one row, and the sums per cable type count both.
+
+A harness without a splice gets the same plan as before. `verify --outputs` follows the splices with its own copy of the rule.
 
 ## Common mistakes
 
