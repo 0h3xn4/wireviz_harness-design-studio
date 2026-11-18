@@ -137,7 +137,7 @@ def test_header_counts_state_and_connector_list(qtbot, theme) -> None:
 def test_pin_table_columns_and_derived_meaning(qtbot, theme) -> None:
     ctl, view = make_view(qtbot, theme, custom())
     m = view.pin_model
-    assert [c.header for c in m.columns][:9] == [
+    assert [c.header for c in m.columns][:10] == [
         "Pin",
         "Signal",
         "Port",  # derived from the pin names of a fixed pinout (D-237); empty here; since 2.1.1
@@ -146,6 +146,7 @@ def test_pin_table_columns_and_derived_meaning(qtbot, theme) -> None:
         "Mode",
         "Interface",
         "Direction",
+        "Level",  # format 3 (3.0.0): the template's column after Direction, a person's text
         "Class",
         "Wire",
     ]

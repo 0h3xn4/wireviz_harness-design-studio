@@ -1,6 +1,6 @@
 # Export the harness plans
 
-This page shows how to write the harness plan of each harness, a spreadsheet in the layout of the users' harness plan template, from the command line, and how to fill in what its Cover shows. The editor's parts (the check box of the Export window, *Settings > Project > Document* and *Harness plan*, the *Plan document* of a harness) come with a later step of 3.0.0; until then this page is command line only.
+This page shows how to write the harness plan of each harness, a spreadsheet in the layout of the users' harness plan template, from the command line and in the editor, and how to fill in what its Cover shows.
 
 > **New in 3.0.0** (format 3, decision D-242, [`DESIGN_3.0_HARNESS_PLAN.md`](../ait/DESIGN_3.0_HARNESS_PLAN.md)). What each sheet holds is in [`OUTPUTS.md`](../OUTPUTS.md#harness-plan).
 
@@ -12,6 +12,7 @@ This page shows how to write the harness plan of each harness, a spreadsheet in 
 - [3. Check the plans](#3-check-the-plans)
 - [4. Colour the ends by pin number](#4-colour-the-ends-by-pin-number)
 - [5. A release, and an export without the plans](#5-a-release-and-an-export-without-the-plans)
+- [6. In the editor](#6-in-the-editor)
 - [Common mistakes](#common-mistakes)
 
 ## Before you start
@@ -68,6 +69,13 @@ An export without `--harness-plan` into a folder whose last export had the plans
 ```
 The harness plans of the earlier export were removed; add --harness-plan to write them again.
 ```
+
+## 6. In the editor
+
+- **Export.** The Export window (**Export…**, Ctrl+E) has the check box **Include the harness plans (.ods), one per harness**. It starts ticked when the last export into the folder had the plans. Unticked, the export removes the plans of the earlier export and the window says so. While it is ticked, a line under it counts the notes `check` has on the plans.
+- **The Cover.** **Settings > Document** (also **Design > Document data of the plans…**) holds the system code, the title, the company and the contact lines. The Inspector of a harness has **Plan document**: the document number, the plan document version, the release and the title of that harness's plan, saved with **Set**. Each change is one undo step.
+- **The colours and notes.** **Settings > Harness plan** (also **Design > Harness plan settings…**) has the colour rule, the colour codes (parts, the table of pins and colours with **Paste pins and colours**, the **Example** mark), the note lines and **Use the example colour code…**, which asks for the connector parts the code is for. It lists the notes of `check` on the plans as well.
+- **Pins, connectors and parts.** In the Devices tab, the pin table has **Level** and the role **Signal ground**, and the connector card has **Source**, **Source version** and **Source link** with **Copy**. A cable pin has no level: the level belongs to the device's pin. The Inspector of a part has **Link** with **Copy link**, and the library window lists the parts of a device with their links. The editor never opens a browser: **Copy** and **Copy link** put the link on the clipboard, and a double-click on a part in the library window does the same.
 
 ## Common mistakes
 

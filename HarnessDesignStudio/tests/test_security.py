@@ -186,7 +186,8 @@ def test_the_code_never_evaluates_data_or_starts_programs() -> None:
 def test_the_code_never_replaces_the_process_or_opens_a_browser() -> None:
     """No os.exec*/os.spawn*/os.system/os.popen, no webbrowser; the only QDesktopServices use is
     the Help menu opening the local guide and the Export dialog's Open / Reveal in folder for files
-    the export wrote (both pass QUrl.fromLocalFile)."""
+    the export wrote (both pass QUrl.fromLocalFile). The links of parts and connector sources are
+    copied to the clipboard, never opened (`gui/weblinks.py`, the owner's decision of 2026-11-18)."""
     allowed = {
         "gui/main_window.py": {"QDesktopServices"},
         "gui/export_dialog.py": {"QDesktopServices"},
@@ -440,3 +441,31 @@ def test_the_length_cache_is_bounded() -> None:
     for k in range(lengths._PATHS_LIMIT * 3):
         assert lengths.wire_length(evolve(base, name=f"copy {k}"), wire) == 1.0
     assert len(lengths._PATHS) <= lengths._PATHS_LIMIT
+
+
+def test_weblinks_copy_only_web_links_and_open_nothing() -> None:
+    """`gui/weblinks.py` copies an https or http link the model accepts to the clipboard, and
+    nothing else: no `file:`, `javascript:` or other scheme, no path, no text with spaces, no
+    empty link. It opens nothing (no QDesktopServices, checked by the test above)."""
+    pytest.importorskip("PySide6")
+    from harness_design_studio.gui import weblinks
+
+    copied: list[str] = []
+    for good in ("https://example.org/part/123", "http://example.org/a?b=c"):
+        done = weblinks.copy_web_link(good, copied.append)
+        assert done, good
+    refused = [
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "ftp://example.org/x",
+        "/home/user/doc.pdf",
+        "C:\\docs\\a.pdf",
+        "https://exa mple.org/",
+        "",
+        None,
+        "mailto:plans@example.org",
+    ]
+    for bad in refused:
+        done = weblinks.copy_web_link(bad, copied.append)
+        assert not done, bad
+    assert copied == ["https://example.org/part/123", "http://example.org/a?b=c"]

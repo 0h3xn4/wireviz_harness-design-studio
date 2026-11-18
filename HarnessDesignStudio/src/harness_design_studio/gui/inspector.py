@@ -31,6 +31,7 @@ from PySide6.QtCore import QModelIndex, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
+    QFormLayout,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -43,8 +44,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import cable_ends, configcheck, describe
-from harness_design_studio.core.build_data import plan_set_part_tool
+from harness_design_studio.core import cable_ends, configcheck, describe, document
+from harness_design_studio.core.build_data import plan_set_part_link, plan_set_part_tool
 from harness_design_studio.core.devices import connector_parts_to_choose
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.model import BranchPoint, Harness, Project
@@ -58,7 +59,7 @@ from harness_design_studio.core.vcs.lockview import (
     lock_reason,
     locked_objects,
 )
-from harness_design_studio.gui import strings
+from harness_design_studio.gui import strings, weblinks
 from harness_design_studio.gui.controller import LIST_DELAY_MS, EditorController
 from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
@@ -66,7 +67,7 @@ from harness_design_studio.gui.panels import PropertiesPanel, heading, muted
 from harness_design_studio.gui.routing_panel import branch_segments, length_text
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
-from harness_design_studio.gui.theme import ThemeManager
+from harness_design_studio.gui.theme import ThemeManager, mark_mono
 from harness_design_studio.gui.why_panel import WhyPanel
 
 TABS = ("inspector", "why", "problems")
@@ -548,6 +549,12 @@ class Inspector(QWidget):
         self.end_box.plugRequested.connect(self.plugRequested)
         self.end_box.setVisible(False)
         facts_lay.addWidget(self.end_box)
+        self.plan_box = PlanDocumentBox(ctl, theme)  # a harness: its plan document (3.0.0)
+        self.plan_box.setVisible(False)
+        facts_lay.addWidget(self.plan_box)
+        self.link_box = PartLinkBox(ctl, theme)  # a part: its web link (3.0.0)
+        self.link_box.setVisible(False)
+        facts_lay.addWidget(self.link_box)
         self.stack.addWidget(facts_page)
         page_lay.addWidget(self.stack, 1)
         self.used_box = QWidget()
@@ -773,6 +780,12 @@ class Inspector(QWidget):
         self.end_box.setVisible(kind == "cable_end")
         if kind == "cable_end":
             self.end_box.show_end(oid, reload=reload)
+        self.plan_box.setVisible(kind == "harness")
+        if kind == "harness":
+            self.plan_box.show_harness(oid, reload=reload)
+        self.link_box.setVisible(kind == "part")
+        if kind == "part":
+            self.link_box.show_part(oid, reload=reload)
         part = self.ctl.project.parts.get(oid) if kind == "part" else None
         show = part is not None and part.category == "contact"
         self.tool_box.setVisible(show)
@@ -1035,6 +1048,184 @@ class CableEndBox(QWidget):
         if not self.unplug.isEnabled():
             return False
         return self.ctl.unplug(self.end_id)
+
+
+class PlanDocumentBox(QWidget):
+    """The *Plan document* of a harness (3.0.0, D-242, design section 10, Q25): the document
+    number, the plan document's own version (with the harness version shown while it is empty),
+    the release and the title of that harness's plan. *Set* saves the four fields as one undo step
+    through `core.document.plan_document_edit`; a release does not lock them (section 4.1)."""
+
+    FIELDS = (
+        ("number", strings.INS_PLAN_NUMBER),
+        ("version", strings.INS_PLAN_VERSION),
+        ("release", strings.INS_PLAN_RELEASE),
+        ("title", strings.INS_PLAN_TITLE),
+    )
+
+    def __init__(self, ctl: EditorController, theme: ThemeManager) -> None:
+        super().__init__()
+        self.ctl = ctl
+        self.setObjectName("plan-document-box")
+        self.harness_id = ""
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
+        lay.setSpacing(theme.space(4))
+        title = QLabel(strings.INS_PLAN_DOCUMENT)
+        title.setProperty("heading", True)
+        lay.addWidget(title)
+        form = QFormLayout()
+        self.edits: dict[str, QLineEdit] = {}
+        for key, label in self.FIELDS:
+            edit = QLineEdit()
+            edit.setObjectName(f"plan-document-{key}")
+            edit.setAccessibleName(label)
+            edit.setToolTip(strings.INS_PLAN_TIPS[key])
+            edit.returnPressed.connect(self.apply)
+            self.edits[key] = edit
+            form.addRow(label, edit)
+        lay.addLayout(form)
+        self.set_btn = QPushButton()
+        self.set_btn.setObjectName("plan-document-set")
+        icon_button(
+            self.set_btn, "pass", theme, strings.INS_PLAN_SET_TIP, text=strings.INS_PLAN_SET
+        )
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(self.set_btn)
+        lay.addLayout(row)
+        self.error = QLabel()
+        self.error.setObjectName("plan-document-error")
+        self.error.setWordWrap(True)
+        self.error.setProperty("error", True)
+        self.error.setVisible(False)
+        lay.addWidget(self.error)
+        self.set_btn.clicked.connect(self.apply)
+
+    def show_harness(self, harness_id: str, *, reload: bool = True) -> None:
+        changed = harness_id != self.harness_id
+        self.harness_id = harness_id
+        p = self.ctl.project
+        plan = document.plan_of(p, harness_id)
+        empty = document.shown_when_empty(p, harness_id)
+        for key, edit in self.edits.items():
+            if (reload or changed) and not edit.hasFocus():
+                edit.setText(getattr(plan, key))
+            edit.setPlaceholderText(
+                strings.INS_PLAN_EMPTY.format(empty[key]) if empty.get(key) else ""
+            )
+            edit.setEnabled(not self.ctl.read_only)
+        self.set_btn.setEnabled(not self.ctl.read_only)
+        self.set_btn.setToolTip(
+            strings.WHY_READ_ONLY if self.ctl.read_only else strings.INS_PLAN_SET_TIP
+        )
+        if changed:
+            self.error.setVisible(False)
+
+    def apply(self) -> bool:
+        """Save the four fields of the plan of the harness shown (one undo step)."""
+        if not self.set_btn.isEnabled() or not self.harness_id:
+            return False
+        fields = {k: e.text() for k, e in self.edits.items()}
+        try:
+            ops = document.plan_document_edit(
+                self.ctl.project, harness=self.harness_id, fields=fields
+            )
+        except EditError as exc:
+            self.error.setText(str(exc))
+            self.error.setVisible(True)
+            return False
+        self.error.setVisible(False)
+        return not ops or self.ctl.run(
+            strings.STEP_SET_PLAN_DOCUMENT.format(self.harness_id),
+            ops,
+            message=strings.PLAN_DOCUMENT_SET.format(self.harness_id),
+        )
+
+
+class PartLinkBox(QWidget):
+    """The web link of a part (format 3, design of 3.0.0 sections 4.1 and 10): a field, *Set*
+    (one undo step, `build_data.plan_set_part_link`, refused while a released harness uses the
+    part) and *Open link*, which hands an `https://` or `http://` link to the web browser."""
+
+    def __init__(self, ctl: EditorController, theme: ThemeManager) -> None:
+        super().__init__()
+        self.ctl = ctl
+        self.setObjectName("part-link-box")
+        self.part_id = ""
+        self.copier: Callable[[str], None] = weblinks.system_clipboard
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
+        lay.setSpacing(theme.space(4))
+        title = QLabel(strings.INS_PART_LINK)
+        title.setProperty("heading", True)
+        lay.addWidget(title)
+        self.edit = QLineEdit()
+        self.edit.setObjectName("part-link")
+        self.edit.setAccessibleName(strings.INS_PART_LINK)
+        self.edit.setToolTip(strings.INS_PART_LINK_TIP)
+        mark_mono(self.edit)
+        self.set_btn = QPushButton()
+        self.set_btn.setObjectName("part-link-set")
+        icon_button(self.set_btn, "pass", theme, strings.INS_PART_LINK_SET_TIP, text=strings.INS_PART_LINK_SET)  # fmt: skip
+        self.open_btn = QPushButton()
+        self.open_btn.setObjectName("part-link-copy")
+        icon_button(self.open_btn, "link", theme, strings.INS_PART_LINK_COPY_TIP, text=strings.INS_PART_LINK_COPY)  # fmt: skip
+        row = QHBoxLayout()
+        row.addWidget(self.edit, 1)
+        row.addWidget(self.set_btn)
+        lay.addLayout(row)
+        orow = QHBoxLayout()
+        orow.addWidget(self.open_btn)
+        orow.addStretch(1)
+        lay.addLayout(orow)
+        self.error = QLabel()
+        self.error.setObjectName("part-link-error")
+        self.error.setWordWrap(True)
+        self.error.setProperty("error", True)
+        self.error.setVisible(False)
+        lay.addWidget(self.error)
+        self.edit.returnPressed.connect(self.apply)
+        self.set_btn.clicked.connect(self.apply)
+        self.open_btn.clicked.connect(self.copy_link)
+
+    def show_part(self, part_id: str, *, reload: bool = True) -> None:
+        changed = part_id != self.part_id
+        self.part_id = part_id
+        part = self.ctl.project.parts.get(part_id)
+        link = (part.link or "") if part is not None else ""
+        if (reload or changed) and not self.edit.hasFocus():
+            self.edit.setText(link)
+        ro = self.ctl.read_only
+        self.edit.setEnabled(not ro)
+        self.set_btn.setEnabled(not ro)
+        self.edit.setToolTip(strings.WHY_READ_ONLY if ro else strings.INS_PART_LINK_TIP)
+        self.open_btn.setEnabled(bool(link))
+        if changed:
+            self.error.setVisible(False)
+
+    def apply(self) -> bool:
+        if not self.set_btn.isEnabled() or not self.part_id:
+            return False
+        try:
+            ops = plan_set_part_link(self.ctl.project, self.part_id, self.edit.text())
+        except EditError as exc:
+            self.error.setText(str(exc))
+            self.error.setVisible(True)
+            return False
+        self.error.setVisible(False)
+        return not ops or self.ctl.run(
+            strings.STEP_SET_PART_LINK.format(self.part_id),
+            ops,
+            message=strings.PART_LINK_SET.format(self.part_id),
+        )
+
+    def copy_link(self) -> bool:
+        """Copy the saved link (never the text being typed) to the clipboard; the editor never
+        opens a browser (`gui/weblinks.py`)."""
+        part = self.ctl.project.parts.get(self.part_id)
+        link = part.link if part is not None else None
+        return weblinks.copy_web_link(link, self.copier)
 
 
 def _alive(widget: QWidget, root: QWidget) -> bool:

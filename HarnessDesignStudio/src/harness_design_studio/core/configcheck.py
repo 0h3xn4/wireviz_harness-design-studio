@@ -11,6 +11,7 @@ to type JSON by hand. It never supplies a number itself.
 
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from harness_design_studio.core import counterparts, label_format, settings, standard_profiles
@@ -443,7 +444,12 @@ def validate_harness_plan(project: Project) -> list[Issue]:
     rule (`wire` or `pin_code`), the colour codes and the note lines. No file: nothing to check."""
     if "harness_plan" not in project.config:
         return []
-    values = _cfg(project, "harness_plan")
+    return harness_plan_issues(_cfg(project, "harness_plan"))
+
+
+def harness_plan_issues(values: Mapping[str, object]) -> list[Issue]:
+    """The checks of `validate_harness_plan` on the values of the file (also before they are
+    written: the editor's *Settings > Harness plan* refuses a change that `validate` would)."""
     where = "config/harness_plan.json"
     out: list[Issue] = []
 

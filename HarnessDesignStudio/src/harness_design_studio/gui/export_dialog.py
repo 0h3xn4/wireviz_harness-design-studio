@@ -16,8 +16,12 @@ the files that are not in the new set and the self-check expects every harness, 
 `tests/test_outputs_subset.py`). The one choice is the check box "Include the PDF drawings" (decision
 D-169: the build workbook is the main output, the PDF and SVG drawings are optional): it is ticked
 at the start when the folder's last export had drawings (`drawings_exported`), else not, and the
-tree shows the drawing documents only while it is ticked. The tick marks in the tree choose only
-what the result list shows and what "Copy selection to folder..." copies; all are ticked at the start.
+tree shows the drawing documents only while it is ticked. The second check box, "Include the
+harness plans (.ods), one per harness" (3.0.0, D-242, design section 10), is ticked at the start
+when the folder's last export had plans (`harness_plan_exported`); an export without them into such
+a folder removes them and says so in the notice, as `export` without `--harness-plan` does. The tick
+marks in the tree choose only what the result list shows and what "Copy selection to folder..."
+copies; all are ticked at the start.
 
 The build and its self-check run in `OutputsWorker` (the window's own worker) off the UI
 thread; the files are written on the UI thread exactly as `MainWindow.export_flow` does. A failed
@@ -63,11 +67,13 @@ from harness_design_studio.core.outputs.build import (
     MANIFEST,
     OutputSet,
     drawings_exported,
+    harness_plan_exported,
     write_outputs,
 )
 from harness_design_studio.core.outputs.canvas import Sheet
 from harness_design_studio.core.outputs.stamp import Stamp
 from harness_design_studio.core.outputs.verify import OPEN_DATA_FOLDER
+from harness_design_studio.core.validation import plan_notes
 from harness_design_studio.core.verify import VerifyReport
 from harness_design_studio.gui import export_docs, icons, strings
 from harness_design_studio.gui.controller import EditorController
@@ -130,7 +136,7 @@ def open_url(path: Path) -> QUrl:
 # The only kinds of file the program writes to an outputs folder. Open hands a file to the system,
 # which would run a script or a shortcut that someone put in a shared project.
 OPENABLE_SUFFIXES = frozenset(
-    {".csv", ".xlsx", ".pdf", ".svg", ".md", ".json", ".yaml", ".txt", ".png"}
+    {".csv", ".xlsx", ".ods", ".pdf", ".svg", ".md", ".json", ".yaml", ".txt", ".png"}
 )
 
 
@@ -509,6 +515,7 @@ class ExportDialog(Dialog):
         self.resize(theme.px(1000), theme.px(620))
         self.setMinimumSize(theme.px(760), theme.px(480))
         self.export_result: ExportResult | None = None
+        self.plans_removed = False  # the last export removed the plans of the one before it
         self.worker: OutputsWorker | None = None
         self._token: tuple[int, int] | None = None
         self._project: Project | None = None
@@ -584,6 +591,17 @@ class ExportDialog(Dialog):
         folder = self.output_folder()
         self.drawings.setChecked(folder is not None and drawings_exported(folder))
         ll.addWidget(self.drawings)
+        self.plans = QCheckBox(strings.EXP_PLANS)  # (3.0.0: one plan per harness, section 10)
+        self.plans.setObjectName("export-plans")
+        self.plans.setAccessibleName(strings.EXP_PLANS_NAME)
+        self.plans.setToolTip(strings.EXP_PLANS_TIP)
+        self.plans.setChecked(folder is not None and harness_plan_exported(folder))
+        ll.addWidget(self.plans)
+        self.plan_notes = QLabel()  # what `check` says about the plans, while they are ticked
+        self.plan_notes.setObjectName("export-plan-notes")
+        self.plan_notes.setProperty("muted", True)
+        self.plan_notes.setWordWrap(True)
+        ll.addWidget(self.plan_notes)
         self.open_data = QCheckBox(strings.EXP_OPEN_DATA)  # off until the person ticks it
         self.open_data.setObjectName("export-open-data")
         self.open_data.setAccessibleName(strings.EXP_OPEN_DATA_NAME)
@@ -669,6 +687,7 @@ class ExportDialog(Dialog):
         self.copy_btn.clicked.connect(lambda: self.copy_selection())
         self.open_after.toggled.connect(self._remember_open_after)
         self.drawings.toggled.connect(self._drawings_toggled)
+        self.plans.toggled.connect(self._drawings_toggled)
         self.open_data.toggled.connect(self._remember_open_data)
         self.refresh()
 
@@ -713,6 +732,7 @@ class ExportDialog(Dialog):
         self.stale_chip.setVisible(state == "stale")
         if self.export_result is None:
             self._build_tree(None)
+        self._show_plan_notes()
         self._show_blocker()
         self._sync_buttons()
 
@@ -769,10 +789,25 @@ class ExportDialog(Dialog):
         return strings.FILE_ERROR.format(where=where, reason=reason)
 
     def _drawings_toggled(self, _on: bool) -> None:
-        """The drawing documents come into or leave the planned tree (the tree of a result is the
-        list of files written and stays until the next export)."""
+        """The drawing documents and the harness plans come into or leave the planned tree (the
+        tree of a result is the list of files written and stays until the next export)."""
         if self.export_result is None:
             self._build_tree(None)
+        self._show_plan_notes()
+
+    def _show_plan_notes(self) -> None:
+        """While the plans are ticked, how many notes `check` has on them (a colour a code does not
+        list, the example mark, a plan of a harness that is gone); Settings > Harness plan lists
+        them."""
+        n = len(plan_notes(self.ctl.project)) if self.plans.isChecked() else 0
+        self.plan_notes.setText(
+            strings.EXP_PLAN_NOTES.format(
+                strings.EXP_PLAN_NOTES_N[0] if n == 1 else strings.EXP_PLAN_NOTES_N[1].format(n)
+            )
+            if n
+            else ""
+        )
+        self.plan_notes.setVisible(bool(n))
 
     def _remember_open_after(self, on: bool) -> None:
         if self.settings is not None:
@@ -800,6 +835,7 @@ class ExportDialog(Dialog):
         self.copy_btn.setEnabled(self.export_result is not None and not busy)
         self.open_after.setEnabled(not busy)
         self.drawings.setEnabled(not busy)
+        self.plans.setEnabled(not busy)
         self.open_data.setEnabled(not busy)
 
     # ---- the tree -----------------------------------------------------------------------------
@@ -824,7 +860,10 @@ class ExportDialog(Dialog):
         labels: dict[tuple[str, str], str] = {}
         if files is None:
             for scope, docs in export_docs.planned_layout(
-                project.harnesses, self.drawings.isChecked(), bool(project.links)
+                project.harnesses,
+                self.drawings.isChecked(),
+                bool(project.links),
+                plans=self.plans.isChecked(),
             ):
                 scopes[scope] = [d.key for d in docs]
                 for d in docs:
@@ -838,7 +877,7 @@ class ExportDialog(Dialog):
             order = [*sorted(project.harnesses), export_docs.SYSTEM]
             known = [s for s in order if any(s == k[0] for k in counts)]
             extra = sorted({k[0] for k in counts} - set(order))
-            planned = {key: i for i, key in enumerate(d.key for d in (*export_docs.HARNESS_DOCS, *export_docs.SYSTEM_DOCS, *export_docs.CONNECTION_DOCS))}  # fmt: skip
+            planned = {key: i for i, key in enumerate(d.key for d in (*export_docs.HARNESS_DOCS, export_docs.PLAN_DOC, *export_docs.SYSTEM_DOCS, *export_docs.CONNECTION_DOCS))}  # fmt: skip
             for scope in [*known, *extra]:
                 keys = sorted((k[1] for k in counts if k[0] == scope), key=lambda k: (planned.get(k, 10_000), k))  # fmt: skip
                 scopes[scope] = keys
@@ -970,6 +1009,7 @@ class ExportDialog(Dialog):
         self._project = edit.clone_with(self.ctl.project, [])
         worker = self.worker_factory(self._project)
         worker.drawings = self.drawings.isChecked()
+        worker.harness_plan = self.plans.isChecked()
         worker.open_data = self.open_data.isChecked()
         self.worker = worker
         worker.progressed.connect(self._on_progress)
@@ -1045,11 +1085,13 @@ class ExportDialog(Dialog):
         if folder is None:
             self._fail(strings.EXPORT_SAVE_FIRST)
             return
+        had_plans = harness_plan_exported(folder)
         try:
             write_outputs(self.ctl.project, folder, built)
         except (HarnessError, OSError) as exc:
             self._fail(strings.EXP_WRITE_FAILED.format(self._explain(exc, folder)))
             return
+        plans_removed = had_plans and not getattr(worker, "harness_plan", False)
         data: dict[str, bytes] = {}
         data_error = ""
         made: dict[str, bytes] | None = getattr(worker, "data", None)
@@ -1071,6 +1113,10 @@ class ExportDialog(Dialog):
         if data_error:  # the outputs are on disk; only the open data is missing
             self.notice.setProperty("kind", "warning")
             self.notice.show_notice("warning", strings.EXP_DATA_FAILED.format(data_error))
+        elif plans_removed:  # as the command line says it (design of 3.0.0 section 10)
+            self.notice.setProperty("kind", "info")
+            self.notice.show_notice("info", strings.EXP_PLANS_REMOVED)
+        self.plans_removed = plans_removed
         state = self.ctl.outputs_state()
         self.last.setText(_LAST.get(state, strings.EXP_LAST_NONE))
         self.stale_chip.setVisible(state == "stale")

@@ -4,7 +4,7 @@
 """Render screenshots of the real Qt editor (offscreen) into docs/ux/qt for the docs and the UX review.
 Files 01 to 13 show the built-in sample; 14 and up show the views and dialogs of the editor on the
 flatsat example, as the Electrical / AIT engineer (project tree, Harness, Lists, Checks, Releases, engineering values, export, import
-wizard, release dialog, new project, stale banner). Usage: python -m tools.gui_screenshots"""
+wizard, release dialog, new project, stale banner, and the two Settings sections of the harness plans). Usage: python -m tools.gui_screenshots"""
 
 import shutil
 import sys
@@ -218,6 +218,7 @@ def views() -> None:
     # export, then release W001: the lock and the revision show on the objects
     def export_dialog(d: QDialog) -> int:
         d.show()
+        d.plans.setChecked(True)  # type: ignore[attr-defined]  # the harness plans (3.0.0)
         d.export_btn.click()  # type: ignore[attr-defined]
         waited = 0
         while d.export_result is None and waited < 30000:  # type: ignore[attr-defined]
@@ -231,6 +232,7 @@ def views() -> None:
     win.export_dialog_flow()
     folder = win.ctl.outputs_folder()
     assert folder is not None
+    _plan_settings(win)
     write_outputs(win.ctl.project, folder)
     plan = plan_release(
         win.ctl.project,
@@ -274,6 +276,30 @@ def views() -> None:
     win.new_from_example_flow()
     _settle(win)
     win.close()
+
+
+def _plan_settings(win: MainWindow) -> None:
+    """Pictures 27 and 28 (3.0.0): Settings > Document and Settings > Harness plan with the example
+    colour code taken, all example data; every change is undone afterwards."""
+    from harness_design_studio.core import plan_config
+
+    p = win.ctl.project
+    before = len(win.ctl.history._undo)
+    win.set_document_fields({"company": "Example Ltd", "system": "EX"})
+    win.set_document_contact([("Name", "Example Reviewer"), ("E-mail", "plans@example.org")])
+    win.document_flow()
+    _settle(win)
+    _grab(win, "27-settings-document")
+    part = p.harnesses["W001"].connectors[0].part_id
+    win.ctl.run("Use the example colour code", plan_config.plan_example_code(p, [part]))
+    win.harness_plan_flow()
+    win.settings_page.harness_plan.select_code("example")
+    _settle(win)
+    _grab(win, "28-settings-harness-plan")
+    while len(win.ctl.history._undo) > before:
+        win.ctl.undo()
+    win.go_to("diagram")
+    _settle(win)
 
 
 def wizard_and_release() -> None:

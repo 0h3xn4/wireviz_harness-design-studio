@@ -110,11 +110,12 @@ The **Problems panel** (Ctrl+Shift+M, or **Problems (n)** in the status bar) lis
 
 ### Settings
 
-Press **Settings** on the rail (Ctrl+,). The page lists six sections. Every setting takes effect at once and is kept for the next start; the page follows the View menu and Ctrl+K, which change the same settings.
+Press **Settings** on the rail (Ctrl+,). The page lists eight sections. Every setting takes effect at once and is kept for the next start; the page follows the View menu and Ctrl+K, which change the same settings.
 
 - **Appearance**: **Theme** (*Follow the system*, *Light* or *Dark*), **Interface size** (100, 125, 150 or 200 %; it takes about a second to apply) and **Reduce motion**, which turns off the fades and slides of menus, lists and tooltips. The interface uses the bundled fonts Inter and JetBrains Mono.
 - **Editing**: **Role** (*Systems engineer*, *Electrical engineer* or *AIT engineer*), **Mode** (*Guided* or *Expert*), **Snap devices to the grid**, **Show every link label**, **Show connectors on connections**, **Quick mode** and **Show problem notices**.
 - **Project**: **Open the engineering values…**, the window of section 6, and the **Library folder** (since 1.8.0: **Choose…**, **Clear** and **Open the library…**; the folder that your team shares, see "The library" below).
+- **Document** and **Harness plan** (since 3.0.0): what the Cover of every harness plan shows, and how the plans colour the ends of the wires; see "Export the harness plans" in section 8.
 - **Keyboard shortcuts**: every key of the window, with a box **Filter the shortcuts…**. They are fixed and cannot be changed.
 - **About**: the version, the Python, Qt and PySide6 versions, and where your settings are kept. **Help > About** opens this section.
 - **Licences**: the fonts, the icons and Qt, with their licence texts.
@@ -345,6 +346,22 @@ The export always writes the complete set; the ticks in the tree choose what the
 **File > Export diagram…** writes only the block diagram of the devices and their connections, as `<name>.svg`, `<name>.pdf` and `<name>.png` in a place you choose. It needs no project folder, no harness and no check, and writes nothing into the project (since 1.14.0). The picture shows the looks of the devices (since 1.16.0).
 
 The harness drawings are written only while **Include the PDF drawings** is ticked; it starts ticked when the last export into the folder had them. A problem found by the self-check, or a write error, stays in a notice in the window and nothing is written. The project must be saved to a folder first.
+
+### Export the harness plans
+
+Since 3.0.0 the export can also write a **harness plan** for each harness, `harnesses/<ID>/<ID>_plan.ods`: a spreadsheet in the layout of the users' harness plan template, with formulas, next to the build workbook. Tick **Include the harness plans (.ods), one per harness** in the Export window. The box starts ticked when the last export into the folder had the plans.
+
+An export with the box unticked into a folder whose last export had plans removes them, and the window says so: *The harness plans of the earlier export were removed; tick Include the harness plans to write them again.* **Open** hands a plan to the program your system uses for `.ods` files, such as LibreOffice Calc. A plan changed after the export fails the output check, so work on a copy.
+
+What the Cover shows is set in **Settings > Document**: the system code, the title, the company and up to eight contact lines (**Add line**, **Remove line**, **Move up**, **Move down**; double-click a cell to edit it). An empty field shows what the Cover takes instead. The data is saved in `project.json`, so a name, a phone number or an e-mail address goes into the project's Git history; a role address can stand in for a person.
+
+The number, version, release and title of one harness's plan are in the Inspector of that harness, under **Plan document**: type them and press **Set** (one undo step). The *Plan document version* is the document's own version; while it is empty, the Cover shows the harness version. A release does not lock these fields.
+
+**Settings > Harness plan** sets how the plans colour the ends of the wires. By default each end shows the wire's colour. *By pin number, from a colour code* gives an end the colour of its pin from a code that names the connector part of that end, as for a connector with pigtails. **Add code…** makes an empty code; type its parts and paste its table with **Paste pins and colours** (two columns, pin and colour, from a spreadsheet or a CSV file).
+
+**Use the example colour code…** adds the code of the users' template (pins 1 to 37) for the connector parts you tick. It is an example, not a standard and not a supplier's table: check it against your supplier's pigtail code, then untick **Example**. The section also lists the note lines of the plans' Notes sheet and the notes of `check` on the plans: a pin a code does not list, a code still marked as an example, a plan of a harness that is gone. The settings are saved in `config/harness_plan.json`, which is removed when every value is back to its default.
+
+In the **Devices** tab, the pin table has a **Level** column (the level from the device's interface control document, such as `RS422-3V3`), the **Role** list has **Signal ground** (the word `SGND` of the plan), and the connector card has **Source**, **Source version** and **Source link** for the document the pinout comes from. The Inspector of a part has **Link**, a web page such as a datasheet, with **Copy link**; the library window lists the parts of a device with their links. The editor opens no browser: **Copy link** and the source link's **Copy** put the link on the clipboard, to paste where you choose.
 
 The **Lists** tab (Ctrl+3) shows the same tables on screen for one harness: **Wire list**, **Pinouts**, **BOM**, **Mass and length**, **Test tables**, **Labels** and the **System BOM**. Click a header to sort, type in the filter box, press Ctrl+C to copy the selected cells as text, and **Export table** writes the rows you see as CSV or Excel. **Only pending or not checked** keeps the rows whose value is still open.
 

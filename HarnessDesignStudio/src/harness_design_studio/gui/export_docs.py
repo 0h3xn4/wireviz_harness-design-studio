@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 from harness_design_studio.core.outputs.buildsheet import FILE_SUFFIX as BUILD_SUFFIX
+from harness_design_studio.core.outputs.harness_plan import FILE_SUFFIX as PLAN_SUFFIX
 from harness_design_studio.gui import strings
 
 MANIFEST: Final = "manifest.json"  # written beside the outputs; never part of a copy
@@ -52,6 +53,8 @@ OPTIONAL_HARNESS_DOCS: Final[tuple[DocType, ...]] = (
     DocType("accessories", "Accessories", "CSV"),
     DocType("segments", "Segments", "CSV"),
 )
+# The harness plan (3.0.0, D-242): written only while the export asks for it, like the drawings.
+PLAN_DOC: Final = DocType("plan", strings.DOC_HARNESS_PLAN, "ODS")
 DRAWING_KEYS: Final = frozenset({"drawing_a4", "drawing_a3", "drawing_svg"})  # only with drawings
 SYSTEM_DOCS: Final[tuple[DocType, ...]] = (
     DocType("sys_bom", "Bill of materials, all harnesses", "CSV"),
@@ -83,6 +86,7 @@ DOCS: Final[dict[str, DocType]] = {
     for d in (
         *HARNESS_DOCS,
         *OPTIONAL_HARNESS_DOCS,
+        PLAN_DOC,
         *SYSTEM_DOCS,
         *CONNECTION_DOCS,
         MANIFEST_DOC,
@@ -153,6 +157,8 @@ def classify(rel: str) -> Document:
             key = "workbook"
         if key is None and name == f"{hid}{BUILD_SUFFIX}":
             key = "build"
+        if key is None and name == f"{hid}{PLAN_SUFFIX}":
+            key = "plan"
         if key is None and _SVG_SHEET.fullmatch(name):
             key = "drawing_svg"
         if key is not None:
@@ -166,17 +172,23 @@ def classify(rel: str) -> Document:
     return Document(rel, scope, rel, name, name.rpartition(".")[2].upper() if "." in name else "")
 
 
-def harness_docs(drawings: bool = True) -> tuple[DocType, ...]:
-    """The document types of one harness; the drawings only when they are exported."""
-    return HARNESS_DOCS if drawings else tuple(d for d in HARNESS_DOCS if d.key not in DRAWING_KEYS)
+def harness_docs(drawings: bool = True, plans: bool = False) -> tuple[DocType, ...]:
+    """The document types of one harness; the drawings and the harness plan only when they are
+    exported (the plan after the build workbook)."""
+    docs = HARNESS_DOCS if drawings else tuple(d for d in HARNESS_DOCS if d.key not in DRAWING_KEYS)
+    return (docs[0], PLAN_DOC, *docs[1:]) if plans else docs
 
 
 def planned_layout(
-    harness_ids: Iterable[str], drawings: bool = True, connections: bool = False
+    harness_ids: Iterable[str],
+    drawings: bool = True,
+    connections: bool = False,
+    *,
+    plans: bool = False,
 ) -> list[tuple[str, tuple[DocType, ...]]]:
     """The tree before anything is written: each harness with its document types, then the
     system documents (with the connection list when the project has connections)."""
-    docs = harness_docs(drawings)
+    docs = harness_docs(drawings, plans)
     system = (*SYSTEM_DOCS, *CONNECTION_DOCS) if connections else SYSTEM_DOCS
     return [*((hid, docs) for hid in sorted(harness_ids)), (SYSTEM, system)]
 

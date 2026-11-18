@@ -240,7 +240,7 @@ def test_the_role_can_be_changed_in_the_table_as_one_undo_step(qtbot, tmp_path) 
     assert next(x for x in win.ctl.project.connectors[cid].pins if x.id == "3").role == ""
 
 
-def test_the_role_editor_offers_automatic_and_the_six_roles(qtbot, tmp_path) -> None:
+def test_the_role_editor_offers_automatic_and_the_seven_roles(qtbot, tmp_path) -> None:
     win, cid = device_window(qtbot, tmp_path)
     dv = win.devices_view
     col = dv.pin_model.column_index("role")
@@ -248,7 +248,7 @@ def test_the_role_editor_offers_automatic_and_the_six_roles(qtbot, tmp_path) -> 
     editor = dv.pin_table.itemDelegate().createEditor(dv.pin_table, None, index)
     assert isinstance(editor, QComboBox)
     assert [editor.itemData(i) for i in range(editor.count())] == [
-        "", "power", "return", "ground", "signal", "shield", "spare",
+        "", "power", "return", "ground", "signal", "shield", "spare", "signal_ground",
     ]  # fmt: skip
     assert editor.accessibleName() == "Role" and editor.toolTip()
     editor.deleteLater()

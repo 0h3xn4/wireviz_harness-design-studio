@@ -193,6 +193,18 @@ def _cases() -> list[Case]:
         "PastePairingDialog",
     )
 
+    # ---- gui/plan_pages.py (3.0.0: Use the example colour code, the parts it is for)
+    def example_code(c: Ctx) -> QWidget:
+        from harness_design_studio.gui.plan_pages import ExampleCodeDialog
+
+        parts = [
+            (p.id, LONG) for p in sorted(c.project.parts.values(), key=lambda x: x.id)
+            if p.category == "connector"
+        ]  # fmt: skip
+        return ExampleCodeDialog(None, parts)
+
+    add("Use the example colour code", example_code, "ExampleCodeDialog")
+
     # ---- gui/cable_end_dialog.py (M4c: the keyboard way to a loose cable end)
     add("Plug a loose end in", _cable_end_dialog, "CableEndDialog")
     add("Plug a loose end in (nothing to choose)", partial(_cable_end_dialog, empty=True))

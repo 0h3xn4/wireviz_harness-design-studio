@@ -30,7 +30,7 @@ from typing import Final, get_args
 from pydantic import TypeAdapter, ValidationError
 
 from .commands import Op, Put
-from .devices import check_contact_part
+from .devices import check_contact_part, check_web_link
 from .edit import EditError
 from .model import Accessory, Harness, Part, Project, Wire, evolve
 from .model.base import MAX_LENGTH_MM, Name, Text
@@ -266,6 +266,26 @@ def plan_set_part_tool(project: Project, part_id: str, tool: str | None) -> list
     return [Put("parts", evolve(part, tool=text))] if text != part.tool else []
 
 
+def plan_set_part_link(project: Project, part_id: str, link: str | None) -> list[Op]:
+    """Ops that set the web link of a part (format 3, design of 3.0.0 section 4.1: a datasheet or
+    a supplier's page, `https://` or `http://` only); None or an empty text clears it. Like the
+    crimp tool, it is refused while a released harness uses the part."""
+    _writable(project)
+    part: Part | None = project.parts.get(part_id)
+    if part is None:
+        raise EditError(f"Part '{part_id}' does not exist.")
+    url = check_web_link(link, "The link of a part")
+    if url == part.link:
+        return []
+    users = _released_users(project, part_id)
+    if users:
+        raise EditError(
+            f"Part {part_id} is used by {users[0]}, which is released; start a new version "
+            "of it to change the link."
+        )
+    return [Put("parts", evolve(part, link=url))]
+
+
 # ---- accessories -------------------------------------------------------------------------------
 
 
@@ -367,6 +387,7 @@ __all__ = [
     "plan_next_accessory_id",
     "plan_set_accessory",
     "plan_set_contacts",
+    "plan_set_part_link",
     "plan_set_part_tool",
     "plan_set_strip",
     "plan_set_strip_all",

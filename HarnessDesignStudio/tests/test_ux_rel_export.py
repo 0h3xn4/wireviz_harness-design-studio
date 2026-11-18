@@ -561,16 +561,17 @@ def test_keyboard_only_journey(done, qtbot, tmp_path) -> None:
     qtbot.addWidget(dlg)
     dlg.resize(1100, 700)
     activate(dlg)
-    # Tab walks the controls in reading order: tree, select all/none, open-after, close, export
+    # Tab walks the controls in reading order: tree, select all/none, the three check boxes of
+    # the files (drawings, harness plans, open data), open-after, close, export
     seen: list[str] = []
     dlg.tree.setFocus()
-    for _ in range(8):
+    for _ in range(10):
         w = QApplication.focusWidget()
         if w is not None:
             seen.append(w.objectName())
         QTest.keyClick(w or dlg, Qt.Key.Key_Tab)
     assert seen[0] == "export-tree"
-    assert {"export-select-all", "export-select-none", "export-open-after", "export-close", "export-run"} <= set(seen)  # fmt: skip
+    assert {"export-select-all", "export-select-none", "export-plans", "export-open-after", "export-close", "export-run"} <= set(seen)  # fmt: skip
     # Space on the tree toggles the tick of the current item
     dlg.tree.setFocus()
     dlg.tree.setCurrentIndex(dlg.model.index(0, 0))
