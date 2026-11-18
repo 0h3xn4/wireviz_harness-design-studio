@@ -1,0 +1,7 @@
+# harness-design-studio 2.4.0 model e0075c432202
+# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+Part,Category,Manufacturer,Part number,Description,Approval,Quantity,Unit,Wires without length,Used in
+(no part),unknown,,,,missing from parts list,5.56,m,0,W003
+EX-MICROD-15-M,connector,,,"Micro-D 15-pin, male (example, baseline power and data)",pending (example data),1,ea,,W003
+EX-MICROD-9-M,connector,,,"Micro-D 9-pin, male (example, baseline power and data)",pending (example data),2,ea,,W003
+EX-SPLICE-1,splice,Example Co.,EX-SPLICE-1,"Crimp splice, one node (example)",pending (example data),2,ea,,W003
