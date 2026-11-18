@@ -183,18 +183,29 @@ def test_the_top_bar_puts_z_before_aa() -> None:
     assert _top_bar_text({"B", "AA", "C"}) == "B-AA"
 
 
-def test_the_state_of_a_draft_is_revised_after_the_first_version() -> None:
-    # Format 3 (D-242): a harness starts at 1.0.0; a draft at any later version is a new version
-    # of a released harness, as a draft at a later letter was in format 2 (A is 1.0.0).
+def test_the_state_of_a_draft_is_revised_when_it_has_a_baseline() -> None:
+    # The baseline rule of the design of 3.0.0 (section 5.7, pull request R2): a draft is a new
+    # version of a released harness when it has a baseline, whatever its version says; pull request
+    # 1 read it from the version (not 1.0.0), the letter rule of 2.x mapped.
+    from harness_design_studio.core.model import Baseline, Project, Snapshot
+
     base = Harness(id="W001", name="W001")
     assert base.version == "1.0.0"
-    for version in ["1.0.0", "1.0.1", "1.1.0", "2.0.0", "0.1.0", "27.0.0"]:
-        for status in ("draft", "in_review", "released"):
-            h = evolve(base, version=version, status=status)
-            want = {"released": "released", "in_review": "in-review"}.get(
-                status, "draft" if version == "1.0.0" else "revised"
-            )
-            assert harness_state(h) == want, (version, status)
+    released = Baseline(
+        id="W001.1.0.0", harness_id="W001", version="1.0.0", released_on="2026-01-01",
+        by="A. Person", comment="the first release", content_hash="x", snapshot=Snapshot(),
+    )  # fmt: skip
+    for has_baseline in (False, True):
+        project = Project()
+        if has_baseline:
+            project.baselines[released.id] = released
+        for version in ["1.0.0", "1.0.1", "1.1.0", "2.0.0", "0.1.0", "27.0.0"]:
+            for status in ("draft", "in_review", "released"):
+                h = evolve(base, version=version, status=status)
+                want = {"released": "released", "in_review": "in-review"}.get(
+                    status, "revised" if has_baseline else "draft"
+                )
+                assert harness_state(h, project) == want, (version, status, has_baseline)
     assert is_first("1.0.0") and not is_first("1.0.1") and not is_first("2.0.0")
 
 
@@ -517,3 +528,113 @@ def test_the_verifier_refuses_an_export_whose_two_names_differ(tmp_path) -> None
     files["system/export.json"] = json.dumps(doc).encode()
     report = verify_outputs(p, files)
     assert not report.ok and any(i.code == "out_json" for i in report.errors)
+
+
+# ---- pull request R2: the kind chosen again, the notes, an old letter, merges (section 5.3 to 5.6) ----
+
+
+def test_kind_between_reads_the_kind_of_a_step() -> None:
+    from harness_design_studio.core.vcs.versions import kind_between
+
+    assert kind_between("1.4.2", "2.0.0") == "major"
+    assert kind_between("1.4.2", "1.5.0") == "minor"
+    assert kind_between("1.4.2", "1.4.3") == "patch"
+    assert kind_between("A", "B") == "major"  # a letter is read as its version
+    assert kind_between("B", "2.1.0") == "minor"
+    for old, new in (("1.4.2", "1.4.2"), ("1.4.2", "1.3.9"), ("1.0", "2.0.0"), ("1.0.0", "-")):
+        assert kind_between(old, new) is None
+
+
+def _draft_of(tmp_path, kind: str):
+    """The released project of `_released_project` with a new version of the given kind."""
+    from harness_design_studio.core.commands import History
+    from harness_design_studio.core.vcs.release import plan_new_version
+
+    p, hid = _released_project(tmp_path)
+    plan = plan_new_version(p, hid, kind=kind, by="Ada", comment="A change of the harness", when="2026-03-02")  # fmt: skip
+    assert plan.ok, [b.message for b in plan.blockers]
+    History(p).execute(plan.label, plan.ops)
+    return p, hid
+
+
+def test_the_kind_is_chosen_again_on_a_draft_before_its_review(tmp_path) -> None:
+    """Q22: `new-version --kind` on a draft that has a baseline works the version out again from
+    the released one and adds one change-log entry `version_changed`; refused after the review
+    starts, and for the kind the draft already has."""
+    from harness_design_studio.core.commands import History
+    from harness_design_studio.core.vcs.release import (
+        draft_kind,
+        kind_again,
+        plan_new_version,
+        plan_submit_review,
+    )
+
+    p, hid = _draft_of(tmp_path, "minor")
+    assert p.harnesses[hid].version == "1.1.0" and kind_again(p, hid)
+    assert draft_kind(p, hid) == "minor"
+    entries = len(p.changelog)
+    plan = plan_new_version(p, hid, kind="patch", by="Ada", comment="Only a fix after all", when="2026-03-03")  # fmt: skip
+    assert plan.ok and plan.label == f"Version 1.1.0 of {hid} becomes 1.0.1 (patch)"
+    History(p).execute(plan.label, plan.ops)
+    h = p.harnesses[hid]
+    assert (h.version, h.status, draft_kind(p, hid)) == ("1.0.1", "draft", "patch")
+    entry = max(p.changelog.values(), key=lambda e: e.id)
+    assert (entry.kind, entry.version, entry.comment) == ("version_changed", "1.0.1", "Only a fix after all")  # fmt: skip
+    assert len(p.changelog) == entries + 1
+    assert sorted(b for b in p.baselines if b.startswith(f"{hid}.")) == [f"{hid}.1.0.0"]
+    same = plan_new_version(p, hid, kind="patch", by="Ada", comment="Only a fix after all", when="2026-03-03")  # fmt: skip
+    assert [b.code for b in same.blockers] == ["kind_unchanged"]
+    review = plan_submit_review(p, hid, by="Ada", when="2026-03-04")
+    History(p).execute(review.label, review.ops)
+    late = plan_new_version(p, hid, kind="major", by="Ada", comment="A larger change now", when="2026-03-05")  # fmt: skip
+    assert [b.code for b in late.blockers] == ["in_review"] and not kind_again(p, hid)
+
+
+def _change_a_device_end(p, hid: str) -> str:
+    """Change the gender of a cable connector that plugs into a device; its ID."""
+    from harness_design_studio.core.commands import History, Put
+
+    h = p.harnesses[hid]
+    end = next(c for c in h.connectors if c.mates_with)
+    other = "female" if end.gender == "male" else "male"
+    changed = evolve(h, connectors=[evolve(c, gender=other) if c.id == end.id else c for c in h.connectors])  # fmt: skip
+    History(p).execute("change the end", [Put("harnesses", changed)])
+    return str(end.id)
+
+
+@pytest.mark.parametrize("kind", ["minor", "patch"])
+def test_the_pinout_note_is_due_for_a_minor_or_patch_version_that_changes_a_device_end(
+    kind: str, tmp_path
+) -> None:
+    from harness_design_studio.core.vcs.release import pinout_note
+
+    p, hid = _draft_of(tmp_path, kind)
+    assert pinout_note(p, hid) == ""  # nothing changed yet
+    cid = _change_a_device_end(p, hid)
+    note = pinout_note(p, hid)
+    assert note == (
+        f"This version changes the pinout at a device (cable connector {cid}). The harness plan "
+        "template calls that an incompatible change."
+    )
+
+
+def test_no_pinout_note_for_a_major_version_or_a_first_release(tmp_path) -> None:
+    from harness_design_studio.core.samples import mini3
+    from harness_design_studio.core.vcs.release import pinout_note
+
+    p, hid = _draft_of(tmp_path, "major")
+    _change_a_device_end(p, hid)
+    assert pinout_note(p, hid) == ""
+    q = mini3()  # no baseline: the first release has nothing to compare with
+    assert all(pinout_note(q, h) == "" for h in q.harnesses)
+
+
+def test_the_note_on_a_major_version() -> None:
+    from harness_design_studio.core.vcs.release import MAJOR_NOTE, major_note
+
+    assert major_note("major") == MAJOR_NOTE and major_note("minor") == major_note("patch") == ""
+    assert MAJOR_NOTE == (
+        "A major version says that this harness is not compatible with its earlier versions. The "
+        "harness plan template gives such a harness a new ID instead (TH01 becomes TH02, not TH01 "
+        "2.0.0)."
+    )

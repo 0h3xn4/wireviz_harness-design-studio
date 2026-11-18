@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from harness_design_studio.core import describe
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.vcs import lockview
@@ -72,17 +73,9 @@ _EVENT_STATE = {
 
 def harness_state(project: Project, harness_id: str) -> str:
     """The key of `gui.states.STATES` for a harness: draft, in-review, released, or revised (a
-    draft that follows a released revision)."""
+    draft that has a baseline, `describe.harness_state`)."""
     h = project.harnesses.get(harness_id)
-    if h is None:
-        return "draft"
-    if h.status == "released":
-        return "released"
-    if h.status == "in_review":
-        return "in-review"
-    if any(b.harness_id == harness_id for b in project.baselines.values()):
-        return "revised"
-    return "draft"
+    return "draft" if h is None else describe.harness_state(h, project)
 
 
 def timeline_rows(project: Project, harness_id: str | None = None) -> list[dict[str, Any]]:

@@ -58,7 +58,7 @@ from .layout import (
     prune_orphan_marks,
     serialize,
 )
-from .migrate import SetVersions, migrate_raw, schema_version_of
+from .migrate import LEFTOVER_CODE, SetVersions, leftovers, migrate_raw, schema_version_of
 
 
 @dataclass
@@ -446,6 +446,11 @@ def load_from_files(
         # format 2 written by a build of the tool before M7a (D-228): read as it is, written as
         # journal.jsonl by the next save, which keeps the old file as journal.json.bak
         issues.append(Issue("info", "journal_old_layout", "The change journal is in the file journal.json of a build before format 2 was complete. The next save writes it as journal.jsonl (one entry per line) and keeps the old file as journal.json.bak.", OLD_JOURNAL_FILE))  # fmt: skip
+    if version == SCHEMA_VERSION:
+        # a key or a letter of format 2 that a merge brought into a format 3 file (section 5.6)
+        issues.extend(
+            Issue("error", LEFTOVER_CODE, left.message(), left.file) for left in leftovers(files)
+        )
     _build(files_for_build, project, issues)
     prune_orphan_marks(project)  # (the marks of a deleted connection or interface: silently)
     # a file that was skipped unread is damage, not absence: saving must not replace it
