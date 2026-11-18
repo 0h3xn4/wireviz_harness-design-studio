@@ -482,7 +482,7 @@ NOTHING_DONE = {
     "import-parts": "imported", "import-lengths": "imported", "import-netlist": "imported",
     "import-pinout": "imported", "export-pinout": "exported",
     "export-devices": "exported", "import-devices": "imported", "import-build-data": "imported",
-    "export-subsystem": "exported", "import-subsystem": "imported", "explain": "explained", "settings": "reported or changed",
+    "export-subsystem": "exported", "import-subsystem": "imported", "explain": "explained", "routing": "listed", "settings": "reported or changed",
     "journal": "listed", "override": "changed", "deviation": "recorded",
     "import-plugin": "imported",
     "export-data": "exported",

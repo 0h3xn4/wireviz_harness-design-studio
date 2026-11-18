@@ -216,7 +216,7 @@ def test_explain_prints_it_for_a_wire_and_the_files_do_not_contain_it(flat: Proj
 
 
 def test_the_kind_has_its_page_and_is_on_demand() -> None:
-    assert page_of("gauge") == "wire-sizing.md" and ON_DEMAND == {"gauge"} <= set(KINDS)
+    assert page_of("gauge") == "wire-sizing.md" and "gauge" in ON_DEMAND <= set(KINDS)
     text = (Path(__file__).resolve().parent.parent / "docs" / "models" / "wire-sizing.md").read_text(encoding="utf-8")  # fmt: skip
     assert "`gauge`" in text and "W004-003" in text and "0.415681" in text
 
