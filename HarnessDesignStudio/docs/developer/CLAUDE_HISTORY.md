@@ -37,3 +37,9 @@ The full release `2.0.0` (D-230; the program of `2.0.0rc1` with the fixes of pul
 The note on the publication of the patch release 2.0.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when 2.3.1 was prepared; that item still names 2.0.1 in the list of releases and says where this note is.
 
 The patch release `2.0.1` (D-236; M7b and the release page of D-232; no format change) was published on 2026-11-16 (annotated tag `v2.0.1` on `69c5aac`, made by the tag workflow `harness-tag.yml`, run 43903141934, its third use, D-227; release workflow run 43903192546, first attempt; signed and attested by the workflow): the latest full release until 2.1.0, and the first release page with seven files, the four packages, `SHA256SUMS`, its signature and the release bundle (D-232).
+
+## From the Status section of CLAUDE.md, moved with the publication record of 2.3.1 (2026-11-18)
+
+The note on the publication of the minor release 2.1.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 2.3.1 was written; that item still names 2.1.0 in the list of releases and says where this note is.
+
+The minor release `2.1.0` (D-238; several interfaces on one connector, D-237; no format change) was published on 2026-11-17 (annotated tag `v2.1.0` on `97e7d24`, made by the tag workflow, run 43993872749, its fourth use; release workflow run 43993920392, first attempt; signed and attested): the latest full release until 2.1.1.
