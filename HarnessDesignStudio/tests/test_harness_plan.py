@@ -845,8 +845,12 @@ SOFFICE = shutil.which("soffice")
 def test_libreoffice_shows_the_stored_values(tmp_path: Path) -> None:
     """LibreOffice converts one plan to CSV, one file per sheet; every cell it shows reads as the
     cell's stored text (a recalculated formula included)."""
-    p = golden_project("branching")
-    data = plan(p)
+    assert libreoffice_check(tmp_path, plan(golden_project("branching"))) > 100
+
+
+def libreoffice_check(tmp_path: Path, data: bytes) -> int:
+    """Convert a plan to CSV with LibreOffice and compare every shown cell with the stored text
+    (both ways); the number of formula cells compared."""
     src = tmp_path / "plan.ods"
     src.write_bytes(data)
     subprocess.run(
@@ -878,4 +882,4 @@ def test_libreoffice_shows_the_stored_values(tmp_path: Path) -> None:
         for r, row in enumerate(shown):  # and it shows nothing the file does not hold
             for c, text in enumerate(row):
                 assert not text or (r, c) in stored[name], f"{name}!{address(r, c)}: {text!r}"
-    assert formulas > 100
+    return formulas

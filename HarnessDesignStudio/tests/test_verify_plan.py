@@ -5,8 +5,9 @@
 section 11): `core/outputs/verify_plan.py` reads each plan's package and XML and works out every
 sheet and cell from the project on its own. Each mutation of the list gives its error; a plan of
 every example as written gives none; the verifier's own copies of the sides rule, the Direction
-words, the mirrored directions and the colour lookup agree with the core's on random harnesses
-(Hypothesis), and so does the whole plan. The verifier imports neither the writer nor the layout."""
+words, the mirrored directions and the colour lookup agree with the core's on random harnesses,
+splices among them (Hypothesis, pull request 6), and so does the whole plan. The verifier imports
+neither the writer nor the layout."""
 
 import io
 import re
@@ -425,7 +426,8 @@ _PARTS = ("P-A", "P-B", "P-C")
 @st.composite
 def projects(draw: st.DrawFn) -> Project:
     """A project with one harness: two to four box connectors on devices, as many cable connectors
-    (some loose, some on no box), random pins, wires between random pins, parts and colour codes."""
+    (some loose, some on no box), up to two splices of one or two nodes, random pins, wires between
+    random pins, parts and colour codes."""
     p = new_project("Random plan")
     for part in _PARTS:
         p.parts[part] = Part(
@@ -453,9 +455,19 @@ def projects(draw: st.DrawFn) -> Project:
                 pins=draw(_PINS),
             )  # fmt: skip
         )
+    for k in range(1, draw(st.integers(0, 2)) + 1):
+        cables.append(
+            Connector(
+                id=f"W001-X{k}",
+                name=f"X{k}",
+                role="splice",
+                part_id="P-S",
+                pins=[Pin(id=str(n)) for n in range(1, draw(st.integers(1, 2)) + 1)],
+            )
+        )
     ends = [(c.id, pin.id) for c in cables for pin in c.pins]
     wires = []
-    for k in range(draw(st.integers(0, 6))):
+    for k in range(draw(st.integers(0, 8))):
         a, b = draw(st.sampled_from(ends)), draw(st.sampled_from(ends))
         wires.append(
             Wire(
