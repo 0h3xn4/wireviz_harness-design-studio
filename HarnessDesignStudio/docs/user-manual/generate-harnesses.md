@@ -97,26 +97,28 @@ On the command line, `harness-design-studio explain DIR WIRE` (or a harness or p
 
 ## How links become harnesses
 
-By default one harness is made for each pair of device connectors. The setting is in `config/segmentation.json`:
+The setting is in `config/segmentation.json`. Since 2.4.0 a new project (`new FOLDER`, **File > New project** with the empty project) starts with `per_connector_group`: the links of one device connector share one harness, with one plug on that connector, and the harness branches to the far connectors. Most connectors are custom, and one of them often carries links to several devices (decision D-247):
 
 ```
 {
   "name": "segmentation",
   "placeholder": true,
   "values": {
-    "mode": "per_connector_pair"
+    "mode": "per_connector_group"
   }
 }
 ```
 
 | `mode` | One harness for each ... |
 | --- | --- |
-| `per_connector_pair` (default) | pair of device connectors |
+| `per_connector_pair` | pair of device connectors (the mode of a project made before 2.4.0, and of a file that names no mode) |
 | `per_unit_pair` | pair of devices |
 | `per_zone_pair` | pair of zones (links between the same two lanes) |
-| `per_connector_group` (since 2.3.0) | group of device connectors joined by links: one harness that branches, with one plug on each device connector ([branching harnesses](branching-harnesses.md)) |
+| `per_connector_group` (since 2.3.0; a new project's choice since 2.4.0) | group of device connectors joined by links: one harness that branches, with one plug on each device connector ([branching harnesses](branching-harnesses.md)) |
 
-With the `minimal-satellite` example (11 links), the default makes 11 harnesses. After changing `mode` to `per_unit_pair` and running `harness-design-studio generate` again, the report is `1 added, 9 changed, 0 unchanged, 2 removed`: ten harnesses replace the eleven. Harnesses that keep a pair of devices keep their IDs (here `W001`, `W002` and `W005` to `W011`, nine of them changed), the new one gets the next free ID (`W012`), and the files of the old ones stay in `physical/harnesses/` with the ending `.json.bak`. A second run changes nothing. (`minimal-satellite` is not in the 0.1.0 packages; see the [changelog](../../CHANGELOG.md).)
+A project keeps the mode it names: a project made before 2.4.0 stays `per_connector_pair`, and the examples keep the mode their outputs were made with (`first-steps`, `minimal-satellite` and `small-satellite` `per_connector_pair`, `flatsat` `per_zone_pair`). A project with no device connector shared by links to different connectors gets the same harnesses in `per_connector_pair` and `per_connector_group`. When a project in `per_connector_pair` has a device connector with plugs of several harnesses, the editor says so once after **Generate** and offers **Make one harness that branches** ([branching harnesses](branching-harnesses.md#1-let-generate-make-the-harness)).
+
+With the `minimal-satellite` example (11 links), its mode `per_connector_pair` makes 11 harnesses. After changing `mode` to `per_unit_pair` and running `harness-design-studio generate` again, the report is `1 added, 9 changed, 0 unchanged, 2 removed`: ten harnesses replace the eleven. Harnesses that keep a pair of devices keep their IDs (here `W001`, `W002` and `W005` to `W011`, nine of them changed), the new one gets the next free ID (`W012`), and the files of the old ones stay in `physical/harnesses/` with the ending `.json.bak`. A second run changes nothing. (`minimal-satellite` is not in the 0.1.0 packages; see the [changelog](../../CHANGELOG.md).)
 
 Whatever the mode:
 

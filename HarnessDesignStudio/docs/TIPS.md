@@ -180,11 +180,11 @@ Remember that the settings live **inside** `"values": {...}` in each file; a key
 
 | `"mode"` | One harness per... | Harnesses |
 | --- | --- | --- |
-| `per_connector_pair` (default) | pair of device connectors | 24 |
+| `per_connector_pair` (the example's mode) | pair of device connectors | 24 |
 | `per_unit_pair` | pair of devices | 23 |
 | `per_zone_pair` | pair of zones (lanes of the diagram) | 5 |
 
-Edit the file (`"mode": "per_zone_pair"` inside `"values"`), run `harness-design-studio generate DIR`, and the report says `3 added, 2 changed, 0 unchanged, 22 removed` (harnesses keep their IDs where they can; five harnesses are left). Released harnesses are never touched. Which rule your company wants is an open decision of the owner (D-10, see [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md)); the default is a placeholder. The `flatsat` example ships with `per_zone_pair`.
+Edit the file (`"mode": "per_zone_pair"` inside `"values"`), run `harness-design-studio generate DIR`, and the report says `3 added, 2 changed, 0 unchanged, 22 removed` (harnesses keep their IDs where they can; five harnesses are left). Released harnesses are never touched. Which rule your company wants is an open decision of the owner (D-10, see [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md)); the default is a placeholder. The `flatsat` example ships with `per_zone_pair`. A new project starts with `per_connector_group` since 2.4.0 (D-247): one harness that branches where a device connector has interfaces to several devices; a project with no such connector gets the same harnesses as with `per_connector_pair` (see [branching harnesses](user-manual/branching-harnesses.md)).
 
 ## Wire colours
 

@@ -1,12 +1,15 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 """Segmentation: which interfaces share a harness. Rules come from the `segmentation` and
-`segregation` configuration (DECISIONS D-10: default one harness per pair of unit connectors).
+`segregation` configuration (DECISIONS D-10: one harness per pair of unit connectors when a file
+names no mode; D-247: since 2.4.0 a new project starts in `per_connector_group`).
 
-The mode `per_connector_group` (2.3.0, D-243; opt-in) first makes the groups of
-`per_connector_pair` and then joins those that plug into one device connector into one harness that
-branches (`docs/ait/DESIGN_2.3_BRANCHING.md` section 5.1). In the three modes of 2.2 the groups are
-made by the code of 2.2 (`tests/reference/segmentation_220.py`)."""
+The mode `per_connector_group` (2.3.0, D-243) first makes the groups of `per_connector_pair` and
+then joins those that plug into one device connector into one harness that branches
+(`docs/ait/DESIGN_2.3_BRANCHING.md` section 5.1). In the three modes of 2.2 the groups are made by
+the code of 2.2 (`tests/reference/segmentation_220.py`). A project in a mode keeps it: every
+project the tool wrote names its mode, so D-247 switches none of them; a file that names no mode
+or one this version does not know is read as `per_connector_pair`, as by every version before."""
 
 from collections import deque
 from dataclasses import dataclass, field, replace
@@ -15,6 +18,13 @@ from harness_design_studio.core.model import Endpoint, InterfaceInstance, Projec
 
 GROUP_MODE = "per_connector_group"
 MODES = ("per_connector_pair", "per_unit_pair", "per_zone_pair", GROUP_MODE)
+# The mode of a new project (the blank example, `samples.start_project`, the editor's New project;
+# owner decision of 2026-11-18, D-247: most connectors are custom, so one device connector often
+# carries interfaces to several devices, and one plug on it is what gets built). It is not the
+# default of the registry (`core.settings`): a file that names no mode, or one that is not one of
+# `MODES`, is read as `MODES[0]`, so every project groups as it did at 2.2
+# (`tests/test_segmentation_compat_220.py`).
+NEW_PROJECT_MODE = GROUP_MODE
 MAX_END_NAMES = 3  # the connectors of one end named in the name of a joined harness
 
 

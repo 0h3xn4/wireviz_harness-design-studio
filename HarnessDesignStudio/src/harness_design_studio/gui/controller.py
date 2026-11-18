@@ -58,7 +58,7 @@ from harness_design_studio.core.recovery import (
     write_journal,
     write_journal_bytes,
 )
-from harness_design_studio.core.samples import mini3, new_project
+from harness_design_studio.core.samples import mini3, new_project, start_project
 from harness_design_studio.core.vcs import lockview
 from harness_design_studio.core.vcs.release import ReleasePlan
 
@@ -1533,7 +1533,7 @@ class EditorController(QObject):
         folder = Path(folder)
         if folder.exists() and any(folder.iterdir()):
             raise HarnessError(strings.CHOOSE_EMPTY_NEW)
-        project = new_project(name)
+        project = start_project(name)  # one harness that branches by default (D-247)
         journal.start(project, "New project.")  # the journal of a project you make is kept
         folder.mkdir(parents=True, exist_ok=True)
         lock = ProjectLock(folder)
