@@ -104,7 +104,21 @@ def warnings(p: Project) -> list[tuple[str, str | None]]:
 
 
 def sheet(path: Path, name: str) -> list[tuple[Any, ...]]:
-    return list(openpyxl.load_workbook(path, read_only=True)[name].iter_rows(values_only=True))
+    # a read-only workbook keeps its file open until it is closed, and on Windows an open file
+    # cannot be written again (the next export would fail)
+    wb = openpyxl.load_workbook(path, read_only=True)
+    try:
+        return list(wb[name].iter_rows(values_only=True))
+    finally:
+        wb.close()
+
+
+def sheet_names(path: Path) -> list[str]:
+    wb = openpyxl.load_workbook(path, read_only=True)
+    try:
+        return list(wb.sheetnames)
+    finally:
+        wb.close()
 
 
 # ---- the users' harness, made by Generate ---------------------------------------------------------
@@ -185,7 +199,7 @@ def users_harness(folder: Path, capsys: pytest.CaptureFixture[str]) -> Path:
         "W001-L5,W001-P4,W001-B2,0.4,8,W001-009;W001-010;W001-011;W001-012;W001-013;W001-014;W001-015;W001-016",
     ]  # fmt: skip
     build = folder_w / "W001_build.xlsx"
-    names = openpyxl.load_workbook(build, read_only=True).sheetnames
+    names = sheet_names(build)
     assert names[:4] == ["Start here", "Cut list", "Routing", "Connectors"]
     routing = sheet(build, "Routing")
     assert routing[0] == ("Segment", "From", "To", "Length (m)", "Number of wires", "Wires")
@@ -198,7 +212,7 @@ def users_harness(folder: Path, capsys: pytest.CaptureFixture[str]) -> Path:
     )
     assert any(r[:1] == ("Routing",) for r in sheet(build, "Start here"))
     tables = folder_w / "W001.xlsx"
-    assert openpyxl.load_workbook(tables, read_only=True).sheetnames[-1] == "Segments"
+    assert sheet_names(tables)[-1] == "Segments"
     assert [list(map(str, r)) for r in sheet(tables, "Segments")] == [
         r.split(",") for r in rows[2:]
     ]
@@ -383,7 +397,11 @@ def test_a_drawn_harness_with_a_leg_and_a_join(
     path = proj / "physical" / "harnesses" / "W001.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     data["shields"].append({"id": "W001-S9", "kind": "shielded_pair", "wire_ids": ["W001-003", "W001-005"], "end_a": "floating", "end_b": "floating"})  # fmt: skip
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # newline="\n": on Windows the text mode would write CR LF, and the check would also warn
+    # `not_canonical` (the file is not in the tool's own form)
+    path.write_text(
+        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
     out = ok(capsys, "check", proj)
     assert "WARNING shield_across_branch" in out and "0 error(s), 1 warning(s)." in out
 
