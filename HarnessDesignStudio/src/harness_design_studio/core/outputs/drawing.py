@@ -17,6 +17,11 @@ A loose cable end (role `loose`, D-201) is drawn as an open end: its table has a
 its part line reads `TBD-CONNECTOR (loose end), 4-pin` (no gender: none is chosen) and its mate
 line `open end`. Those two texts carry a `data-ref` (`part/` and `end/` with the connector ID) so
 the independent check finds them; a connector that is not loose is drawn exactly as before.
+
+A splice (role `splice`, format 3, M6a) is drawn as a small node on its wires, not as a connector
+table: a dark bar with a dot per node, the node numbers beside it and its ID above it (`data-ref`
+`splice/` with its ID). The lines beneath the diagram list each splice with its part and the wires
+on each node. A harness without a splice is drawn exactly as before.
 """
 
 import textwrap
@@ -31,6 +36,9 @@ from harness_design_studio.core.wirecolours import resolve
 from .canvas import CHAR_EM, SHEETS, Curve, Line, Rect, Sheet, Text, fit, fit_size
 from .stamp import Stamp
 from .tables import OPEN_END, PENDING, is_open_end, num, part_text
+
+SPLICE_W = 6.0  # the width of the bar of a splice
+SPLICE_GREY = "#333333"
 
 MARGIN = 8.0
 TB_H = 42.0  # title block height
@@ -309,7 +317,23 @@ def _extras(h: Harness, project: Project | None = None) -> list[str]:
     used = {(w.from_connector, w.from_pin) for w in h.wires} | {
         (w.to_connector, w.to_pin) for w in h.wires
     }
+    splices = [c for c in sorted(h.connectors, key=lambda x: x.id) if c.role == "splice"]
+    if splices:
+        out.append("Splices:")
+        for c in splices:
+            nodes = []
+            for p in c.pins:
+                on = sorted(
+                    w.id
+                    for w in h.wires
+                    if (c.id, p.id) in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin))
+                )
+                how = f" {p.termination}" if p.termination != "unspecified" else ""
+                nodes.append(f"node {p.id}{how}: {', '.join(on) or 'no wire'}")
+            out += _wrapped(f"  {c.id} ({c.part_id}): {'; '.join(nodes)}")
     for c in sorted(h.connectors, key=lambda x: x.id):
+        if c.role == "splice":
+            continue  # its nodes are in the lines above
         spare = [p.id for p in c.pins if (c.id, p.id) not in used]
         if spare:
             out += _wrapped(f"Spare pins {c.id}: {', '.join(spare)}")
@@ -485,6 +509,10 @@ def _draw_page(
         x = left_x if col == 0 else right_x
         height = HEAD_H + len(rows[cid]) * ROW
         conn_start = len(sh.items)
+        if c is not None and c.role == "splice":
+            _draw_splice(sh, c, rows[cid], x, top[cid], col)
+            sh.mark("connector", cid, conn_start)
+            continue
         loose = c is not None and is_open_end(c)
         dash = (1.2, 0.8) if loose else None  # an open end: nothing plugs it in yet
         sh.add(Rect(x, top[cid], CONN_W, height, width=0.35, fill="#ffffff", dash=dash))
@@ -650,6 +678,34 @@ def _draw_page(
             )
             sh.mark("wire", w.id, wire_start)
     return bottom
+
+
+def _draw_splice(sh: Sheet, c: Connector, rows: list[str], x: float, top: float, col: int) -> None:
+    """A splice as a node on its wires: a bar at the inner edge of its column, a dot where each
+    node's wires meet it, the node number beside it and the ID and part above."""
+    bar_x = x + CONN_W - SPLICE_W if col == 0 else x
+    mid = bar_x + SPLICE_W / 2
+    sh.add(
+        Text(mid, top + HEAD_ROW - 1.1, c.id, size=fit_size(c.id, CONN_W - 2.0, 2.8, ID_FLOOR),
+             bold=True, anchor="middle", ref=f"splice/{c.id}")
+    )  # fmt: skip
+    sh.add(
+        Text(mid, top + 2 * HEAD_ROW - 1.1, fit(f"{c.part_id}, splice", CONN_W - 2.0, HEAD_SIZE),
+             size=HEAD_SIZE, anchor="middle", color=GREY)
+    )  # fmt: skip
+    sh.add(Rect(bar_x, top + HEAD_H, SPLICE_W, len(rows) * ROW, width=0.3, fill=SPLICE_GREY))
+    for k, pin in enumerate(rows):
+        cy = top + HEAD_H + (k + 0.5) * ROW
+        pin_start = len(sh.items)
+        dot_x = bar_x + SPLICE_W - 1.6 if col == 0 else bar_x
+        sh.add(Rect(dot_x, cy - 0.8, 1.6, 1.6, width=0.2, fill="#ffffff"))
+        ref = f"{c.id}/{pin}"
+        size = fit_size(pin, 12.0, PIN_SIZE, ID_FLOOR)
+        if col == 0:
+            sh.add(Text(bar_x - 1.0, cy + 0.9, pin, size=size, bold=True, anchor="end", ref=f"pin/{ref}"))  # fmt: skip
+        else:
+            sh.add(Text(bar_x + SPLICE_W + 1.0, cy + 0.9, pin, size=size, bold=True, ref=f"pin/{ref}"))  # fmt: skip
+        sh.mark("pin", ref, pin_start)
 
 
 def _title_block(

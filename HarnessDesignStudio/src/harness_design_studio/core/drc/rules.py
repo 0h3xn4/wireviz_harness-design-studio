@@ -173,10 +173,19 @@ def wires_on_pins(h: Harness) -> dict[tuple[str, str], list[str]]:
     return on_pin
 
 
+def shared_pins(h: Harness) -> dict[tuple[str, str], list[str]]:
+    """The pins of the harness with more than one wire, and the wires: `pin-shared` and its
+    derivation. The nodes of a splice are left out: a splice joins several wires on a node by
+    design (format 3, M6a, A-PIN-ONE-WIRE)."""
+    splices = {c.id for c in h.connectors if c.role == "splice"}
+    return {
+        key: ids for key, ids in wires_on_pins(h).items() if len(ids) > 1 and key[0] not in splices
+    }
+
+
 def _pin_shared(project: Project) -> Iterator[Hit]:
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
-        on_pin = wires_on_pins(h)
-        for (cid, pid), ids in sorted(on_pin.items()):
+        for (cid, pid), ids in sorted(shared_pins(h).items()):
             if len(ids) > 1:
                 yield Hit(
                     h.id,  # the harness is found at once; a pin ID would be searched for among all wires

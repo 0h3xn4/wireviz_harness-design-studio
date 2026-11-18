@@ -477,6 +477,11 @@ def test_every_kind_a_project_makes_is_listed_with_its_page(tmp_path: Path) -> N
         for h in project.harnesses.values():  # a segment and a branch point (2.3.0)
             for oid in [s.id for s in h.segments[:1]] + [b.id for b in h.branch_points[:1]]:
                 produced_on_demand |= {d.id for d in explain_object(project, oid)} & ON_DEMAND
+    from tests.splice_support import splice_project  # a splice (format 3): no example has one
+
+    spliced = splice_project()
+    assert not ({d.id for d in explain_all(spliced)} & ON_DEMAND)
+    produced_on_demand |= {d.id for d in explain_object(spliced, "W003-X1")} & ON_DEMAND
     assert produced <= set(KINDS), produced - set(KINDS)
     assert set(KINDS) <= produced | produced_on_demand, set(KINDS) - produced
     assert produced_on_demand == ON_DEMAND

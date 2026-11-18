@@ -6,6 +6,7 @@ Files to copy and adapt. Get them with `harness-design-studio templates FOLDER`.
 | --- | --- | --- |
 | `interfaces.csv` | importing interfaces between devices | app: **File > Import > Interfaces…** |
 | `approved-parts.csv` | importing your approved parts list (five example rows: Micro-D and RJ45 parts of the starter library and one D-sub part; three are Approved, one is Review, one is Rejected) | `harness-design-studio import-parts DIR approved-parts.csv --approved Approved --pending Review --rejected Rejected` |
+| `splice-parts-EXAMPLE.csv` | **example row**: a splice part (category `splice`, the pin count is the number of nodes) for a splice in a harness you made by hand (format 3); not a real part, the tool ships none | `harness-design-studio import-parts DIR splice-parts-EXAMPLE.csv --pending Review` |
 | `segment-lengths.csv` | importing harness segment lengths (millimetres) | `harness-design-studio import-lengths DIR segment-lengths.csv --unit mm` |
 | `strip-lengths.csv` | **example rows**: the strip length at each end of a wire (millimetres); the `Comment` column is ignored | `harness-design-studio import-build-data DIR strip-lengths.csv --dry-run` |
 | `pin-contacts.csv` | **example rows**: the contact part on a pin of a cable connector of a harness you made by hand, and the crimp tool of that contact; the parts must be in your library | `harness-design-studio import-build-data DIR pin-contacts.csv --dry-run` |

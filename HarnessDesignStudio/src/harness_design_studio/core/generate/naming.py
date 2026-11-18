@@ -15,6 +15,9 @@ DEFAULTS = {
     "shield": "{harness}-S{n}",
     "branch": "{harness}-B{n}",
     "segment": "{harness}-L{n}",
+    # a splice of a harness a person made (format 3, M6a); Generate makes none (owner answer B8),
+    # and no setting names it yet: a pattern in config/naming.json is read like the others
+    "splice": "{harness}-X{n}",
 }
 
 
@@ -57,6 +60,9 @@ class Namer:
 
     def segment(self, harness: str, n: int) -> str:
         return self._fmt("segment", harness=harness, n=n)
+
+    def splice(self, harness: str, n: int) -> str:
+        return self._fmt("splice", harness=harness, n=n)
 
 
 def _valid_id(name: str) -> bool:

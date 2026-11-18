@@ -215,6 +215,8 @@ No new design rule; the count stays 39. New integrity warnings, reported through
 
 ## 6. Splices (for the release that first writes format 3)
 
+*Status (added 2026-11-18):* sections 6.1 to 6.6 are built on the branch `feat/splices` (milestone M6a, the splice parts S1 to S4 of section 10 in one pull request, with the end-to-end test of S5 through the command line), on `master` after pull request 1 of 3.0.0 (format 3, #274): the role `splice` and the category `splice` in format 3, `core/splices.py`, `core/nets.py` with the verifier's and the output check's own copies, the rules and integrity checks of 6.4, the outputs of 6.5 with their check and a golden set, `explain` and `routing` of 6.6, and the editor's *Splices* list in the Harness tab. Where it differs from this section, and what is left, is in section 21 of [`DESIGN_3.0_HARNESS_PLAN.md`](DESIGN_3.0_HARNESS_PLAN.md#21-splices-as-built-m6a). Not released.
+
 ### 6.1 Model
 
 - `Role` gets `splice`. A splice is a connector of a harness with role `splice`, no `mates_with`, no `unit_id`, and a library part (B3). Each pin is one node: an ordinary splice has one pin, `1`; a splice block with several nodes has one pin per node. Several wires end on one pin. There is no `bonded` field.
