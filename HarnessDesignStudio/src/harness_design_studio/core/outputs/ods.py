@@ -10,6 +10,8 @@ order, all stored, each with the date 1980-01-01, `create_system` 3 and `externa
 attribute order and no pretty printing; automatic styles are numbered in the order of one walk of
 the sheets; numbers have no exponent. Formulas are OpenFormula (`of:`) from the closed list of
 section 7.2 and carry their stored value; anything outside the list is refused with `ValueError`.
+`content.xml` turns regular expressions and wildcards off (`CALCULATION_SETTINGS`), so a reader
+compares text as typed.
 """
 
 import io
@@ -24,9 +26,17 @@ from harness_design_studio.core.outputs.canvas import escape
 
 MIMETYPE = "application/vnd.oasis.opendocument.spreadsheet"
 # Section 7.2: the functions of a cell formula, and the operators. A conditional format may also
-# use AND and OR: the template's GND against PWR format is written as it is (section 3.4, Q17).
+# use AND and OR (the template's GND against PWR format, section 3.4, Q17) and ISNUMBER and SEARCH
+# (the search boxes of the harness sheet, 3.1.0, D-250; section 25).
 FUNCTIONS = frozenset({"IF", "ISNA", "VLOOKUP", "MATCH", "SUMIF"})
-CONDITION_FUNCTIONS = FUNCTIONS | {"AND", "OR"}
+CONDITION_FUNCTIONS = FUNCTIONS | {"AND", "OR", "ISNUMBER", "SEARCH"}
+# How a reader compares text (section 25): neither regular expressions nor wildcards, so a search
+# text, a lookup key and a SUMIF criterion are read as typed. Without the element ODF's default
+# turns regular expressions on, and LibreOffice reads `TX+` as a pattern.
+CALCULATION_SETTINGS = (
+    '<table:calculation-settings table:use-regular-expressions="false" '
+    'table:use-wildcards="false"/>'
+)
 OPERATORS = "&=/+"
 REFUSED = {
     "INDIRECT": "it builds a reference from text at recalculation time; write a direct reference",
@@ -568,7 +578,7 @@ def _content(book: Workbook, styles: _Styles) -> str:
     )
     return (
         f'{_HEAD}<office:document-content {ns} office:version="1.3"><office:automatic-styles>{"".join(auto)}'
-        f"</office:automatic-styles><office:body><office:spreadsheet>{body}</office:spreadsheet></office:body></office:document-content>"
+        f"</office:automatic-styles><office:body><office:spreadsheet>{CALCULATION_SETTINGS}{body}</office:spreadsheet></office:body></office:document-content>"
     )
 
 

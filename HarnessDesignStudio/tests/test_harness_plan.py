@@ -374,7 +374,8 @@ def test_the_wire_cells_of_a_row() -> None:
     r1, r3 = rows[1], rows[3]
     assert [v(harness, f"{c}{r1}") for c in "KLMNPQ"] == ["red", 2, "W001-S1", 1250, 2, "red"]
     assert f(harness, f"P{r1}") == f"[.L{r1}]" and f(harness, f"K{r1}") == ""
-    assert [v(harness, f"{c}{r3}") for c in "KLMN"] == ["black", 1, None, TO_FILL]
+    # M is empty; it is listed because the search format of section 25 gives it a style
+    assert [v(harness, f"{c}{r3}") for c in "KLMN"] == ["black", 1, "", TO_FILL]
     assert v(harness, f"T{r3}") == 2
 
 
@@ -405,8 +406,9 @@ def test_the_far_device_side_and_the_reference_pinout() -> None:
 def test_a_pin_without_a_wire_is_a_yellow_row_with_the_sentence_once() -> None:
     harness = sheets(straight())["W001"]
     rows = _near_rows(harness)
-    # H to T, but J and R, which also carry the conditional format of GND against PWR
-    cols = {parse_address(f"{c}1")[1] for c in "HIKLMNOPQST"}
+    # H to T, but J and R, which also carry the conditional format of GND against PWR, and I and
+    # M, which carry the search format (section 25)
+    cols = {parse_address(f"{c}1")[1] for c in "HKLNOPQST"}
     yellow = {c.style for (r, cc), c in harness.items() if r + 1 == rows[4] and cc in cols}
     assert len(yellow) == 1 and yellow != {""}
     assert {(r, cc) for (r, cc) in harness if r + 1 == rows[4] and cc in cols} == {
