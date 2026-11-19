@@ -444,7 +444,9 @@ def _power_return_face(
     the contacts between them on the face, or says that the rule does not judge the pair. None when
     a pin is in no row (the list of pins is read, as before)."""
     pins = {p.id: p for p in conn.pins}
-    window = int(gap_raw) if gap_raw is not None and 1 <= gap_raw <= 1000 else MAX_PIN_COUNT
+    window = (
+        int(gap_raw) if gap_raw is not None and 1 <= gap_raw <= MAX_PIN_COUNT else MAX_PIN_COUNT
+    )
     g = face_gap(layout, pins, a.id, b.id, window)
     if g is None:
         return None
