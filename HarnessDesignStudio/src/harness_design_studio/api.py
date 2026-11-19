@@ -40,9 +40,11 @@ The names in `__all__` and the signatures of the functions are frozen by a test
 
 import contextlib
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
+
+from pydantic import ValidationError
 
 from harness_design_studio.core import (
     annotate,
@@ -75,7 +77,7 @@ from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.io.loader import load_project as _load_project
 from harness_design_studio.core.io.saver import save_project as _save_project
 from harness_design_studio.core.issues import errors
-from harness_design_studio.core.model import Project
+from harness_design_studio.core.model import Project, RowLayout
 from harness_design_studio.core.records import (
     CheckResult,
     ConfigReport,
@@ -93,11 +95,17 @@ from harness_design_studio.core.records import (
     JournalReport,
     OverrideRecord,
     OverrideResult,
+    RowLayoutRecord,
     RuleInfo,
     SettingRecord,
     TemplateInfo,
     ValidationResult,
     VerifyResult,
+)
+from harness_design_studio.core.row_layout import parse_text
+from harness_design_studio.core.row_layout_edit import (
+    plan_clear_row_layout,
+    plan_set_row_layout,
 )
 from harness_design_studio.core.templates import TemplateError
 from harness_design_studio.core.templates import create_project as _create_project
@@ -138,6 +146,7 @@ __all__ = [
     "ProjectLockedError",
     "ProjectSource",
     "ReadOnlyProjectError",
+    "RowLayoutRecord",
     "RuleInfo",
     "SaveError",
     "SettingRecord",
@@ -150,6 +159,7 @@ __all__ = [
     "accept_deviation",
     "annotate_config",
     "clear_override",
+    "clear_row_layout",
     "create_project",
     "explain",
     "explain_all",
@@ -170,10 +180,12 @@ __all__ = [
     "list_templates",
     "load_project",
     "remove_deviation",
+    "row_layout_of",
     "run_checks",
     "save_project",
     "set_config",
     "set_override",
+    "set_row_layout",
     "start_journal",
     "validate",
     "verify",
@@ -767,3 +779,82 @@ def import_asbuilt(
     return asbuilt.AsBuiltImportResult(
         dry_run, changed, imp.plan.counts(), tuple(imp.plan.rows), tuple(imp.report.lines())
     )
+
+
+# ---- the row layout of a connector (format 4) ----------------------------------------------------
+
+
+def row_layout_of(source: ProjectSource, connector_id: str) -> RowLayoutRecord:
+    """The row layout of a connector and where it comes from: a box connector's own rows, else
+    those of its part; a cable connector's part, else the box connector it plugs into (design of
+    4.0.0 section 3). `connector_id` is a connector of a device or of a harness; a connector
+    without a layout gives `source` "none". Raises `EditError` for an unknown connector. Changes
+    nothing."""
+    return records.row_layout_record(_project(source), connector=connector_id)
+
+
+def _layout(rows: Sequence[Sequence[str]] | str, rings: bool) -> RowLayout:
+    if isinstance(rows, str):
+        try:
+            parsed = parse_text(rows)
+        except ValueError as exc:
+            raise EditError(str(exc)) from None
+        if parsed is None:
+            raise EditError("give the rows, or use clear_row_layout to remove them.")
+        return RowLayout(rows=parsed.rows, rings=parsed.rings or rings)
+    try:
+        return RowLayout(rows=[list(r) for r in rows], rings=rings)
+    except ValidationError as exc:
+        message = str(exc.errors()[0].get("msg", "")).removeprefix("Value error, ")
+        raise EditError(message) from None
+
+
+def set_row_layout(
+    folder: PathLike,
+    *,
+    part: str | None = None,
+    connector: str | None = None,
+    rows: Sequence[Sequence[str]] | str,
+    rings: bool = False,
+    author: str | None = None,
+) -> RowLayoutRecord:
+    """Give a connector part (`part`) or a box connector (`connector`, its own rows) a row
+    layout and save the project, through the same plan as the editor. `rows` are the rows from the
+    top of the face, each a list of pin names, or the short text form (`"1–11 / 12–21"`, with
+    `(rings)` at the end for the rings of a circular insert); `rings` marks the rings. The rules
+    of the files are checked (a pin twice, more names than the part's pin count, a name that is
+    not a pin of the connector, a cable connector) and break with `EditError`. One undo step, in
+    the journal with `author` when the project keeps one. Takes the project lock. Returns the
+    layout as it is now."""
+    path = Path(folder)
+    layout = _layout(rows, rings)
+    with _locked(path), _as(author):
+        project = _load(path)
+        _writable(project)
+        ops = plan_set_row_layout(project, layout, part=part, connector=connector)
+        if ops:
+            History(project).execute(f"Set the rows of {part or connector}", ops)
+            _save_project(project, path)
+    return records.row_layout_record(project, part=part, connector=connector)
+
+
+def clear_row_layout(
+    folder: PathLike,
+    *,
+    part: str | None = None,
+    connector: str | None = None,
+    author: str | None = None,
+) -> RowLayoutRecord:
+    """Remove the row layout of a connector part, or the own rows of a box connector (which then
+    takes the rows of its part, if it has any), and save the project, through the same plan as
+    the editor. Nothing is written when there is nothing to remove. Takes the project lock.
+    Returns the layout as it is now."""
+    path = Path(folder)
+    with _locked(path), _as(author):
+        project = _load(path)
+        _writable(project)
+        ops = plan_clear_row_layout(project, part=part, connector=connector)
+        if ops:
+            History(project).execute(f"Clear the rows of {part or connector}", ops)
+            _save_project(project, path)
+    return records.row_layout_record(project, part=part, connector=connector)

@@ -69,8 +69,8 @@ Ports and harnesses are separate decisions. The ports decide the pins on the dev
 
 ## The assumptions it rests on
 
-- **A-PIN-ORDER.** The order of the categories and the gaps are settings.
-- **A-PIN-FIRST-FIT.** First fit in the order of the pin list (the default of the setting `model.pin_fit_strategy`; `last_fit` and `spread` are the alternatives, see [selectable models](selectable-models.md#pin-fit-strategy)); an earlier choice is kept while it was made by the same strategy; locks and fixed pinouts win. On a fixed pinout the ports are taken in name order. Neighbours are neighbours in the list of pins, not a measured position.
+- **A-PIN-ORDER.** The order of the categories and the gaps are settings; the pins are taken in the order of the list of pins, also on a connector with a row layout.
+- **A-PIN-FIRST-FIT.** First fit in the order of the pin list (the default of the setting `model.pin_fit_strategy`; `last_fit` and `spread` are the alternatives, see [selectable models](selectable-models.md#pin-fit-strategy)); an earlier choice is kept while it was made by the same strategy; locks and fixed pinouts win. On a fixed pinout the ports are taken in name order. Neighbours are neighbours in the list of pins, not a measured position; Generate reads no row layout (4.0.0), so on a connector with one it may place power and return pins that the rule `power-return-adjacent` finds next to each other on the face ([rule limits](rule-limits.md)).
 
 ## A worked example
 

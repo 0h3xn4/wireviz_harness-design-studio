@@ -9,7 +9,8 @@ from functools import partial
 from typing import NamedTuple
 
 from .issues import Issue
-from .model import Connector, Harness, Project, Wire
+from .model import Connector, Harness, Project, RowLayout, Wire
+from .row_layout import PinRows, layout_of, layout_text
 
 
 def _warn(code: str, message: str, object_id: str | None = None) -> Issue:
@@ -541,6 +542,99 @@ def _placement_issues(project: Project) -> list[Issue]:
     ]
 
 
+def _cap(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _pin_list(names: Sequence[str]) -> str:
+    shown = ", ".join(names[:12]) + (" ..." if len(names) > 12 else "")
+    return f"pin{'s' if len(names) > 1 else ''} {shown}"
+
+
+def _where_from(rows: PinRows) -> str:
+    if rows.source == "own":
+        return f"the own row layout of {rows.connector_id}"
+    if rows.source == "part":
+        return f"the row layout of part {rows.source_id}"
+    return (
+        f"the row layout of {rows.source_id}, the device connector {rows.connector_id} plugs into"
+    )
+
+
+def _rows_differ(a: Sequence[Sequence[str]], b: Sequence[Sequence[str]]) -> int | None:
+    """The first row (from 1) whose pins differ between two layouts, compared as sets (a mating
+    face is seen mirrored, so the order inside a row is not compared); None when they agree."""
+    a = [r for r in a if r]
+    b = [r for r in b if r]
+    for n in range(max(len(a), len(b))):
+        if n >= len(a) or n >= len(b) or set(a[n]) != set(b[n]):
+            return n + 1
+    return None
+
+
+def _row_words(rows: Sequence[Sequence[str]], n: int) -> str:
+    kept = [r for r in rows if r]
+    if n > len(kept):
+        return "no row"
+    return layout_text(RowLayout(rows=[sorted(kept[n - 1], key=_pin_key)]))
+
+
+def row_layout_issues(project: Project) -> list[Issue]:
+    """The three checks of the row layout of a connector (format 4, design of 4.0.0 section 4.3),
+    worked out from the layout each connector has by the rules of section 3
+    (`core/row_layout.layout_of`). None is an error: a layout is a person's information, and a
+    project with an odd one still generates and exports. A project without a layout has none.
+
+    `row_layout_pin_missing` (warning): a layout of a part (or of the device connector a cable
+    connector plugs into) names a pin the connector does not have; `row_layout_pins_outside`
+    (info): a connector has pins in no row; `row_layout_mate_differs` (warning): two connectors
+    that mate, or two parts linked by `mates_with`, both have a layout and a row of one does not
+    hold the pins of the same row of the other."""
+    if not any(p.row_layout is not None for p in project.parts.values()) and not any(
+        c.row_layout is not None for c in project.connectors.values()
+    ):
+        return []
+    out: list[Issue] = []
+    owners = sorted(project.connectors.values(), key=lambda x: x.id)
+    owners += [
+        c for h in sorted(project.harnesses.values(), key=lambda x: x.id) for c in h.connectors
+    ]
+    for c in owners:
+        rows = layout_of(project, c)
+        if rows is None:
+            continue
+        if rows.left_out:
+            out.append(_warn("row_layout_pin_missing", f"{_cap(_where_from(rows))} names {_pin_list(rows.left_out)}, which {c.id} does not have; {'it is' if len(rows.left_out) == 1 else 'they are'} left out of the rows of {c.id}.", c.id))  # fmt: skip
+        if rows.outside:
+            out.append(Issue("info", "row_layout_pins_outside", f"{_cap(_pin_list(rows.outside))} of {c.id} {'is' if len(rows.outside) == 1 else 'are'} in no row of {_where_from(rows)}; {'it is' if len(rows.outside) == 1 else 'they are'} listed after the rows, without a row, and power-return-adjacent judges {'it' if len(rows.outside) == 1 else 'them'} in the order of the list of pins.", None, c.id))  # fmt: skip
+        box = project.connectors.get(c.mates_with or "")
+        if (
+            c.unit_id is None
+            and rows.source == "part"
+            and box is not None
+            and box.unit_id is not None
+        ):
+            other = layout_of(project, box)
+            if other is not None and (n := _rows_differ(rows.rows, other.rows)) is not None:
+                out.append(_warn("row_layout_mate_differs", f"{c.id} and the device connector {box.id} it plugs into have different row layouts ({_where_from(rows)}; {_where_from(other)}): row {n} holds {_row_words(rows.rows, n)} on {c.id} and {_row_words(other.rows, n)} on {box.id}. The order inside a row is not compared, since a mating face is seen mirrored.", c.id))  # fmt: skip
+    seen: set[tuple[str, str]] = set()
+    for part in sorted(project.parts.values(), key=lambda x: x.id):
+        mate = project.parts.get(part.mates_with or "")
+        if part.row_layout is None or mate is None or mate.id == part.id or mate.row_layout is None:
+            continue
+        pair = (min(part.id, mate.id), max(part.id, mate.id))
+        if pair in seen:
+            continue
+        seen.add(pair)
+        (a, ra), (b, rb) = sorted(
+            ((part.id, part.row_layout.rows), (mate.id, mate.row_layout.rows))
+        )
+        n = _rows_differ(ra, rb)
+        if n is not None:
+            out.append(_warn("row_layout_mate_differs", f"The mating parts {a} and {b} have different row layouts: row {n} holds {_row_words(ra, n)} on {a} and {_row_words(rb, n)} on {b}. The order inside a row is not compared, since a mating face is seen mirrored.", a))  # fmt: skip
+    return out
+
+
 # The collections whose keys must differ only by more than upper/lower case, with the word the
 # message uses for them.
 _CASEFOLD_KINDS = (
@@ -594,6 +688,7 @@ def check_integrity(project: Project) -> list[Issue]:
         out.extend(cached(h, "harness", partial(_check_harness, project, h, wire_counts)))
     _CACHE.clear()
     _CACHE.update(seen)
+    out.extend(row_layout_issues(project))
     return out
 
 

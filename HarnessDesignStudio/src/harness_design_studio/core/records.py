@@ -776,3 +776,77 @@ def deviation_records(project: Project) -> tuple[DeviationRecord, ...]:
         )
         for f in marked
     )
+
+
+@dataclass(frozen=True)
+class RowLayoutRecord:
+    """The row layout of a connector part or a connector (format 4; design of 4.0.0 sections 3
+    and 10). `kind` is "part" or "connector"; `rows` are the rows from the top of the face (or
+    from the outer ring), each the pin names in order, and `rings` marks the rings of a circular
+    insert. `source` says whose rows they are: "own" (the part's, or a box connector's own),
+    "part" (the connector's part), "mated" (the box connector a cable connector plugs into) or
+    "none"; `source_id` names that part or connector ("" for none). For a connector the rows hold
+    only its pins, a row keeping its number; `text` is the short form, such as `1–11 / 12–21`."""
+
+    object: str
+    kind: str
+    rows: tuple[tuple[str, ...], ...]
+    rings: bool
+    source: str
+    source_id: str
+    text: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "object": self.object,
+            "kind": self.kind,
+            "rows": [list(r) for r in self.rows],
+            "rings": self.rings,
+            "source": self.source,
+            "source_id": self.source_id,
+            "text": self.text,
+        }
+
+
+def row_layout_record(
+    project: Project, *, part: str | None = None, connector: str | None = None
+) -> RowLayoutRecord:
+    """The layout of the part `part`, or of the connector `connector` (a box connector, or a
+    connector of a harness) as `core/row_layout.layout_of` works it out. Raises `EditError` for a
+    name that is neither."""
+    from harness_design_studio.core.edit import EditError
+    from harness_design_studio.core.model import RowLayout
+    from harness_design_studio.core.row_layout import layout_of, layout_text
+
+    if (part is None) == (connector is None):
+        raise EditError("Name a part or a connector, not both.")
+    if part is not None:
+        p = project.parts.get(part)
+        if p is None:
+            raise EditError(f"Part '{part}' does not exist.")
+        own = p.row_layout
+        if own is None:
+            return RowLayoutRecord(p.id, "part", (), False, "none", "", "")
+        rows = tuple(tuple(r) for r in own.rows)
+        return RowLayoutRecord(p.id, "part", rows, own.rings, "own", p.id, layout_text(own))
+    c = project.connectors.get(connector or "")
+    if c is None:
+        c = next(
+            (
+                x
+                for h in sorted(project.harnesses.values(), key=lambda h: h.id)
+                for x in h.connectors
+                if x.id == connector
+            ),
+            None,
+        )
+    if c is None:
+        raise EditError(f"'{connector}' is not a connector of the project.")
+    found = layout_of(project, c)
+    if found is None:
+        return RowLayoutRecord(c.id, "connector", (), False, "none", "", "")
+    kept = [list(r) for r in found.rows if r]
+    text = layout_text(RowLayout(rows=kept, rings=found.rings)) if kept else ""
+    return RowLayoutRecord(
+        c.id, "connector", found.rows, found.rings, found.source, found.source_id, text
+    )

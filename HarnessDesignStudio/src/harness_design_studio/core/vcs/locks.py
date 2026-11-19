@@ -28,7 +28,7 @@ from .snapshot import (
 _META = {"status", "version", "checker", "approver", "released_on"}
 COSMETIC_INTERFACE_FIELDS = {"name", "notes", "requirement_id"}  # may change after release
 COSMETIC_UNIT_FIELDS = {"name", "notes", "zone", "kind"}  # may change after release
-COSMETIC_PART_FIELDS = {"notes"}  # may change after release
+COSMETIC_PART_FIELDS = {"notes", "row_layout"}  # may change after release (the rows: D-251)
 COSMETIC_TYPE_FIELDS = {"name", "notes"}  # may change after release
 
 

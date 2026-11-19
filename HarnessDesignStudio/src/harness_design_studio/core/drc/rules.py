@@ -195,7 +195,9 @@ def _pin_shared(project: Project) -> Iterator[Hit]:
 
 
 def _model_inconsistent(project: Project) -> Iterator[Hit]:
-    for n, issue in enumerate(i for i in check_integrity(project) if i.severity != "error"):
+    # the warnings only: an error stops the check before it, and a note (`row_layout_pins_outside`,
+    # a spare contact outside the rows) is not a mismatch of the model
+    for n, issue in enumerate(i for i in check_integrity(project) if i.severity == "warning"):
         # one object can have several problems; the message tells them apart
         digest = hashlib.sha256(issue.message.encode()).hexdigest()[:6]
         yield Hit(

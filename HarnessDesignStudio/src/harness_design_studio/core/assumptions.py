@@ -199,7 +199,8 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "every other category, and by interface ID inside a category. Those first categories count as "
             "the power group: kept together as one block, with power_return_gap_pins unassigned contacts "
             "between the signals, and followed by power_signal_gap_pins free pins before the first signal "
-            "pin (0 while unset).",
+            "pin (0 while unset). The pins are taken in the order of the list of pins, also on a "
+            "connector with a row layout (Generate does not read the rows).",
             "setting",
             "config/model.json: pin_allocation_categories; config/generation.json: power_signal_gap_pins, power_return_gap_pins",
         ),
@@ -366,7 +367,14 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "Power and return pins are far enough apart when enough contacts between them are free",
             "For any two power or ground pins of different signals on one connector, the contacts "
             "between them in the list of pins that carry no interface and no signal are counted, and "
-            "must be at least power_return_gap_pins. Neighbours are neighbours in the list of pins.",
+            "must be at least power_return_gap_pins. Neighbours are neighbours in the list of pins, "
+            "or on the face where the connector has a row layout: there two pins of one row count "
+            "the free contacts between them along the row (the shorter way round a ring), and two "
+            "pins of rows next to each other whose places along the rows differ by one place or "
+            "less are neighbours with no contact between. Rows are taken as centred on each other, "
+            "which can find a neighbour the real face does not have, never one fewer; pins of "
+            "different rings are not judged (unchecked-config lists them), and a pin in no row is "
+            "judged in the list of pins.",
             "setting",
             "config/generation.json: power_return_gap_pins",
         ),
