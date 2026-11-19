@@ -76,7 +76,7 @@ def test_a_blank_project_has_no_subsystems(tmp_path: Path):
 
 def test_export_keeps_the_connections_between_the_devices_only(project):
     data = sl.export_subsystem(project, ["OBC", "RW1"], "Wheel drive", "OBC and a wheel")
-    assert data["format"] == sl.FORMAT and data["version"] == sl.VERSION
+    assert data["format"] == sl.FORMAT and data["version"] == sl.FIRST_VERSION  # no row layout
     assert [d["unit"]["id"] for d in data["devices"]] == ["OBC", "RW1"]
     assert [c["id"] for c in data["connections"]] == ["L1"]  # L2 leaves for PCDU
     assert sl.left_out_connections(project, ["OBC", "RW1"]) == 1
@@ -120,7 +120,7 @@ def test_nothing_to_export_and_unknown_devices(project):
         ("[]", "not a subsystem library"),
         (json.dumps({"format": dl.FORMAT, "version": 1}), "not a subsystem library"),
         (json.dumps({"format": sl.FORMAT}), "valid version"),
-        (json.dumps({"format": sl.FORMAT, "version": 9, "name": "x"}), "reads version 1"),
+        (json.dumps({"format": sl.FORMAT, "version": 9, "name": "x"}), "reads version 2"),
         (json.dumps({"format": sl.FORMAT, "version": 1}), "no name"),
         (json.dumps({"format": sl.FORMAT, "version": 1, "name": "x"}), "no devices"),
         (json.dumps({"format": sl.FORMAT, "version": 1, "name": "x", "devices": 3}), "list of rec"),
@@ -329,7 +329,7 @@ def test_a_damaged_file_does_not_hide_the_others(project, tmp_path: Path):
     assert [e.id for e in scan.entries] == ["OBC"]
     said = {p.file: p.message for p in scan.problems}
     assert "not valid JSON" in said["broken.json"]
-    assert "reads version 1" in said["future.json"]
+    assert "reads version 2" in said["future.json"]
     assert "no devices" in said["empty-sub.json"]
     assert str(scan.problems[0]).startswith(scan.problems[0].file + ": ")
 

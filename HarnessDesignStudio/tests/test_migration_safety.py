@@ -180,7 +180,7 @@ def test_the_upgrade_from_format_1_gives_back_the_files_of_format_3_and_changes_
     done = upgrade.upgrade_project(root)
     assert done is not None and all(done.self_check.values()), done.self_check
     after = managed(root)
-    assert json.loads(after["project.json"])["schema_version"] == 3
+    assert json.loads(after["project.json"])["schema_version"] == 4
     assert {k: v for k, v in after.items() if k not in JOURNALS} == {
         k: v for k, v in want.items() if k not in JOURNALS
     }  # every file of format 3 as this tool wrote it
@@ -198,7 +198,7 @@ def test_the_upgrade_from_format_1_gives_back_the_files_of_format_3_and_changes_
         if is_managed(rel):
             assert (backup / rel).read_bytes() == data  # the original is in the backup
     record = json.loads((root / done.record).read_text(encoding="utf-8"))
-    assert (record["status"], record["from_version"], record["to_version"]) == ("complete", 1, 3)
+    assert (record["status"], record["from_version"], record["to_version"]) == ("complete", 1, 4)
     assert record["model_hash"] == {"before": None, "after": want_hashes["model_hash"]}
     assert record["proof"] == {"nothing_but_versions": True, "versions_mapped": True}
     assert record["versions"] == plan.versions and record["exports"].startswith("not compared")
@@ -242,7 +242,7 @@ def test_a_migration_writes_one_journal_entry_and_only_for_a_project_with_a_jour
     assert (last.kind, last.object) == ("edit", "project")
     assert last.reason.startswith("migrated from format 1; ")  # with the mapping of the versions
     assert "W001: revision A → version 1.0.0" in last.reason
-    assert (last.old, last.new) == (1, 3)
+    assert (last.old, last.new) == (1, 4)
     plain = as_format(build("mini3", tmp_path / "m"), 1)
     assert upgrade.upgrade_project(plain) is not None
     assert not (plain / "journal.json").exists()  # a migration does not start a journal
@@ -302,7 +302,7 @@ def test_the_dry_run_of_a_real_old_project(tmp_path: Path, capsys) -> None:
     root = copy_project(V0, tmp_path / "p")
     files = folder_bytes(root)
     assert main(["migrate", str(root), "--dry-run"]) == 0
-    assert "Project format 0; this tool writes format 3." in capsys.readouterr().out
+    assert "Project format 0; this tool writes format 4." in capsys.readouterr().out
     assert folder_bytes(root) == files
 
 
@@ -365,7 +365,7 @@ def test_migrate_prints_the_record_and_the_check_and_is_then_up_to_date(
     assert main(["migrate", str(root), "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert list(doc) == list(SHAPES["migrate"])
-    assert doc["migrated"] and (doc["from_version"], doc["to_version"]) == (1, 3)
+    assert doc["migrated"] and (doc["from_version"], doc["to_version"]) == (1, 4)
     assert doc["backup"] == ".migration-backup-v1" and doc["record"].endswith("MIGRATION.json")
     assert all(doc["self_check"].values())
     assert main(["migrate", str(root)]) == 0
@@ -376,7 +376,7 @@ def test_migrating_a_real_old_project_writes_the_record_and_checks_itself(tmp_pa
     root = copy_project(V0, tmp_path / "p")
     original = managed(root)
     done = upgrade.upgrade_project(root)
-    assert done is not None and (done.from_version, done.to_version) == (0, 3)
+    assert done is not None and (done.from_version, done.to_version) == (0, 4)
     assert done.self_check["reload"] and done.self_check["exports"]
     for rel, data in original.items():
         assert (root / ".migration-backup-v0" / rel).read_bytes() == data

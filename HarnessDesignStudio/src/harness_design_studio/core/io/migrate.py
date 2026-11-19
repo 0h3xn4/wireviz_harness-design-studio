@@ -90,6 +90,7 @@ def _v1_to_v2(files: RawFiles) -> RawFiles:
 
 # ---- format 2 to 3 (D-242, design of 3.0.0 sections 4.5, 5.5 and 5.8) ----------------------------
 
+VERSIONS_FORMAT = 3  # the first format whose harnesses carry versions MAJOR.MINOR.PATCH (D-242)
 OLD_KEY = "revision"  # the key of a harness version in format 2, where it is a letter
 NEW_KEY = "version"
 OLD_KIND, NEW_KIND = "new_revision", "new_version"
@@ -511,9 +512,43 @@ def _v2_to_v3(files: RawFiles, set_versions: SetVersions | None = None) -> RawFi
     return out
 
 
+# ---- format 3 to 4 (D-251, design of 4.0.0 section 5) --------------------------------------------
+
+
+def _v4_number(files: RawFiles) -> RawFiles:
+    """The number: a 3.x tool opens a format 4 project read-only (the rule of D-226)."""
+    meta = files.get("project.json")
+    if isinstance(meta, dict):
+        meta["schema_version"] = 4
+    return files
+
+
+# The parts of the step from format 3 to 4. The one new key of format 4, `row_layout` of a connector
+# part and of a box connector, is sparse and nobody has a layout before format 4, so the step
+# writes the number and nothing else: no other file changes, and `project.json` in its number only.
+V3_TO_V4_PARTS: tuple[Callable[[RawFiles], RawFiles], ...] = (_v4_number,)
+
+
+def _v3_to_v4(files: RawFiles) -> RawFiles:
+    """v3 to v4 (D-250, D-251, design of 4.0.0 section 5). Format 4 holds the row layout of a
+    connector (`Part.row_layout`, `Connector.row_layout`, both left out of the files while unset).
+    A format 3 tree is a valid format 4 tree apart from the number, so the step writes the number
+    (`V3_TO_V4_PARTS`) and changes no hash: like the step from 1 to 2, the migration safety net
+    (`core.io.upgrade`) is its whole proof (the same model hash, findings, baselines and export)."""
+    out = copy.deepcopy(files)
+    for part in V3_TO_V4_PARTS:
+        out = part(out)
+    return out
+
+
 # `MIGRATIONS[n]` takes a project from format n to n + 1; there is one for every format before the
 # one this tool writes (`SCHEMA_VERSION`).
-MIGRATIONS: dict[int, Callable[[RawFiles], RawFiles]] = {0: _v0_to_v1, 1: _v1_to_v2, 2: _v2_to_v3}
+MIGRATIONS: dict[int, Callable[[RawFiles], RawFiles]] = {
+    0: _v0_to_v1,
+    1: _v1_to_v2,
+    2: _v2_to_v3,
+    3: _v3_to_v4,
+}
 # The steps that take the versions a person gave for the revisions the mapping cannot guess.
 TAKES_VERSIONS = frozenset({2})
 

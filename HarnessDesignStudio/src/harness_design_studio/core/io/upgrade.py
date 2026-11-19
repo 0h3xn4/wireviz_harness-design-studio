@@ -59,7 +59,7 @@ from .loader import (
 from .migrate import SetVersions
 from .saver import _managed_on_disk, _migration_backup, save_project
 
-VERSIONS_FORMAT = 3  # the first format whose harnesses carry versions MAJOR.MINOR.PATCH (D-242)
+VERSIONS_FORMAT = migrate.VERSIONS_FORMAT  # the first format with versions MAJOR.MINOR.PATCH
 RECORD_NAME = "MIGRATION.json"
 RECORD_VERSION = 1
 BACKUP_PREFIX = ".migration-backup-v"

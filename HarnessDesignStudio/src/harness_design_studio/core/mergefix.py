@@ -294,13 +294,15 @@ class VersionFix:
 
 def plan_version_fix(folder: Path) -> VersionFix:
     """Read-only: the rewrite of every key `revision`, letter, kind `new_revision` and title block
-    field `revision` of a project in the current format, by the rule of section 5.5
-    (`migrate.rewrite_leftovers`). Empty for a project of another format, which `migrate` upgrades,
-    and for a clean one. A file that cannot be read (conflict markers) is left to the rest of
-    `merge-fix`."""
+    field `revision` of a project in format 3 or later (up to the current format), by the rule of
+    section 5.5 (`migrate.rewrite_leftovers`); the format number is not touched, so a format 3
+    project is then upgraded by `migrate` (format 4, D-251). Empty for a project of format 2 or
+    older, which `migrate` upgrades, and for a clean one. A file that cannot be read (conflict
+    markers) is left to the rest of `merge-fix`."""
     from harness_design_studio.core.io import canonical
     from harness_design_studio.core.io.loader import read_tree
     from harness_design_studio.core.io.migrate import (
+        VERSIONS_FORMAT,
         current_version,
         leftovers,
         rewrite_leftovers,
@@ -308,7 +310,9 @@ def plan_version_fix(folder: Path) -> VersionFix:
     )
 
     files, _broken, _issues = read_tree(folder)
-    if "project.json" not in files or schema_version_of(files) != current_version():
+    if "project.json" not in files or not (
+        VERSIONS_FORMAT <= schema_version_of(files) <= current_version()
+    ):
         return VersionFix()
     found = leftovers(files)
     if not found:

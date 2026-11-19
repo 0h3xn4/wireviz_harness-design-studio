@@ -4,7 +4,8 @@
 """REQ-MIGRATE-08: format 3 (D-242, design of 3.0.0 `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`
 sections 4, 5.5 and 5.6, pull request 1).
 
-This tool writes `schema_version` 3. The step from 2 to 3 (`core/io/migrate.py` `_v2_to_v3`, the
+This tool writes `schema_version` 4 since D-251 (`tests/test_format4.py`); the step from 2 to 3 is
+still one of its steps. The step from 2 to 3 (`core/io/migrate.py` `_v2_to_v3`, the
 parts `V2_TO_V3_PARTS`) writes the number, maps every revision letter to its version (`A` is
 `1.0.0`, `B` is `2.0.0`, a version is kept, anything else is given by a person with
 `migrate --set-version`) and renames the keys (`revision` to `version`, the change-log kind
@@ -86,9 +87,9 @@ def _set_revision(root: Path, value: str, hid: str = "W001") -> None:
 # ---- the number ----------------------------------------------------------------------------------------
 
 
-def test_this_tool_writes_format_3_and_has_a_step_for_every_older_format() -> None:
-    assert SCHEMA_VERSION == 3 and migrate.current_version() == 3
-    assert sorted(migrate.MIGRATIONS) == [0, 1, 2]
+def test_the_step_from_2_to_3_is_still_a_step_of_this_tool() -> None:
+    assert SCHEMA_VERSION == 4 and migrate.current_version() == 4  # format 4 since D-251
+    assert sorted(migrate.MIGRATIONS) == [0, 1, 2, 3]
     assert migrate.MIGRATIONS[2] is migrate._v2_to_v3
     assert (
         migrate._v3_number,
@@ -98,7 +99,7 @@ def test_this_tool_writes_format_3_and_has_a_step_for_every_older_format() -> No
     assert layout.HASH_SCHEMA_VERSION == 1  # the hash is of the design, never of the format
 
 
-def test_every_fixture_and_every_shipped_example_is_in_format_3() -> None:
+def test_every_fixture_and_every_shipped_example_is_in_the_current_format() -> None:
     roots = project_roots()
     assert len(roots) >= 10
     for root in roots:
@@ -118,7 +119,7 @@ def test_the_step_maps_the_revisions_renames_the_keys_and_changes_nothing_else(
 ) -> None:
     root = as_two("released", tmp_path / "p")
     files, _broken, _issues = read_tree(root)
-    out = migrate.migrate_raw(copy.deepcopy(files), 2)
+    out = migrate.migrate_raw(copy.deepcopy(files), 2, to_version=3)
     assert out["project.json"] == {**files["project.json"], "schema_version": 3}
     letters = {rel: d["revision"] for rel, d in files.items() if rel.startswith("physical/harn")}
     assert set(letters.values()) == {"A", "B"}
@@ -219,7 +220,7 @@ def test_the_upgrade_of_a_release_history_maps_each_letter_and_writes_the_record
     assert "revision B → version 2.0.0" in out and "Only the versions change" in out
     assert main(["migrate", str(root)]) == 0
     out = capsys.readouterr().out
-    assert "Format 2 to 3." in out and "only the harness revisions changed" in out
+    assert "Format 2 to 4." in out and "only the harness revisions changed" in out
     p = load_project(root).project
     released = [b for b in p.baselines.values()]
     assert {b.version for b in released} == {"1.0.0"} and len(old) == len(released)
@@ -470,7 +471,7 @@ def test_each_new_field_round_trips_and_is_left_out_while_default(tmp_path: Path
 
 def test_the_sparse_models_leave_out_their_empty_parts() -> None:
     assert ProjectMeta().model_dump() == {
-        "name": "Untitled project", "description": "", "schema_version": 3, "tool_version": "",
+        "name": "Untitled project", "description": "", "schema_version": 4, "tool_version": "",
     }  # fmt: skip
     assert DocumentInfo().model_dump() == {} and PlanDocument().model_dump() == {}
     assert "level" not in Pin(id="1").model_dump()
@@ -543,16 +544,16 @@ def test_a_device_file_stays_version_1_until_a_device_uses_a_field_of_format_3()
     pid = box.part_id
     q.parts[pid] = evolve(q.parts[pid], link="https://example.com/p")
     assert device_library.export_devices(q, [uid])["version"] == 2
-    future = {**plain, "version": 3}
+    future = {**plain, "version": device_library.VERSION + 1}
     with pytest.raises(device_library.DeviceLibraryError, match="newer program"):
         device_library.check_library(future)
 
 
-def test_the_shipped_examples_are_format_3_with_versions() -> None:
+def test_the_shipped_examples_are_in_the_current_format_with_versions() -> None:
     examples = examples_path()
     assert examples is not None
     p = load_project(examples / "projects" / "flatsat").project
-    assert p.meta.schema_version == 3 and p.migrated_from is None
+    assert p.meta.schema_version == 4 and p.migrated_from is None
     assert {h.version for h in p.harnesses.values()} == {"1.0.0"}
     assert generation_status(p) == "current"
 
