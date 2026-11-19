@@ -9,7 +9,9 @@
 What it shows, left to right and top to bottom: the output folder (read-only: the project's
 `outputs` folder), what the export writes as a tree of harnesses x document types, and on the right
 the progress with Cancel and then the list of files written (path, document, harness, size) with
-Reveal in folder, Open and a picture of the selected drawing.
+Reveal in folder, Copy path and a picture of the selected drawing. The dialog opens no file: Copy
+path puts the file's path on the clipboard, and Reveal hands only a folder to the file manager
+(`gui/folders.py`, D-250).
 
 The export ALWAYS writes the full set of the harnesses (`core.outputs.build.write_outputs` deletes
 the files that are not in the new set and the self-check expects every harness, see
@@ -35,7 +37,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEventLoop, QItemSelectionModel, QSettings, Qt, QUrl, Signal
 from PySide6.QtGui import (
-    QDesktopServices,
     QKeySequence,
     QShortcut,
     QStandardItem,
@@ -75,7 +76,7 @@ from harness_design_studio.core.outputs.stamp import Stamp
 from harness_design_studio.core.outputs.verify import OPEN_DATA_FOLDER
 from harness_design_studio.core.validation import plan_notes
 from harness_design_studio.core.verify import VerifyReport
-from harness_design_studio.gui import export_docs, icons, strings
+from harness_design_studio.gui import export_docs, folders, icons, strings, weblinks
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.dialog_base import Dialog
 from harness_design_studio.gui.export_docs import Document
@@ -119,31 +120,6 @@ def human_size(n: int) -> str:
     if n < 1_000_000:
         return f"{n / 1000:.1f} kB"
     return f"{n / 1_000_000:.1f} MB"
-
-
-def reveal_url(path: Path) -> QUrl:
-    """The URL that shows `path` in the file manager: its folder (a folder shows itself). Linux
-    file managers have no portable "select this file", so the folder is opened."""
-    folder = path if path.is_dir() else path.parent
-    return QUrl.fromLocalFile(str(folder))
-
-
-def open_url(path: Path) -> QUrl:
-    """The URL that opens `path` with the program the system uses for it."""
-    return QUrl.fromLocalFile(str(path))
-
-
-# The only kinds of file the program writes to an outputs folder. Open hands a file to the system,
-# which would run a script or a shortcut that someone put in a shared project.
-OPENABLE_SUFFIXES = frozenset(
-    {".csv", ".xlsx", ".ods", ".pdf", ".svg", ".md", ".json", ".yaml", ".txt", ".png"}
-)
-
-
-def may_open(path: Path, *, listed: bool = True) -> bool:
-    """Whether Open may hand `path` to the system: the manifest lists it (`listed`) and it is one of
-    the kinds above. A file that only sits in the folder is never opened."""
-    return listed and path.suffix.lower() in OPENABLE_SUFFIXES
 
 
 _DAMAGED_SHOWN = 5  # file names the notice for a damaged project lists
@@ -195,13 +171,15 @@ def sheet_of(project: Project, stamp: Stamp, ref: export_docs.SheetRef) -> Sheet
 
 
 class ExportResultPanel(QWidget):
-    """The files an export wrote, with Reveal in folder, Open and a picture of the selected drawing.
+    """The files an export wrote, with Reveal in folder, Copy path and a picture of the selected
+    drawing.
 
-    `set_result` fills it; `set_filter` shows only some files (the ticked documents). Reveal and
-    Open hand a URL to `opener` (`QDesktopServices.openUrl` unless a test replaces it). Open refuses a
-    file of a kind the program does not write and says so with `not_opened`."""
+    `set_result` fills it; `set_filter` shows only some files (the ticked documents). Reveal hands
+    the folder to `opener` through `folders.reveal_folder` (the system unless a test replaces it),
+    never a file. Copy path puts the file's full path on the clipboard through `copier` (a hook
+    for the tests, as in `gui/weblinks.py`) and says so with `path_copied`."""
 
-    not_opened = Signal(str)
+    path_copied = Signal(str)
 
     def __init__(
         self,
@@ -213,7 +191,8 @@ class ExportResultPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self.theme = theme
-        self.opener: Opener = opener or QDesktopServices.openUrl
+        self.opener: Opener = opener or folders.system_open
+        self.copier: Callable[[str], None] = weblinks.system_clipboard  # a hook for the tests
         self.setObjectName("export-result")
         self.setAccessibleName(strings.EXP_RESULT_NAME)
         self.result: ExportResult | None = None
@@ -268,15 +247,15 @@ class ExportResultPanel(QWidget):
         self.reveal_btn = QPushButton()
         self.reveal_btn.setObjectName("export-reveal")
         icons.icon_button(self.reveal_btn, "reveal", theme, strings.EXP_REVEAL_TIP, text=strings.EXP_REVEAL)  # fmt: skip
-        self.open_btn = QPushButton()
-        self.open_btn.setObjectName("export-open")
-        icons.icon_button(self.open_btn, "folder-open", theme, strings.EXP_OPEN_TIP, text=strings.EXP_OPEN)  # fmt: skip
+        self.copy_path_btn = QPushButton()
+        self.copy_path_btn.setObjectName("export-copy-path")
+        icons.icon_button(self.copy_path_btn, "link", theme, strings.EXP_COPY_PATH_TIP, text=strings.EXP_COPY_PATH)  # fmt: skip
         self.folder_btn = QPushButton()
         self.folder_btn.setObjectName("export-reveal-folder")
         icons.icon_button(self.folder_btn, "reveal", theme, strings.EXP_REVEAL_FOLDER_TIP, text=strings.EXP_REVEAL_FOLDER)  # fmt: skip
         for b, tip in (
             (self.reveal_btn, strings.EXP_REVEAL_TIP),
-            (self.open_btn, strings.EXP_OPEN_TIP),
+            (self.copy_path_btn, strings.EXP_COPY_PATH_TIP),
             (self.folder_btn, strings.EXP_REVEAL_FOLDER_TIP),
         ):
             b.setToolTip(tip)
@@ -309,13 +288,13 @@ class ExportResultPanel(QWidget):
         low.addLayout(preview, 1)
         lay.addLayout(low)
         self.reveal_btn.clicked.connect(self.reveal_selected)
-        self.open_btn.clicked.connect(self.open_selected)
+        self.copy_path_btn.clicked.connect(self.copy_path)
         self.folder_btn.clicked.connect(self.reveal_folder)
-        self.table.doubleClicked.connect(lambda _i: self.open_selected())
+        self.table.doubleClicked.connect(lambda _i: self.copy_path())
         sel = self.table.selectionModel()
         if sel is not None:
             sel.selectionChanged.connect(lambda *_: self._selection_changed())
-        for keys, handler in (("Return", self.open_selected), ("Ctrl+Return", self.reveal_selected)):  # fmt: skip
+        for keys, handler in (("Return", self.copy_path), ("Ctrl+Return", self.reveal_selected)):  # fmt: skip
             for k in (keys, keys.replace("Return", "Enter")):
                 sc = QShortcut(QKeySequence(k), self.table)
                 sc.setContext(Qt.ShortcutContext.WidgetShortcut)
@@ -425,7 +404,7 @@ class ExportResultPanel(QWidget):
         files = self.selected_files()
         one = files[0] if files else None
         self.reveal_btn.setEnabled(one is not None)
-        self.open_btn.setEnabled(one is not None)
+        self.copy_path_btn.setEnabled(one is not None)
         self.folder_btn.setEnabled(self.result is not None)
         self.path_label.setText(str(one.path) if one else strings.EXP_SELECTED_NONE)
         self._show_preview(one)
@@ -435,29 +414,24 @@ class ExportResultPanel(QWidget):
         files = self.selected_files()
         if not files:
             return None
-        url = reveal_url(files[0].path)
-        self.opener(url)
-        return url
+        return folders.reveal_folder(folders.folder_of(files[0].path), self.opener)
 
-    def open_selected(self) -> QUrl | None:
+    def copy_path(self) -> str | None:
+        """Put the full path of the selected file on the clipboard; returns it. Nothing is opened,
+        so the file need not be of a kind the program writes: a path on the clipboard runs nothing
+        (the rule of the former *Open*, only files the manifest lists, is not needed for it)."""
         files = self.selected_files()
         if not files:
             return None
-        if not may_open(files[0].path):
-            self.not_opened.emit(
-                strings.OUT_NOT_OPENED
-            )  # the dialog shows it with the folder offered
-            return None
-        url = open_url(files[0].path)
-        self.opener(url)
-        return url
+        text = str(files[0].path.absolute())
+        self.copier(text)
+        self.path_copied.emit(text)
+        return text
 
     def reveal_folder(self) -> QUrl | None:
         if self.result is None:
             return None
-        url = reveal_url(self.result.folder)
-        self.opener(url)
-        return url
+        return folders.reveal_folder(self.result.folder, self.opener)
 
     # ---- the picture --------------------------------------------------------------------------
 
@@ -508,7 +482,7 @@ class ExportDialog(Dialog):
         self.ctl, self.theme, self.settings = ctl, theme, settings
         self.worker_factory = worker_factory or default_worker
         self.ask_folder: AskFolder = ask_folder or _ask_folder
-        self.opener: Opener = opener or QDesktopServices.openUrl
+        self.opener: Opener = opener or folders.system_open  # only ever gets a folder
         self.setObjectName("export-dialog")
         self.setWindowTitle(strings.EXP_TITLE)
         self.setAccessibleName(strings.EXP_ACCESSIBLE)
@@ -640,8 +614,8 @@ class ExportDialog(Dialog):
         rl.addWidget(self.cancel_btn, 0, Qt.AlignmentFlag.AlignLeft)
         rl.addStretch(1)
         self.pages.addWidget(run)
-        self.result_panel = ExportResultPanel(theme, settings=settings, opener=self._open)
-        self.result_panel.not_opened.connect(self._show_not_opened)
+        self.result_panel = ExportResultPanel(theme, settings=settings, opener=self._system)
+        self.result_panel.path_copied.connect(self._show_path_copied)
         self.pages.addWidget(self.result_panel)
         split.addWidget(self.pages)
         split.setStretchFactor(0, 1)
@@ -693,20 +667,12 @@ class ExportDialog(Dialog):
 
     # ---- the folder and what blocks an export -------------------------------------------------
 
-    def _open(self, url: QUrl) -> bool:
-        return self.opener(url)
+    def _system(self, url: QUrl) -> bool:
+        return self.opener(url)  # (`folders.reveal_folder` hands only a folder to it)
 
-    def _show_not_opened(self, text: str) -> None:
-        def folder() -> None:
-            self.result_panel.reveal_folder()
-
-        self.notice.show_notice(
-            "warning",
-            text,
-            button=strings.EXP_REVEAL_FOLDER,
-            tooltip=strings.EXP_REVEAL_FOLDER_TIP,
-            callback=folder,
-        )
+    def _show_path_copied(self, path: str) -> None:
+        self.notice.setProperty("kind", "info")
+        self.notice.show_notice("info", strings.PATH_COPIED.format(path))
 
     def output_folder(self) -> Path | None:
         return self.ctl.outputs_folder()
@@ -1122,7 +1088,7 @@ class ExportDialog(Dialog):
         self.stale_chip.setVisible(state == "stale")
         self.exported.emit(result)
         if self.open_after.isChecked():
-            self.opener(reveal_url(folder))
+            folders.reveal_folder(folder, self.opener)
         self._end(True)
 
     @staticmethod
@@ -1186,7 +1152,7 @@ class ExportDialog(Dialog):
         return len(rels)
 
     def _reveal(self, path: Path) -> None:
-        self.opener(reveal_url(path))
+        folders.reveal_folder(path, self.opener)
 
     # ---- closing ------------------------------------------------------------------------------
 

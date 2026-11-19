@@ -9,8 +9,9 @@ size, time written and SHA-256, and whether it still equals what the export wrot
 The hashes are those of the files **on disk** (not of what the program remembers), worked out in a
 `QThread` so a folder of hundreds of drawings never holds up the window. Each is compared with the
 `manifest.json` the export wrote beside the files: *Matches export*, *Changed since export*,
-*Missing* or *Not in the export*. Open, Reveal in folder and Copy to folder act on the selected
-files. Nothing here changes a file.
+*Missing* or *Not in the export*. Copy path, Reveal in folder and Copy to folder act on the
+selected files. Nothing here changes a file, and nothing opens one: Copy path puts the path on the
+clipboard, and Reveal hands only a folder to the file manager (`gui/folders.py`, D-250).
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QSettings, Qt, QThread, QUrl, Signal
-from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -38,10 +38,10 @@ from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.io.fs import atomic_write_bytes
 from harness_design_studio.core.outputs.build import MANIFEST
 from harness_design_studio.core.outputs.verify import OPEN_DATA_FOLDER
-from harness_design_studio.gui import export_docs, icons, strings
+from harness_design_studio.gui import export_docs, folders, icons, strings, weblinks
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.empty_state import attach_empty_state
-from harness_design_studio.gui.export_dialog import human_size, may_open, open_url, reveal_url
+from harness_design_studio.gui.export_dialog import human_size
 from harness_design_studio.gui.notice import InlineNotice
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager
@@ -139,7 +139,8 @@ class _GatherThread(QThread):
 class OutputsFiles(QWidget):
     """The list of the outputs folder's files. See the module text.
 
-    `opener(QUrl)` is what Open and Reveal call (`QDesktopServices.openUrl`, tests replace it);
+    `opener(QUrl)` is what Reveal hands a folder to (`folders.reveal_folder`; the system unless a
+    test replaces it); `copier(text)` puts a path on the clipboard (Copy path; tests replace it);
     `ask_folder(title)` chooses the folder Copy writes to; `refreshed` is emitted when a reading ends."""
 
     refreshed = Signal()
@@ -155,7 +156,8 @@ class OutputsFiles(QWidget):
     ) -> None:
         super().__init__()
         self.ctl, self.theme = ctl, theme
-        self.opener: Opener = opener or QDesktopServices.openUrl
+        self.opener: Opener = opener or folders.system_open  # only ever gets a folder
+        self.copier: Callable[[str], None] = weblinks.system_clipboard  # a hook for the tests
         self.ask_folder: Callable[[str], str | None] = ask_folder or self._ask_folder
         self.setObjectName("outputs-files")
         self.setAccessibleName(strings.OUT_FILES_NAME)
@@ -177,8 +179,12 @@ class OutputsFiles(QWidget):
         self.summary.setProperty("muted", True)
         bar.addWidget(self.title)
         bar.addWidget(self.summary, 1)
-        self.open_btn = self._button(
-            "open", "outputs-open", strings.EXP_OPEN, strings.EXP_OPEN_TIP, "folder-open"
+        self.copy_path_btn = self._button(
+            "copy-path",
+            "outputs-copy-path",
+            strings.EXP_COPY_PATH,
+            strings.EXP_COPY_PATH_TIP,
+            "link",
         )
         self.reveal_btn = self._button(
             "reveal", "outputs-reveal", strings.EXP_REVEAL, strings.EXP_REVEAL_TIP, "folder-open"
@@ -189,7 +195,7 @@ class OutputsFiles(QWidget):
         self.verify_btn = self._button(
             "verify", "outputs-verify", strings.OUT_VERIFY, strings.OUT_VERIFY_TIP, "refresh"
         )
-        for b in (self.open_btn, self.reveal_btn, self.copy_btn, self.verify_btn):
+        for b in (self.copy_path_btn, self.reveal_btn, self.copy_btn, self.verify_btn):
             bar.addWidget(b)
         lay.addLayout(bar)
         self.notice = InlineNotice(theme)
@@ -213,11 +219,11 @@ class OutputsFiles(QWidget):
         self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectRows)
         lay.addWidget(self.table, 1)
         attach_empty_state(self.table, strings.OUT_EMPTY_TITLE, strings.OUT_EMPTY_HINT)
-        self.open_btn.clicked.connect(self.open_selected)
+        self.copy_path_btn.clicked.connect(self.copy_path)
         self.reveal_btn.clicked.connect(self.reveal_selected)
         self.copy_btn.clicked.connect(lambda: self.copy_selected())
         self.verify_btn.clicked.connect(self.refresh)
-        self.table.activated.connect(lambda _i: self.open_selected())
+        self.table.activated.connect(lambda _i: self.copy_path())
         sel = self.table.selectionModel()
         if sel is not None:
             sel.selectionChanged.connect(lambda *_: self._sync_buttons())
@@ -348,40 +354,27 @@ class OutputsFiles(QWidget):
 
     def _sync_buttons(self) -> None:
         have = bool(self.selected_facts())
-        for b in (self.open_btn, self.reveal_btn, self.copy_btn):
+        for b in (self.copy_path_btn, self.reveal_btn, self.copy_btn):
             b.setEnabled(have)
         self.verify_btn.setEnabled(self.ctl.outputs_folder() is not None)
 
-    # ---- Open, Reveal, Copy ---------------------------------------------------------------
-    def open_selected(self) -> QUrl | None:
+    # ---- Copy path, Reveal, Copy ----------------------------------------------------------
+    def copy_path(self) -> str | None:
+        """Put the full path of the selected file on the clipboard and say so; returns it. Nothing
+        is opened, so any file of the folder may be copied: a path on the clipboard runs nothing."""
         files = self.selected_facts()
         if not files or self.folder is None:
             return None
-        path = self.folder / files[0].rel
-        if not may_open(path, listed=files[0].listed != ""):
-
-            def folder() -> None:
-                self.opener(reveal_url(path.parent))
-
-            self.notice.show_notice(
-                "warning",
-                strings.OUT_NOT_OPENED,
-                button=strings.EXP_REVEAL_FOLDER,
-                tooltip=strings.EXP_REVEAL_FOLDER_TIP,
-                callback=folder,
-            )
-            return None
-        url = open_url(path)
-        self.opener(url)
-        return url
+        text = str((self.folder / files[0].rel).absolute())
+        self.copier(text)
+        self.notice.show_notice("info", strings.PATH_COPIED.format(text))
+        return text
 
     def reveal_selected(self) -> QUrl | None:
         files = self.selected_facts()
         if not files or self.folder is None:
             return None
-        url = reveal_url(self.folder / files[0].rel)
-        self.opener(url)
-        return url
+        return folders.reveal_folder(folders.folder_of(self.folder / files[0].rel), self.opener)
 
     def copy_selected(self, folder: str | Path | None = None) -> int:
         """Copy the selected files (as they are on disk, the manifest left out) to an empty folder,
@@ -418,7 +411,7 @@ class OutputsFiles(QWidget):
         return len(files)
 
     def _reveal(self, path: Path) -> None:
-        self.opener(reveal_url(path))
+        folders.reveal_folder(path, self.opener)
 
     def select_file(self, rel: str) -> bool:
         for r in range(self.table.proxy.rowCount()):

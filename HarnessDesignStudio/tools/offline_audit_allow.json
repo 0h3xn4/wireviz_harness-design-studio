@@ -31,9 +31,6 @@
   {"kind": "written", "pattern": "{tmp}/????????", "reason": "Python's tempfile module, the first time it needs the temporary folder, checks that it can write there: it writes the four letters 'blat' to a file with a random 8-character name and deletes it at once."},
   {"kind": "written", "pattern": "/dev/null*", "reason": "The null device: what is written there is thrown away by the system."},
 
-  {"kind": "url", "pattern": "file://{package}/_internal/harness_design_studio/resources/guide/index.html", "reason": "F1: the user guide, a local file inside the package. It loads nothing from elsewhere (tests/test_offline_evidence.py checks it has no remote link, script or style); the browser that shows it is outside the claim."},
-  {"kind": "url", "pattern": "file://{src}/harness_design_studio/resources/guide/index.html", "reason": "The same guide when the audit runs the source install (--source)."},
-
   {"kind": "canary", "pattern": "{project-or-data}", "reason": "The project, its backups and its outputs: where design data belongs."},
   {"kind": "canary", "pattern": "pipe:*", "reason": "The pipe to the design rule check helper, which is this same program (see the child entry); the data does not reach a file or a socket."},
   {"kind": "canary", "pattern": "{home}/.config/HarnessDesigner/*", "fields": ["project name"], "reason": "DECIDED (the owner, 2026-11-10, D-223: keep the list and add Clear list): the editor's recent-projects list on its Home page keeps, for each project opened, the folder, the project NAME and the numbers of devices, interfaces and harnesses in the user's own settings file. Only the project name was found there (no device, interface or part data). It stays on this computer; Clear list on the Home page empties the list; it is described in docs/SECURITY.md and docs/VERIFY_OFFLINE.md."},
