@@ -1,5 +1,5 @@
-# harness-design-studio 3.0.0 model c370e71b1811
-# harness-design-studio 3.0.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.0.1 model b3edb087e200
+# harness-design-studio 3.0.1. Provided as is, without warranty. Verify before use.
 Box connector,Unit,Part,Gender,Cable connector,Cable part,Cable gender,Harness
 OBC-J01,OBC,EX-MICROD-25-F,female,W002-P1,EX-MICROD-25-M,male,W002
 OBC-J02,OBC,EX-MICROD-9-F,female,,,,

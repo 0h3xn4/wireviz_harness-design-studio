@@ -1,5 +1,5 @@
-# harness-design-studio 3.0.0 model c370e71b1811
-# harness-design-studio 3.0.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.0.1 model b3edb087e200
+# harness-design-studio 3.0.1. Provided as is, without warranty. Verify before use.
 Part,Category,Manufacturer,Part number,Description,Approval,Quantity,Unit,Wires without length,Used in
 (no part),unknown,,,,missing from parts list,0,m,2,W001
 EX-MICROD-15-F,connector,,,"Micro-D 15-pin, female (example, baseline power and data)",pending (example data),1,ea,,W002
