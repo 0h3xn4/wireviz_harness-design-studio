@@ -127,7 +127,8 @@ def test_the_upgrade_from_3_changes_the_number_only_and_passes_every_check(
     changed = {rel for rel in after if after[rel] != before[rel]}
     assert changed == {"project.json", *([JOURNAL] if had_journal else [])}
     old, new = json.loads(before["project.json"]), json.loads(after["project.json"])
-    assert old.pop("schema_version") == 3 and new.pop("schema_version") == 4 and old == new
+    old_number, new_number = old.pop("schema_version"), new.pop("schema_version")
+    assert old_number == 3 and new_number == 4 and old == new
     if had_journal:  # one more line: "migrated from format 3"
         assert after[JOURNAL].startswith(before[JOURNAL])
         assert after[JOURNAL].count(b"\n") == before[JOURNAL].count(b"\n") + 1
