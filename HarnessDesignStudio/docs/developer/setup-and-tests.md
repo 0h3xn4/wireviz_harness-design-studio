@@ -47,7 +47,7 @@ harness-design-studio --version
 ```
 
 ```
-harness 3.0.0
+harness 3.0.1
 ```
 
 Start the editor with `harness-design-studio-gui`.
