@@ -335,6 +335,16 @@ Pull request 3 is built as row 3 says, with these differences, each for the reas
 - **Column A of the harness sheet** is 16 wide (as column B) when a near block has a layout, so that *Pin row* fits; the widths are not checked by the verifier (as before).
 - **The golden project** is `tests/row_layout_support.row_layout_project` (mini3 with the rows `1 3 / 2` on the part `EX-MICROD-9-F` and own rows `5 4 / 1` on `RW1-J02`): `tests/fixtures/outputs/row_layout.json` and `row_layout/` (the pinout tables and `export.json`), and its plans in `harness_plan/row_layout*` among the plan goldens. The requirement is REQ-OUT-12.
 
+### What pull request 4 changed
+
+Pull request 4 is built as row 4 says, with these differences, each for the reason given:
+
+- **`pin-rows` is `cli/pin_rows_cmd.py`**, a module of its own beside `cli/document_cmd.py`, and calls the plans of pull request 2 (not the scripting functions, which take the project lock that the command line has taken already). Its `--json` has `ok` and `changed` first, as the other commands that change a project, and `source_id` beside the six keys of section 10, so that it is the record of `row_layout_of` (`docs/CLI.md`). `--rings` or `--no-rings` alone changes the ring mark of the part's or the connector's own rows; `--to-part` goes with `--set`, `--lengths` or a ring mark in one undo step, and not with `--clear`.
+- **`import-pinout`:** the note names the whole command, `pin-rows --connector J1 --to-part`. Rows are equal also when the column's numbers equal them once a gap is closed up, so a file with a gap reads back as no change and the gap is noted only when rows are stored. A connector whose cells of the column are all empty keeps its rows (the column gives it none). The rows the import stores are compared with the rows the connector has by section 3, so a file with the part's rows changes nothing. The document of the command has the key `row_layouts` (the connectors given rows of their own) before `import`, and the import record has the lines of section 6.2 in its `notes` (no new key).
+- **The device library commands needed no change to carry the rows:** `export_devices`, `plan_device_import`, `plan_update_device` and the subsystem file write and read the models of pull request 1 as they are. A part's rows reach a project with a part the project lacks; a part the project has is kept, as before, and the existing note says that it differs from the library's. The diff of `update-device` (and of the editor's review) lists `row_layout` of a device connector as a field, in the short form (`library_link.CONNECTOR_FIELDS`).
+- **`explain`** names the rows as an input *Pin rows* of the connector's choice, with the source (*part EX-MICROD-9-F: row_layout (the rows of its part)*), only while the connector has rows, so the explanation of a connector without rows reads as at 3.0.0.
+- **The help of `export-pinout`** is left to pull request 3, which writes the column; `import-pinout`'s help and `docs/IMPORTS.md` name it. REQ-PIN-07 records what this pull request holds (`tests/test_row_layout_cli.py`).
+
 ### What pull request 5 changed
 
 Pull request 5 is built as row 5 says, with these differences, each for the reason given:
