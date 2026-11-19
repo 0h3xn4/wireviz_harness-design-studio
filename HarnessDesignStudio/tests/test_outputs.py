@@ -252,7 +252,7 @@ def test_wireviz_yaml_and_json_export_have_the_documented_shape() -> None:
     y = files["harnesses/W001/wireviz.yaml"].decode()
     assert "connectors:" in y and "cables:" in y and "connections:" in y
     doc = json.loads(files["system/export.json"])
-    assert doc["format"] == "harness-design-studio-export" and doc["format_version"] == 1
+    assert doc["format"] == "harness-design-studio-export" and doc["format_version"] == 2
     assert doc["model_hash"] == stamp_of(p).model_hash  # type: ignore[arg-type]
     assert {
         "units",

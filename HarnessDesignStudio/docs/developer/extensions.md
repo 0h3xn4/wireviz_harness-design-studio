@@ -134,7 +134,6 @@ A rule or a table that applies to an object can read the fields of that object a
 | `harness.id` |  | text | The harness's ID. |
 | `harness.name` |  | text | The harness's name. |
 | `harness.version` |  | text | The version, MAJOR.MINOR.PATCH (1.2.0). |
-| `harness.revision` |  | text | The older name of harness.version, kept through 3.0.x: the version (D-242). |
 | `harness.status` |  | text | draft, in_review or released. |
 | `harness.wires` |  | number | The number of wires. |
 | `harness.connectors` |  | number | The number of cable connectors. |
@@ -193,7 +192,7 @@ The commands and windows: `harness-design-studio trust DIR [NAME] [--revoke] [--
 
 ## Stability
 
-The following are stable across minor versions of the tool and change only with `PLUGIN_API_VERSION` or `format_version`: the format of the data files (new optional keys are not a break), the names and meaning of the fields in the table above, the functions of the expression language, the calls of `api` for plug-ins, the entry-point group, the layout of `trusted_plugins.json`, and the keys of `extensions --json`. A field can be added; one is not removed or changed in meaning without a new `format_version`. The wording of messages is not covered.
+The following are stable across minor versions of the tool and change only with `PLUGIN_API_VERSION` or `format_version`: the format of the data files (new optional keys are not a break), the names and meaning of the fields in the table above, the functions of the expression language, the calls of `api` for plug-ins, the entry-point group, the layout of `trusted_plugins.json`, and the keys of `extensions --json`. A field can be added; one is not removed or changed in meaning without a new `format_version`. The one exception is `harness.revision`, the older name of `harness.version` that 3.0.0 announced for 3.0.x only: the major release 4.0.0 removed it (D-251, owner answer L4), and a rule or table that still names it is refused with *unknown field 'harness.revision' (did you mean harness.version?)*; `format_version` of the data files stays 1. The wording of messages is not covered.
 
 A plug-in sees the model (`Project` and what it holds) as the rest of the tool does. The model is not frozen the way `harness_design_studio.api` is (see [api-stability](api-stability.md)): a plug-in that reads the model directly can break when the model changes; one that only registers fields, rules, tables and importers through `api`, and reads the project through the scripting interface, is as stable as that interface.
 

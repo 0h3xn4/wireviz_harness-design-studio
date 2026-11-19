@@ -15,7 +15,10 @@ same project:
    rule, `_resort_field`); a column width or a cut title block text would be here as well, and none
    changes (the test fails if one does);
 5. `manifest.json`: the list of names is the 2.x list with the renamed file, and each hash and size
-   is that of the file of 3.0.
+   is that of the file of 3.0;
+6. the step of 4.0.0 (design of 4.0.0 section 11, owner answer L4): `export.json` drops the older
+   name `revision` that 3.0.x wrote beside `version` in each harness and has `format_version` 2
+   (`drop_older_name`).
 
 Workbooks are compared cell by cell with their column widths and the hash of each member that
 holds no cell (styles, workbook); drawings by their text items and positions; JSON files by their
@@ -244,6 +247,25 @@ def _resort_field(text: str, field: str = "version") -> str:
 # ---- the comparison -----------------------------------------------------------------------------
 
 
+# ---- step 6: the older name dropped in 4.0.0 --------------------------------------------------------
+
+
+EXPORT = "system/export.json"
+
+
+def drop_older_name(files: Files) -> Files:
+    """`export.json` as 4.0.0 writes it from the file of 3.0 after the word list: each harness
+    without the key `revision`, which the list keeps beside `version` as 3.0.x wrote it, and
+    `format_version` 2."""
+    if EXPORT not in files or "json" not in files[EXPORT]:
+        return files
+    doc = copy.deepcopy(files[EXPORT]["json"])
+    for h in doc.get("harnesses", []):
+        h.pop("revision", None)
+    doc["format_version"] = 2
+    return {**files, EXPORT: {**files[EXPORT], "json": doc}}
+
+
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -280,6 +302,7 @@ def compare(
     old = apply_word_changes(old, used)  # 3
     if NEW_REPORT in old:  # 4
         old[NEW_REPORT] = {**old[NEW_REPORT], "text": _resort_field(old[NEW_REPORT]["text"])}
+    old = drop_older_name(old)  # 6
     problems: list[str] = []
     if "manifest.json" in old and "manifest.json" in new:  # 5
         a, b = copy.deepcopy(old["manifest.json"]["json"]), new["manifest.json"]["json"]

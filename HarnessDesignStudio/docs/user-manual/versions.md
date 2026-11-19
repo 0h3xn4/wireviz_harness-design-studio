@@ -70,7 +70,7 @@ With `--json` both notes are in the list `notes`.
 
 - **Screen:** the top bar (*v1.0.0*, or the lowest and the highest, *v1.0.0-2.1.0*), the **Releases** tab (the column *Version*, **Compare version … with …**), the Inspector (*Version*), the chips of the **Harness** tab, the tooltip of a harness in the project tree, and the lock on a device (*W002 1.0.0*).
 - **Files:** the title block of the drawings (*VERSION*) and their header (`Version 1.1.0  status draft`), *Start here* of the build workbook, `system/changelog.csv` and the *Change log* sheet of `system/system.xlsx` (column *Version*, events *new version started* and *version changed*), `system/version_report.md`, and `system/export.json`.
-- **For scripts:** `system/export.json` and `log --json` write `version` and keep `revision` beside it with the same value through 3.0.x; the next minor release drops it. The expression field `harness.revision` stays as the older name of `harness.version` for as long.
+- **For scripts:** `system/export.json` and `log --json` write `version`. 3.0.x kept `revision` beside it with the same value; since 4.0.0 it is gone, and `format_version` of `system/export.json` is 2. The expression field `harness.revision` of 3.0.x went at the same time: write `harness.version`. The command `revise` stays as the older name of `new-version`.
 
 ## The letters of 2.x
 

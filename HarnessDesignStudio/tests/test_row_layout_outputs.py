@@ -253,7 +253,7 @@ def test_export_json_carries_the_rows_where_they_are_set(faced):
     assert boxes[OWN]["row_layout"] == {"rows": [["5", "4"], ["1"]]}
     assert "row_layout" not in boxes["PCDU-J01"]  # the part's rows are not copied to it
     assert sum("row_layout" in x for x in [*parts.values(), *boxes.values()]) == 2
-    assert doc["format_version"] == 1
+    assert doc["format_version"] == 2  # the older name `revision` dropped (pull request R)
 
 
 # ---- the independent check ------------------------------------------------------------------------

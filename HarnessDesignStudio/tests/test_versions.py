@@ -497,24 +497,66 @@ def test_new_version_on_the_command_line_and_revise_as_its_older_name(tmp_path, 
     assert load_project(root2).project.harnesses[hid2].version == "1.0.1"
 
 
-def test_log_json_and_the_expression_field_carry_both_names(tmp_path, capsys) -> None:
+# ---- the older names of 3.0.x dropped (design of 4.0.0 section 11, owner answer L4) --------------
+
+
+def test_log_json_carries_version_and_not_the_older_name(tmp_path, capsys) -> None:
     from harness_design_studio.cli.main import main
-    from harness_design_studio.core.extensions.fields import Context, _build
     from harness_design_studio.core.io.saver import save_project
 
-    p, hid = _released_project(tmp_path)
+    p, _hid = _released_project(tmp_path)
     root = tmp_path / "p"
     save_project(p, root)
     assert main(["log", str(root), "--json"]) == 0
     entries = json.loads(capsys.readouterr().out)["entries"]
-    assert entries and all(e["version"] == e["revision"] == "1.0.0" for e in entries)
-    h = p.harnesses[hid]
-    fields = {f.id: f for f in _build()}
-    assert fields["harness.version"].fn(Context(p, harness=h)) == "1.0.0"
-    assert fields["harness.revision"].fn(Context(p, harness=h)) == "1.0.0"  # older name (Q29)
+    assert entries and all(e["version"] == "1.0.0" for e in entries)
+    assert all("revision" not in e for e in entries)  # 3.0.x wrote it beside `version`
 
 
-def test_the_verifier_refuses_an_export_whose_two_names_differ(tmp_path) -> None:
+def test_the_expression_field_harness_revision_is_gone(tmp_path) -> None:
+    from harness_design_studio.core.extensions.expr import ExprError, Vocabulary, parse
+    from harness_design_studio.core.extensions.fields import (
+        BUILTIN_FIELDS,
+        Context,
+        vocabulary_fields,
+    )
+
+    p, hid = _released_project(tmp_path)
+    fields = {f.id: f for f in BUILTIN_FIELDS}
+    assert "harness.revision" not in fields  # the older name that 3.0.x kept
+    assert fields["harness.version"].fn(Context(p, harness=p.harnesses[hid])) == "1.0.0"
+    vocab = Vocabulary(
+        fields=vocabulary_fields("harness"),
+        settings=frozenset(),
+        params=frozenset(),
+        lookups=frozenset(),
+    )
+    parse("harness.version == '1.0.0'", vocab)
+    with pytest.raises(ExprError) as err:
+        parse("harness.revision == '1.0.0'", vocab)
+    assert "unknown field 'harness.revision' (did you mean harness.version?)" in err.value.message
+
+
+def test_export_json_has_format_version_2_and_no_older_name() -> None:
+    from harness_design_studio.core.outputs.build import build_outputs
+    from harness_design_studio.core.samples import mini3
+
+    p = mini3()
+    doc = json.loads(build_outputs(p, drawings=False).files["system/export.json"])
+    assert doc["format_version"] == 2  # was 1 while `revision` stood beside `version`
+    assert [h["version"] for h in doc["harnesses"]] == [h.version for h in p.harnesses.values()]
+    assert all("revision" not in h for h in doc["harnesses"])
+    assert b'"revision"' not in build_outputs(p, drawings=False).files["system/export.json"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "older_name",  # an export of 3.0.x: `revision` beside `version`
+        "format_version_1",
+    ],
+)
+def test_the_verifier_refuses_an_export_of_3_0_x(change) -> None:
     from harness_design_studio.core.outputs.build import build_outputs
     from harness_design_studio.core.outputs.verify import verify_outputs
     from harness_design_studio.core.samples import mini3
@@ -523,8 +565,11 @@ def test_the_verifier_refuses_an_export_whose_two_names_differ(tmp_path) -> None
     files = dict(build_outputs(p, drawings=False).files)
     assert verify_outputs(p, files).ok
     doc = json.loads(files["system/export.json"])
-    assert all(x["revision"] == x["version"] == "1.0.0" for x in doc["harnesses"])
-    doc["harnesses"][0]["revision"] = "2.0.0"
+    if change == "older_name":
+        for h in doc["harnesses"]:
+            h["revision"] = h["version"]
+    else:
+        doc["format_version"] = 1
     files["system/export.json"] = json.dumps(doc).encode()
     report = verify_outputs(p, files)
     assert not report.ok and any(i.code == "out_json" for i in report.errors)

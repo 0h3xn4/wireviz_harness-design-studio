@@ -20,8 +20,7 @@ from .tables import data_num, part_text
 from .xlsx_env import ILLEGAL_CHARACTERS_RE, Workbook, WriteOnlyCell
 
 JSON_FORMAT = "harness-design-studio-export"
-OLD_VERSION_KEY = "revision"  # beside `version` in each harness through 3.0.x (D-242, Q29)
-JSON_VERSION = 1
+JSON_VERSION = 2  # since 4.0.0: `version` only (D-251, L4); 1 had `revision` beside it
 
 
 def _q(s: str) -> str:
@@ -88,9 +87,6 @@ def json_export(project: Project, stamp: Stamp) -> bytes:
         ):
             if key in data:  # a sparse list (accessories) is left out while it is empty
                 data[key] = sorted(data[key], key=lambda x: x["id"])
-        # the older name of `version`, with the same value, through 3.0.x (D-242, Q29): a script
-        # that reads it keeps working for one release; the next minor release drops it
-        data[OLD_VERSION_KEY] = data["version"]
         return data
 
     doc = {

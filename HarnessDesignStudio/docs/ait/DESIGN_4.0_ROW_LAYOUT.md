@@ -358,6 +358,16 @@ Pull request 5 is built as row 5 says, with these differences, each for the reas
 - **The connector editor of a harness** is not changed: row 5 names the Inspector of a cable connector, which shows the rows it takes (kind `cable_end`, any cable connector).
 - **The screenshots** had no picture of the Devices tab; two are added (`docs/ux/qt/29-devices-pin-rows.png`, `30-pin-rows-dialog.png`), on the flatsat example with rows `1–5 / 6–9` that are an example of the form. The in-app guide and the user manual page are pull request 6.
 
+### What pull request R changed
+
+Pull request R is built as row R and section 11 say, with these differences, each for the reason given:
+
+- **Three older names went, as Q29 listed them:** `revision` of each harness in `system/export.json` (`outputs/exports.py`, whose `JSON_VERSION` is 2), `revision` of each entry of `log --json` (`cli/changes.py`) and the expression field `harness.revision` (`core/extensions/fields.py`). A rule or table that names the field is refused by the existing check, *unknown field 'harness.revision' (did you mean harness.version?)*. `revise` stays (Q30), as do `diff --from` reading an old letter, `revision_not_version` with `merge-fix`, and the step from format 2: none of them was promised *through 3.0.x* only.
+- **The verifier** compares each harness of `export.json` with the model as saved and asks for `format_version` 2 (`outputs/verify.py`, its own constant), so an export of 3.0.x reads `out_json` until it is written again; it checked before that the two names agreed.
+- **The proof of 3.0.0** (`tests/format3_support.py`) has a sixth step, `drop_older_name`, after the word list of 3.0.0, which is kept as the record of what 3.0.0 changed.
+- **`format_version` of the extension data files stays 1,** though `docs/developer/extensions.md` said that no field is removed without a new one: `harness.revision` was announced for 3.0.x only, and a new number would refuse every data file for a field that few name. The page says so. `PLUGIN_API_VERSION` and `API_VERSION` stay 1; the scripting interface had no older name.
+- **Only `system/export.json` moved:** 4 entries of the output-hash baseline, 11 of the numbers snapshot and the goldens' entries of that file, written again once with the tools (`docs/changes.md`). The release notes of 4.0.0 (pull request 6) say it under *For scripts*.
+
 ## 15. Risks
 
 - **`master` writes format 4 from the merge of pull request 1.** A fault of 3.0.0 found later cannot then be released from `master` as 3.0.x: it goes into 4.0.0, or a branch from `v3.0.0` is released (whether the tag workflow takes a commit that is not on `master` was not checked, section 17). Held by merging pull request 1 last of the pieces that can wait, or after a 3.0.x patch release if one is due.
