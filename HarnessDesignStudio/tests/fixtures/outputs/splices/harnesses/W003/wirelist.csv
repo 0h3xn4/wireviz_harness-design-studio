@@ -1,5 +1,5 @@
-# harness-design-studio 3.0.1 model d75e2a8f0e5e
-# harness-design-studio 3.0.1. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.1.0 model 2f3e22110ca1
+# harness-design-studio 3.1.0. Provided as is, without warranty. Verify before use.
 Wire,Signal,Interface,From connector,From pin,To connector,To pin,AWG,Part,Colour,Length (m),Shield group,Locked,Via
 W003-001,PWR,,W003-P1,1,W003-X1,1,22,,red,0.5,,,W003-X1
 W003-002,PWR,,W003-X1,1,W003-P2,1,24,,red,1,,,W003-X1

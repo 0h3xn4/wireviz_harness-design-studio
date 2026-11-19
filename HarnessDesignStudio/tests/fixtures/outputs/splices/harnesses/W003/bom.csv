@@ -1,5 +1,5 @@
-# harness-design-studio 3.0.1 model d75e2a8f0e5e
-# harness-design-studio 3.0.1. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.1.0 model 2f3e22110ca1
+# harness-design-studio 3.1.0. Provided as is, without warranty. Verify before use.
 Part,Category,Manufacturer,Part number,Description,Approval,Quantity,Unit,Wires without length,Used in
 (no part),unknown,,,,missing from parts list,5.56,m,0,W003
 EX-MICROD-15-M,connector,,,"Micro-D 15-pin, male (example, baseline power and data)",pending (example data),1,ea,,W003
