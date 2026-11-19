@@ -30,7 +30,7 @@ from harness_design_studio.core.model import DocumentInfo, PlanDocument, evolve 
 from harness_design_studio.core.outputs.build import harness_plans_in  # noqa: E402
 from harness_design_studio.core.samples import mini3  # noqa: E402
 from harness_design_studio.gui import export_docs, strings  # noqa: E402
-from harness_design_studio.gui.export_dialog import OPENABLE_SUFFIXES, ExportDialog  # noqa: E402
+from harness_design_studio.gui.export_dialog import ExportDialog  # noqa: E402
 from harness_design_studio.gui.library_window import LibraryWindow  # noqa: E402
 from harness_design_studio.gui.plan_pages import ExampleCodeDialog  # noqa: E402
 from tests.gui_helpers import DialogScript, hold_drc, make_window  # noqa: E402
@@ -95,7 +95,12 @@ def test_the_plans_box_starts_off_ticks_the_plans_in_and_follows_the_last_export
     assert all((folder / rel).is_file() for rel in written)
     plan_files = [f for f in result.files if f.doc.key == "plan"]
     assert len(plan_files) == len(written) and plan_files[0].doc.label == strings.DOC_HARNESS_PLAN
-    assert ".ods" in OPENABLE_SUFFIXES  # Open hands the plan to the system's program
+    # Copy path puts the plan's path on the clipboard, to open it in a spreadsheet program
+    copied: list[str] = []
+    first.result_panel.copier = copied.append
+    assert first.result_panel.select_file(written[0])
+    assert first.result_panel.copy_path() == str((folder / written[0]).absolute())
+    assert copied == [str((folder / written[0]).absolute())]
     assert not first.plans_removed
     # a window opened after an export with plans starts ticked
     again = ExportDialog(win.ctl, win.theme, win, settings=win.settings)
