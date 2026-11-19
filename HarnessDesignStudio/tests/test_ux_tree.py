@@ -578,11 +578,20 @@ def test_enter_on_a_group_opens_and_closes_it(flat, theme, qtbot) -> None:
 
 
 def test_typing_jumps_to_a_name(flat, theme, qtbot) -> None:
+    """Qt joins typed letters into one search only while each key comes within
+    `QApplication.keyboardInputInterval()` (400 ms). On a loaded CI runner the gap after the first
+    key was longer, the search started again from the second letter, and "R" landed on RFSU1. The
+    test is about the jump, not the speed of the runner, so it gives the keys a long interval."""
     tree = make(flat, theme, qtbot)
     target = tree.child_ids("units")[-1]
     tree.select("unit", tree.child_ids("units")[0])
     tree.view.setFocus()
-    QTest.keyClicks(tree.view, target[:3])
+    interval = QApplication.keyboardInputInterval()
+    QApplication.setKeyboardInputInterval(60_000)
+    try:
+        QTest.keyClicks(tree.view, target[:3])
+    finally:
+        QApplication.setKeyboardInputInterval(interval)
     cur = tree.current()
     assert cur is not None and cur[1].startswith(target[:3])
 
