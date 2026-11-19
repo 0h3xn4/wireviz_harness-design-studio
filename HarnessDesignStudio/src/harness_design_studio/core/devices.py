@@ -46,7 +46,6 @@ from .model.base import MAX_PIN_COUNT, Name, WebLink
 from .model.logical import Category, Construction, Direction, Shielding, Side
 from .model.physical import TBD_PART_ID, Gender, PinDirection, PinRole, Termination
 from .outputs.stamp import Table
-from .outputs.tables import PIN_ROW, box_pinouts
 from .ports import Port, ports_of, read_signal
 from .row_layout import follow_pins, layout_of
 from .vcs.lockview import LockRef, field_lock_reason, lock_reason, locked_objects
@@ -1340,6 +1339,8 @@ def _frozen_pins(project: Project, c: Connector) -> dict[str, str]:
 
 def pinout_table(project: Project, unit_id: str) -> Table:
     """The rows `system/box_pinouts.csv` will hold for this device, header first."""
+    from .outputs.tables import box_pinouts  # here, not at the top: it closes an import cycle
+
     if unit_id not in project.units:
         raise EditError(f"Device '{unit_id}' does not exist.")
     return box_pinouts(project, {c.id for c in unit_connectors(project, unit_id)})
@@ -1361,6 +1362,8 @@ def pinout_sheet(project: Project, unit_id: str) -> Table:
     value for it, so that the file reads back through `import-pinout`. The column Pin row of
     `pinout_table` (format 4) stays only while a connector of this device has a row layout
     (design of 4.0.0 section 6.3), so a device without one writes the file of 3.0.0."""
+    from .outputs.tables import PIN_ROW  # here, not at the top: it closes an import cycle
+
     table = pinout_table(project, unit_id)
     conns = {c.id: c for c in unit_connectors(project, unit_id)}
     if PIN_ROW in table[0] and all(layout_of(project, c) is None for c in conns.values()):
