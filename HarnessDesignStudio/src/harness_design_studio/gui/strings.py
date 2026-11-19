@@ -4211,6 +4211,7 @@ DV_CARD_ROWS_TIP = (
     "The rows of the connector's insert as they stand on its face, from the top, and where they "
     "come from: the connector's own rows or those of its part"
 )
+DV_ROWS_LINE = "Rows: {0}"
 DV_ROWS_EDIT = "Edit rows…"
 DV_ROWS_EDIT_TIP = "Enter or change the pin rows of this connector (one undo step)"
 DV_COL_PIN_ROW = "Pin row"

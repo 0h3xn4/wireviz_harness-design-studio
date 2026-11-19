@@ -86,16 +86,16 @@ def test_the_words_say_where_the_rows_come_from() -> None:
 # ---- the Devices tab: the row Pin rows and the pin table column -----------------------------------
 
 
-def test_the_devices_card_shows_the_pin_rows_and_their_source(qtbot, tmp_path) -> None:
+def test_the_pin_table_line_shows_the_pin_rows_and_their_source(qtbot, tmp_path) -> None:
     win = window_with(tmp_path)
     qtbot.addWidget(win)
     view = devices_at(win, "OBC-J02")
-    assert view.card_values["rows"].text() == "1 3 / 2, from part EX-MICROD-9-F"
-    assert view.rows_btn.isEnabled() and view.rows_btn.text() == strings.DV_ROWS_EDIT
+    assert view.rows_text.text() == strings.DV_ROWS_LINE.format("1 3 / 2, from part EX-MICROD-9-F")
+    assert view.rows_btn.isEnabled() and view.rows_btn.accessibleName() == strings.DV_ROWS_EDIT
     view = devices_at(win, OWN)
-    assert view.card_values["rows"].text() == "5 4 / 1, own rows"
+    assert view.rows_text.text() == strings.DV_ROWS_LINE.format("5 4 / 1, own rows")
     view = devices_at(win, "OBC-J01")
-    assert view.card_values["rows"].text() == strings.ROWS_NONE
+    assert view.rows_text.text() == strings.DV_ROWS_LINE.format(strings.ROWS_NONE)
     asked: list[str] = []
     view.rowsRequested.connect(asked.append)
     script = DialogScript(win, accept=False)
@@ -103,6 +103,29 @@ def test_the_devices_card_shows_the_pin_rows_and_their_source(qtbot, tmp_path) -
     assert asked == ["OBC-J01"]
     assert [d.windowTitle() for d in script.seen] == [strings.PR_TITLE_CONNECTOR.format("OBC-J01")]
     assert unnamed(view) == []
+    # the line of the pin table, before Add pin; the text is cut when the window is narrow and
+    # the whole of it is the tooltip, so the buttons keep their room
+    view = devices_at(win, "OBC-J02")
+    bar = [w.objectName() for w in (view.pins_caption, view.rows_text, view.rows_btn)]
+    assert bar == ["", "devices-pin-rows", "devices-pin-rows-edit"]
+    assert view.rows_btn.x() < view.pin_buttons["add"].x()
+    assert view.rows_text.x() < view.rows_btn.x()
+    full = view.rows_text.full_text()
+    assert full in view.rows_text.toolTip()
+    view.rows_text.resize(60, view.rows_text.height())
+    assert view.rows_text.shown_text() != full and "…" in view.rows_text.shown_text()
+    assert view.rows_text.accessibleName() == strings.DV_CARD_ROWS
+    # a pane too narrow for every button with its text shows Edit rows… as its icon; a wide one
+    # with its text
+    win.dock_left.hide()
+    win.dock_right.hide()
+    qtbot.waitUntil(lambda: view.rows_btn.text() == strings.DV_ROWS_EDIT, timeout=2000)
+    assert view.pins_caption.shown_text() == strings.DV_PIN_TABLE.format("J02")  # (whole)
+    win.dock_left.show()
+    win.dock_right.show()
+    win.resize(1100, 900)
+    qtbot.waitUntil(lambda: view.rows_btn.text() == "", timeout=2000)
+    assert view.rows_btn.accessibleName() == strings.DV_ROWS_EDIT
 
 
 def test_the_pin_table_has_the_pin_row_column_only_with_a_layout(qtbot, tmp_path) -> None:
@@ -123,6 +146,32 @@ def test_a_read_only_project_offers_no_edit_of_the_rows(qtbot, tmp_path) -> None
     assert not view.rows_btn.isEnabled()
     assert view.rows_btn.toolTip() == strings.WHY_READ_ONLY
     assert not win.pin_rows_flow("connector", "OBC-J02")
+
+
+def test_the_pin_table_keeps_four_rows_at_1440_by_900(qtbot, tmp_path) -> None:
+    """The size of docs/ux/qt/29-devices-pin-rows.png: the flatsat example, a part with rows, the
+    banner of plans out of date, the side panels open as they are by default and closed as in the
+    picture. The rows' line must not make the card taller: the pin table shows four rows or more."""
+    import shutil
+
+    from harness_design_studio.resources import examples_path
+
+    root = examples_path()
+    assert root is not None
+    shutil.copytree(root / "projects" / "flatsat", tmp_path / "flatsat")
+    win = make_window(tmp_path)
+    qtbot.addWidget(win)
+    assert win.open_project(tmp_path / "flatsat")
+    hold_drc(win)
+    assert win.ctl.set_row_layout(parse_text("1–5 / 6–9"), part="EX-MICROD-9-F")
+    view = devices_at(win, "MTQ1-J01")
+    for docks in (True, False):
+        win.dock_left.setVisible(docks)
+        win.dock_right.setVisible(docks)
+        qtbot.wait(300)  # (the banner and the layout settle)
+        table = view.pin_table
+        rows = table.viewport().height() // table.verticalHeader().defaultSectionSize()
+        assert rows >= 4, f"the pin table shows {rows} rows (side panels open: {docks})"
 
 
 # ---- the dialog ----------------------------------------------------------------------------------
@@ -227,7 +276,7 @@ def test_set_rows_is_one_undo_step_and_undo_brings_them_back(qtbot, tmp_path) ->
     assert win.ctl.project.connectors["OBC-J02"].row_layout == parse_text("2 3 1")
     assert steps(win) == n + 1
     view = devices_at(win, "OBC-J02")
-    assert view.card_values["rows"].text() == "2 3 1, own rows"
+    assert view.rows_text.text() == strings.DV_ROWS_LINE.format("2 3 1, own rows")
     assert pin_column(view) == (False, ["1", "1", "1"])  # (one row)
     win.ctl.undo()
     assert win.ctl.project.connectors["OBC-J02"].row_layout is None
