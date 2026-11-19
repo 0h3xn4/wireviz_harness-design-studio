@@ -37,7 +37,7 @@ NS = {
 ORDER = ["mimetype", "META-INF/manifest.xml", "meta.xml", "styles.xml", "content.xml"]
 # The SHA-256 of `write_ods(sample())`. A change of any byte the writer writes changes it: make it
 # again on purpose only, and say in the commit what changed in the bytes and why.
-GOLDEN = "7d362896b31466340c8302f7070b9bf99b19ba5c368df3b5789c36de2f05629f"
+GOLDEN = "73bd22a2a939b52b9844145d66b32c155441ea4d6e5cd96e4d43783cf1a307a1"
 
 HEAD = Style(bold=True, background="#9bc2e6", border=True, align="center")
 HAND = Style(colour="#ce181e", background="#eeeeee")
@@ -597,6 +597,25 @@ def test_conditions_take_and_or_but_not_the_refused_functions() -> None:
         ods.write_ods(book("OFFSET([.A1];1;0)"))
     with pytest.raises(ValueError, match="AND is not in the closed list"):
         ods.check_formula("AND([.A1];[.B1])")
+    # the search boxes of the harness plan (3.1.0): ISNUMBER and SEARCH in a condition only
+    ods.write_ods(book('IF([.$A$1]="";0;ISNUMBER(SEARCH([.$A$1];[.B1])))'))
+    with pytest.raises(ValueError, match="FIND is not in the closed list"):
+        ods.write_ods(book("ISNUMBER(FIND([.A1];[.B1]))"))
+    with pytest.raises(ValueError, match="SEARCH is not in the closed list"):
+        ods.check_formula("SEARCH([.A1];[.B1])")
+
+
+def test_content_turns_regular_expressions_and_wildcards_off() -> None:
+    """Text in a formula is read as typed: ODF's default would read a lookup key or a search text
+    as a regular expression (LibreOffice does)."""
+    content = members(ods.write_ods(sample()))["content.xml"].decode()
+    settings = (
+        '<table:calculation-settings table:use-regular-expressions="false" '
+        'table:use-wildcards="false"/>'
+    )
+    assert settings == ods.CALCULATION_SETTINGS
+    assert f"<office:spreadsheet>{settings}<table:table " in content
+    assert content.count("calculation-settings") == 1
 
 
 # ---- the rest of the model's checks ---------------------------------------------------------

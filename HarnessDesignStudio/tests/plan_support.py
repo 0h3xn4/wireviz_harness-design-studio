@@ -2,10 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The tests' own reader of a harness plan (`.ods`) and their own evaluator of the closed formula
 list of section 7.2 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`: `IF`, `ISNA`, `VLOOKUP` and `MATCH`
-(exact match), `SUMIF`, and `&`, `=`, `/`, `+`. Neither imports the plan's layout module or the
-writer: the reader parses `content.xml` with ElementTree and the evaluator computes a formula over
-the stored cells, as a spreadsheet program that recalculates would, text compared without regard
-to case. `dump` writes the cells as lines of text, for the readable goldens."""
+(exact match), `SUMIF`, and `&`, `=`, `/`, `+`; in a conditional format also `AND`, `OR`,
+`ISNUMBER` and `SEARCH` (section 25: the search boxes). Neither imports the plan's layout module
+or the writer: the reader parses `content.xml` with ElementTree and the evaluator computes a
+formula over the stored cells, as a spreadsheet program that recalculates would, text compared
+without regard to case. `SEARCH` reads its text as typed, since the plan turns regular expressions
+and wildcards off (no `*`, `?` or `~` of a pattern), and an empty text to find gives `#VALUE!`, as
+LibreOffice 24.2 does (Excel gives 1; the plan's format does not search for an empty text).
+`read_conditions` and `marked` read the conditional formats and evaluate them at a cell. `dump`
+writes the cells as lines of text, for the readable goldens."""
 
 import hashlib
 import io
@@ -21,6 +26,7 @@ from harness_design_studio.core.model import Project
 
 NS = {
     "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+    "style": "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
     "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
     "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
     "xlink": "http://www.w3.org/1999/xlink",
@@ -96,6 +102,31 @@ def read_plan(data: bytes) -> Sheets:
     return out
 
 
+Conditions = dict[str, dict[tuple[int, int], tuple[tuple[str, str], ...]]]
+
+
+def read_conditions(data: bytes) -> Conditions:
+    """sheet name -> (row, column) -> the conditional formats of the cell, each (formula, base cell
+    such as `W001.I34`), from the `style:map`s of the cell's automatic style."""
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        root = ET.fromstring(z.read("content.xml"))  # noqa: S314 (the tool's own file)
+    maps: dict[str, tuple[tuple[str, str], ...]] = {}
+    for st in root.iter(_q("style", "style")):
+        found = []
+        for m in st.findall("style:map", NS):
+            cond = m.get(_q("style", "condition"), "")
+            assert cond.startswith("is-true-formula(") and cond.endswith(")"), cond
+            found.append(
+                (cond[len("is-true-formula(") : -1], m.get(_q("style", "base-cell-address"), ""))
+            )
+        if found:
+            maps[st.get(_q("style", "name"), "")] = tuple(found)
+    return {
+        name: {k: maps[c.style] for k, c in cells.items() if c.style in maps}
+        for name, cells in read_plan(data).items()
+    }
+
+
 def shown_texts(data: bytes) -> dict[str, dict[tuple[int, int], str]]:
     """The text each cell shows (its `text:p`), as a reader that does not recalculate shows it."""
     with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -159,7 +190,14 @@ class _NA:
         return "#N/A"
 
 
-EMPTY, NA = _Empty(), _NA()
+class _ValueError(_NA):
+    """#VALUE!: what SEARCH gives when it does not find the text; it passes through like #N/A."""
+
+    def __repr__(self) -> str:
+        return "#VALUE!"
+
+
+EMPTY, NA, VALUE = _Empty(), _NA(), _ValueError()
 Scalar = str | float | bool | _Empty | _NA
 
 
@@ -173,6 +211,7 @@ _TOKEN = re.compile(
     r"|(?P<name>[A-Za-z_][A-Za-z0-9_.]*)|(?P<op>[;()&=/+]))"
 )
 FUNCTIONS = ("IF", "ISNA", "VLOOKUP", "MATCH", "SUMIF")
+CONDITION_FUNCTIONS = (*FUNCTIONS, "AND", "OR", "ISNUMBER", "SEARCH")
 
 
 def _tokens(formula: str) -> list[tuple[str, str]]:
@@ -253,7 +292,10 @@ class Evaluator:
         (r0, c0), (r1, c1) = parse_address(a1), parse_address(a2)
         return _Range([[self.cell(s2, r, c) for c in range(c0, c1 + 1)] for r in range(r0, r1 + 1)])
 
-    def evaluate(self, formula: str, sheet: str) -> Scalar:
+    def evaluate(self, formula: str, sheet: str, condition: bool = False) -> Scalar:
+        """The value of a cell formula; with `condition`, of a conditional format's formula, which
+        may also use AND, OR, ISNUMBER and SEARCH."""
+        functions = CONDITION_FUNCTIONS if condition else FUNCTIONS
         toks = _tokens(formula)
         pos = 0
 
@@ -297,7 +339,7 @@ class Evaluator:
                 return value
             if kind == "name":
                 name = text.upper()
-                if name not in FUNCTIONS:
+                if name not in functions:
                     raise ValueError(f"{text} is not in the closed list")
                 take("(")
                 # the token spans of the arguments, so that IF evaluates only the branch it takes
@@ -353,7 +395,22 @@ class Evaluator:
                 return _scalar(arg(1))
             return _scalar(arg(2)) if count > 2 else False
         if name == "ISNA":
-            return isinstance(_scalar(arg(0)), _NA)
+            return type(_scalar(arg(0))) is _NA
+        if name in ("AND", "OR"):
+            truths = [_truth(_scalar(arg(n))) for n in range(count)]
+            return all(truths) if name == "AND" else any(truths)
+        if name == "ISNUMBER":
+            v = _scalar(arg(0))
+            return isinstance(v, float)
+        if name == "SEARCH":
+            if count != 2:
+                raise ValueError("SEARCH takes the text to find and the text to look in")
+            find, within = _scalar(arg(0)), _scalar(arg(1))
+            if isinstance(find, _NA) or isinstance(within, _NA):
+                return find if isinstance(find, _NA) else within
+            needle, text = _as_text(find).casefold(), _as_text(within).casefold()
+            at = text.find(needle) if needle else -1
+            return VALUE if at < 0 else float(at + 1)
         if name == "VLOOKUP":
             key, table, col, exact = _scalar(arg(0)), arg(1), _scalar(arg(2)), _scalar(arg(3))
             if not isinstance(table, _Range) or count != 4 or _number(exact) != 0:
@@ -384,6 +441,12 @@ class Evaluator:
         raise ValueError(name)
 
 
+def _truth(v: Scalar) -> bool:
+    if isinstance(v, _NA):
+        raise ValueError(f"{v!r} where a truth value is needed")
+    return v if isinstance(v, bool) else _number(v) != 0
+
+
 def _scalar(v: Scalar | _Range) -> Scalar:
     if isinstance(v, _Range):
         if len(v.rows) == 1 and len(v.rows[0]) == 1:
@@ -406,6 +469,42 @@ def _plus(a: Scalar, b: Scalar) -> Scalar:
     if isinstance(x, _NA) or isinstance(y, _NA):
         return NA
     return x + y
+
+
+_REL = re.compile(r"\.(\$?)([A-Z]+)(\$?)([0-9]+)")
+
+
+def moved(formula: str, rows: int, cols: int) -> str:
+    """The formula with its relative references moved by `rows` and `cols` (a `$` part stays), as
+    a conditional format is read at a cell other than its base cell."""
+
+    def one(ref: re.Match[str]) -> str:
+        def move(m: re.Match[str]) -> str:
+            r, c = parse_address(f"{m.group(2)}{m.group(4)}")
+            col = address(0, c + (0 if m.group(1) else cols))[:-1]
+            row = r + (0 if m.group(3) else rows) + 1
+            return f".{m.group(1)}{col}{m.group(3)}{row}"
+
+        return _REL.sub(move, ref.group())
+
+    return re.sub(
+        r'"(?:[^"]|"")*"|\[[^\]]*\]',
+        lambda m: m.group() if m.group().startswith('"') else one(m),
+        formula,
+    )
+
+
+def marked(sheets: Sheets, conditions: Conditions, sheet: str, row: int, col: int) -> list[str]:
+    """The formulas of the conditional formats of a cell that are true there, each read at the
+    cell (its references moved from the base cell)."""
+    out = []
+    for formula, base in conditions.get(sheet, {}).get((row, col), ()):
+        r0, c0 = parse_address(base.rpartition(".")[2])
+        here = moved(formula, row - r0, col - c0)
+        value = Evaluator(sheets).evaluate(here, sheet, condition=True)
+        if _truth(value):
+            out.append(here)
+    return out
 
 
 def check_values(sheets: Sheets) -> list[str]:

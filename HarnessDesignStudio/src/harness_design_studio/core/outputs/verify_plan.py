@@ -24,9 +24,11 @@ and works out on its own, from the project, what each plan must hold:
    layout, then the pins in no row, with *Pin row* in A copying F.
 4. **The formulas** (`out_plan_formula`): each formula is the text the design gives, is in the
    closed list of section 7.2 (`IF`, `ISNA`, `VLOOKUP` and `MATCH` with exact match, `SUMIF`,
-   `&`, `=`, `/`, `+`, direct references only; `AND` and `OR` only in a conditional format), and
-   gives its stored value when a small evaluator of that list computes it over the stored cells.
-   A conditional format is checked by its formula text and its base cell only.
+   `&`, `=`, `/`, `+`, direct references only; `AND`, `OR`, `ISNUMBER` and `SEARCH` only in a
+   conditional format), and gives its stored value when a small evaluator of that list computes it
+   over the stored cells. A conditional format is checked by its formula text and its base cell
+   only; the search boxes' formats (3.1.0, section 25) need `content.xml` to turn regular
+   expressions and wildcards off (`check_settings`).
 
 Not checked: the styles, the column widths, the print set-up and how a program shows the file.
 The stamp is read from the About sheet (`plan_stamp`, for `out_stamp` in `verify.py`); a plan
@@ -65,6 +67,7 @@ OVERWRITE = (
 )
 NOT_CONNECTED = "Not connected pins will be marked yellow"
 NO_SGND = "[no SGND*]"
+SEARCH_LABEL, SEARCH_TEXT = "Column Search String", "#"  # I2:I3 and M2:M3 (section 25)
 EXAMPLE = (
     "Example colour code from the users' template: check it against the supplier's pigtail code"
 )
@@ -96,6 +99,9 @@ LEGEND = (
     "by pin code is looked up in its table on this sheet; the title, the connector descriptions, "
     "the sums per cable type, the cable type lengths and Used in Row are formulas too. Every other "
     "cell is a value of the design.",
+    "Search: type a text into I3 (Function) or M3 (Shielding); a cell of that column in the rows of "
+    "the near connectors that contains it, without regard to case, shows in red bold. An empty box "
+    "marks nothing. LibreOffice reads the text as typed; Excel reads *, ? and ~ as wildcards.",
     "The change register lists the change log of this harness (system/changelog.csv of the "
     "outputs); it is not typed into this file.",
     "This file is written by Harness Design Studio. An export overwrites it, formulas and typed "
@@ -115,10 +121,19 @@ COL_H, COL_I, COL_J, COL_K, COL_L, COL_M, COL_N, COL_O, COL_P, COL_Q, COL_R, COL
     7, 20
 )
 GROUP = 7
-# the functions of a cell formula (section 7.2); a conditional format may also use AND and OR
+# the functions of a cell formula (section 7.2); a conditional format may also use AND and OR, and
+# ISNUMBER and SEARCH for the search boxes (3.1.0, D-250, section 25)
 FUNCTIONS = frozenset({"IF", "ISNA", "VLOOKUP", "MATCH", "SUMIF"})
-CONDITION_FUNCTIONS = FUNCTIONS | {"AND", "OR"}
-ARGUMENTS = {"IF": (2, 3), "ISNA": (1, 1), "VLOOKUP": (4, 4), "MATCH": (3, 3), "SUMIF": (3, 3)}
+CONDITION_FUNCTIONS = FUNCTIONS | {"AND", "OR", "ISNUMBER", "SEARCH"}
+ARGUMENTS = {
+    "IF": (2, 3),
+    "ISNA": (1, 1),
+    "VLOOKUP": (4, 4),
+    "MATCH": (3, 3),
+    "SUMIF": (3, 3),
+    "ISNUMBER": (1, 1),
+    "SEARCH": (2, 2),  # no start position
+}
 REFUSED = ("INDIRECT", "ADDRESS", "OFFSET", "HYPERLINK")
 MAX_MESSAGES = 10  # per plan and code; the rest is counted in one more message
 MAX_REPEAT = 100_000  # a stored cell repeated more often than this is damage, not a plan
@@ -600,6 +615,9 @@ class _HarnessSheet:
         self.put(5, COL_Q, f"VERSION: v{h.version} ({STATUS.get(h.status, h.status)})")
         if self.sgnd_open():
             self.put(5, COL_T, NO_SGND)
+        for col in (COL_I, COL_M):
+            self.put(1, col, SEARCH_LABEL)
+            self.put(2, col, SEARCH_TEXT)
         row = self.part_tables()
         blocks = [(c, self.lines(c)) for c in self.near]
         further = self.place(blocks)
@@ -832,6 +850,12 @@ class _HarnessSheet:
                 base = f"{_sheet_ref(self.name)}.{address(start, col)}"
                 for r in range(start, end + 1):
                     self.conditions[r, col] = (*self.conditions.get((r, col), ()), (gnd, base))
+            for col in (COL_I, COL_M):  # the search boxes: contains the text, an empty box no
+                text = f"[.${column(col)}$3]"
+                found = f'IF({text}="";0;ISNUMBER(SEARCH({text};{_here(start, col)})))'
+                base = f"{_sheet_ref(self.name)}.{address(start, col)}"
+                for r in range(start, end + 1):
+                    self.conditions[r, col] = (*self.conditions.get((r, col), ()), (found, base))
         return end + 2
 
     def line(self, row: int, line: _Line, con: _Con | None, noted: bool) -> bool:
@@ -1686,6 +1710,18 @@ class Evaluator:
             return all(truths) if name == "AND" else any(truths)
         if name == "ISNA":
             return self.value(args[0]) == NA
+        if name == "ISNUMBER":
+            v = self.value(args[0])
+            return isinstance(v, float) and not isinstance(v, bool)
+        if name == "SEARCH":
+            # the position of the first text in the second, without regard to case and as typed (the
+            # plan turns wildcards and regular expressions off); an empty text to find is #VALUE!,
+            # as LibreOffice 24.2 gives it (section 25)
+            find, within = _text(self.value(args[0])), _text(self.value(args[1]))
+            if isinstance(find, _Error) or isinstance(within, _Error):
+                return find if isinstance(find, _Error) else within
+            at = within.casefold().find(find.casefold()) if find else -1
+            return _Error("#VALUE!") if at < 0 else float(at + 1)
         if name == "VLOOKUP":
             key, area, col = self.value(args[0]), self.eval(args[1]), _num(self.value(args[2]))
             if (
@@ -1939,6 +1975,25 @@ def _rows(
             out.add("out_plan", f"sheet {sheet!r}: {what} is in {n} rows, the design has it in {k}")
 
 
+def check_settings(root: ElementTree.Element) -> list[str]:
+    """`content.xml` turns regular expressions and wildcards off, so that a search text, a lookup key
+    and a SUMIF criterion are read as typed (section 25); without the element ODF's default turns
+    regular expressions on."""
+    sheet = root.find("office:body/office:spreadsheet", _NS)
+    settings = sheet.find("table:calculation-settings", _NS) if sheet is not None else None
+    if settings is None:
+        return [
+            "content.xml has no table:calculation-settings, so a reader takes a search text or a "
+            "lookup key as a regular expression (the default of ODF)"
+        ]
+    return [
+        f"content.xml sets table:{name} to {settings.get(_q('table', name), default)!r}, not "
+        "'false': a reader would not take a search text or a lookup key as typed"
+        for name, default in (("use-regular-expressions", "true"), ("use-wildcards", "false"))
+        if settings.get(_q("table", name), default) != "false"
+    ]
+
+
 def check_plan(
     r: VerifyReport, project: Project, h: Harness, rel: str, data: bytes, drawings: bool
 ) -> None:
@@ -1960,6 +2015,8 @@ def check_plan(
     for p in problems:
         out.add("out_plan_package", p)
     if "content.xml" in roots:
+        for p in check_settings(roots["content.xml"]):
+            out.add("out_plan_formula", p)
         try:
             read = read_cells(roots["content.xml"])
         except (PlanUnreadable, ValueError) as exc:

@@ -338,6 +338,62 @@ def test_a_conditional_format_is_checked_by_its_formula_text(project: Project, d
     assert has(plan_errors(project, bad), "out_plan_formula", "conditional format")
 
 
+# the search boxes (3.1.0, section 25 of the design)
+
+
+def test_a_search_format_with_another_function(project: Project, data: bytes) -> None:
+    bad = with_content(data, once("ISNUMBER(SEARCH(", "ISNUMBER(FIND("))
+    found = plan_errors(project, bad)
+    assert has(found, "out_plan_formula", "which is outside the closed list: FIND")
+    assert has(found, "out_plan_formula", "the design gives =IF([.$I$3]")
+
+
+def test_a_search_format_with_a_start_position(project: Project, data: bytes) -> None:
+    bad = with_content(data, once("[.$M$3];[.M", "[.$M$3];2;[.M"))
+    found = plan_errors(project, bad)
+    assert has(found, "out_plan_formula", "SEARCH takes 2 to 2 arguments here, not 3")
+
+
+def test_a_search_format_that_is_missing(project: Project, data: bytes) -> None:
+    def drop(t: str) -> str:
+        return re.sub(
+            r'<style:map style:condition="is-true-formula\(IF\(\[\.\$I\$3\][^>]*/>', "", t
+        )
+
+    found = plan_errors(project, with_content(data, drop))
+    assert has(found, "out_plan_formula", "has the conditional formats none")
+
+
+def test_a_changed_search_text(project: Project, data: bytes) -> None:
+    bad = with_content(data, once("<text:p>#</text:p>", "<text:p>TX</text:p>"))
+    assert has(plan_errors(project, bad), "out_plan", "cell I3 holds 'TX'")
+
+
+@pytest.mark.parametrize(
+    ("settings", "words"),
+    [
+        ("", "no table:calculation-settings"),
+        (
+            '<table:calculation-settings table:use-wildcards="false"/>',
+            "use-regular-expressions to 'true'",
+        ),
+        (
+            '<table:calculation-settings table:use-regular-expressions="false" table:use-wildcards="true"/>',
+            "use-wildcards to 'true'",
+        ),
+    ],
+)
+def test_a_plan_that_reads_text_as_a_pattern(
+    project: Project, data: bytes, settings: str, words: str
+) -> None:
+    from harness_design_studio.core.outputs.ods import CALCULATION_SETTINGS
+
+    bad = with_content(data, once(CALCULATION_SETTINGS, settings))
+    found = plan_errors(project, bad)
+    assert has(found, "out_plan_formula", words)
+    assert not has(found, "out_plan")
+
+
 def test_many_differences_are_counted_not_listed_one_by_one(project: Project, data: bytes) -> None:
     def drop(t: str) -> str:
         return t.replace(first_wired_row(t).group(), "", 1)
@@ -377,6 +433,26 @@ def test_and_and_or_are_taken_in_a_conditional_format_only() -> None:
     )
 
 
+def test_isnumber_and_search_are_taken_in_a_conditional_format_only() -> None:
+    found = 'IF([.$I$3]="";0;ISNUMBER(SEARCH([.$I$3];[.I34])))'
+    vp.parse_formula(found, "S", frozenset({"S"}), vp.CONDITION_FUNCTIONS)
+    for formula, why in (
+        (found, "ISNUMBER is not in the closed list"),
+        ("SEARCH([.A1];[.B1])", "SEARCH is not in the closed list"),
+    ):
+        with pytest.raises(vp.FormulaError, match=re.escape(why)):
+            vp.parse_formula(formula, "S", frozenset({"S"}))
+    for formula, why in (
+        ("FIND([.A1];[.B1])", "FIND is not in the closed list"),
+        ("ISTEXT([.A1])", "ISTEXT is not in the closed list"),
+        ("SEARCH([.A1];[.B1];2)", "SEARCH takes 2 to 2 arguments"),
+        ("SEARCH([.A1])", "SEARCH takes 2 to 2 arguments"),
+        ("ISNUMBER([.A1];[.B1])", "ISNUMBER takes 1 to 1 arguments"),
+    ):
+        with pytest.raises(vp.FormulaError, match=re.escape(why)):
+            vp.parse_formula(formula, "S", frozenset({"S"}), vp.CONDITION_FUNCTIONS)
+
+
 def _ev(cells: dict[tuple[int, int], str | float], formula: str) -> object:
     got = {
         k: vp.Got("float" if isinstance(v, float) else "string", v, str(v), "", "")
@@ -402,6 +478,30 @@ def test_the_evaluator_on_the_closed_list() -> None:
     assert _ev(cells, 'MATCH("b";[.A1:.A3];0)+10') == 13.0
     assert _ev(cells, 'SUMIF([.A1:.A3];"a";[.B1:.B3])/[.B2]') == 1.0
     assert _ev(cells, 'SUMIF([.A3:.A3];"b";[.B3:.B3])') == 5.0
+
+
+def _cond(cells: dict[tuple[int, int], str | float], formula: str) -> object:
+    got = {
+        k: vp.Got("float" if isinstance(v, float) else "string", v, str(v), "", "")
+        for k, v in cells.items()
+    }
+    ev = vp.Evaluator({"S": got})
+    return ev.value(vp.parse_formula(formula, "S", frozenset({"S"}), vp.CONDITION_FUNCTIONS))
+
+
+def test_the_evaluator_on_isnumber_and_search() -> None:
+    cells: dict[tuple[int, int], str | float] = {(0, 0): "RS422_TX+", (0, 1): 15.0, (0, 2): "a*b"}
+    assert _cond(cells, 'SEARCH("tx+";[.A1])') == 7.0
+    assert _cond(cells, 'SEARCH("x+x";[.A1])') == vp._Error("#VALUE!")  # not a pattern
+    assert _cond(cells, 'SEARCH("*";[.C1])') == 2.0
+    assert _cond(cells, 'SEARCH("5";[.B1])') == 2.0
+    assert _cond(cells, 'SEARCH("";[.A1])') == vp._Error("#VALUE!")
+    assert _cond(cells, 'ISNUMBER(SEARCH("q";[.A1]))') is False
+    assert _cond(cells, "ISNUMBER([.B1])") is True
+    assert _cond(cells, "ISNUMBER([.A1])") is False
+    assert _cond(cells, "ISNUMBER([.D9])") is False
+    found = 'IF([.D9]="";0;ISNUMBER(SEARCH([.D9];[.A1])))'
+    assert _cond(cells, found) == 0.0  # an empty box marks nothing
 
 
 # ---- the verifier's copies against the core's (Hypothesis) --------------------------------------
