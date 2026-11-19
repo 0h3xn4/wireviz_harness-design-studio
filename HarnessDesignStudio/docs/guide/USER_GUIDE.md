@@ -1,6 +1,6 @@
 # Harness Design Studio: user guide
 
-This guide is for systems engineers who have never used the tool. It works offline. Press **F1** in the app to open it.
+This guide is for systems engineers who have never used the tool. It works offline. Press **F1** in the app to show it in a window of the program, beside the editor: the links of its table of contents move within that window, and **Back** returns. The editor opens no browser; a web link in the guide is copied to the clipboard.
 
 New here? Read sections 1 to 4 (about fifteen minutes). Section 3 gives you a ready-made practice project to play with. If all you want is a quick block diagram of a set-up as a picture, with no checks and no paperwork, use **Quick mode** (section 5, *Quick mode*).
 
@@ -339,7 +339,9 @@ In the pinouts, a cable pin with no signal of its own shows the *Signal* and *In
 
 A wire part can say how many conductors one metre of it carries (`conductors`, 2 for a twisted pair; the *Conductors* column of the parts import). The BOM and the mass then count the metres of the cable, not of every wire (since 1.11.0). The tool does not guess it: set it on your pair parts.
 
-**Export…** (top bar, File menu or Design menu, Ctrl+E) opens the **Export outputs** window; a project that has harnesses or connections but no folder yet first asks where to save it, with a folder chooser. The window shows the output folder, a tree of harnesses and documents, the check box **Include the PDF drawings**, the check box **Include the open data (JSON and CSV of every result)** (the files of `export-data`, written into `outputs/data/`; off until you tick it) and, once the export has run, the list of files written with **Open**, **Reveal in folder**, a picture of the selected drawing and **Copy selection to folder…**.
+**Export…** (top bar, File menu or Design menu, Ctrl+E) opens the **Export outputs** window; a project that has harnesses or connections but no folder yet first asks where to save it, with a folder chooser. The window shows the output folder, a tree of harnesses and documents, the check box **Include the PDF drawings**, the check box **Include the open data (JSON and CSV of every result)** (the files of `export-data`, written into `outputs/data/`; off until you tick it) and, once the export has run, the list of files written with **Copy path**, **Reveal in folder**, a picture of the selected drawing and **Copy selection to folder…**.
+
+The editor opens no file: **Copy path** (or Enter, or a double-click) puts the full path of the selected file on the clipboard, to open it where you choose; **Reveal in folder** (Ctrl+Enter) shows its folder in the file manager.
 
 The export always writes the complete set; the ticks in the tree choose what the list shows and what is copied.
 
@@ -351,7 +353,7 @@ The harness drawings are written only while **Include the PDF drawings** is tick
 
 Since 3.0.0 the export can also write a **harness plan** for each harness, `harnesses/<ID>/<ID>_plan.ods`: a spreadsheet in the layout of the users' harness plan template, with formulas, next to the build workbook. Tick **Include the harness plans (.ods), one per harness** in the Export window. The box starts ticked when the last export into the folder had the plans.
 
-An export with the box unticked into a folder whose last export had plans removes them, and the window says so: *The harness plans of the earlier export were removed; tick Include the harness plans to write them again.* **Open** hands a plan to the program your system uses for `.ods` files, such as LibreOffice Calc. A harness with a splice gets a plan too: its rows follow the wires through the splice, and the wires beyond it are under *Further wires*. A plan changed after the export fails the output check, so work on a copy.
+An export with the box unticked into a folder whose last export had plans removes them, and the window says so: *The harness plans of the earlier export were removed; tick Include the harness plans to write them again.* To open a plan in a spreadsheet program such as LibreOffice Calc, use **Copy path** and paste the path into its *Open* window, or **Reveal in folder**. A harness with a splice gets a plan too: its rows follow the wires through the splice, and the wires beyond it are under *Further wires*. A plan changed after the export fails the output check, so work on a copy.
 
 What the Cover shows is set in **Settings > Document**: the system code, the title, the company and up to eight contact lines (**Add line**, **Remove line**, **Move up**, **Move down**; double-click a cell to edit it). An empty field shows what the Cover takes instead. The data is saved in `project.json`, so a name, a phone number or an e-mail address goes into the project's Git history; a role address can stand in for a person.
 
@@ -365,7 +367,7 @@ In the **Devices** tab, the pin table has a **Level** column (the level from the
 
 The **Lists** tab (Ctrl+3) shows the same tables on screen for one harness: **Wire list**, **Pinouts**, **BOM**, **Mass and length**, **Test tables**, **Labels** and the **System BOM**. Click a header to sort, type in the filter box, press Ctrl+C to copy the selected cells as text, and **Export table** writes the rows you see as CSV or Excel. **Only pending or not checked** keeps the rows whose value is still open.
 
-Under the lists, **Exported files** (the Outputs area) shows every file of the `outputs` folder: file, document, harness, format, size, time written, SHA-256 and a state. The state is *Matches export*, *Changed since export*, *Missing* or *Not in the export*, compared with the `manifest.json` the export wrote. The checksums are worked out in the background from the files on disk. **Open**, **Reveal in folder** and **Copy to folder…** act on the selected files; **Verify** reads the folder again. Nothing in this list changes a file.
+Under the lists, **Exported files** (the Outputs area) shows every file of the `outputs` folder: file, document, harness, format, size, time written, SHA-256 and a state. The state is *Matches export*, *Changed since export*, *Missing* or *Not in the export*, compared with the `manifest.json` the export wrote. The checksums are worked out in the background from the files on disk. **Copy path**, **Reveal in folder** and **Copy to folder…** act on the selected files (the editor opens no file; Reveal shows only the folder); **Verify** reads the folder again. Nothing in this list changes a file.
 
 Outputs are checked a second time by a separate routine before they are written (every cell of the tables, the pins and signals in the drawings, the PDF texts and the sheets of the workbooks are compared with the design). If that check fails, nothing is written. Export is refused for a project that is read-only or has damaged files. The PDF drawings use the Windows-1252 character set: a character outside it (for example the ohm sign) shows as `?` in the PDF, and the export warns and names each such character; the SVG keeps it. The `outputs` folder is always safe to delete and make again.
 
@@ -592,7 +594,7 @@ Every command is in a menu. The keys above are shown next to the items, and the 
 | Go | Go to As-built | opens the As-built page (listed in the AIT engineer's menu; Ctrl+K finds it in every role) |
 | Go | Go to Interface table (Ctrl+Shift+T), Go to Device list (Ctrl+Shift+J) | opens the Interfaces or Device list tab of the left panel with the keyboard in the table |
 | Go | Next panel, Previous panel (F6, Shift+F6) | moves the keyboard focus between the panels |
-| Help | User guide (F1) | opens this guide |
+| Help | User guide (F1) | shows this guide in a window of the program |
 | Help | Search and commands (Ctrl+K) | the command palette |
 | Help | Glossary | the list of words the tool uses |
 | Help | Assumptions… | what the tool assumes for this project: every setting with its value and where it comes from, the assumptions built into the tool and the fixed definitions (read-only; the text of `harness-design-studio settings`) |

@@ -6,15 +6,15 @@ REQ-OFFLINE-02: the offline audit (`tools/offline_audit.py`) reads an strace log
 families, connect targets, programs started, files written, libraries mapped as code), judges what
 it saw against a reviewed allow-list in which every entry has a reason, and passes for the source
 install of this checkout in a network namespace and under strace (a slow test, where strace and
-`unshare` exist); the editor's `--audit-run` opens a project, asks for the local guide only and
-imports no network module of Python.
+`unshare` exist); the editor's `--audit-run` opens a project, shows the guide in a window of the
+program, asks the system to open no URL and imports no network module of Python.
 REQ-OFFLINE-03: the canaries: unique words planted in a project are found in every encoding the
 audit looks for and attributed to the field they came from; a canary outside the project, its
 outputs and the places the allow-list names (with the fields it allows) is a finding.
 REQ-OFFLINE-04: the packages carry none of the network-capable native files that the program never
 loads (the Qt network library, the VNC and TUIO plug-ins, Kerberos, OpenSSL's TLS library, Python's
 TLS module): the build removes them and refuses a package that still has one, and a file that
-stays never needs one that was removed. The guide that F1 opens loads nothing from elsewhere.
+stays never needs one that was removed. The guide that F1 shows loads nothing from elsewhere.
 """
 
 import json
@@ -270,7 +270,8 @@ def test_python_modules_that_could_reach_the_network_are_left_out_of_the_package
 
 
 def test_the_guide_loads_nothing_from_elsewhere() -> None:
-    """F1 hands the guide to the system's browser; it must not make the browser fetch anything."""
+    """F1 shows the guide in a window of the program (no browser since 3.0.1); the page must not
+    ask for anything from elsewhere, should it be opened in a browser by hand."""
     for page in (SRC / "resources" / "guide").rglob("*.htm*"):
         html = page.read_text(encoding="utf-8")
         assert not re.search(
@@ -283,7 +284,7 @@ def test_the_guide_loads_nothing_from_elsewhere() -> None:
 # ---- the editor's part of the audit, and the whole audit --------------------------------------------
 
 
-def test_the_editor_audit_run_opens_the_project_and_asks_for_the_local_guide_only(
+def test_the_editor_audit_run_opens_the_project_shows_the_guide_and_opens_no_url(
     tmp_path: Path,
 ) -> None:
     pytest.importorskip("PySide6")
@@ -303,8 +304,7 @@ def test_the_editor_audit_run_opens_the_project_and_asks_for_the_local_guide_onl
     assert done.returncode == 0, done.stderr[-2000:]
     doc = json.loads(report.read_text(encoding="utf-8"))
     assert all(doc["steps"].values()), doc["steps"]
-    assert [u for u in doc["urls_opened"] if not u.startswith("file://")] == []
-    assert any(u.endswith("resources/guide/index.html") for u in doc["urls_opened"])
+    assert doc["urls_opened"] == []  # F1 shows the guide in the program: no system opener
     # No network module is imported, on any system. (Until D-222 the lock file held the computer's
     # name, and on Windows Python's platform module imported socket to read it.)
     assert doc["python_network_modules"] == [], doc.get("socket_imported_by")

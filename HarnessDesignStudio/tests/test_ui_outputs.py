@@ -42,7 +42,11 @@ def exported(ctl):
 
 
 def make_files(
-    qtbot, ctl, opened: list[QUrl] | None = None, folder_answer: str | None = None
+    qtbot,
+    ctl,
+    opened: list[QUrl] | None = None,
+    folder_answer: str | None = None,
+    copied: list[str] | None = None,
 ) -> OutputsFiles:
     panel = OutputsFiles(
         ctl,
@@ -50,6 +54,7 @@ def make_files(
         opener=(opened.append if opened is not None else lambda url: True),  # type: ignore[arg-type,return-value]
         ask_folder=lambda title: folder_answer,
     )
+    panel.copier = copied.append if copied is not None else lambda text: None
     qtbot.addWidget(panel)
     panel.resize(1000, 400)
     panel.show()
@@ -130,16 +135,20 @@ def test_nothing_exported_yet_says_so(qtbot, ctl) -> None:
     assert panel.rows() == [] and panel.table.empty_state.isVisibleTo(panel.table)  # type: ignore[attr-defined]
 
 
-def test_open_reveal_and_copy_act_on_the_selected_files(qtbot, ctl, exported, tmp_path) -> None:
+def test_copy_path_reveal_and_copy_act_on_the_selected_files(qtbot, ctl, exported, tmp_path) -> None:  # fmt: skip
     opened: list[QUrl] = []
+    copied: list[str] = []
     dest = tmp_path / "copy"
-    panel = make_files(qtbot, ctl, opened, str(dest))
-    assert not panel.open_btn.isEnabled()
-    assert panel.select_file("harnesses/W001/wirelist.csv") and panel.open_btn.isEnabled()
-    panel.open_btn.click()
+    panel = make_files(qtbot, ctl, opened, str(dest), copied)
+    assert not hasattr(panel, "open_btn") and not hasattr(panel, "open_selected")
+    assert not panel.copy_path_btn.isEnabled()
+    assert panel.select_file("harnesses/W001/wirelist.csv") and panel.copy_path_btn.isEnabled()
+    panel.copy_path_btn.click()
+    assert copied == [str((exported / "harnesses/W001/wirelist.csv").absolute())]
+    assert panel.notice.label.text() == strings.PATH_COPIED.format(copied[0])
+    assert opened == []  # the path is copied, the file is not opened
     panel.reveal_btn.click()
     assert [Path(u.toLocalFile()) for u in opened] == [  # (a URL has / where Windows has \)
-        exported / "harnesses/W001/wirelist.csv",
         exported / "harnesses/W001",
     ]
     assert panel.copy_selected() == 1
@@ -151,27 +160,21 @@ def test_open_reveal_and_copy_act_on_the_selected_files(qtbot, ctl, exported, tm
     assert not (dest / MANIFEST).exists()
 
 
-def test_open_hands_only_listed_files_of_a_known_kind_to_the_system(qtbot, ctl, exported) -> None:
-    """C-7: a received project can carry outputs/x.bat; one click must not run it."""
-    from harness_design_studio.gui.export_dialog import may_open
-
+def test_no_file_of_the_folder_is_handed_to_the_system(qtbot, ctl, exported) -> None:
+    """C-7: a received project can carry outputs/x.bat; one click must not run it. Since 3.0.1 no
+    click hands a file to the system at all: Enter, a double-click and Copy path copy its path,
+    and Reveal hands over its folder only."""
     (exported / "x.bat").write_text("echo hi")
-    (exported / "notes.csv").write_text("a,b\n1,2\n")  # a known kind, but the manifest lacks it
     opened: list[QUrl] = []
-    panel = make_files(qtbot, ctl, opened)
-    for rel in ("x.bat", "notes.csv"):
-        assert panel.select_file(rel)
-        assert panel.open_selected() is None
-        assert panel.notice.isVisibleTo(panel)
-        assert panel.notice.label.text() == strings.OUT_NOT_OPENED
-        panel.notice.action.click()  # the folder is offered instead
-        assert Path(opened.pop().toLocalFile()) == (exported / rel).parent
-        panel.notice.clear()
+    copied: list[str] = []
+    panel = make_files(qtbot, ctl, opened, copied=copied)
+    assert panel.select_file("x.bat")
+    panel.table.activated.emit(panel.table.currentIndex())  # Enter or a double-click
+    assert panel.copy_path() == str((exported / "x.bat").absolute())
+    assert copied == [str((exported / "x.bat").absolute())] * 2
     assert opened == []
-    assert panel.select_file("harnesses/W001/wirelist.csv")
-    assert panel.open_selected() is not None and len(opened) == 1
-    assert may_open(exported / "a.PDF") and not may_open(exported / "a.lnk")
-    assert not may_open(exported / "a.csv", listed=False)
+    assert panel.reveal_selected() == QUrl.fromLocalFile(str(exported))
+    assert [Path(u.toLocalFile()) for u in opened] == [exported]
 
 
 def test_the_manifest_is_never_copied(qtbot, ctl, exported, tmp_path) -> None:

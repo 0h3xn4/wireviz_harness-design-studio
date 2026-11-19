@@ -10,8 +10,9 @@ The Windows editor has no console, so it prints nothing: the exit code (0 = ok) 
 
 `--audit-run PROJECT REPORT [SECONDS]` is the editor's part of the offline audit
 (`tools/offline_audit.py`, REQ-OFFLINE-02): it starts the editor as a person would (the real
-settings file, a first start when there is none), opens PROJECT, presses F1 for the guide with the
-system's URL opener replaced by a recorder (no browser is started), runs the design rule check in
+settings file, a first start when there is none), opens PROJECT, presses F1 for the guide (shown in
+a window of the program; the system's URL opener is replaced by a recorder, and F1 must hand it
+nothing), runs the design rule check in
 its helper process, opens a folder that does not exist (a deliberate error), stays idle for SECONDS
 (default 20) and quits; REPORT gets what it saw as JSON (the URLs the editor asked to open, the
 shared libraries mapped into this process, the network modules of Python that were imported).
@@ -280,10 +281,15 @@ def audit_run(argv: list[str]) -> int:
     QApplication.processEvents()
     steps["open the project"] = bool(win.open_project(project))
     QApplication.processEvents()
-    win.act_guide.trigger()  # F1: the guide, handed to the system's opener (here the recorder)
-    guide = [u for u in opened if u.endswith("index.html")]
-    steps["F1 asks to open the local guide only"] = bool(guide) and all(
-        u.startswith("file://") for u in opened
+    before = len(opened)
+    win.act_guide.trigger()  # F1: the guide in a window of the program, no system opener (D-250)
+    QApplication.processEvents()
+    guide = win.guide_window
+    steps["F1 shows the guide in the program and opens nothing"] = (
+        guide is not None
+        and guide.isVisible()
+        and bool(guide.browser.toPlainText().strip())
+        and len(opened) == before
     )
     found = run_check(win.ctl.project)
     steps["rule check in the helper process"] = _shared.alive and isinstance(found, list)
