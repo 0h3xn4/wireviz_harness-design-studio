@@ -85,3 +85,9 @@ The note on version 2.1.0, moved word for word from the fourth item of the Statu
 The note on the publication of the major release 3.0.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 3.0.1 was written; that item still names 3.0.0 in the list of releases and says where this note is.
 
 The major release `3.0.0` (D-249; format 3, versions, the harness plan, splices; format 3 frozen from its tag) was published on 2026-11-19 (annotated tag `v3.0.0` on `711f204`, the merge of #287; made by the tag workflow, run 44444461651, its tenth use; release workflow run 44444492708, first attempt; signed and attested): the latest full release until 3.0.1 is tagged.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 3.1.0 (2026-11-19)
+
+The note on the publication of the patch release 3.0.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 3.1.0 was written; that item still names 3.0.1 in the list of releases and says where this note is.
+
+The patch release `3.0.1` (D-252; the editor opens nothing with the system's opener; no format change) was published on 2026-11-19 (annotated tag `v3.0.1` on `1c79beb`, the merge of #293; made by the tag workflow, run 44545687219, its eleventh use; release workflow run 44545771026): the latest full release until 3.1.0 is tagged.
