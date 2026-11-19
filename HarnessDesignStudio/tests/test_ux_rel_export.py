@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # mypy: disable-error-code="no-untyped-def,no-untyped-call"
 """SC-12 / SH-27: the export dialog. One dialog: output folder, harness x document tree, progress with
-Cancel, the list of files written with Reveal / Open / a drawing picture, inline notices instead of
+Cancel, the list of files written with Reveal / Copy path / a drawing picture, inline notices instead of
 pop-ups. Driven offscreen on the flatsat example (128 files with the drawings; six of its harnesses branch,
 so they also have `segments.csv`, 2.3.0)."""
 
@@ -23,15 +23,10 @@ from harness_design_studio.core.commands import Put  # noqa: E402
 from harness_design_studio.core.model import evolve  # noqa: E402
 from harness_design_studio.core.samples import new_project  # noqa: E402
 from harness_design_studio.core.verify import VerifyReport  # noqa: E402
-from harness_design_studio.gui import export_docs, strings  # noqa: E402
+from harness_design_studio.gui import export_docs, folders, strings  # noqa: E402
 from harness_design_studio.gui.controller import EditorController  # noqa: E402
-from harness_design_studio.gui.export_dialog import (  # noqa: E402
-    ExportDialog,
-    ExportResult,
-    human_size,
-    open_url,
-    reveal_url,
-)
+from harness_design_studio.gui.export_dialog import ExportDialog, ExportResult  # noqa: E402
+from harness_design_studio.gui.filesize import human_size  # noqa: E402
 from harness_design_studio.gui.main_window import OutputsWorker  # noqa: E402
 from tests.test_accessibility import unnamed  # noqa: E402
 from tests.ux_rel import (  # noqa: E402
@@ -58,6 +53,8 @@ def done(tmp_path_factory):
         return True
 
     dlg = ExportDialog(ctl, themed(), settings=settings(tmp), opener=opener)
+    copied: list[str] = []
+    dlg.result_panel.copier = copied.append
     dlg.resize(1100, 700)
     dlg.show()
     dlg.activateWindow()
@@ -66,7 +63,9 @@ def done(tmp_path_factory):
     dlg.drawings.setChecked(True)  # the drawings are optional (D-169); these tests use them
     result = dlg.run()
     assert result is not None
-    yield SimpleNamespace(ctl=ctl, dlg=dlg, res=result, opened=opened, tmp=tmp, exported=exported)
+    yield SimpleNamespace(
+        ctl=ctl, dlg=dlg, res=result, opened=opened, copied=copied, tmp=tmp, exported=exported
+    )
     dlg.close()
 
 
@@ -95,6 +94,7 @@ def clean(done):
     done.dlg.set_all_checked(True)
     done.dlg.notice.clear()
     done.opened.clear()
+    done.copied.clear()
     return done
 
 
@@ -325,32 +325,42 @@ def test_the_export_writes_the_full_set_and_lists_every_file(done) -> None:
     assert human_size(512) == "512 B" and human_size(12_300) == "12.3 kB" and human_size(2_500_000) == "2.5 MB"  # fmt: skip
 
 
-def test_reveal_and_open_build_the_right_urls(clean) -> None:
+def test_reveal_hands_only_folders_over_and_copy_path_opens_nothing(clean) -> None:
+    """3.0.1 (the owner's decision of 2026-11-19): the window opens no file. Copy path puts the
+    file's full path on the clipboard and says so; Reveal hands the file's folder, never the file,
+    to the system (`gui/folders.py`)."""
     dlg, folder = clean.dlg, outputs_of(clean.ctl)
     panel = dlg.result_panel
-    assert panel.reveal_selected() is None  # nothing selected yet
+    assert not hasattr(panel, "open_btn") and not hasattr(panel, "open_selected")
+    assert panel.reveal_selected() is None and panel.copy_path() is None  # nothing selected yet
+    assert not panel.copy_path_btn.isEnabled()
     select(dlg, "harnesses/W001/wirelist.csv")
-    assert panel.reveal_btn.isEnabled() and panel.open_btn.isEnabled()
-    assert panel.path_label.text() == str(folder / "harnesses" / "W001" / "wirelist.csv")
+    assert panel.reveal_btn.isEnabled() and panel.copy_path_btn.isEnabled()
+    wirelist = folder / "harnesses" / "W001" / "wirelist.csv"
+    assert panel.path_label.text() == str(wirelist)
     panel.reveal_btn.click()
     assert clean.opened[-1] == QUrl.fromLocalFile(str(folder / "harnesses" / "W001"))
-    assert clean.opened[-1] == reveal_url(folder / "harnesses" / "W001" / "wirelist.csv")
-    panel.open_btn.click()
-    assert clean.opened[-1] == QUrl.fromLocalFile(str(folder / "harnesses" / "W001" / "wirelist.csv"))  # fmt: skip
-    assert clean.opened[-1] == open_url(folder / "harnesses" / "W001" / "wirelist.csv")
+    assert clean.opened[-1] == folders.folder_url(wirelist.parent)
+    panel.copy_path_btn.click()
+    assert clean.copied == [str(wirelist.absolute())]
+    assert len(clean.opened) == 1  # Copy path handed nothing to the system
+    assert dlg.notice.isVisible()
+    assert dlg.notice.text() == strings.PATH_COPIED.format(wirelist.absolute())
     panel.folder_btn.click()
     assert clean.opened[-1] == QUrl.fromLocalFile(str(folder))
     assert clean.opened[-1].isLocalFile()
     assert clean.opened[-1].toLocalFile() == QDir.fromNativeSeparators(str(folder))
+    assert all(Path(u.toLocalFile()).is_dir() for u in clean.opened)
 
 
-def test_enter_opens_and_ctrl_enter_reveals_from_the_keyboard(clean) -> None:
+def test_enter_copies_the_path_and_ctrl_enter_reveals_from_the_keyboard(clean) -> None:
     dlg, folder = clean.dlg, outputs_of(clean.ctl)
     select(dlg, "system/bom.csv")
     table = dlg.result_panel.table
     table.setFocus()
     QTest.keyClick(table, Qt.Key.Key_Return)
-    assert clean.opened[-1] == QUrl.fromLocalFile(str(folder / "system" / "bom.csv"))
+    assert clean.copied == [str((folder / "system" / "bom.csv").absolute())]
+    assert clean.opened == []
     QTest.keyClick(table, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
     assert clean.opened[-1] == QUrl.fromLocalFile(str(folder / "system"))
     assert dlg.isVisible() and not dlg.running  # Enter in the list did not press the default button
@@ -558,6 +568,8 @@ def test_keyboard_only_journey(done, qtbot, tmp_path) -> None:
         worker_factory=fake_factory(done.res.built),
         opener=recorder(opened),  # fmt: skip
     )
+    copied: list[str] = []
+    dlg.result_panel.copier = copied.append
     qtbot.addWidget(dlg)
     dlg.resize(1100, 700)
     activate(dlg)
@@ -588,7 +600,7 @@ def test_keyboard_only_journey(done, qtbot, tmp_path) -> None:
     dlg.result_panel.table.setFocus()
     QTest.keyClick(dlg.result_panel.table, Qt.Key.Key_Down)
     QTest.keyClick(dlg.result_panel.table, Qt.Key.Key_Return)
-    assert opened and opened[-1].isLocalFile()
+    assert copied and Path(copied[-1]).is_file() and opened == []  # the path, nothing opened
 
 
 def test_every_control_has_a_name_before_and_after_an_export(done, qtbot, tmp_path) -> None:
@@ -602,7 +614,7 @@ def test_every_control_has_a_name_before_and_after_an_export(done, qtbot, tmp_pa
     assert unnamed(dlg) == []
     assert dlg.run() is not None
     assert unnamed(dlg) == []
-    for b in (dlg.export_btn, dlg.copy_btn, dlg.close_btn, dlg.all_btn, dlg.none_btn, dlg.cancel_btn, dlg.result_panel.reveal_btn, dlg.result_panel.open_btn, dlg.result_panel.folder_btn):  # fmt: skip
+    for b in (dlg.export_btn, dlg.copy_btn, dlg.close_btn, dlg.all_btn, dlg.none_btn, dlg.cancel_btn, dlg.result_panel.reveal_btn, dlg.result_panel.copy_path_btn, dlg.result_panel.folder_btn):  # fmt: skip
         assert b.toolTip(), b.objectName()
     assert isinstance(dlg, QDialog)
 

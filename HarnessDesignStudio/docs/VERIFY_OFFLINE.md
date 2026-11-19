@@ -19,7 +19,7 @@ This page is for a colleague who wants to check, without trusting the people who
 
 - A test shows the absence of network use only on the paths it runs. The workflow below is broad (start, examples, import, generate, check, export with drawings, open data, release, the editor, errors, idle time), but not every menu.
 - A **trusted Python plug-in** (S8) runs with your rights and can use the network: that is how plug-ins work. No plug-in runs unless a project enables it **and** you trusted that exact code; your IT department can switch plug-ins off entirely ([below](#switch-python-plug-ins-off-on-your-computers)). Rules and tables written as data (declarative extensions) are never run and are not affected.
-- The operating system, the desktop (its file dialogs run in other processes) and the **browser** that shows the guide when you press F1 are outside the claim. The guide itself is one local HTML file that loads nothing from elsewhere (a test checks it).
+- The operating system and the desktop (its file dialogs and the file manager that *Reveal in folder* asks to show a folder run in other processes) are outside the claim. Since 3.0.1 the guide that F1 shows is in a window of the program, not in a browser. The guide itself is one local HTML file that loads nothing from elsewhere (a test checks it).
 - The packages are not code-signed; the checksum shows that your file is the published one, not who made it ([`SECURITY.md`](SECURITY.md)).
 
 ## 1. Check that you have the published file (2 minutes)
@@ -66,7 +66,7 @@ grep -E 'socket\(|connect\(|sendto\(|sendmsg\(|bind\(|listen\(' trace.log gui.lo
 grep execve trace.log gui.log
 ```
 
-Expected: no `AF_INET`, `AF_INET6`, `AF_NETLINK` or `AF_PACKET` at all; in `gui.log` only `AF_UNIX` (the local display and desktop bus) and connects to local paths such as `/tmp/.X11-unix/X0` or the session bus. `execve` names only the program itself (the packaged program starts itself once more in the same process), the editor started again with `--drc-worker` (the design rule check helper), and, on a display without a desktop session, `dbus-launch`. Pressing F1 hands the guide to your desktop (`xdg-open`, then your browser): that is the one thing the editor asks another program to do, and it is a local file.
+Expected: no `AF_INET`, `AF_INET6`, `AF_NETLINK` or `AF_PACKET` at all; in `gui.log` only `AF_UNIX` (the local display and desktop bus) and connects to local paths such as `/tmp/.X11-unix/X0` or the session bus. `execve` names only the program itself (the packaged program starts itself once more in the same process), the editor started again with `--drc-worker` (the design rule check helper), and, on a display without a desktop session, `dbus-launch`. Pressing F1 shows the guide in a window of the editor and starts nothing (since 3.0.1). The one thing the editor asks another program to do is *Reveal in folder*, which hands a local folder to your desktop's file manager (`xdg-open`).
 
 **4. Which network code is even there (3 minutes).** The package carries no Qt network library, no VNC or TUIO plug-in, no Kerberos and no TLS library (from the release after 1.17.0; they are removed at build time and the build fails if one comes back):
 

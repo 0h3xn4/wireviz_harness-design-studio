@@ -32,7 +32,6 @@ from PySide6.QtGui import (
     QActionGroup,
     QCloseEvent,
     QCursor,
-    QDesktopServices,
     QGuiApplication,
     QKeySequence,
     QShowEvent,
@@ -123,7 +122,7 @@ from harness_design_studio.core.vcs.report import baselines_of, changelog_rows, 
 from harness_design_studio.core.vcs.roles import distinct_roles_on
 from harness_design_studio.core.vcs.versions import sort_versions
 from harness_design_studio.core.verify import VerifyReport
-from harness_design_studio.gui import areas, diagram_export, recent, strings, weblinks
+from harness_design_studio.gui import areas, diagram_export, folders, recent, strings, weblinks
 from harness_design_studio.gui.asbuilt_page import AsBuiltPage
 from harness_design_studio.gui.assumptions_dialog import AssumptionsDialog
 from harness_design_studio.gui.cable_end_dialog import CableEndDialog
@@ -167,6 +166,7 @@ from harness_design_studio.gui.dialogs import (
 )
 from harness_design_studio.gui.export_dialog import ExportDialog, ExportResult
 from harness_design_studio.gui.extensions_dialog import ExtensionsDialog, ask_to_trust_enabled
+from harness_design_studio.gui.guide_window import GuideWindow
 from harness_design_studio.gui.harness_view import HarnessView
 from harness_design_studio.gui.icons import icon, icon_button, style_dock_buttons, tooltip_text
 from harness_design_studio.gui.import_kinds import KINDS
@@ -570,7 +570,9 @@ class MainWindow(QMainWindow):
         # an older project format: "upgrade", "read_only" or "cancel" (asked once, on opening)
         self.ask_upgrade: Callable[[int, int], str] = self._ask_upgrade
         self.ask_file: Callable[[], str | None] = _no_file
-        self.open_url: Callable[[QUrl], bool] = QDesktopServices.openUrl
+        # the system's opener: the window hands it only a folder, through `folders.reveal_folder`
+        self.open_url: Callable[[QUrl], bool] = folders.system_open
+        self.guide_window: GuideWindow | None = None  # Help > User guide, while it is open
         self.compute_plan: Callable[[], GenerationPlan | None] = self._compute_plan
         self.compute_outputs: Callable[[], tuple[OutputSet, VerifyReport] | None] = (
             self._compute_outputs
@@ -2519,11 +2521,22 @@ class MainWindow(QMainWindow):
         self.ctl.run(strings.ARRANGE_LABEL, ops, message=strings.ARRANGE_DONE)
 
     def guide_flow(self) -> None:
+        """Help > User guide (F1): the bundled guide in a window of the program, beside the editor
+        (one window; F1 again brings it to the front). No browser is started (D-250)."""
         path = guide_path()
         if path is None:
             self.toasts.show_message(strings.GUIDE_MISSING, None)
             return
-        self.open_url(QUrl.fromLocalFile(str(path)))
+        win = self.guide_window
+        if win is None:
+            win = GuideWindow(self.theme, self, path=path)
+            win.copier = self._copy_link  # a web link in the guide is copied, never opened
+            win.destroyed.connect(self._guide_closed)
+            self.guide_window = win
+        self.run_dialog(win)
+
+    def _guide_closed(self, *_args: object) -> None:
+        self.guide_window = None
 
     def _build_menus_and_toolbar(self) -> None:
         mb = self.menuBar()
@@ -4883,7 +4896,7 @@ class MainWindow(QMainWindow):
         dlg.deleteLater()
 
     def _show_folder(self, folder: Path) -> None:
-        self.open_url(QUrl.fromLocalFile(str(folder)))
+        folders.reveal_folder(folder, self.open_url)  # a folder, never a file or a web address
 
     def export_diagram_flow(self) -> None:
         """File > Export diagram…: the block diagram as SVG, PDF and PNG in a place the person
