@@ -73,3 +73,21 @@ The minor release `2.4.0` (D-248; new projects branch, D-247; no format change) 
 The note on version 2.1.1, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 2.1.1 too.
 
 **Version `2.1.1` is published** (D-239; 2026-11-17, the latest full release until 2.2.0; no release candidate; tag `v2.1.1` on `5e99d3d`, made by the tag workflow, run 44042970611, its fifth use): a patch release with the three fixes of the end-to-end test of 2.1.0 (`explain` of a shared connector, the advice on a second plug, the *Port* column); no format change.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 3.0.1 (2026-11-19)
+
+The note on version 2.1.0, moved word for word from the fourth item of the Status section (the one that starts with *Not built*) to keep `CLAUDE.md` under its size limit when 3.0.1 was prepared; the sentence there that names the notes moved out of it now names 2.1.0 too, and the first item still names 2.1.0 in the list of releases.
+
+**Version `2.1.0` is published** (D-238; 2026-11-17, the latest full release until 2.1.1; no release candidate first; tag made by the tag workflow, its fourth use): a minor release with several interfaces on one connector and one interface per port (D-233, D-237; `docs/ait/DESIGN_2.1_PORTS.md`, pull requests 236 to 241): a port is a naming convention on `Pin.signal` (`RS422_2_TX+`, `core/ports.py`), the room on a connector is a dry run of Generate's pin assignment (`edit.connector_room`), Guided mode has two tiers, *Choose port…* is `devices.ops_assign_port`; no format change, the scripting interface is unchanged, and every project that generates at 2.0.1 generates the same; 2.0.x does not read port names, so its Generate drops the draft harnesses of such interfaces (owner question Q1), and until the branching harness of 2.3.0 interfaces to different far connectors give one plug each on the shared connector (Q2).
+
+## From the Status section of CLAUDE.md, moved with the publication record of 3.0.1 (2026-11-19)
+
+The note on the publication of the major release 3.0.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 3.0.1 was written; that item still names 3.0.0 in the list of releases and says where this note is.
+
+The major release `3.0.0` (D-249; format 3, versions, the harness plan, splices; format 3 frozen from its tag) was published on 2026-11-19 (annotated tag `v3.0.0` on `711f204`, the merge of #287; made by the tag workflow, run 44444461651, its tenth use; release workflow run 44444492708, first attempt; signed and attested): the latest full release until 3.0.1 is tagged.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 3.1.0 (2026-11-19)
+
+The note on the publication of the patch release 3.0.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 3.1.0 was written; that item still names 3.0.1 in the list of releases and says where this note is.
+
+The patch release `3.0.1` (D-252; the editor opens nothing with the system's opener; no format change) was published on 2026-11-19 (annotated tag `v3.0.1` on `1c79beb`, the merge of #293; made by the tag workflow, run 44545687219, its eleventh use; release workflow run 44545771026): the latest full release until 3.1.0 is tagged.
