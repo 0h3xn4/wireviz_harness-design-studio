@@ -19,6 +19,12 @@ a wire that ends on no near row is listed under *Further wires*, so every wire i
 descriptions, the sums and *Used in Row*), always with its stored value worked out here; everything
 the model holds is a plain value. A copy of a cell that is empty is an empty cell, not a formula: a
 reference to an empty cell shows 0 (section 2). The writer is `ods.py`; nothing here reads a file.
+
+The row layout of a box connector (format 4, design of 4.0.0 section 7; `core/row_layout.py`)
+changes the plan only where a box connector has one, so every other plan keeps its bytes: its
+`CON_…` sheet gets the column *Pin row* in F (the row of each pin, empty for a pin in no row), and
+a near block on it lists the pins row by row in the order of the layout, then the pins in no row in
+pin order, with a column *Pin row* in A whose cells copy column F of the `CON_…` sheet.
 """
 
 import math
@@ -32,6 +38,7 @@ from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.links import effective_role
 from harness_design_studio.core.model import Connector, Harness, Pin, Project, Wire
 from harness_design_studio.core.nets import splice_ids
+from harness_design_studio.core.row_layout import layout_of
 from harness_design_studio.core.vcs.report import one_line
 
 from . import ods
@@ -89,7 +96,7 @@ WRAP = Style(wrap=True)
 
 # The columns of the harness sheet (0-based): the device side B:F, the harness side H:S, then one
 # far pin column per far connector from T, a gap, and a group of seven columns per far box connector
-COL_B, COL_C, COL_D, COL_E, COL_F, COL_H = 1, 2, 3, 4, 5, 7
+COL_A, COL_B, COL_C, COL_D, COL_E, COL_F, COL_H = 0, 1, 2, 3, 4, 5, 7
 COL_I, COL_J, COL_K, COL_L, COL_M, COL_N, COL_O = 8, 9, 10, 11, 12, 13, 14
 COL_P, COL_Q, COL_R, COL_S, COL_T = 15, 16, 17, 18, 19
 GROUP_WIDTH = 7  # Pinout, Function, Direction, Level, Description, Used in Row, a gap
@@ -99,6 +106,7 @@ HARNESS_HEAD = [
 ]  # fmt: skip
 DEVICE_HEAD = ["Pin No.", "Function", "Direction", "Level", "Description"]
 PIN_HEAD = ["Pinout", "Function", "Direction", "Level", "Description"]
+PIN_ROW_HEAD = "Pin row"  # column F of a CON_ sheet and A of a near block, with a row layout
 
 Value = str | int | float
 
@@ -369,6 +377,10 @@ class ConSheet:
     values: dict[str, tuple[Value, str, str, str, str]]  # pin ID -> the five cells A to E
     device: str  # B1 as shown
     description: str  # B11 as shown
+    # with a row layout (format 4): pin ID -> the cell in F, the row (empty: in no row); and the
+    # pins in the order of the near block (row by row, then the pins in no row); else empty
+    pin_rows: dict[str, Value] | None = None
+    order: tuple[str, ...] = ()
 
 
 def con_name(box: Connector) -> str:
@@ -418,6 +430,11 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
     g.put(14, 0, "CON sheet copied from", BOLD)
     for c, head in enumerate(PIN_HEAD):
         g.put(CON_FIRST_PIN_ROW - 1, c, head, HEAD)
+    face = layout_of(project, box)
+    pin_rows: dict[str, Value] | None = None
+    if face is not None:
+        g.put(CON_FIRST_PIN_ROW - 1, COL_F, PIN_ROW_HEAD, HEAD)
+        pin_rows = {}
     pins: dict[str, int] = {}
     values: dict[str, tuple[Value, str, str, str, str]] = {}
     for n, pin in enumerate(box.pins):
@@ -433,13 +450,19 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
         g.put(r, 0, row[0], GREY)
         for c, v in enumerate(row[1:], start=1):
             g.put(r, c, v, BOX)
+        if face is not None and pin_rows is not None:
+            number = face.row_of(pin.id)
+            pin_rows[pin.id] = "" if number is None else number
+            g.put(r, COL_F, pin_rows[pin.id], BOX)
     sheet = Sheet(
         name,
         g.rows(),
-        widths=(48, 60, 22, 22, 60),
+        widths=(48, 60, 22, 22, 60, *((22,) if face is not None else ())),
         page=Page("A4", landscape=False, fit=True, footer=_footer(stamp)),
     )
-    return ConSheet(name, sheet, pins, values, device_text, desc)
+    return ConSheet(
+        name, sheet, pins, values, device_text, desc, pin_rows, face.order() if face else ()
+    )
 
 
 # ---- the harness sheet (sections 3.3 to 3.5) --------------------------------------------------
@@ -520,15 +543,24 @@ class _HarnessSheet:
         box = self.boxes.get(c.id)
         return box if box is not None and con_name(box) in self.cons else None
 
+    def con_of(self, c: Connector) -> ConSheet | None:
+        """The `CON_…` sheet of the box connector a cable connector plugs into, if it has one."""
+        box = self.box(c)
+        return self.cons[con_name(box)] if box is not None else None
+
     # -- the rows of the near end
 
     def near_rows(self, c: Connector) -> list[_Row]:
-        """The pins of the box connector it plugs into, in their order, then any pin of its own with
-        a wire that the box connector lacks; without a box connector, its own pins."""
+        """The pins of the box connector it plugs into, in their order (with a row layout: row by
+        row in the order of the layout, then the pins in no row), then any pin of its own with a
+        wire that the box connector lacks; without a box connector, its own pins."""
         box = self.box(c)
         if box is None:
             return [_Row(c, p, False, bool(self.attached.get((c.id, p.id)))) for p in c.pins]
-        rows = [_Row(c, p, True, bool(self.attached.get((c.id, p.id)))) for p in box.pins]
+        order = self.cons[con_name(box)].order  # the order of the row layout, if any
+        by_id = {p.id: p for p in box.pins}
+        pins = [by_id[i] for i in order] if order else box.pins
+        rows = [_Row(c, p, True, bool(self.attached.get((c.id, p.id)))) for p in pins]
         on_box = {r.pin.id for r in rows}
         return rows + [
             _Row(c, p, False, True)
@@ -618,7 +650,9 @@ class _HarnessSheet:
                 conditions.append(
                     Condition(f"{_addr(first, col)}:{_addr(end, col)}", gnd, RED_BOLD)
                 )
-        widths = [6, 16, 36, 16, 16, 40, 4, 16, 36, 16, 22, 16, 22, 16, 16, 16, 22, 16, 36]
+        faced = any((con := self.con_of(c)) and con.pin_rows is not None for c, _ in blocks)
+        widths = [16 if faced else 6, 16, 36, 16, 16, 40, 4, 16, 36, 16, 22, 16, 22, 16, 16, 16]
+        widths += [22, 16, 36]
         widths += [22] * max(len(self.far), 1) + [4]
         for far in self.far:
             if far.group_col is not None:
@@ -779,6 +813,8 @@ class _HarnessSheet:
         if box is not None:
             for n, text in enumerate(DEVICE_HEAD):
                 g.put(head, COL_B + n, text, HEAD)
+        if con is not None and con.pin_rows is not None:
+            g.put(head, COL_A, PIN_ROW_HEAD, HEAD)
         for n, text in enumerate(HARNESS_HEAD):
             g.put(head, COL_H + n, text, HEAD)
         for far in self.far:
@@ -817,6 +853,8 @@ class _HarnessSheet:
             g.put(row, COL_B, vals[0], GREY, formula=_there(con.name, pr, 0))
             for n in range(1, 5):
                 g.set(row, COL_B + n, _copy(vals[n], _there(con.name, pr, n), BOX))
+            if con.pin_rows is not None:
+                g.set(row, COL_A, _copy(con.pin_rows[pin_id], _there(con.name, pr, COL_F), BOX))
             if not r.wired:
                 for col in range(COL_H, self.last_col + 1):
                     g.put(row, col, "", YELLOW)

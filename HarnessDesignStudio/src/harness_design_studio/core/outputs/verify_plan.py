@@ -18,6 +18,10 @@ and works out on its own, from the project, what each plan must hold:
    Direction words (`direction_word`, `mirrored`) and the colour lookup (`lookup`);
    `tests/test_verify_plan.py` compares the copies with the core's. Every wire is in exactly one
    row (a near row, or *Further wires*, wires beyond a splice included), every pin row is there.
+   The row layout of a box connector (format 4, design of 4.0.0 section 7) is read here a second
+   time (`face_rows`, never imported from `core/row_layout.py`; `verify.py` uses it too): the
+   column *Pin row* in F of its `CON_…` sheet, and its near block row by row in the order of the
+   layout, then the pins in no row, with *Pin row* in A copying F.
 4. **The formulas** (`out_plan_formula`): each formula is the text the design gives, is in the
    closed list of section 7.2 (`IF`, `ISNA`, `VLOOKUP` and `MATCH` with exact match, `SUMIF`,
    `&`, `=`, `/`, `+`, direct references only; `AND` and `OR` only in a conditional format), and
@@ -42,7 +46,7 @@ from xml.etree import ElementTree  # noqa: S405 - DOCTYPE and entities are refus
 
 from harness_design_studio import __version__
 from harness_design_studio.core.links import effective_role
-from harness_design_studio.core.model import Connector, Harness, Pin, Project, Wire
+from harness_design_studio.core.model import Connector, Harness, Pin, Project, RowLayout, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 from harness_design_studio.core.verify import VerifyReport
 
@@ -105,7 +109,8 @@ HARNESS_HEAD = (
 )  # fmt: skip
 # the columns of the harness sheet, 0-based: B to F the device side, H to S the harness side, one
 # far pin column per far connector from T, a gap, then seven columns per far box connector
-COL_B, COL_C, COL_D, COL_E, COL_F = range(1, 6)
+COL_A, COL_B, COL_C, COL_D, COL_E, COL_F = range(6)
+PIN_ROW = "Pin row"  # F of a CON_ sheet and A of a near block, on a box connector with a layout
 COL_H, COL_I, COL_J, COL_K, COL_L, COL_M, COL_N, COL_O, COL_P, COL_Q, COL_R, COL_S, COL_T = range(
     7, 20
 )
@@ -122,6 +127,37 @@ Value = str | int | float
 
 
 # ---- the verifier's own copies of the rules of the plan ---------------------------------------
+
+
+def face_rows(project: Project, c: Connector) -> tuple[tuple[str, ...], ...] | None:
+    """The rows of the row layout of a connector (format 4, design of 4.0.0 section 3), read here
+    a second time: a box connector (one with a device) has its own rows, else its part's; a cable
+    connector its part's, else those of the box connector it plugs into (its own, else its part's).
+    Only the names that are pins of the connector are kept, each row keeping its place (so its
+    number); None for a connector without a layout. `verify.py` reads the Pin row columns of the
+    pinout tables with it."""
+
+    def own_or_part(x: Connector) -> RowLayout | None:
+        part = project.parts.get(x.part_id)
+        return x.row_layout or (part.row_layout if part is not None else None)
+
+    if c.unit_id is not None:
+        layout = own_or_part(c)
+    else:
+        part = project.parts.get(c.part_id)
+        layout = part.row_layout if part is not None else None
+        box = project.connectors.get(c.mates_with or "")
+        if layout is None and box is not None and box.unit_id is not None:
+            layout = own_or_part(box)
+    if layout is None:
+        return None
+    pins = {p.id for p in c.pins}
+    return tuple(tuple(name for name in row if name in pins) for row in layout.rows)
+
+
+def row_numbers(rows: tuple[tuple[str, ...], ...]) -> dict[str, int]:
+    """pin -> its row, counted from 1 at the top of the face."""
+    return {name: n for n, row in enumerate(rows, start=1) for name in row}
 
 
 def natural_key(text: str) -> tuple[list[int | str], str]:
@@ -422,6 +458,10 @@ class _Con:
     values: dict[str, tuple[Value, str, str, str, str]]
     device: str
     description: str
+    # with a row layout: pin -> its row in F (empty: in no row), and the box pins in the order of
+    # a near block (row by row, then the pins in no row in pin order)
+    faces: dict[str, Value] | None = None
+    order: tuple[str, ...] = ()
 
 
 def _con(project: Project, box: Connector) -> _Con:
@@ -457,6 +497,17 @@ def _con(project: Project, box: Connector) -> _Con:
     _put(g, 13, 1, box.source_version or "")
     for n, text in enumerate(PIN_HEAD):
         _put(g, 17, n, text)
+    face = face_rows(project, box)
+    numbers = row_numbers(face) if face is not None else {}
+    faces: dict[str, Value] | None = None
+    order: tuple[str, ...] = ()
+    if face is not None:
+        _put(g, 17, COL_F, PIN_ROW)
+        faces = {p.id: numbers.get(p.id, "") for p in box.pins}
+        order = (
+            *(name for row in face for name in row),
+            *(p.id for p in box.pins if p.id not in numbers),
+        )
     rows, values = {}, {}
     for n, pin in enumerate(box.pins):
         five = (
@@ -469,7 +520,9 @@ def _con(project: Project, box: Connector) -> _Con:
         rows[pin.id], values[pin.id] = 18 + n, five
         for k, item in enumerate(five):
             _put(g, 18 + n, k, item)
-    return _Con(CON + box.id, g, rows, values, device, description)
+        if faces is not None:
+            _put(g, 18 + n, COL_F, faces[pin.id])
+    return _Con(CON + box.id, g, rows, values, device, description, faces, order)
 
 
 @dataclass
@@ -673,10 +726,11 @@ class _HarnessSheet:
         without a CON_ sheet, its own pins."""
         con = self.con(c)
         box = self.project.connectors.get(c.mates_with or "") if con is not None else None
-        if box is None:
+        if box is None or con is None:
             return [_Line(c, p, False, bool(self.ends.get((c.id, p.id)))) for p in c.pins]
-        on_box = {p.id for p in box.pins}
-        return [_Line(c, p, True, bool(self.ends.get((c.id, p.id)))) for p in box.pins] + [
+        on_box = {p.id: p for p in box.pins}
+        pins = [on_box[i] for i in con.order] if con.faces is not None else box.pins
+        return [_Line(c, p, True, bool(self.ends.get((c.id, p.id)))) for p in pins] + [
             _Line(c, p, False, True)
             for p in c.pins
             if p.id not in on_box and self.ends.get((c.id, p.id))
@@ -745,6 +799,8 @@ class _HarnessSheet:
         if box is not None:
             for n, text in enumerate(DEVICE_HEAD):
                 self.put(head, COL_B + n, text)
+        if con is not None and con.faces is not None:
+            self.put(head, COL_A, PIN_ROW)
         for n, text in enumerate(HARNESS_HEAD):
             self.put(head, COL_H + n, text)
         for fc, fcon, pin_col, group in self.columns.values():
@@ -786,6 +842,8 @@ class _HarnessSheet:
             self.put(row, COL_B, five[0], _there(con.name, pr, 0))
             for n in range(1, 5):
                 self.copy(row, COL_B + n, five[n], _there(con.name, pr, n))
+            if con.faces is not None:
+                self.copy(row, COL_A, con.faces[pid], _there(con.name, pr, COL_F))
             if not line.wired:
                 if not noted:
                     self.put(row, COL_I, NOT_CONNECTED)

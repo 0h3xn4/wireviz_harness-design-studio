@@ -783,7 +783,7 @@ harness-design-studio imports my-design --check --library ../acme-device-library
 
 ### harness-design-studio export-pinout
 
-Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV, with the columns Level, Source, Source version and Source link while a pin or a connector of the device has a value for them. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document, and import-pinout reads the file back.
+Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV, with the column Pin row while a connector of the device has a row layout, and the columns Level, Source, Source version and Source link while a pin or a connector of the device has a value for them. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document, and import-pinout reads the file back.
 
 `harness-design-studio export-pinout project [options]`
 
