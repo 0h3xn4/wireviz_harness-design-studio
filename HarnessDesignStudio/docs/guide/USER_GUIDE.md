@@ -163,6 +163,12 @@ A pin can also say which way its signal runs (`in`, `out` or `bidirectional`; si
 
 The **Port** column (since 2.1.0) shows the complete named port of a fixed pinout that the pin is in, and the interface on it, for example *RS422_2 (IF-012)*. A pin named `RS422_2_TX+` is the signal TX+ of the port RS422_2. The tool works the column out from the pin names; it is not stored and not exported.
 
+**Pin rows** (since 4.0.0, format 4). The line over the pin table says where the pins sit on the face of the connector, in rows from the top: *Pins of RW1-J02  Rows: 1–11 / 12–21, from part EX-MICROD-21-F* (or *own rows*, or *none*). **Edit rows…** opens the window **Pin rows of RW1-J02**: one row per line (`1–11`, `12–21`), or **Row lengths** (`11, 10`) and **Fill**, and **Rings of a circular insert** for a circular insert. A mistake is said under the fields and keeps **Set rows** off (*pin 7 is in row 1 and in row 2*).
+
+**Use for every connector of this part** moves the rows to the part, **Back to the part's rows** clears the connector's own rows, **Clear** empties the box. While the connector has rows, the pin table has a column **Pin row**. The rows of a part are edited in its Inspector; a connector of a harness takes those of its part, else those of the device connector it plugs into, and its Inspector shows them read-only.
+
+The pinouts and the harness plan then show the row of each pin, and the check of power and return pins counts the neighbours on the face (Generate does not read the rows). The tool ships no rows: enter those of your parts from their datasheets. On the command line: `pin-rows`, and the *Pin row* column of `import-pinout` and `export-pinout` (section 10).
+
 Under it the notes about the connector, for example a signal that no interface type has, *CANH* without *CANL* on a fixed pinout, or a port that misses a signal; a double-click selects the pin the note is about.
 
 At the bottom, **Pinout as exported** shows the rows of `system/box_pinouts.csv` for this device; **Export pinout…** saves them as a CSV file or an Excel workbook.
@@ -405,7 +411,7 @@ All commands take the project folder. Exit code 0 means success, 1 means the pro
 | `harness-design-studio schema FOLDER` | write JSON Schemas of the project files for editors that complete and check JSON |
 | `harness-design-studio validate DIR` | check a project for errors |
 | `harness-design-studio check DIR` | validate, plus problems left by Git merges (including released harnesses that were edited) |
-| `harness-design-studio migrate DIR [--dry-run] [--set-version HARNESS:OLD=VERSION]` | upgrade an old-format project (originals are kept in `.migration-backup-v<N>/`; add `--dry-run` to look first, it writes nothing); from format 2 each revision letter becomes a version, the Nth letter N.0.0, and `--set-version` gives the version of a revision that is not a letter |
+| `harness-design-studio migrate DIR [--dry-run] [--set-version HARNESS:OLD=VERSION]` | upgrade an old-format project (originals are kept in `.migration-backup-v<N>/`; add `--dry-run` to look first, it writes nothing); from format 2 each revision letter becomes a version, the Nth letter N.0.0, and `--set-version` gives the version of a revision that is not a letter; from format 3 to format 4 only the number in `project.json` changes |
 | `harness-design-studio merge-fix DIR` | after a Git merge stopped on `generated/generation.json` (two people both pressed Generate): keep this side, run `generate` and `check`; refuses, and changes nothing, when another file is in conflict too |
 | `harness-design-studio generate DIR` | generate harnesses and save (not saved if errors) |
 | `harness-design-studio verify DIR [--outputs]` | self-check of the harnesses, and of `outputs/` |
@@ -625,4 +631,5 @@ The **Show** list at the right end of the Model tab bar (**More > Show only** fo
 - **Cut list**: the sheet that lists the wires in the order they are cut, with their strip lengths and a column to tick.
 - **Accessory**: sleeving, heat shrink, a label or a backshell on a harness, with where it goes in words, a length and a quantity (since 1.7.0).
 - **Contact part** and **crimp tool**: the library part (category contact) a pin uses, and the tool or setting for crimping it, in your words. The tool does not check either.
+- **Row layout**: the rows of pins on the face of a connector, from the top (`1–11 / 12–21` for a 21-pin Micro-D), kept on its part or on a device connector (since 4.0.0); the *Pin row* of a pin is its row.
 - **Fixed pin**: a pin whose signal the device itself defines (imported from KiCad); generation never moves it.
