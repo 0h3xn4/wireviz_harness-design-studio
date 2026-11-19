@@ -49,6 +49,8 @@ harness-design-studio export wheel-link --harness-plan
 
 Each harness gets `outputs/harnesses/<ID>/<ID>_plan.ods`, next to its build workbook. The option is one choice for all harnesses, as `--drawings` is; without it no plan is written. With `--json` the result lists the plans under `harness_plans`. The plan opens in LibreOffice Calc and in other programs that read OpenDocument spreadsheets; every formula carries its value, so a program that does not recalculate shows the same.
 
+**Search a column** (since 3.1.0). On the harness sheet, above the table, type a text into `I3` (Function) or `M3` (Shielding) in place of `#`: every Function or Shielding cell of the rows of the near connectors that contains the text, without regard to case, shows in red bold. `tx` marks `RS422_TX+` and `TX`; an empty box marks nothing. LibreOffice reads the text as typed; Excel reads `*`, `?` and `~` in it as wildcards. A plan saved with a typed search text is a changed plan: search in a copy, or close it without saving.
+
 ## 3. Check the plans
 
 ```
