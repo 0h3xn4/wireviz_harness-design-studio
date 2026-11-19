@@ -6,9 +6,10 @@
 
 The sheets, in the order of section 3.7: *Cover*, *Change_Register*, the harness sheet (named after
 the harness), *Notes*, one `CON_<box connector>` sheet per box connector the harness plugs into (in
-connector ID order) and *About*. The harness sheet has the header, the part tables, one block of rows
-per connector of the near end (one row per pin), the wires that do not end on a near pin, the sums
-per cable type and the reference pinouts of the far box connectors.
+connector ID order) and *About*. The harness sheet has the search boxes (a text typed there marks
+the Function or Shielding cells of the near rows that contain it), the header, the part tables, one
+block of rows per connector of the near end (one row per pin), the wires that do not end on a near
+pin, the sums per cable type and the reference pinouts of the far box connectors.
 
 The two ends are split by the sides rule of section 9 (`plan_sides`): a connector that is not a
 splice is a node; two are joined when wires, through splices (`core/nets.py`), reach both; the graph
@@ -47,6 +48,11 @@ OVERWRITE_TEXT = (
 )
 NOT_CONNECTED_TEXT = "Not connected pins will be marked yellow"
 NO_SGND = "[no SGND*]"
+# The search boxes of the template (section 3.3; 3.1.0, D-250, section 25): a label in row 2 and
+# the text in row 3 (0-based 2) over Function (I) and Shielding (M)
+SEARCH_LABEL = "Column Search String"
+SEARCH_TEXT = "#"
+SEARCH_ROW = 2
 NO_BACKSHELLS = "No backshells."
 EXAMPLE_HEADING = (
     "Example colour code from the users' template: check it against the supplier's pigtail code"
@@ -310,6 +316,15 @@ def _here(row: int, col: int) -> str:
 
 def _span(col: int, first: int, last: int) -> str:
     return f"[.{_addr(first, col)}:.{_addr(last, col)}]"
+
+
+def search_format(first: int, col: int) -> str:
+    """The conditional format of a search box over column `col` of a block that starts on row
+    `first` (0-based): true where the cell contains the text of the box above the column, without
+    regard to case and as typed (no wildcards, `ods.CALCULATION_SETTINGS`); an empty box marks
+    nothing (section 25)."""
+    box = f"[.${column(col)}${SEARCH_ROW + 1}]"
+    return f'IF({box}="";0;ISNUMBER(SEARCH({box};{_here(first, col)})))'
 
 
 def _there(sheet: str, row: int, col: int) -> str:
@@ -593,6 +608,9 @@ class _HarnessSheet:
         g.put(5, COL_Q, f"VERSION: v{h.version} ({STATUS_WORDS[h.status]})", BOLD)
         if self.signal_ground_open():
             g.put(5, COL_T, NO_SGND, RED_BOLD)
+        for col in (COL_I, COL_M):
+            g.put(SEARCH_ROW - 1, col, SEARCH_LABEL, BOLD)
+            g.put(SEARCH_ROW, col, SEARCH_TEXT, TYPED)
         row = self.part_tables(9)
         blocks = [(c, self.near_rows(c)) for c in self.sides.near]
         further = self.assign(blocks)
@@ -617,6 +635,14 @@ class _HarnessSheet:
             for col in (COL_J, COL_R):
                 conditions.append(
                     Condition(f"{_addr(first, col)}:{_addr(end, col)}", gnd, RED_BOLD)
+                )
+            for col in (COL_I, COL_M):
+                conditions.append(
+                    Condition(
+                        f"{_addr(first, col)}:{_addr(end, col)}",
+                        search_format(first, col),
+                        RED_BOLD,
+                    )
                 )
         widths = [6, 16, 36, 16, 16, 40, 4, 16, 36, 16, 22, 16, 22, 16, 16, 16, 22, 16, 36]
         widths += [22] * max(len(self.far), 1) + [4]
@@ -1155,6 +1181,9 @@ LEGEND = (
     "by pin code is looked up in its table on this sheet; the title, the connector descriptions, "
     "the sums per cable type, the cable type lengths and Used in Row are formulas too. Every other "
     "cell is a value of the design.",
+    "Search: type a text into I3 (Function) or M3 (Shielding); a cell of that column in the rows of "
+    "the near connectors that contains it, without regard to case, shows in red bold. An empty box "
+    "marks nothing. LibreOffice reads the text as typed; Excel reads *, ? and ~ as wildcards.",
     "The change register lists the change log of this harness (system/changelog.csv of the "
     "outputs); it is not typed into this file.",
     "This file is written by Harness Design Studio. An export overwrites it, formulas and typed "
