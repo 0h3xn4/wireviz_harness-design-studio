@@ -24,10 +24,12 @@ from harness_design_studio.core.model import (
     Harness,
     InterfaceInstance,
     Project,
+    RowLayout,
     Wire,
 )
 from harness_design_studio.core.model.physical import LOOSE_ROLE
 from harness_design_studio.core.ports import read_signal
+from harness_design_studio.core.row_layout import layout_of, layout_text
 
 SHOWN = 8  # how many names a line gives before "and N more": no result depends on it
 
@@ -520,6 +522,29 @@ CHOICE_EQUATION = (
 )
 
 
+ROW_SOURCES = {
+    "own": "connector {id}: row_layout (its own rows)",
+    "part": "part {id}: row_layout (the rows of its part)",
+    "mated": "connector {id}: row_layout (the device connector it plugs into)",
+}
+
+
+def rows_input(project: Project, connector: Connector) -> list[Input]:
+    """The row layout of a connector and where it comes from (format 4, design of 4.0.0 sections
+    3 and 10), as an input of its explanation; none while it has no layout, so an explanation
+    without a layout reads as at 3.0.0."""
+    found = layout_of(project, connector)
+    if found is None:
+        return []
+    kept = [list(row) for row in found.rows if row]
+    text = (
+        layout_text(RowLayout(rows=kept, rings=found.rings))
+        if kept
+        else "none of its pins is in a row"
+    )
+    return [Input("Pin rows", text, "", ROW_SOURCES[found.source].format(id=found.source_id))]
+
+
 def _box_choice(project: Project, box: Connector) -> Derivation:
     ends = [
         (i, e)
@@ -531,6 +556,7 @@ def _box_choice(project: Project, box: Connector) -> Derivation:
         Input("Device", box.unit_id, "", f"connector {box.id}"),
         Input("Part", box.part_id, "", f"connector {box.id}: part"),
         Input("Carries", ", ".join(box.carries) or "any type", "", f"connector {box.id}: Carries"),
+        *rows_input(project, box),
     ]
     steps: list[Step] = []
     method = connector_choice.method(project)
@@ -725,6 +751,7 @@ def _cable_choice(project: Project, h: Harness, c: Connector) -> Derivation:
             f"connector {c.mates_with}",
         ),
         Input("Locked (edited by a person)", "yes" if c.locked else "no", "", f"connector {c.id}"),
+        *rows_input(project, c),
     ]
     steps = [
         text_step(

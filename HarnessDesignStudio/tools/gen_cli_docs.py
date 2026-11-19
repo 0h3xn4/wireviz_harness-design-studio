@@ -29,6 +29,7 @@ GROUPS = (
             "import-lengths",
             "import-netlist",
             "import-pinout",
+            "pin-rows",
             "import-devices",
             "import-subsystem",
             "import-build-data",
@@ -209,6 +210,13 @@ EXAMPLES: dict[str, list[str]] = {
         "harness-design-studio import-pinout my-design gyro-pinout.csv --device GYRO1 --default-part MY-HD-9-F --dry-run",
         "harness-design-studio import-pinout my-design gyro-pinout.csv --device GYRO1 --default-part MY-HD-9-F --dry-run --json",
         'harness-design-studio import-pinout my-design icd.xlsx --device CAM1 --new-device "Camera" --part J1=MY-HD-9-F --part J2=MY-HD-15-M',
+    ],
+    "pin-rows": [
+        "harness-design-studio pin-rows my-design --part MY-MICROD-21-F --lengths 11,10",
+        'harness-design-studio pin-rows my-design --connector GYRO1-J01 --set "1–11 / 12–21"',
+        "harness-design-studio pin-rows my-design --connector GYRO1-J01 --to-part",
+        "harness-design-studio pin-rows my-design --connector W001-P1 --json",
+        "harness-design-studio pin-rows my-design --connector GYRO1-J01 --clear",
     ],
     "export-pinout": [
         "harness-design-studio export-pinout my-design --device GYRO1",
@@ -399,7 +407,15 @@ def _json_section() -> list[str]:
         "`config` prints every engineering value with its unit, its use, whether it is set and "
         "where it came from, and the values it refused, in the order of the hand-over list; "
         "`comment_warnings` lists the comments `_about` of the config files that are out of date. "
-        "`settings --annotate` and `--no-annotate` print the document `settings --annotate`.",
+        "`settings --annotate` and `--no-annotate` print the document `settings --annotate`. "
+        "`pin-rows` prints the record of `row_layout_of` of the Python interface with `changed` "
+        "before it: `kind` is `part` or `connector`, `rows` the rows from the top of the face "
+        "(for a connector only its pins, a row keeping its number, so a row none of whose names "
+        "is a pin is an empty list), `rings` whether they are the rings of a circular insert, "
+        "`source` where they come from (`own`, `part`, `mated`: the device connector a connector "
+        "of a harness plugs into, or `none`), `source_id` that part or connector, and `text` the "
+        "short form (`1–11 / 12–21`). `import-pinout` lists in `row_layouts` the connectors that "
+        "a *Pin row* column gave rows of their own.",
         "",
         "| Command | Keys of the document |",
         "| --- | --- |",

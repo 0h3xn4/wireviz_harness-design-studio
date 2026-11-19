@@ -18,6 +18,16 @@ the row is imported, and the import record lists the word under the converted va
 *Source* (also *ICD*), *Source version* and *Source link* say where the pinout of a connector comes
 from; the rows of one connector give one value.
 
+An optional *Pin row* column (4.0.0, format 4, design of 4.0.0 section 6.2; also *Row* or *Contact
+row*) gives the row of the pin on the face of its connector, a whole number from 1; the pins of a
+row are in the order of the lines, and an empty cell leaves the pin out of the rows. For each
+connector the rows are compared with the layout it has now (`core/row_layout.layout_of`), row by
+row as sets of pins: equal, nothing changes (so a file `export-pinout` wrote reads back as no
+change); else they become the connector's own rows (`row_layout_edit.plan_set_row_layout`),
+keeping the ring mark of the layout it had, and the import names the connector under *row layouts
+set*, with a note when its part has no rows of its own. Rows that leave a gap (1 and 3) are closed
+up and noted. A sheet without the column leaves every layout as it is.
+
 The tool knows no program's table format: columns are matched by their headings (with common
 aliases), the way the parts import does. Columns it cannot store (remarks,
 a voltage) are named in a warning and left out; the file format has no field for them.
@@ -44,7 +54,7 @@ from .imports import (
     parse_csv_file,
     read_table_sheet,
 )
-from .model import Connector, InterfaceType, Project
+from .model import Connector, InterfaceType, Project, RowLayout
 from .ports import (
     SEPARATORS,
     Port,
@@ -55,6 +65,8 @@ from .ports import (
     ports_of,
     read_signal,
 )
+from .row_layout import layout_of, layout_text
+from .row_layout_edit import plan_set_row_layout
 
 Table = list[list[str]]
 
@@ -75,6 +87,7 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("source_doc", "Source"),
     ("source_version", "Source version"),
     ("source_link", "Source link"),
+    ("pin_row", "Pin row"),
 )
 _ALIASES = {
     "connector": ("connector", "conn", "connectorid", "connectorname", "ref", "reference"),
@@ -99,6 +112,7 @@ _ALIASES = {
     "source_doc": ("source", "icd", "sourcedocument", "sourcedoc"),
     "source_version": ("sourceversion", "icdversion", "sourcedocumentversion"),
     "source_link": ("sourcelink", "icdlink", "sourceurl", "icdurl"),
+    "pin_row": ("pinrow", "row", "contactrow"),  # 4.0.0: the row of the pin on the face
 }
 # the fields that belong to a connector, not to a pin: the rows of one connector give one value
 CONNECTOR_COLUMNS = ("source_doc", "source_version", "source_link")
@@ -239,6 +253,8 @@ class PinoutPlan:
     new_unit: bool = False
     ports: list[PortReport] = field(default_factory=list)  # per connector, then per type ID
     words: list[WordConversion] = field(default_factory=list)  # unknown Direction words
+    row_layouts: list[str] = field(default_factory=list)  # connectors given own rows (4.0.0)
+    row_notes: list[str] = field(default_factory=list)  # a gap closed up, rows on one connector
 
     @property
     def port_lines(self) -> list[str]:
@@ -394,7 +410,11 @@ def plan_pinout_import(
             ops += new_ops
             work = edit.clone_with(work, new_ops)
         types = _types_of(work, work.connectors[cid])
-        refused: dict[int, str] = {}
+        refused: dict[int, str] = {
+            n: f"Pin row '{r['pin_row']}' is not a whole number from 1 (the row of the pin)"
+            for n, r in rows
+            if r.get("pin_row") and _row_number(r["pin_row"]) is None
+        }
         with_port: list[str] = []  # pins whose signal names the port of a Port column
         written_rows: list[tuple[int, dict[str, str]]] = []
         for n, r in rows:
@@ -435,6 +455,8 @@ def plan_pinout_import(
             if source:
                 after = edit.clone_with(work, set_ops)
                 set_ops += devices.ops_update_connector(after, cid, **source)
+            if "pin_row" in mapping:
+                set_ops += _pin_row_ops(plan, edit.clone_with(work, set_ops), cid, rows)
         except (EditError, HarnessError) as exc:
             plan.rows += [PinoutRow(n, False, str(exc), name, r.get("pin", "")) for n, r in rows]
             continue
@@ -466,6 +488,59 @@ def plan_pinout_import(
     if plan.bad_count:
         plan.ops = []  # a sheet with a bad row is not imported at all
     return plan
+
+
+def _row_number(cell: str) -> int | None:
+    """The row of a *Pin row* cell: a whole number from 1 (`2`, or `2.0` as a workbook may give
+    it), else None."""
+    text = cell.strip()
+    if text.endswith(".0"):
+        text = text[:-2]
+    if not text.isascii() or not text.isdigit() or int(text) < 1:
+        return None
+    return int(text)
+
+
+def _pin_row_ops(
+    plan: PinoutPlan, project: Project, cid: str, rows: Sequence[tuple[int, dict[str, str]]]
+) -> list[Op]:
+    """The ops that give the box connector `cid` (as the import leaves its pins, in `project`) the
+    rows of the *Pin row* column, or none when the column gives it no row or the rows it has now
+    (section 3), compared row by row as sets of pins. Records the connector and the notes in
+    `plan`."""
+    c = project.connectors[cid]
+    ids = {p.id.casefold(): p.id for p in c.pins}
+    numbered: dict[int, list[str]] = {}
+    for _n, r in rows:
+        number = _row_number(r.get("pin_row", ""))
+        pid = ids.get(r.get("pin", "").strip().casefold())
+        if number is not None and pid is not None and pid not in numbered.get(number, []):
+            numbered.setdefault(number, []).append(pid)
+    if not numbered:
+        return []
+    now = layout_of(project, c)
+    have = {k: set(row) for k, row in enumerate(now.rows, start=1) if row} if now else {}
+    keys = sorted(numbered)
+    closed = {k: set(numbered[n]) for k, n in enumerate(keys, start=1)}  # a gap closed up
+    if have in ({k: set(v) for k, v in numbered.items()}, closed):
+        return []
+    layout = RowLayout(rows=[numbered[k] for k in keys], rings=now.rings if now else False)
+    ops = plan_set_row_layout(project, layout, connector=cid)
+    plan.row_layouts.append(cid)
+    if keys != list(range(1, len(keys) + 1)):
+        given = ", ".join(str(k) for k in keys)
+        plan.row_notes.append(
+            f"{cid}: the Pin row column gives the rows {given}; they are stored as the rows 1 to "
+            f"{len(keys)} ({layout_text(layout)})."
+        )
+    part = project.parts.get(c.part_id)
+    if part is not None and part.row_layout is None:
+        plan.row_notes.append(
+            f"The rows are stored on {cid} only; to use them for every connector of part "
+            f"{part.id}, choose Use for every connector of this part in the Devices tab, or run "
+            f"`pin-rows --connector {cid} --to-part`."
+        )
+    return ops
 
 
 def _connector_source(

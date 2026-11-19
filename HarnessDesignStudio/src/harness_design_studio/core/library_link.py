@@ -62,11 +62,13 @@ from harness_design_studio.core.model import (
     Part,
     Pin,
     Project,
+    RowLayout,
     Unit,
     evolve,
 )
 from harness_design_studio.core.model.imports import record_id
 from harness_design_studio.core.ports import natural_key
+from harness_design_studio.core.row_layout import layout_text
 from harness_design_studio.core.subsystem_library import with_placements
 from harness_design_studio.core.vcs.locks import COSMETIC_UNIT_FIELDS, unit_design
 from harness_design_studio.core.vcs.lockview import (
@@ -132,7 +134,11 @@ LINKED_STATES = frozenset({UP_TO_DATE, LIBRARY_CHANGED, CHANGED_HERE})
 
 KIND: Literal["devices"] = "devices"
 UNIT_FIELDS = ("kind", "mass_relevant", "notes")
-CONNECTOR_FIELDS = ("name", "part_id", "gender", "keying", "carries", "notes", "label")
+# `row_layout` (format 4): a box connector's own rows are library-owned, and a difference shows in
+# the diff like any other field (design of 4.0.0 section 5.5), in the short text form
+CONNECTOR_FIELDS = (
+    "name", "part_id", "gender", "keying", "carries", "notes", "label", "row_layout",
+)  # fmt: skip
 PIN_FIELDS = (
     "signal", "fixed", "function", "contact_size", "termination", "contact_part", "role",
     "direction",
@@ -612,6 +618,8 @@ def _text(value: object) -> str:
         return ""
     if isinstance(value, bool):
         return "yes" if value else "no"
+    if isinstance(value, RowLayout):
+        return layout_text(value)
     if isinstance(value, list | tuple):
         return ", ".join(str(v) for v in value)
     return str(value)
