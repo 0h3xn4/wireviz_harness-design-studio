@@ -23,6 +23,10 @@ F4	Sheets
 G4	Description
 B5	No entry in the change log of this harness yet.
 == W001
+I2	Column Search String
+M2	Column Search String
+I3	#
+M3	#
 H6	First steps: reaction wheel link
 N6	W001
 Q6	VERSION: v1.0.0 (draft)
@@ -236,8 +240,9 @@ B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, S
 B6	A yellow row is a pin of the device connector with no wire in this harness.
 B7	[no SGND*] in the header: a pin of the role signal ground (SGND) of a device connector of this harness has no wire.
 B8	Formulas: the device side and the far device side copy the CON_ sheets; Pinout, Function and Level of the harness side copy the device side; the two Direction columns mirror it; a colour by pin code is looked up in its table on this sheet; the title, the connector descriptions, the sums per cable type, the cable type lengths and Used in Row are formulas too. Every other cell is a value of the design.
-B9	The change register lists the change log of this harness (system/changelog.csv of the outputs); it is not typed into this file.
-B10	This file is written by Harness Design Studio. An export overwrites it, formulas and typed changes alike; work on a copy.
+B9	Search: type a text into I3 (Function) or M3 (Shielding); a cell of that column in the rows of the near connectors that contains it, without regard to case, shows in red bold. An empty box marks nothing. LibreOffice reads the text as typed; Excel reads *, ? and ~ as wildcards.
+B10	The change register lists the change log of this harness (system/changelog.csv of the outputs); it is not typed into this file.
+B11	This file is written by Harness Design Studio. An export overwrites it, formulas and typed changes alike; work on a copy.
 == CON_OBC1-J01
 A1	Device
 B1	OBC1
