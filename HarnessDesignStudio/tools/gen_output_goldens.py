@@ -11,11 +11,16 @@ every file, and the text files of the drawn harnesses and the system BOM and mas
 (`branch_leg_project`: mini3 with a Y harness through two splices and a harness with a splice on a
 branch point's leg): the digest of every file, and the text files of those two harnesses.
 
+`row_layout` (format 4, pull request 3 of `docs/ait/DESIGN_4.0_ROW_LAYOUT.md`) is the project with
+row layouts of `tests/row_layout_support.py` (`row_layout_project`: mini3 with the rows of a part
+and the own rows of a box connector): the digest of every file, and the pinout tables and
+`system/export.json` as text to read. Its plans are in `harness_plan/row_layout*`.
+
 `harness_plan/` (3.0.0, D-242, pull requests 3 and 6 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`):
-the harness plans of the four examples, of the branching fixture and of the splice fixture
-(`splices`, `branch_leg_project`), made with the plan on (`build_outputs(..., harness_plan=True)`):
+the harness plans of the four examples, of the branching fixture, of the splice fixture
+(`splices`, `branch_leg_project`) and of the row layout fixture (`row_layout`), made with the plan on (`build_outputs(..., harness_plan=True)`):
 the SHA-256 of each plan in `<project>.json`, and the cells of the plans of `first-steps`,
-`branching` and `splices` as text in `<project>/` to read in a diff."""
+`branching`, `splices` and `row_layout` as text in `<project>/` to read in a diff."""
 
 import json
 import shutil
@@ -29,6 +34,8 @@ from harness_design_studio.core.samples import mini3, sat15, sat15_full
 from tests.helpers import output_digests
 from tests.loose_support import generated_loose, golden_text_files
 from tests.plan_support import GOLDEN_PROJECTS, READABLE, golden_files, golden_project
+from tests.row_layout_support import golden_text_files as row_layout_text_files
+from tests.row_layout_support import row_layout_project
 from tests.splice_support import branch_leg_project
 from tests.splice_support import golden_text_files as splice_text_files
 
@@ -70,6 +77,15 @@ def main() -> None:
     text = ROOT / "splices"
     shutil.rmtree(text, ignore_errors=True)
     for rel, data in splice_text_files(files).items():
+        (text / rel).parent.mkdir(parents=True, exist_ok=True)
+        (text / rel).write_bytes(data)
+    files = build_outputs(row_layout_project()).files
+    (ROOT / "row_layout.json").write_text(
+        json.dumps(output_digests(files), indent=1, sort_keys=True) + "\n", newline="\n"
+    )
+    text = ROOT / "row_layout"
+    shutil.rmtree(text, ignore_errors=True)
+    for rel, data in row_layout_text_files(files).items():
         (text / rel).parent.mkdir(parents=True, exist_ok=True)
         (text / rel).write_bytes(data)
     plans = ROOT / "harness_plan"

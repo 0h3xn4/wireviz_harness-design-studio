@@ -23,7 +23,6 @@ from harness_design_studio.cli.jsonout import SHAPES
 from harness_design_studio.cli.main import main
 from harness_design_studio.cli.pin_rows_cmd import mutates
 from harness_design_studio.core import device_library as dl
-from harness_design_studio.core import devices
 from harness_design_studio.core import subsystem_library as sl
 from harness_design_studio.core.commands import apply_ops
 from harness_design_studio.core.io.layout import model_hash
@@ -31,7 +30,6 @@ from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.links import plan_add_link
 from harness_design_studio.core.model import Project, RowLayout, evolve
-from harness_design_studio.core.row_layout import layout_of
 from harness_design_studio.core.samples import mini3, new_project
 from harness_design_studio.core.templates import create_project
 from tests.helpers import pinout_project
@@ -343,19 +341,16 @@ def test_a_pinout_with_the_rows_of_the_part_reads_back_as_no_change(
     proj: Path, tmp_path: Path, capsys
 ) -> None:
     """The file `export-pinout` writes with the column (pull request 3) holds the rows each pin
-    has (`layout_of`); read back, it changes nothing, also where the rows are the part's."""
+    has; read back with `import-pinout`, it changes nothing, also where the rows are the part's."""
     assert cli(capsys, "pin-rows", proj, "--part", "EX-MICROD-9-F", "--lengths", "2,7")[0] == 0
     assert cli(capsys, "pin-rows", proj, "--connector", "OBC-J02", "--set", "3 / 1 2")[0] == 0
     p = load_project(proj).project
-    table = devices.pinout_sheet(p, "OBC")
-    at = table[0].index("Connector"), table[0].index("Pin")
-    found = [layout_of(p, p.connectors[r[at[0]]]) for r in table[1:]]
-    written = [[*table[0], "Pin row"]] + [
-        [*r, str(f.row_of(r[at[1]]) or "") if f else ""]
-        for r, f in zip(table[1:], found, strict=True)
-    ]
     sheet = tmp_path / "obc.csv"
-    sheet.write_text("\n".join(",".join(r) for r in written) + "\n", encoding="utf-8")
+    rc, out, _ = cli(capsys, "export-pinout", proj, "--device", "OBC", "--output", sheet)
+    assert rc == 0, out
+    header = sheet.read_text(encoding="utf-8").splitlines()
+    heading = next(line for line in header if line.startswith("Connector,"))
+    assert heading.split(",").count("Pin row") == 1  # the column the export writes, once
     before = model_hash(p)
     rc, out, _ = cli(capsys, "import-pinout", proj, sheet, "--device", "OBC")
     assert rc == 0 and "Row layouts set" not in out, out

@@ -46,9 +46,9 @@ from .model.base import MAX_PIN_COUNT, Name, WebLink
 from .model.logical import Category, Construction, Direction, Shielding, Side
 from .model.physical import TBD_PART_ID, Gender, PinDirection, PinRole, Termination
 from .outputs.stamp import Table
-from .outputs.tables import box_pinouts
+from .outputs.tables import PIN_ROW, box_pinouts
 from .ports import Port, ports_of, read_signal
-from .row_layout import follow_pins
+from .row_layout import follow_pins, layout_of
 from .vcs.lockview import LockRef, field_lock_reason, lock_reason, locked_objects
 from .vcs.snapshot import carried_interfaces, wire_pins
 
@@ -1358,9 +1358,14 @@ PINOUT_EXTRA_COLUMNS: tuple[tuple[str, str], ...] = (
 def pinout_sheet(project: Project, unit_id: str) -> Table:
     """What `export-pinout` writes: the rows of `pinout_table`, and the columns Level, Source,
     Source version and Source link, each only while a pin or a connector of this device has a
-    value for it, so that the file reads back through `import-pinout`."""
+    value for it, so that the file reads back through `import-pinout`. The column Pin row of
+    `pinout_table` (format 4) stays only while a connector of this device has a row layout
+    (design of 4.0.0 section 6.3), so a device without one writes the file of 3.0.0."""
     table = pinout_table(project, unit_id)
     conns = {c.id: c for c in unit_connectors(project, unit_id)}
+    if PIN_ROW in table[0] and all(layout_of(project, c) is None for c in conns.values()):
+        at = table[0].index(PIN_ROW)
+        table = [[*row[:at], *row[at + 1 :]] for row in table]
     pins = {(c.id, p.id): p for c in conns.values() for p in c.pins}
     used = [
         (key, heading)

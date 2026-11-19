@@ -324,6 +324,17 @@ Pull request 2 is built as row 2 says, with these differences, each for the reas
 - **A release does not lock the rows of a part** (section 3): `row_layout` joined the fields of a part that a release leaves editable (`vcs/locks.COSMETIC_PART_FIELDS`); a box connector's own rows were not locked already.
 - **The scripting interface:** `RowLayoutRecord` carries `source_id` (the part or connector the rows come from) beside the six keys of section 10's `--json`; `set_row_layout` takes `rows` as lists of pin names or in the text form of 6.1.
 
+### What pull request 3 changed
+
+Pull request 3 is built as row 3 says, with these differences, each for the reason given:
+
+- **The pinout table of a harness has the column while a connector of that harness has a layout** (section 3: its part's, else the mated box connector's); section 7 says *the same column* without a condition. A condition per harness keeps the pinouts of every other harness of the project as they were; `box_pinouts.csv` keeps the condition of section 7 (some box connector of the project).
+- **`export-pinout` drops the column again** for a device none of whose connectors has a layout (`devices.pinout_sheet`), so such a device writes the file of 3.0.0 (section 6.3), while the Devices tab's table keeps the rows of `box_pinouts.csv` as they are (section 7). Reading the column back (`import-pinout`, section 6.2) is pull request 4; until then `import-pinout` passes over the column as over any heading it does not know.
+- **`system/export.json` needed no new code:** `row_layout` is a sparse field of the models since pull request 1, so the file carries it where it is set, and `verify.py` already compares the parts and box connectors with the model. Pull request 3 adds its tests (the rows where set, nowhere else, a missing one refused) and the golden.
+- **One reading of the rows for both verifiers:** `verify_plan.face_rows` (a second copy of the resolution of section 3) is used by `verify_plan.py` and by `verify.py` (`_faces`), since `verify.py` already imports `verify_plan.py` and the other way round would be a cycle; neither imports `core/row_layout.py` (a test reads their imports), and a Hypothesis test compares the copy with `layout_of`.
+- **Column A of the harness sheet** is 16 wide (as column B) when a near block has a layout, so that *Pin row* fits; the widths are not checked by the verifier (as before).
+- **The golden project** is `tests/row_layout_support.row_layout_project` (mini3 with the rows `1 3 / 2` on the part `EX-MICROD-9-F` and own rows `5 4 / 1` on `RW1-J02`): `tests/fixtures/outputs/row_layout.json` and `row_layout/` (the pinout tables and `export.json`), and its plans in `harness_plan/row_layout*` among the plan goldens. The requirement is REQ-OUT-12.
+
 ### What pull request 4 changed
 
 Pull request 4 is built as row 4 says, with these differences, each for the reason given:
