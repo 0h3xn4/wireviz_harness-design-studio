@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from harness_design_studio.core.ids import Id, PinId
 
 from .base import (
+    MAX_PIN_COUNT,
     Awg,
     Entity,
     IsoDate,
@@ -79,9 +80,60 @@ class Pin(SparseEntity):
     level: Name | None = None  # the signal level from the device's ICD (`RS422-3V3`; format 3)
 
 
+MAX_ROWS = 64  # the most rows (or rings) a row layout has (format 4, design of 4.0.0 section 4.1)
+
+
+class RowLayout(SparseEntity):
+    """The row layout of a connector (format 4, D-250, design of 4.0.0 sections 1.1 and 4): the
+    rows of its insert from the top of the face, each the pin names in order along the row. With
+    `rings` each row is a ring of a circular insert, from the outer ring inwards, its pins in order
+    round the ring, so that the last pin of a ring is next to its first. It is held by a connector
+    part (`Part.row_layout`) and by a box connector whose insert differs from its part's
+    (`Connector.row_layout`); `core/row_layout.py` works out the layout of a connector."""
+
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"rings"})
+
+    rows: Annotated[
+        list[list[PinId]], Field(json_schema_extra={"minItems": 1, "maxItems": MAX_ROWS})
+    ]
+    rings: bool = False
+
+    def names(self) -> list[str]:
+        """Every pin name of the layout, row by row."""
+        return [name for row in self.rows for name in row]
+
+    @model_validator(mode="after")
+    def _rows_are_a_layout(self) -> RowLayout:
+        if not self.rows:
+            raise ValueError("a row layout needs at least one row; leave the key out for none")
+        if len(self.rows) > MAX_ROWS:
+            raise ValueError(
+                f"a row layout has at most {MAX_ROWS} rows; this one has {len(self.rows)}"
+            )
+        seen: dict[str, int] = {}  # a pin name, ignoring case (as pin names are unique), -> row
+        for number, row in enumerate(self.rows, start=1):
+            if not row:
+                raise ValueError(f"row {number} is empty; leave it out")
+            for name in row:
+                was = seen.get(name.casefold())
+                if was is not None:
+                    where = (
+                        f"twice in row {number}"
+                        if was == number
+                        else f"in row {was} and in row {number}"
+                    )
+                    raise ValueError(f"pin {name} is {where}")
+                seen[name.casefold()] = number
+        if len(seen) > MAX_PIN_COUNT:
+            raise ValueError(
+                f"a row layout names at most {MAX_PIN_COUNT} pins; this one names {len(seen)}"
+            )
+        return self
+
+
 class Connector(SparseEntity):
     OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
-        {"label", "locked", "source_doc", "source_version", "source_link"}
+        {"label", "locked", "source_doc", "source_version", "source_link", "row_layout"}
     )
 
     id: Id
@@ -107,6 +159,24 @@ class Connector(SparseEntity):
     source_doc: Name | None = None
     source_version: Name | None = None
     source_link: WebLink | None = None
+    # The connector's own row layout (format 4, design of 4.0.0 section 3): a box connector only,
+    # where its insert differs from its part's; every name is a pin of the connector.
+    row_layout: RowLayout | None = None
+
+    @model_validator(mode="after")
+    def _own_rows_name_own_pins(self) -> Connector:
+        if self.row_layout is None:
+            return self
+        if self.unit_id is None:
+            raise ValueError(
+                f"only a box connector has its own row layout; {self.id} takes the rows of its "
+                "part or of the box connector it plugs into"
+            )
+        pins = {p.id for p in self.pins}
+        for name in self.row_layout.names():
+            if name not in pins:
+                raise ValueError(f"the row layout names pin {name}; {self.id} has no pin {name}")
+        return self
 
 
 # The four values of a generated wire that a person can set in place of the one generation chooses.

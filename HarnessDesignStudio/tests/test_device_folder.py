@@ -161,11 +161,12 @@ def test_an_unknown_key_and_a_bad_value_are_refused():
     assert "'extra'" in df.device_file_problems("OBC.device.json", bad)[0]
 
 
-def test_a_version_3_file_is_refused_with_words(tmp_path: Path):
-    # version 2 is a file whose devices use a field of format 3 (D-242): this program reads it
-    put(tmp_path, "OBC.device.json", {**one(), "version": 3})
+def test_a_version_4_file_is_refused_with_words(tmp_path: Path):
+    # version 2 is a file whose devices use a field of format 3 (D-242), version 3 one with a row
+    # layout (format 4, D-251): this program reads both
+    put(tmp_path, "OBC.device.json", {**one(), "version": 4})
     (problem,) = scan_folder(tmp_path).problems
-    assert "version 3" in problem.message and "newer program" in problem.message
+    assert "version 4" in problem.message and "newer program" in problem.message
 
 
 def test_a_device_file_of_another_format_is_a_problem_not_a_skip(tmp_path: Path):

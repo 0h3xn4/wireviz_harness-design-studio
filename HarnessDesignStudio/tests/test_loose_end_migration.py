@@ -41,8 +41,8 @@ def loose_root(tmp_path_factory) -> Path:
 
 
 def test_the_step_writes_the_number_and_runs_for_a_format_1_project() -> None:
-    assert SCHEMA_VERSION == 3 and migrate.current_version() == 3  # format 3 since D-242
-    assert sorted(migrate.MIGRATIONS) == [0, 1, 2]
+    assert SCHEMA_VERSION == 4 and migrate.current_version() == 4  # format 4 since D-251
+    assert sorted(migrate.MIGRATIONS) == [0, 1, 2, 3]
     files = {"project.json": {"name": "x", "schema_version": 1}, "logical/units/u.json": {"a": 1}}
     out = migrate.MIGRATIONS[1](files)
     assert out["project.json"] == {"name": "x", "schema_version": 2}
@@ -81,7 +81,7 @@ def test_the_net_upgrades_a_project_that_holds_loose_ends_with_only_the_number_a
     assert done is not None and (root / done.backup / "project.json").is_file()
     after = load_project(root).project
     assert (model_hash(after), content_hash(after)) == before
-    assert after.meta.schema_version == 3
+    assert after.meta.schema_version == 4
     assert len(loose_ends(after.harnesses["W009"])) == 1 and len(loose_ends(after.harnesses["W011"])) == 2  # fmt: skip
     assert full_export(root) == old_export  # byte for byte, the stamp included
     assert upgrade.upgrade_project(root) is None  # now current

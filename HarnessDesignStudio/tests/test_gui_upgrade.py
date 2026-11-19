@@ -4,7 +4,7 @@
 """REQ-MIGRATE-03. No silent upgrade in the editor (plan 2.3, point 5): a project in an older file
 format is not upgraded, not even in memory for editing, until the person says so. The question is
 asked once, on opening, with *Upgrade*, *Open read-only* and *Cancel*. The format used here is the
-real one: this tool writes format 3 (D-242) and the projects are written in format 1 the way a 1.17.x
+real one: this tool writes format 4 (D-251) and the projects are written in format 1 the way a 1.17.x
 tool wrote them (`tests/migration_support.as_format`), or are the project that 1.17.1 wrote
 (`tests/fixtures/v1_project`, with a loose cable end)."""
 
@@ -39,7 +39,7 @@ def win(qtbot, tmp_path):
 
 
 def old_project(tmp_path: Path) -> Path:
-    return as_format(build("sat15", tmp_path / "old"), 1)  # (this tool writes format 3)
+    return as_format(build("sat15", tmp_path / "old"), 1)  # (this tool writes format 4)
 
 
 def answers(win, *replies: str) -> list[tuple[int, int]]:
@@ -59,14 +59,14 @@ def test_upgrade_is_asked_once_and_does_the_upgrade(win, tmp_path: Path) -> None
     original = {k: v for k, v in folder_bytes(root).items() if k.endswith(".json")}
     asked = answers(win, "upgrade")
     assert win.open_project(root)
-    assert asked == [(1, 3)]  # once
+    assert asked == [(1, 4)]  # once
     assert not win.ctl.read_only and win.ctl.project.migrated_from is None
-    assert json.loads((root / "project.json").read_text())["schema_version"] == 3
+    assert json.loads((root / "project.json").read_text())["schema_version"] == 4
     backup = root / ".migration-backup-v1"
     assert (backup / "MIGRATION.json").is_file()
     for rel, data in original.items():
         assert (backup / rel).read_bytes() == data  # the original is kept
-    assert any("Upgraded from format 1 to 3." in m for m in win.toasts.messages)
+    assert any("Upgraded from format 1 to 4." in m for m in win.toasts.messages)
     win.ctl.release()
 
 
@@ -79,7 +79,7 @@ def test_the_upgrade_says_to_export_again_when_an_older_version_wrote_the_output
     provenance.write_text(json.dumps({"tool_version": "1.17.1"}), encoding="utf-8")
     answers(win, "upgrade")
     assert win.open_project(root)
-    done = [m for m in win.toasts.messages if "Upgraded from format 1 to 3." in m]
+    done = [m for m in win.toasts.messages if "Upgraded from format 1 to 4." in m]
     assert done and done[0].endswith(strings.UPGRADED_EXPORT_AGAIN.format(old="1.17.1"))
     assert "export them again once" in done[0]
     win.ctl.release()
@@ -90,7 +90,7 @@ def test_open_read_only_changes_nothing_on_disk(win, tmp_path: Path) -> None:
     files = folder_bytes(root)
     asked = answers(win, "read_only")
     assert win.open_project(root)
-    assert asked == [(1, 3)] and win.ctl.read_only
+    assert asked == [(1, 4)] and win.ctl.read_only
     assert win.ctl.project.migrated_from == 1  # read in memory only
     assert folder_bytes(root) == files and not (root / ".migration-backup-v1").exists()
     # the note of the user manual (docs/user-manual/upgrade-a-project.md, section 2) is the banner
@@ -114,9 +114,9 @@ def test_the_banner_upgrades_a_project_opened_read_only(win, tmp_path: Path) -> 
     assert win.ctl.read_only and win.ctl.root == root
     assert not (root / ".migration-backup-v1").exists()
     win.banner.button.click()  # Upgrade
-    assert asked == [(1, 3)] * 3
+    assert asked == [(1, 4)] * 3
     assert not win.ctl.read_only and win.ctl.project.migrated_from is None
-    assert json.loads((root / "project.json").read_text())["schema_version"] == 3
+    assert json.loads((root / "project.json").read_text())["schema_version"] == 4
     QApplication.processEvents()
     assert not win.banner.isVisibleTo(win)
     win.ctl.release()
@@ -132,7 +132,7 @@ def test_the_read_only_banner_names_the_reason(win, tmp_path: Path, monkeypatch)
         assert win.banner.isVisibleTo(win) and win.ctl.read_only
         return str(win.banner.label.text())
 
-    newer = as_format(build("mini3", tmp_path / "newer"), 4)
+    newer = as_format(build("mini3", tmp_path / "newer"), 5)
     assert win.open_project(newer)
     assert banner() == strings.BANNER_READ_ONLY_NEWER
     win.ctl.release()
@@ -244,8 +244,8 @@ def test_the_fake_format_helper_leaves_the_real_format_alone(tmp_path: Path, mon
     before = migrate.current_version()
     with monkeypatch.context() as m:
         install_fake_format(m)
-        assert migrate.current_version() == 4
-    assert migrate.current_version() == before == 3
+        assert migrate.current_version() == 5
+    assert migrate.current_version() == before == 4
 
 
 def test_the_project_of_1_17_1_with_a_loose_end_is_upgraded_and_edited(win, tmp_path: Path) -> None:
@@ -258,15 +258,15 @@ def test_the_project_of_1_17_1_with_a_loose_end_is_upgraded_and_edited(win, tmp_
     root = copy_project(FIXTURES / "v1_project", tmp_path / "p")
     asked = answers(win, "upgrade")
     assert win.open_project(root)
-    assert asked == [(1, 3)] and not win.ctl.read_only
+    assert asked == [(1, 4)] and not win.ctl.read_only
     p = win.ctl.project
-    assert p.meta.schema_version == 3 and p.migrated_from is None
+    assert p.meta.schema_version == 4 and p.migrated_from is None
     assert [c.id for c in loose_ends(p.harnesses["W002"])] == ["W002-P2"]
     assert "pos:W002-P2" in p.diagram_marks
     before = model_hash(p)
     assert (root / ".migration-backup-v1" / "MIGRATION.json").is_file()
     win.ctl.save()
-    assert json.loads((root / "project.json").read_text())["schema_version"] == 3
+    assert json.loads((root / "project.json").read_text())["schema_version"] == 4
     win.ctl.release()
     again = answers(win)  # no reply ready: asking again would fail
     assert win.open_project(root) and again == []

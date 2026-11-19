@@ -4,11 +4,12 @@
 
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from harness_design_studio.core.ids import Id
 
 from .base import MAX_PIN_COUNT, Entity, IsoDate, Name, NonNegative, SparseEntity, Text, WebLink
+from .physical import RowLayout
 
 PartCategory = Literal["connector", "contact", "backshell", "wire", "sleeving", "label", "splice"]
 PART_CATEGORIES: tuple[PartCategory, ...] = (
@@ -22,7 +23,9 @@ Approval = Literal["approved", "pending", "not_approved"]
 
 
 class Part(SparseEntity):
-    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"tool", "conductors", "link"})
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
+        {"tool", "conductors", "link", "row_layout"}
+    )
 
     id: Id
     category: PartCategory
@@ -44,6 +47,23 @@ class Part(SparseEntity):
     # the sum of their lengths divided by this number: the metres of the cable (1.11, D-188).
     conductors: Annotated[int, Field(ge=1, le=64)] = 1
     link: WebLink | None = None  # the part's page on the web (a datasheet, a shop; format 3)
+    # The row layout of the part's insert (format 4, design of 4.0.0 sections 3 and 4): shared by
+    # every connector of the part that has no own layout. Connector parts only.
+    row_layout: RowLayout | None = None
+
+    @model_validator(mode="after")
+    def _rows_fit_the_part(self) -> Part:
+        if self.row_layout is None:
+            return self
+        if self.category != "connector":
+            raise ValueError(
+                f"only a connector part has a row layout; {self.id} is a part of category "
+                f"{self.category}"
+            )
+        named = len(self.row_layout.names())
+        if self.pin_count is not None and named > self.pin_count:
+            raise ValueError(f"the row layout names {named} pins; the part has {self.pin_count}")
+        return self
 
 
 class LibraryInfo(Entity):

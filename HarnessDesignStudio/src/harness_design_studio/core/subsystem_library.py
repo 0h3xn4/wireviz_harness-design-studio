@@ -8,12 +8,13 @@ the next project in one step (workshop feedback M4, D-175).
     write_subsystem(path, data)
     plan = plan_subsystem_import(project, read_subsystem(path))      # a preview and the ops
 
-The file is JSON (`harness-subsystem-library`, version 1) and holds ONE subsystem: its `name`, a
-`description`, optional `notes`, its `devices` (the same record as a device library file: the unit,
-its box connectors with every pin), the `parts` and `interface_types` those connectors name, and its
-`connections` (the links of `logical/links.json`, written with the connector IDs of the file, so a
-connection means the same thing when the devices get other IDs in a project). The links that leave
-the subsystem (the other end is a device that is not in it) are left out.
+The file is JSON (`harness-subsystem-library`, version 1, or 2 when it holds a row layout) and
+holds ONE subsystem: its `name`, a `description`, optional `notes`, its `devices` (the same record
+as a device library file: the unit, its box connectors with every pin), the `parts` and
+`interface_types` those connectors name, and its `connections` (the links of `logical/links.json`,
+written with the connector IDs of the file, so a connection means the same thing when the devices
+get other IDs in a project). The links that leave the subsystem (the other end is a device that is
+not in it) are left out.
 
 Importing adds the devices (a taken ID becomes the next free one, as in `plan_device_import`), sets
 the subsystem of every added device to the name of the subsystem, adds the connections between the
@@ -53,6 +54,7 @@ __all__ = [
     "MAX_DEVICES",
     "VERSION",
     "SubsystemError",
+    "content_version",
     "SubsystemPlan",
     "connections_between",
     "default_file_name",
@@ -66,7 +68,12 @@ __all__ = [
 ]
 
 FORMAT = "harness-subsystem-library"
-VERSION = 1
+# The newest version this program reads and writes. A file is written as version 2 only when one of
+# its box connectors or parts has a row layout (format 4, D-251, design of 4.0.0 section 5.5), else
+# as version 1, so that a 3.0 tool still reads every file that holds nothing it would refuse
+# (`content_version`).
+VERSION = 2
+FIRST_VERSION = 1
 MAX_BYTES = dl.MAX_BYTES
 MAX_DEVICES = 100  # in one subsystem
 MAX_CONNECTIONS = 2000
@@ -214,7 +221,7 @@ def export_subsystem(
             links.append(evolve(link, harness_id="").model_dump(mode="json"))
     return {
         "format": FORMAT,
-        "version": VERSION,
+        "version": content_version(devices),
         "name": clean,
         "description": (description or "").strip(),
         "notes": (notes or "").strip(),
@@ -223,6 +230,14 @@ def export_subsystem(
         "interface_types": devices["interface_types"],
         "connections": links,
     }
+
+
+def content_version(content: dict[str, Any]) -> int:
+    """The version a subsystem library file with these devices and parts is written as: 2 when a
+    box connector or a part has a row layout (the rule of the device library file's version 3,
+    `device_library.content_version`), else 1. The fields of format 3 keep version 1 (as at
+    3.0.0)."""
+    return VERSION if dl.content_version(content) == dl.VERSION else FIRST_VERSION
 
 
 def left_out_connections(project: Project, unit_ids: list[str]) -> int:

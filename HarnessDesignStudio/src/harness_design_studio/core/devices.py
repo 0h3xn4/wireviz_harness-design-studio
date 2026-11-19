@@ -48,6 +48,7 @@ from .model.physical import TBD_PART_ID, Gender, PinDirection, PinRole, Terminat
 from .outputs.stamp import Table
 from .outputs.tables import box_pinouts
 from .ports import Port, ports_of, read_signal
+from .row_layout import follow_pins
 from .vcs.lockview import LockRef, field_lock_reason, lock_reason, locked_objects
 from .vcs.snapshot import carried_interfaces, wire_pins
 
@@ -591,6 +592,7 @@ def ops_change_part(
             pins = pins[: len(pins) - len(plan.remove)]
         pins += [Pin(id=i) for i in plan.add]
     changes: dict[str, object] = {"part_id": part_id, "pins": pins}
+    changes["row_layout"] = follow_pins(c.row_layout, pins)  # the own rows keep to the pins
     if regender and plan.gender is not None:
         changes["gender"] = plan.gender
     return [Put("connectors", evolve(c, **changes))]
@@ -870,7 +872,20 @@ def ops_delete_pins(project: Project, connector_id: str, pin_ids: Collection[str
             + _pairing_text(links)
         )
     pins = [p for p in c.pins if p.id not in pin_ids]
-    return [Put("connectors", c.model_copy(update={"pins": pins}))]
+    return [Put("connectors", _with_pins(c, pins))]
+
+
+def _with_pins(
+    c: Connector, pins: list[Pin], renamed: Mapping[str, str] | None = None
+) -> Connector:
+    """The box connector with these pins and its own row layout kept in step with them (format 4,
+    design of 4.0.0 section 13): a renamed pin keeps its place in its row, a pin that is gone
+    leaves it, an empty row goes, and a layout with no row left is cleared."""
+    layout = follow_pins(c.row_layout, pins, renamed)
+    update: dict[str, object] = {"pins": pins}
+    if layout is not c.row_layout:
+        update["row_layout"] = layout
+    return c.model_copy(update=update)
 
 
 def ops_rename_pin(project: Project, connector_id: str, old: str, new: str) -> list[Op]:
@@ -899,7 +914,7 @@ def ops_rename_pin(project: Project, connector_id: str, old: str, new: str) -> l
         raise EditError(f"Pin {old} of {connector_id} cannot be renamed: " + _pairing_text(links))
     pins = list(c.pins)
     pins[k] = evolve(pin, id=new)
-    return [Put("connectors", c.model_copy(update={"pins": pins}))]
+    return [Put("connectors", _with_pins(c, pins, {old: new}))]
 
 
 def ops_set_pinout(project: Project, connector_id: str, pins: Sequence[Pin]) -> list[Op]:
@@ -947,7 +962,7 @@ def ops_set_pinout(project: Project, connector_id: str, pins: Sequence[Pin]) -> 
                 f"Pin {', '.join(gone)} cannot be removed: "
                 f"{_blocked_by_text(impact.blocked_by_harnesses)}"
             )
-    return [Put("connectors", c.model_copy(update={"pins": new}))]
+    return [Put("connectors", _with_pins(c, new))]
 
 
 # ---- rows from a spreadsheet (paste and import) ------------------------------------------------
@@ -2209,6 +2224,11 @@ def ops_update_part(project: Project, part_id: str, **changes: object) -> list[O
         for c in project.connectors.values():
             if c.part_id == part_id and len(c.pins) > count:
                 raise EditError(f"{c.id} has {len(c.pins)} pins; {part_id} cannot have fewer.")
+        named = len(part.row_layout.names()) if part.row_layout is not None else 0
+        if named > count:
+            raise EditError(
+                f"The row layout of {part_id} names {named} pins; {part_id} cannot have fewer."
+            )
     for key in new:
         if why := field_lock_reason(project, "part", part_id, key):
             raise EditError(f"The {key.replace('_', ' ')} of {part_id} cannot change. {why}")
