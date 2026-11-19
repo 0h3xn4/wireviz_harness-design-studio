@@ -108,17 +108,27 @@ def test_every_configuration_key_is_documented() -> None:
             assert f"`{key}`" in text, f"{name}.{key} is not documented in docs/CONFIG.md"
 
 
-def test_help_menu_opens_the_guide(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+def test_help_menu_shows_the_guide_in_a_window_of_the_program(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """F1 shows the bundled guide in a window of the program and hands nothing to the system's
+    opener (no browser, the owner's decision of 2026-11-19); F1 again brings the same window to
+    the front."""
     pytest.importorskip("PySide6")
     from tests.gui_helpers import make_window
 
     w = make_window(tmp_path)
     qtbot.addWidget(w)
     opened = []
-    w.open_url = lambda url: opened.append(url.toLocalFile()) or True  # type: ignore[assignment,func-returns-value]
+    w.open_url = lambda url: opened.append(url.toString()) or True  # type: ignore[assignment,func-returns-value]
     assert w.act_guide.shortcut().toString() == "F1"
     w.act_guide.trigger()
-    assert opened and opened[0].endswith("guide/index.html") and Path(opened[0]).is_file()
+    guide = w.guide_window
+    assert guide is not None and guide.isVisible() and not guide.isModal()
+    assert guide.browser.source().toLocalFile().endswith("guide/index.html")
+    assert Path(guide.browser.source().toLocalFile()).is_file()
+    assert "user guide" in guide.browser.toPlainText()
+    w.act_guide.trigger()
+    assert w.guide_window is guide  # one window
+    assert opened == []
 
 
 def test_cli_reference_is_up_to_date() -> None:

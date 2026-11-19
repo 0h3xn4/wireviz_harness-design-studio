@@ -185,14 +185,11 @@ def test_the_code_never_evaluates_data_or_starts_programs() -> None:
 
 def test_the_code_never_replaces_the_process_or_opens_a_browser() -> None:
     """No os.exec*/os.spawn*/os.system/os.popen, no webbrowser; the only QDesktopServices use is
-    the Help menu opening the local guide and the Export dialog's Open / Reveal in folder for files
-    the export wrote (both pass QUrl.fromLocalFile). The links of parts and connector sources are
-    copied to the clipboard, never opened (`gui/weblinks.py`, the owner's decision of 2026-11-18)."""
-    allowed = {
-        "gui/main_window.py": {"QDesktopServices"},
-        "gui/export_dialog.py": {"QDesktopServices"},
-        "gui/outputs_files.py": {"QDesktopServices"},
-    }
+    `gui/folders.py`, which hands an existing local folder to the file manager (Reveal in folder)
+    and nothing else. The links of parts and connector sources are copied to the clipboard, never
+    opened (`gui/weblinks.py`, the owner's decision of 2026-11-18); the user guide is shown in a
+    window of the program and an exported file's path is copied, not opened (2026-11-19, D-250)."""
+    allowed = {"gui/folders.py": {"QDesktopServices"}}
     found = {}
     for path in SRC.rglob("*.py"):
         rel = path.relative_to(SRC).as_posix()
@@ -203,10 +200,53 @@ def test_the_code_never_replaces_the_process_or_opens_a_browser() -> None:
         if uses:
             found[rel] = sorted(uses)
     assert not found, found
-    main_window = (SRC / "gui" / "main_window.py").read_text(encoding="utf-8")
-    assert "QUrl.fromLocalFile" in main_window  # the guide is a local file, never a web address
-    export_dialog = (SRC / "gui" / "export_dialog.py").read_text(encoding="utf-8")
-    assert "QUrl.fromLocalFile" in export_dialog  # exported files, never a web address
+    folders = (SRC / "gui" / "folders.py").read_text(encoding="utf-8")
+    assert "QUrl.fromLocalFile" in folders and "is_dir()" in folders  # a local folder, nothing else
+
+
+def test_reveal_folder_hands_only_an_existing_local_folder_to_the_system(tmp_path: Path) -> None:
+    """`gui/folders.py` is the one way to the system's opener: a folder that exists is handed over
+    as a local URL; a file (which the system would open with a program, or run), a path that does
+    not exist, a web address and any other URL that is not a local folder are refused, and nothing
+    is handed over for them."""
+    pytest.importorskip("PySide6")
+    from PySide6.QtCore import QUrl
+
+    from harness_design_studio.gui import folders
+
+    handed: list[QUrl] = []
+
+    def system(url: QUrl) -> bool:
+        handed.append(url)
+        return True
+
+    folder = tmp_path / "outputs"
+    folder.mkdir()
+    script = folder / "x.bat"
+    script.write_text("echo hi")
+    url = folders.reveal_folder(folder, system)
+    assert url is not None and url.isLocalFile() and handed == [url]
+    assert Path(url.toLocalFile()) == folder
+    assert folders.reveal_folder(str(folder), system) == url  # a path as text
+    assert folders.reveal_folder(QUrl.fromLocalFile(str(folder)), system) == url  # a local URL
+    refused: list[Path | str | QUrl] = [
+        script,  # a file, never opened
+        str(script),
+        QUrl.fromLocalFile(str(script)),
+        folder / "missing",
+        "",
+        "https://example.org/outputs",
+        QUrl("https://example.org/outputs"),
+        QUrl("http://example.org/"),
+        QUrl("ftp://example.org/x"),
+        QUrl("mailto:plans@example.org"),
+        QUrl("javascript:alert(1)"),
+        QUrl(QUrl.fromLocalFile(str(folder)).toString() + "?x=1"),
+    ]
+    for target in refused:
+        assert folders.reveal_folder(target, system) is None, target
+    assert len(handed) == 3
+    assert folders.folder_of(script) == folder and folders.folder_of(folder) == folder
 
 
 def test_the_process_and_browser_scan_sees_the_usual_ways_in() -> None:

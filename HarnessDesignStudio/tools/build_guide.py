@@ -114,7 +114,8 @@ def convert(md: str) -> str:
                 para.append(lines[k])
             body.append(f"<p>{inline(' '.join(para))}</p>")
         k += 1
-    nav = "<nav>" + "".join(f'<a href="#{a}">{html.escape(t)}</a>' for a, t in toc) + "</nav>"
+    # (a separator between the links: the window of the program shows no margin between them)
+    nav = "<nav>" + " · ".join(f'<a href="#{a}">{html.escape(t)}</a>' for a, t in toc) + "</nav>"
     title = re.match(r"# (.*)", md).group(1) if re.match(r"# (.*)", md) else "Guide"  # type: ignore[union-attr]
     return (
         f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'

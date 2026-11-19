@@ -896,8 +896,6 @@ EXP_SYSTEM_SCOPE = "System"
 EXP_WHOLE_FOLDER = "(whole folder)"
 EXP_REVEAL = "Reveal in folder"
 EXP_REVEAL_TIP = "Show the selected file in its folder in the file manager (Ctrl+Enter)"
-EXP_OPEN = "Open"
-EXP_OPEN_TIP = "Open the selected file with the program your system uses for it (Enter)"
 EXP_REVEAL_FOLDER = "Reveal output folder"
 EXP_REVEAL_FOLDER_TIP = "Show the outputs folder in the file manager"
 EXP_COPY = "Copy selection to folder…"
@@ -3171,9 +3169,6 @@ LIB_SAVED_AS_NEW = "Saved {} to {} as {}."
 
 # 1.8.1 (G5): command-line and Outputs-list trust fixes
 IMP_WILL_KEEP = "No change"
-OUT_NOT_OPENED = (
-    "That file is not one the program wrote, so it is not opened. Open the folder instead."
-)
 
 # ---- 1.8.1 trust fixes ----------------------------------------------------------------------------
 SHEET_TAB_TIP = (
@@ -4183,3 +4178,28 @@ LIB_PREVIEW_PART_COLUMNS = ("Part", "Description", "Link")
 LIB_PREVIEW_PARTS_TIP = (
     "Double-click or press Enter on a row with a link to copy the link to the clipboard"
 )
+
+# ---- 3.0.1: the editor hands nothing but a folder to the system (D-250) ---------------------------
+# the user guide in a window of the program (Help > User guide, F1)
+GUIDE_TITLE = "User guide"
+GUIDE_NAME = "The text of the user guide"
+GUIDE_TIP = (
+    "The user guide. A link inside the guide moves within this window; a web link is copied to "
+    "the clipboard (the editor opens no browser)"
+)
+GUIDE_HINT = (
+    "Links inside the guide move within this window. A web link is copied to the clipboard: "
+    "the editor opens no browser."
+)
+GUIDE_LINK_REFUSED = "This link leads outside the guide and is not followed: {}"
+GUIDE_BACK = "Back"
+GUIDE_BACK_TIP = "Back to where you were in the guide (Alt+Left)"
+GUIDE_CONTENTS = "Contents"
+GUIDE_CONTENTS_TIP = "Back to the top of the guide, with its table of contents (Alt+Home)"
+GUIDE_CLOSE_TIP = "Close the user guide (Esc)"
+# Copy path, in place of Open, in the Export window and the Outputs list
+EXP_COPY_PATH = "Copy path"
+EXP_COPY_PATH_TIP = (
+    "Copy the full path of the selected file to the clipboard (Enter); the editor opens no file"
+)
+PATH_COPIED = "Path copied to the clipboard: {}"

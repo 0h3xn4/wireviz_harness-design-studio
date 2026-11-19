@@ -23,7 +23,7 @@ from harness_design_studio.core import checks, edit
 from harness_design_studio.core.issues import Issue
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.theme import ThemeManager
-from harness_design_studio.resources import examples_path
+from harness_design_studio.resources import examples_path, guide_path
 
 LONG = "Star tracker electronics unit, redundant"  # 40 characters
 VERY_LONG_ID = "STARTRACKER-ELECTRONICS-UNIT-A-REDUNDANT"
@@ -105,6 +105,7 @@ def _cases() -> list[Case]:
         dialogs,
         export_dialog,
         extensions_dialog,
+        guide_window,
         harness_edit_dialogs,
         journal_dialog,
         library_window,
@@ -244,6 +245,11 @@ def _cases() -> list[Case]:
         "ImportDialog",
     )
     add("Glossary", lambda c: dialogs.GlossaryDialog(None), "GlossaryDialog")
+    add(
+        "User guide",
+        lambda c: guide_window.GuideWindow(c.theme, None, path=guide_path()),
+        "GuideWindow",
+    )
     add(
         "Recovery issues",
         lambda c: dialogs.IssuesDialog(
