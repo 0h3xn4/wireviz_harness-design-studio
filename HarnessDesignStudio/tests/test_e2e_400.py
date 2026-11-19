@@ -51,8 +51,11 @@ from tests.test_row_layout_outputs import near_block
 
 PART = "EX-MICROD-9-F"
 # The SHA-256 of `system/export.json` of mini3 as 3.0.0 wrote it (`tests/fixtures/outputs/mini3.json`
-# at the tag v3.0.0), the generator's version read as 3.0.0.
+# at the tag v3.0.0), and its model hash: the generation record names the version that generated,
+# so the model hash of a generated project changes with the version (3.1.0 wrote another one), and
+# `as_3x` reads the generator's version and the model hash as those of 3.0.0.
 EXPORT_JSON_300 = "f53755715c033fc25963f58ef13966c27a1000c483d86bc1aa15eade67b1a04a"
+MODEL_HASH_300 = "c370e71b1811953a0ea140b4c415278e171f8149143e9465c8d25aaca565845a"
 
 
 def made_by_3x(proj: Path) -> None:
@@ -65,12 +68,13 @@ def made_by_3x(proj: Path) -> None:
 
 def as_3x(export_json: bytes) -> bytes:
     """`system/export.json` in the form 3.0.x wrote it: `revision` beside each `version`,
-    `format_version` 1, and the generator's version read as 3.0.0."""
+    `format_version` 1, and the generator's version and the model hash read as 3.0.0's."""
     doc = json.loads(export_json)
     assert doc["format_version"] == 2
     assert all("revision" not in h for h in doc["harnesses"])
     doc["format_version"] = 1
     doc["generator"]["version"] = "3.0.0"
+    doc["model_hash"] = MODEL_HASH_300
     for h in doc["harnesses"]:
         h["revision"] = h["version"]
     return (json.dumps(doc, indent=1, sort_keys=True, ensure_ascii=False) + "\n").encode()
