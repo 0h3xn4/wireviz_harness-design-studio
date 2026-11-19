@@ -1,5 +1,5 @@
-# harness-design-studio 3.0.0 model c7df218a900c
-# harness-design-studio 3.0.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.1.0 model 85d43f219681
+# harness-design-studio 3.1.0. Provided as is, without warranty. Verify before use.
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare
 W009-P1,cable,PCDU1-J10,EX-MICROD-9-M,1,PWR,,W009-001,no
 W009-P1,cable,PCDU1-J10,EX-MICROD-9-M,2,RTN,,W009-002,no
