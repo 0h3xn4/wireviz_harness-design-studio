@@ -63,3 +63,13 @@ The minor release `2.3.0` (D-245; branching harnesses; no format change) was pub
 The note on the publication of the patch release 2.3.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when 3.0.0 was prepared; that item still names 2.3.1 in the list of releases and says where this note is.
 
 The patch release `2.3.1` (D-246; the new logo; no format change) was published on 2026-11-18 (annotated tag `v2.3.1` on `764061f`, the merge of #270; made by the tag workflow, run 44274980246, its eighth use; release workflow run 44275039150, first attempt; signed and attested): the latest full release until 2.4.0.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 3.0.0 (2026-11-19)
+
+The note on the publication of the minor release 2.4.0, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 3.0.0 was written; that item still names 2.4.0 in the list of releases and says where this note is.
+
+The minor release `2.4.0` (D-248; new projects branch, D-247; no format change) was published on 2026-11-18 (annotated tag `v2.4.0` on `85df2a9`, the merge of #275; made by the tag workflow, run 44314858198, its ninth use; release workflow run 44314903316, first attempt; signed and attested): the latest full release until 3.0.0.
+
+The note on version 2.1.1, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 2.1.1 too.
+
+**Version `2.1.1` is published** (D-239; 2026-11-17, the latest full release until 2.2.0; no release candidate; tag `v2.1.1` on `5e99d3d`, made by the tag workflow, run 44042970611, its fifth use): a patch release with the three fixes of the end-to-end test of 2.1.0 (`explain` of a shared connector, the advice on a second plug, the *Port* column); no format change.
