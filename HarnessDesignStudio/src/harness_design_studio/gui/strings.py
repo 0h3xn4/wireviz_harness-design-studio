@@ -4203,3 +4203,93 @@ EXP_COPY_PATH_TIP = (
     "Copy the full path of the selected file to the clipboard (Enter); the editor opens no file"
 )
 PATH_COPIED = "Path copied to the clipboard: {}"
+
+# ---- 4.0.0: the row layout of a connector (format 4, D-251; design of 4.0.0 section 9) ------------
+# the Devices tab: the row Pin rows of a connector's card and the pin table's column
+DV_CARD_ROWS = "Pin rows"
+DV_CARD_ROWS_TIP = (
+    "The rows of the connector's insert as they stand on its face, from the top, and where they "
+    "come from: the connector's own rows or those of its part"
+)
+DV_ROWS_EDIT = "Edit rows…"
+DV_ROWS_EDIT_TIP = "Enter or change the pin rows of this connector (one undo step)"
+DV_COL_PIN_ROW = "Pin row"
+DV_COL_PIN_ROW_TIP = (
+    "The row of the pin on the face of the connector, counted from 1 at the top (empty: in no "
+    "row); shown while the connector has a row layout"
+)
+# where the rows of a connector come from, in words
+ROWS_NONE = "none"
+ROWS_FROM_PART = "{rows}, from part {part}"
+ROWS_OWN = "{rows}, own rows"
+ROWS_FROM_MATED = "{rows}, from {box}, the device connector it plugs into"
+# the dialog Pin rows of J1 (gui/row_layout_dialog.py)
+PR_TITLE_CONNECTOR = "Pin rows of {0}"
+PR_TITLE_PART = "Pin rows of part {0}"
+PR_INTRO_CONNECTOR = (
+    "One line per row, from the top of the face; the pins of a row separated by spaces or "
+    "commas, a run of numbered pins as 1–11 or 1:11. {0} has the pins {1}."
+)
+PR_INTRO_PART = (
+    "One line per row, from the top of the face; the pins of a row separated by spaces or "
+    "commas, a run of numbered pins as 1–11 or 1:11. Every connector of this part without rows "
+    "of its own takes these rows."
+)
+PR_NOW = "Now: {0}"
+PR_ROWS = "Rows"
+PR_ROWS_TIP = "The rows of the face, one line per row (for example 1–11 on the first line, 12–21 on the second)"
+PR_LENGTHS = "Row lengths"
+PR_LENGTHS_TIP = (
+    "The number of pins of each row, such as 11, 10; Fill writes the rows numbered one after "
+    "the other (on a connector its pins in pin order)"
+)
+PR_LENGTHS_HINT = "such as 11, 10"
+PR_FILL = "Fill"
+PR_FILL_TIP = "Write the rows from the row lengths into the box above"
+PR_RINGS = "Rings of a circular insert"
+PR_RINGS_TIP = (
+    "Each row is a ring of a circular insert, from the outer ring inwards, its pins in order "
+    "round the ring: the last pin of a ring is next to its first"
+)
+PR_OK = "Set rows"
+PR_SHARE = "Use for every connector of this part"
+PR_SHARE_TIP = (
+    "Move these rows to part {0}, and clear the own rows of every connector of that part that "
+    "equal them (one undo step)"
+)
+PR_SHARE_NO_PART = "Part {0} is not a connector part of the library; its rows cannot be shared."
+PR_BACK = "Back to the part's rows"
+PR_BACK_TIP = "Clear the own rows of {0}: it takes the rows of its part again (one undo step)"
+PR_BACK_NONE = "{0} has no rows of its own."
+PR_CLEAR = "Clear"
+PR_CLEAR_TIP = "Empty the box: Set rows then removes the rows"
+PR_EMPTY_CONNECTOR = "No rows: Set rows removes the own rows of {0}."
+PR_EMPTY_PART = "No rows: Set rows removes the rows of part {0}."
+PR_EMPTY_NOTHING = "No rows yet: enter them above, or give the row lengths and press Fill."
+PR_MISSING = "{connector} has no pin {pins}; the rows leave {them} out there."
+PR_MISSING_IT = "it"
+PR_MISSING_THEM = "them"
+STEP_SET_ROWS = "Set the pin rows of {0}"
+STEP_CLEAR_ROWS = "Remove the pin rows of {0}"
+STEP_BACK_ROWS = "{0}: back to the rows of its part"
+STEP_SHARE_ROWS = "Use the pin rows of {0} for every connector of part {1}"
+ROWS_SET = "The pin rows of {0} are set."
+ROWS_CLEARED = "The pin rows of {0} are removed."
+ROWS_SHARED = "The pin rows of {0} are now those of part {1}."
+# the Inspector: the rows of a part (edited) and of a cable connector (read-only)
+INS_ROWS = "Pin rows"
+INS_ROWS_TIP_PART = (
+    "The rows of the part's insert, shared by every connector of the part without rows of its own"
+)
+INS_ROWS_TIP_CABLE = (
+    "The rows this cable connector takes: those of its part, else those of the device connector "
+    "it plugs into (a cable connector has no rows of its own)"
+)
+INS_ROWS_EDIT_TIP = "Enter or change the pin rows of this part (one undo step)"
+# the Problems panel: the checks of the row layouts (design of 4.0.0 section 4.3)
+PROBLEMS_ROWS_NOTE_WHY = (
+    "A note of the check of the row layouts: the pins named are in no row of the layout, so the "
+    "check of power and return pins judges them in the order of the list of pins. It stops "
+    "nothing."
+)
+PROBLEMS_EDIT_ROWS = "Edit the pin rows of {0}…"

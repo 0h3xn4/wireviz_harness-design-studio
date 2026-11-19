@@ -212,6 +212,7 @@ from harness_design_studio.gui.roles import (
     default_role,
     role_key,
 )
+from harness_design_studio.gui.row_layout_dialog import PinRowsDialog
 from harness_design_studio.gui.settings_page import SCALES, SettingsPage
 from harness_design_studio.gui.shell import (
     BannerStack,
@@ -979,6 +980,8 @@ class MainWindow(QMainWindow):
         self.problems_list.detailsRequested.connect(self._problem_details)
         self.problems_list.joinRequested.connect(lambda box: self.join_flow(box))
         self.problems_list.segmentationRequested.connect(self.segmentation_flow)
+        self.problems_list.connectorRequested.connect(self.show_connector)
+        self.problems_list.rowsRequested.connect(self.pin_rows_flow)
 
     def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea, name: str) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -1171,6 +1174,7 @@ class MainWindow(QMainWindow):
             widget.contactRequested.connect(self.contact_pins_flow)
             widget.newPartRequested.connect(self.new_part_flow)
             widget.newTypeRequested.connect(self.new_type_flow)
+            widget.rowsRequested.connect(lambda cid: self.pin_rows_flow("connector", cid))
             return True
         if isinstance(widget, ProjectTree):
             widget.selectionRequested.connect(self._tree_selected)
@@ -1181,6 +1185,7 @@ class MainWindow(QMainWindow):
         if isinstance(widget, Inspector):
             widget.reviseRequested.connect(lambda hid: self.change_flow("revise", hid))
             widget.showRequested.connect(lambda _kind, ident: self.show_object(ident))
+            widget.rowsRequested.connect(self.pin_rows_flow)
             return True
         return False
 
@@ -1704,6 +1709,58 @@ class MainWindow(QMainWindow):
         elif accepted:
             chosen, signals = dlg.assignment()
             self.ctl.assign_pins(connector_id, chosen, dlg.interface_id(), signals)
+
+    def pin_rows_flow(self, kind: str, object_id: str) -> bool:
+        """*Edit rows…* of a box connector (the Devices tab, kind "connector") or of a connector
+        part (the Inspector, kind "part"): the dialog *Pin rows of …* (format 4, design of 4.0.0
+        section 9); what it ends with is one undo step through the plans of
+        `core/row_layout_edit.py`. False when nothing changed."""
+        if self.ctl.read_only:
+            self.ctl.refuse_read_only()
+            return False
+        p = self.ctl.project
+        if kind == "part" and object_id in p.parts:
+            dlg = PinRowsDialog(self, self.theme, p, part=object_id)
+        elif kind == "connector" and object_id in p.connectors:
+            dlg = PinRowsDialog(self, self.theme, p, connector=object_id)
+        else:
+            return False
+        if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
+            return False
+        if dlg.action == "back":
+            return self.ctl.clear_row_layout(connector=object_id)
+        try:
+            layout = dlg.typed_rows()
+        except ValueError as exc:  # (OK is off while the text is not rows)
+            self.ctl.message.emit(str(exc), False)
+            return False
+        if dlg.action == "share":
+            return self.ctl.share_rows_with_part(object_id, layout)
+        target = {"part": object_id} if kind == "part" else {"connector": object_id}
+        return self.ctl.set_row_layout(layout, **target)
+
+    def show_connector(self, object_id: str) -> None:
+        """Show of a row layout check (design of 4.0.0 section 9): a device connector in the
+        Devices tab, a cable connector or a part in the Inspector (the cable connector's harness
+        in the Harness tab); anything else as any finding."""
+        p = self.ctl.project
+        box = p.connectors.get(object_id)
+        if box is not None and box.unit_id is not None:
+            self.go_to("devices")
+            self.devices_view.select_connector(object_id)
+            return
+        kind = "part" if object_id in p.parts else "cable_end"
+        found = cable_ends.connector_of(p, object_id)
+        if kind == "cable_end" and found is None:
+            self.show_object(object_id)
+            return
+        if found is not None:
+            self.show_harness_view()
+            select_harness = getattr(self.harness_target(), "select_harness", None)
+            if select_harness is not None:
+                select_harness(found[0].id)
+        self.dock_right.show()
+        self.inspector.show_object(kind, object_id, tab="inspector")
 
     def choose_port_flow(self, interface_id: str, connector_id: str) -> bool:
         """Choose port… of an interface end in the Inspector: the port's pins are locked to the
@@ -3231,7 +3288,9 @@ class MainWindow(QMainWindow):
         self.status_saved.setVisible(eff >= 1100)
 
     def _update_problems_button(self) -> None:
-        self.problems_btn.setText(strings.PROBLEMS_BUTTON.format(len(self.ctl.open_findings())))
+        # (the notes of the row layout checks are rows of the Problems list too: the two agree)
+        n = len(self.ctl.open_findings()) + len(self.ctl.layout_notes())
+        self.problems_btn.setText(strings.PROBLEMS_BUTTON.format(n))
 
     # ---- Home: recent projects and the examples -------------------------------------------------
     @staticmethod

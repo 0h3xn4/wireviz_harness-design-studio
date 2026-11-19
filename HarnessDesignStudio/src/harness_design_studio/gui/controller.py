@@ -33,7 +33,9 @@ from harness_design_studio.core import (
     links,
     manual_harness,
     part_approval,
+    row_layout_edit,
 )
+from harness_design_studio.core.clone import clone_with
 from harness_design_studio.core.commands import Delete, History, Op, Put, SetZones, apply_ops
 from harness_design_studio.core.drc import by_rule
 from harness_design_studio.core.errors import HarnessError, SaveError, TransactionError
@@ -42,11 +44,13 @@ from harness_design_studio.core.extensions import refresh as refresh_extensions
 from harness_design_studio.core.generate.engine import GenerationPlan
 from harness_design_studio.core.generation_status import generation_status, input_hash
 from harness_design_studio.core.imports import ImportPlan
+from harness_design_studio.core.integrity import row_layout_issues
 from harness_design_studio.core.io.fs import ProjectLock
 from harness_design_studio.core.io.loader import LoadResult, disk_fingerprint, load_project
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.io.upgrade import UpgradeResult, upgrade_project
-from harness_design_studio.core.model import DiagramMark, Project
+from harness_design_studio.core.issues import Issue
+from harness_design_studio.core.model import DiagramMark, Project, RowLayout, evolve
 from harness_design_studio.core.outputs.build import DEFAULT_FOLDER, outputs_status
 from harness_design_studio.core.recovery import (
     clear_journal,
@@ -260,6 +264,7 @@ class EditorController(QObject):
         self._findings_cache: tuple[object, list[checks.Finding]] | None = None
         self._open_cache: list[checks.Finding] | None = None
         self._counts_cache: tuple[object, tuple[int, int]] | None = None
+        self._notes_cache: tuple[object, list[Issue]] | None = None
         self._owners: dict[str, str] = {}
         self._ends: dict[str, tuple[str, ...]] = {}
         self._installs = 0
@@ -2234,6 +2239,76 @@ class EditorController(QObject):
             strings.STEP_EDIT_CONNECTOR.format(connector_id),
             lambda: plan_edit_connector(self.project, hid, connector_id, name=name),
         )
+
+    # ---- the row layout of a connector (format 4, D-251; design of 4.0.0 section 9) ------------
+    def set_row_layout(
+        self, layout: RowLayout | None, *, part: str | None = None, connector: str | None = None
+    ) -> bool:
+        """Give a connector part or a box connector these rows (None: remove them), one undo step
+        through `row_layout_edit.plan_set_row_layout` (or `plan_clear_row_layout`). A box
+        connector without rows of its own that is given the rows of its part keeps none: it takes
+        them from the part already."""
+        if layout is None:
+            return self.clear_row_layout(part=part, connector=connector)
+        target = part or connector or ""
+        box = self.project.connectors.get(connector or "")
+        if box is not None and box.row_layout is None:
+            owner = self.project.parts.get(box.part_id)
+            if owner is not None and owner.row_layout == layout:
+                return True
+        return self.attempt(
+            strings.STEP_SET_ROWS.format(target),
+            lambda: row_layout_edit.plan_set_row_layout(
+                self.project, layout, part=part, connector=connector
+            ),
+            message=strings.ROWS_SET.format(target),
+        )
+
+    def clear_row_layout(self, *, part: str | None = None, connector: str | None = None) -> bool:
+        """Remove the rows of a part, or the own rows of a box connector (*Back to the part's
+        rows*), one undo step."""
+        target = part or connector or ""
+        label = strings.STEP_BACK_ROWS if connector else strings.STEP_CLEAR_ROWS
+        return self.attempt(
+            label.format(target),
+            lambda: row_layout_edit.plan_clear_row_layout(
+                self.project, part=part, connector=connector
+            ),
+            message=strings.ROWS_CLEARED.format(target),
+        )
+
+    def share_rows_with_part(self, connector_id: str, layout: RowLayout | None = None) -> bool:
+        """*Use for every connector of this part*: the rows `layout` (default: the connector's own
+        rows) move to the connector's part, and the own rows of every box connector of that part
+        that equal them are cleared, the connector's own included: one undo step
+        (`row_layout_edit.plan_share_with_part`, asked about the project as it would be with these
+        rows on the connector)."""
+        box = self.project.connectors.get(connector_id)
+        part_id = box.part_id if box is not None else ""
+
+        def build() -> list[Op]:
+            view = self.project
+            if box is not None and layout is not None and layout != box.row_layout:
+                c = evolve(box, row_layout=layout)
+                view = clone_with(view, [Put("connectors", c)])
+            return row_layout_edit.plan_share_with_part(view, connector_id)
+
+        return self.attempt(
+            strings.STEP_SHARE_ROWS.format(connector_id, part_id),
+            build,
+            message=strings.ROWS_SHARED.format(connector_id, part_id),
+        )
+
+    def layout_notes(self) -> list[Issue]:
+        """The notes of the check of the row layouts (`row_layout_pins_outside`, design of 4.0.0
+        section 4.3): not findings of a rule (a spare contact outside the rows is no mismatch), so
+        the Problems panel lists them beside the findings. Worked out once per change; none for a
+        project without a layout."""
+        key = self.findings_key()
+        if self._notes_cache is None or self._notes_cache[0] != key:
+            notes = [i for i in row_layout_issues(self.project) if i.severity == "info"]
+            self._notes_cache = (key, notes)
+        return self._notes_cache[1]
 
 
 def reason_of(exc: BaseException) -> str:

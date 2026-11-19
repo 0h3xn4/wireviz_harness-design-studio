@@ -2,7 +2,7 @@
 
 | Folder | What is in it | Made by |
 | --- | --- | --- |
-| [`qt/`](qt/) | 28 pictures of the real editor, offscreen, 1440 x 900, light theme: the built-in sample (01 to 13) and the views and dialogs of the redesigned editor on the flatsat example (14 to 28; 27 and 28 are the Settings sections of the harness plans, 3.0.0). These are the current pictures. | `python -m tools.gui_screenshots` |
+| [`qt/`](qt/) | 30 pictures of the real editor, offscreen, 1440 x 900, light theme: the built-in sample (01 to 13) and the views and dialogs of the redesigned editor on the flatsat example (14 to 30; 27 and 28 are the Settings sections of the harness plans, 3.0.0; 29 and 30 the pin rows of a connector, 4.0.0). These are the current pictures. | `python -m tools.gui_screenshots` |
 | [`../img/`](../img/) | The flatsat diagram (overview and one unit in focus) used by the README and [`../FLATSAT_EXAMPLE.md`](../FLATSAT_EXAMPLE.md). | `python -m tools.flatsat_screenshots` |
 | [`build/`](build/) | Before and after pictures taken by each branch of the UX redesign (canvas, state marks, project tree, checks), light and dark, at 1280 x 720 and 1920 x 1080. History of the work; they are not refreshed. | by hand, per branch |
 | [`custom-devices/`](custom-devices/) | 12 pictures of the real editor on the flatsat example (offscreen, light theme) that the custom-devices audit [`../ux-custom-devices-audit.md`](../ux-custom-devices-audit.md) refers to: what the editor offers today for a device of your own. They are not refreshed. | a throwaway script with `widget.grab()` |

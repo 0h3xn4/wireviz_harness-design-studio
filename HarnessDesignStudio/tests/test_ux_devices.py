@@ -137,8 +137,9 @@ def test_header_counts_state_and_connector_list(qtbot, theme) -> None:
 def test_pin_table_columns_and_derived_meaning(qtbot, theme) -> None:
     ctl, view = make_view(qtbot, theme, custom())
     m = view.pin_model
-    assert [c.header for c in m.columns][:10] == [
+    assert [c.header for c in m.columns][:11] == [
         "Pin",
+        "Pin row",  # format 4 (4.0.0): only while the connector has a row layout; hidden here
         "Signal",
         "Port",  # derived from the pin names of a fixed pinout (D-237); empty here; since 2.1.1
         # next to the signal it is read from
@@ -150,6 +151,7 @@ def test_pin_table_columns_and_derived_meaning(qtbot, theme) -> None:
         "Class",
         "Wire",
     ]
+    assert view.pin_table.isColumnHidden(m.column_index("pin_row"))
     assert m.rowCount() == 6
     assert cell(view, 0, "role") == "Power (auto)"  # (the role the signal name gives, marked auto)
     assert [cell(view, r, "pin") for r in range(6)] == ["A1", "A2", "3", "4", "5", "6"]
