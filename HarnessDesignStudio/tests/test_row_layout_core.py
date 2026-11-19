@@ -17,12 +17,12 @@ from pathlib import Path
 import pytest
 
 from harness_design_studio import api
-from harness_design_studio.core import journal
+from harness_design_studio.core import integrity, journal
 from harness_design_studio.core.commands import History, Put, apply_ops
 from harness_design_studio.core.drc import run as run_drc
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.errors import TransactionError
-from harness_design_studio.core.integrity import check_integrity, row_layout_issues
+from harness_design_studio.core.integrity import row_layout_issues
 from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.model import Connector, Pin, Project, RowLayout, evolve
@@ -63,7 +63,7 @@ def with_connectors(p: Project, *ids: str, part: str = "EX-MICROD-21-F", pins: i
 def test_no_check_speaks_on_projects_without_a_layout() -> None:
     for p in (mini3(), sat15()):
         assert row_layout_issues(p) == []
-        assert not [i for i in check_integrity(p) if i.code in CODES]
+        assert not [i for i in integrity.check_integrity(p) if i.code in CODES]
 
 
 def test_a_name_of_the_part_that_the_connector_does_not_have() -> None:
