@@ -80,6 +80,7 @@ from harness_design_studio.gui import export_docs, folders, icons, strings, webl
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.dialog_base import Dialog
 from harness_design_studio.gui.export_docs import Document
+from harness_design_studio.gui.filesize import human_size
 from harness_design_studio.gui.notice import InlineNotice
 from harness_design_studio.gui.preview import SheetView
 from harness_design_studio.gui.states import StateChip
@@ -111,15 +112,6 @@ def default_worker(project: Project) -> OutputsWorker:
 def _ask_folder(title: str) -> str | None:
     path = QFileDialog.getExistingDirectory(None, title)
     return path or None
-
-
-def human_size(n: int) -> str:
-    """ "512 B", "12.3 kB", "1.4 MB" (decimal, as file managers show)."""
-    if n < 1000:
-        return f"{n} B"
-    if n < 1_000_000:
-        return f"{n / 1000:.1f} kB"
-    return f"{n / 1_000_000:.1f} MB"
 
 
 _DAMAGED_SHOWN = 5  # file names the notice for a damaged project lists

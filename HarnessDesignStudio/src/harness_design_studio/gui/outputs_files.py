@@ -41,7 +41,7 @@ from harness_design_studio.core.outputs.verify import OPEN_DATA_FOLDER
 from harness_design_studio.gui import export_docs, folders, icons, strings, weblinks
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.empty_state import attach_empty_state
-from harness_design_studio.gui.export_dialog import human_size
+from harness_design_studio.gui.filesize import human_size
 from harness_design_studio.gui.notice import InlineNotice
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager

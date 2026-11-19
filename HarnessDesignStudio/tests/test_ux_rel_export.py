@@ -25,11 +25,8 @@ from harness_design_studio.core.samples import new_project  # noqa: E402
 from harness_design_studio.core.verify import VerifyReport  # noqa: E402
 from harness_design_studio.gui import export_docs, folders, strings  # noqa: E402
 from harness_design_studio.gui.controller import EditorController  # noqa: E402
-from harness_design_studio.gui.export_dialog import (  # noqa: E402
-    ExportDialog,
-    ExportResult,
-    human_size,
-)
+from harness_design_studio.gui.export_dialog import ExportDialog, ExportResult  # noqa: E402
+from harness_design_studio.gui.filesize import human_size  # noqa: E402
 from harness_design_studio.gui.main_window import OutputsWorker  # noqa: E402
 from tests.test_accessibility import unnamed  # noqa: E402
 from tests.ux_rel import (  # noqa: E402
