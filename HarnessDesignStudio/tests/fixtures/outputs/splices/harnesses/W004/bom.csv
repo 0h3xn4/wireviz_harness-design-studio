@@ -1,5 +1,5 @@
-# harness-design-studio 2.4.0 model e0075c432202
-# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.0.0 model 1082c8d99657
+# harness-design-studio 3.0.0. Provided as is, without warranty. Verify before use.
 Part,Category,Manufacturer,Part number,Description,Approval,Quantity,Unit,Wires without length,Used in
 (no part),unknown,,,,missing from parts list,2.6,m,0,W004
 EX-MICROD-15-M,connector,,,"Micro-D 15-pin, male (example, baseline power and data)",pending (example data),1,ea,,W004

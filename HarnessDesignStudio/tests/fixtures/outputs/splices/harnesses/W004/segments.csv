@@ -1,5 +1,5 @@
-# harness-design-studio 2.4.0 model e0075c432202
-# harness-design-studio 2.4.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 3.0.0 model 1082c8d99657
+# harness-design-studio 3.0.0. Provided as is, without warranty. Verify before use.
 Segment,From,To,Length (m),Number of wires,Wires
 W004-L1,W004-P1,W004-B1,0.3,2,W004-001;W004-004
 W004-L2,W004-B1,W004-P2,0.6,2,W004-002;W004-004
