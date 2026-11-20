@@ -211,11 +211,15 @@ def test_the_workbook_has_the_accessories_sheet_between_parts_and_labels(project
 
 def test_the_cut_list_shows_strip_lengths_or_to_fill_in(project: Project, plain: Project) -> None:
     data = build_workbook(project, project.harnesses[H], stamp_of(project))
-    rows = {r[1]: r for r in _sheets(data)["Cut list"][1:-5]}
+    rows = {r[1]: r for r in _sheets(data)["Cut list"][1:] if str(r[1]).startswith(f"{H}-0")}
     assert _sheets(data)["Cut list"][0][6:8] == ["Strip A (mm)", "Strip B (mm)"]
     assert rows[f"{H}-001"][6:8] == [6, 7.5] and rows[f"{H}-002"][6:8] == [5, "to fill in"]
     bare = build_workbook(plain, plain.harnesses[H], stamp_of(plain))  # shown even when never used
-    assert all(r[6:8] == ["to fill in", "to fill in"] for r in _sheets(bare)["Cut list"][1:-5])
+    assert all(
+        r[6:8] == ["to fill in", "to fill in"]
+        for r in _sheets(bare)["Cut list"][1:]
+        if str(r[1]).startswith(f"{H}-0")
+    )
     ws = load_workbook(io.BytesIO(bare))["Cut list"]
     assert ws["G2"].fill.fgColor.rgb.endswith("FFE699")  # amber
 

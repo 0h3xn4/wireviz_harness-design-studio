@@ -152,9 +152,9 @@ def _number_text(v: float) -> str:
     return text[:-2] if text.endswith(".0") else text
 
 
-def reference_lines(project: Project) -> tuple[str, str, str]:
+def reference_lines(project: Project) -> tuple[str, str, str, str]:
     """What every length of a document is measured from, in words from the settings in force
-    (design of 4.1.0, section 6.1), as three sentences, so a sheet can print each on a row of its
+    (design of 4.1.0, section 6.1), as four short sentences, so a sheet can print each on a row of its
     own: from the rear of a connector along the segments, through the centre of each branch point,
     to the rear of the other; what Generate adds (the service loops of
     `model.service_loops_per_wire` and `generation.service_loop_m`, and under the length model
@@ -177,9 +177,9 @@ def reference_lines(project: Project) -> tuple[str, str, str]:
             f"cut allowance of {cut} m"
         )
     return (
-        "Lengths run from the rear of a connector (where the wires leave its body or backshell) "
-        "along the routing segments, through the centre of each branch point, to the rear of the "
-        "other connector.",
+        "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
+        "They follow the routing segments through the centre of each branch point to the rear of "
+        "the other connector.",
         f"A wire Generate made adds {added}.",
         '"Locked" is a length a person typed; "segments only" has no service loops.',
     )

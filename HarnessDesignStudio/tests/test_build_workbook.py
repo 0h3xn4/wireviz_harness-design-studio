@@ -155,13 +155,14 @@ def test_the_cut_list_has_each_wire_once_thick_before_thin(
     h = project.harnesses[harness_id]
     data = build_workbook(project, h, stamp_of(project))
     cut = _sheets(data)["Cut list"]
-    rows = [r for r in cut[1:-5] if r[1]]
+    n = len(reference_lines(project))
+    rows = [r for r in cut[1 : -(n + 2)] if r[1]]
     assert sorted(str(r[1]) for r in rows) == sorted(w.id for w in h.wires)
     gauges = [r[3] for r in rows if isinstance(r[3], int)]
     assert gauges == sorted(gauges)  # the lowest AWG number (the thickest wire) first
-    assert cut[-5][1] == f"{len(h.wires)} wires"  # the totals, an empty row, the length sentences
-    assert not any(cut[-4]) and [r[0] for r in cut[-3:]] == list(reference_lines(project))
-    assert not any(v for r in cut[-3:] for v in r[1:])
+    assert cut[-(n + 2)][1] == f"{len(h.wires)} wires"  # the totals, an empty row, the sentences
+    assert not any(cut[-(n + 1)]) and [r[0] for r in cut[-n:]] == list(reference_lines(project))
+    assert not any(v for r in cut[-n:] for v in r[1:])
 
 
 def test_a_wire_colour_is_shown_as_a_fill_and_in_words(project: Project, harness_id: str) -> None:

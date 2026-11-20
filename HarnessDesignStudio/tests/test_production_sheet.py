@@ -587,7 +587,10 @@ def test_start_here_lists_the_sheet_and_says_what_the_lengths_are_measured_from(
     lengths = [r for r in rows if r[:1] == [bs.LENGTHS_ROW]]
     at = rows.index(lengths[0])
     lines = reference_lines(flatsat)
-    assert rows[at : at + 3] == [[bs.LENGTHS_ROW, lines[0]], ["", lines[1]], ["", lines[2]]]
+    assert rows[at : at + len(lines)] == [
+        [bs.LENGTHS_ROW, lines[0]],
+        *(["", line] for line in lines[1:]),
+    ]
     assert first.index("Released on") < first.index(bs.LENGTHS_ROW) < first.index("How to use this workbook")  # fmt: skip
 
 
@@ -596,8 +599,9 @@ def test_the_cut_list_and_the_routing_say_what_their_lengths_run_between(flatsat
     cut = [_trim(list(r)) for r in wb["Cut list"].iter_rows(values_only=True)]
     assert cut[0][5] == "Length (m), rear to rear" == bs.CUT_HEADER[5]
     lines = [[line] for line in reference_lines(flatsat)]
-    assert cut[-5][1] == "18 wires" and cut[-4] == [] and cut[-3:] == lines
+    n = len(lines)
+    assert cut[-(n + 2)][1] == "18 wires" and cut[-(n + 1)] == [] and cut[-n:] == lines
     routing = [_trim(list(r)) for r in wb["Routing"].iter_rows(values_only=True)]
     assert routing[0][3] == "Length (m), rear or branch centre"
-    assert routing[-4:] == [[], *lines]
+    assert routing[-(n + 1) :] == [[], *lines]
     assert tables.SEGMENT_HEADER[3] == "Length (m)"  # segments.csv keeps its heading

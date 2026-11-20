@@ -150,9 +150,9 @@ def _length_reference(project: Project) -> str:
     return " ".join(_length_lines(project))
 
 
-def _length_lines(project: Project) -> tuple[str, str, str]:
+def _length_lines(project: Project) -> tuple[str, str, str, str]:
     """What every length of a document is measured from, worded from the settings in force, as the
-    three sentences a sheet prints on a row each."""
+    four short sentences a sheet prints on a row each."""
     count = _setting(project, "model", "service_loops_per_wire")
     each = _setting(project, "generation", "service_loop_m")
     if isinstance(each, bool) or not isinstance(each, int | float):
@@ -172,9 +172,9 @@ def _length_lines(project: Project) -> tuple[str, str, str]:
             f"twisted construction, and a cut allowance of {_figure(float(cut))} m"
         )
     return (
-        "Lengths run from the rear of a connector (where the wires leave its body or backshell) "
-        "along the routing segments, through the centre of each branch point, to the rear of the "
-        "other connector.",
+        "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
+        "They follow the routing segments through the centre of each branch point to the rear of "
+        "the other connector.",
         f"A wire Generate made adds {loops}.",
         '"Locked" is a length a person typed; "segments only" has no service loops.',
     )
