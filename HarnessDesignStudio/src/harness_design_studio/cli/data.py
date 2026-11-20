@@ -261,7 +261,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     xp = sub.add_parser(
         "export-pinout",
         help="write one device's pinout as CSV, TSV or XLSX",
-        description="Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV, with the columns Level, Source, Source version and Source link while a pin or a connector of the device has a value for them. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document, and import-pinout reads the file back.",
+        description="Write the rows of system/box_pinouts.csv that belong to one device (connector, pin, signal, interface, wires, spare) to a file, or to the screen as CSV, with the column Pin row while a connector of the device has a row layout, and the columns Level, Source, Source version and Source link while a pin or a connector of the device has a value for them. The format follows the file name (.csv, .tsv or .xlsx; another ending is refused). The rows are the ones export writes, so the file compares with an interface control document, and import-pinout reads the file back.",
     )
     xp.add_argument("project", type=Path)
     xp.add_argument(

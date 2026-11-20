@@ -27,7 +27,15 @@ its harness only, so every other harness keeps its bytes: the wire list gets a l
 (the splices of the wire's net, `core/nets.py`); the tests of a net through a splice are one
 continuity test per pair of its ends (`W001-P1.1` to `W001-P2.3 via W001-X1`, with the wires of the
 path) and one isolation test of the net, in place of one of each per wire; a splice has no label;
-the mass table does not count it as a connector. The verifier words all of it again on its own."""
+the mass table does not count it as a connector. The verifier words all of it again on its own.
+
+The row layout of a connector (format 4, design of 4.0.0 section 7) shows only where a connector
+has one, so every other table keeps its bytes: `box_pinouts.csv` (and so the Devices tab and
+`export-pinout`) gets the last column `Pin row` while some box connector of the project has a
+layout, and the pinout table of a harness while some connector of that harness has one (its
+part's, else the mated box connector's; `core/row_layout.layout_of`). The cell is the row of the
+pin, counted from 1 at the top of the face, and empty for a pin in no row; the rows stay in pin
+order. The verifier reads the rows again on its own (`verify_plan.face_rows`)."""
 
 import math
 import re
@@ -54,6 +62,7 @@ from harness_design_studio.core.nets import (
     net_of_wire,
     path_wires,
 )
+from harness_design_studio.core.row_layout import PinRows, layout_of
 
 from .stamp import Table
 
@@ -234,14 +243,18 @@ def _pin_rows(
     contact: bool = False,
     direction: bool = False,
     carried: dict[tuple[str, str], tuple[str, str]] | None = None,
+    pin_row: bool = False,
+    face: PinRows | None = None,
 ) -> Table:
-    """The rows of one connector; `fn`, `term`, `contact` and `direction` say whether the Function,
-    Termination, Contact and Direction columns exist (worked out once per table, since each looks
-    at every pin of the project). `carried` (cable connectors, release 1.10) gives the signal and
-    the interface of the wires at a pin, which fill the Signal and Interface cells of a pin that
-    has none of its own."""
+    """The rows of one connector; `fn`, `term`, `contact`, `direction` and `pin_row` say whether
+    the Function, Termination, Contact, Direction and Pin row columns exist (worked out once per
+    table, since each looks at more than one connector). `carried` (cable connectors, release
+    1.10) gives the signal and the interface of the wires at a pin, which fill the Signal and
+    Interface cells of a pin that has none of its own. `face` is the row layout of the connector
+    (format 4), whose row of a pin fills the Pin row cell."""
     rows: Table = []
     for p in c.pins:
+        row = face.row_of(p.id) if face is not None else None
         wires = attached.get((c.id, p.id), [])
         sig, itf = (carried or {}).get((c.id, p.id), ("", ""))
         rows.append([
@@ -251,9 +264,13 @@ def _pin_rows(
             *([p.function or ""] if fn else []), *([p.termination] if term else []),
             *([p.contact_part or ""] if contact else []),
             *([_DIRECTION_WORD[p.direction]] if direction else []),
+            *(["" if row is None else str(row)] if pin_row else []),
         ])  # fmt: skip
     return rows
 
+
+# the last column of a pinout table while a connector of the table has a row layout (format 4)
+PIN_ROW = "Pin row"
 
 PINOUT_HEADER = [
     "Connector",
@@ -272,13 +289,16 @@ PINOUT_HEADER = [
 _DIRECTION_WORD = {"": "", "in": "in", "out": "out", "bidir": "bidirectional"}
 
 
-def _header(fn: bool, term: bool, contact: bool = False, direction: bool = False) -> list[str]:
+def _header(
+    fn: bool, term: bool, contact: bool = False, direction: bool = False, pin_row: bool = False
+) -> list[str]:
     return [
         *PINOUT_HEADER,
         *(["Function"] if fn else []),
         *(["Termination"] if term else []),
         *(["Contact"] if contact else []),
         *(["Direction"] if direction else []),
+        *([PIN_ROW] if pin_row else []),
     ]
 
 
@@ -305,15 +325,18 @@ def pinouts(project: Project, h: Harness) -> Table:
         uses_pin_function(project), uses_termination(project), uses_contact_parts(project),
         uses_pin_direction(project),
     )  # fmt: skip
-    rows = [_header(fn, term, contact, direction)]
+    faces = {c.id: layout_of(project, c) for c in h.connectors}
+    pin_row = any(f is not None for f in faces.values())
+    rows = [_header(fn, term, contact, direction, pin_row)]
     for c in sorted(h.connectors, key=lambda x: x.id):
-        rows += _pin_rows(c, attached, fn, term, contact, direction, carried)
+        rows += _pin_rows(c, attached, fn, term, contact, direction, carried, pin_row, faces[c.id])
     return rows
 
 
 def box_pinouts(project: Project, connector_ids: Collection[str] | None = None) -> Table:
     """The rows of `system/box_pinouts.csv`; `connector_ids` keeps only those box connectors
-    (the Devices view shows one device's rows exactly as they are exported)."""
+    (the Devices view shows one device's rows exactly as they are exported, so the Pin row column
+    is there while some box connector of the project has a row layout)."""
     attached: dict[tuple[str, str], list[str]] = defaultdict(list)
     for h in project.harnesses.values():
         mates = {c.id: c.mates_with for c in h.connectors}
@@ -325,10 +348,12 @@ def box_pinouts(project: Project, connector_ids: Collection[str] | None = None) 
         uses_pin_function(project), uses_termination(project), uses_contact_parts(project),
         uses_pin_direction(project),
     )  # fmt: skip
-    rows = [_header(fn, term, contact, direction)]
+    faces = {c.id: layout_of(project, c) for c in project.connectors.values()}
+    pin_row = any(f is not None for f in faces.values())
+    rows = [_header(fn, term, contact, direction, pin_row)]
     for c in sorted(project.connectors.values(), key=lambda x: x.id):
         if connector_ids is None or c.id in connector_ids:
-            rows += _pin_rows(c, attached, fn, term, contact, direction)
+            rows += _pin_rows(c, attached, fn, term, contact, direction, None, pin_row, faces[c.id])
     return rows
 
 

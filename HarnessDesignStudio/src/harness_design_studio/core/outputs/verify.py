@@ -13,7 +13,13 @@ the drawing's `part/` and `end/` texts and the head of the end in the build work
 The splices (role `splice`, format 3, M6a) are checked with this module's own nets (`_nets`, a third
 copy beside `core/nets.py` and `core/verify.py`): the column *Via* of the wire list, the tests per
 pair of ends of a net, no label for a splice, the splice block of the build workbook, the drawn
-node and the WireViz style; their words are stated here again (`_SPLICE_*`)."""
+node and the WireViz style; their words are stated here again (`_SPLICE_*`).
+
+The row layout of a connector (format 4, design of 4.0.0 section 7) is read with the verifier's
+own copy of its resolution (`verify_plan.face_rows`, never `core/row_layout.py`): the column
+*Pin row* of `box_pinouts.csv` while some box connector has a layout and of a harness's pinout
+table while some connector of the harness has one; `export.json` carries `row_layout` of the parts
+and the box connectors as the model does."""
 
 import csv
 import hashlib
@@ -44,7 +50,7 @@ from harness_design_studio.core.verify import VerifyReport, link_issues
 
 from .export_units import missing_units
 from .stamp import parse_csv
-from .verify_plan import plan_stamp, verify_plans
+from .verify_plan import face_rows, plan_stamp, row_numbers, verify_plans
 
 # A loose cable end, worded independently of tables.py, drawing.py and buildsheet.py (D-201).
 _OPEN_END = "open end"
@@ -1059,8 +1065,9 @@ def _system(r: VerifyReport, project: Project, files: dict[str, bytes]) -> None:
                     if mates.get(cid):
                         attached[(mates[cid] or "", pin)].append(w.id)
         boxes_sorted = sorted(project.connectors.values(), key=lambda c: c.id)
-        _compare_rows(r, "out_box_pinouts", "The box connector pinouts", bp, _pinout_header(project),
-                      _pin_rows(boxes_sorted, attached, _uses_function(project), _uses_termination(project), _uses_contact(project), _uses_direction(project)), (0, 4), "box_pinouts")  # fmt: skip
+        faces = _faces(project, boxes_sorted)
+        _compare_rows(r, "out_box_pinouts", "The box connector pinouts", bp, _pinout_header(project, faces is not None),
+                      _pin_rows(boxes_sorted, attached, _uses_function(project), _uses_termination(project), _uses_contact(project), _uses_direction(project), None, faces), (0, 4), "box_pinouts")  # fmt: skip
     _system_workbook(r, project, files)
     _connections(r, project, files)
     ex = files.get("system/export.json")
@@ -1218,14 +1225,27 @@ _PINOUT_HEADER = [
 ]  # fmt: skip
 
 
-def _pinout_header(project: Project) -> list[str]:
+_PIN_ROW = "Pin row"  # the last column while a connector of the table has a row layout
+
+
+def _pinout_header(project: Project, pin_row: bool = False) -> list[str]:
     return [
         *_PINOUT_HEADER,
         *(["Function"] if _uses_function(project) else []),
         *(["Termination"] if _uses_termination(project) else []),
         *(["Contact"] if _uses_contact(project) else []),
         *(["Direction"] if _uses_direction(project) else []),
+        *([_PIN_ROW] if pin_row else []),
     ]
+
+
+def _faces(project: Project, connectors: list[Connector]) -> dict[str, dict[str, int]] | None:
+    """connector -> (pin -> its row) for the connectors of a pinout table that have a row layout;
+    None when none of them has one (the table then has no Pin row column)."""
+    found = {c.id: face_rows(project, c) for c in connectors}
+    if all(rows is None for rows in found.values()):
+        return None
+    return {cid: row_numbers(rows) for cid, rows in found.items() if rows is not None}
 
 
 def _all_pins(project: Project) -> list[Pin]:
@@ -1261,9 +1281,11 @@ def _pin_rows(
     contact: bool = False,
     direction: bool = False,
     carried: dict[tuple[str, str], tuple[str, str]] | None = None,
+    faces: dict[str, dict[str, int]] | None = None,
 ) -> list[list[Cell]]:
     rows: list[list[Cell]] = []
     for c in connectors:
+        face = (faces or {}).get(c.id, {})
         for p in c.pins:
             wires = sorted(attached.get((c.id, p.id), []))
             sig, itf = (carried or {}).get((c.id, p.id), ("", ""))
@@ -1277,6 +1299,7 @@ def _pin_rows(
                 *([p.termination] if termination else []),
                 *([p.contact_part or ""] if contact else []),
                 *([_DIRECTION_TEXT[p.direction]] if direction else []),
+                *([str(face[p.id]) if p.id in face else ""] if faces is not None else []),
             ])  # fmt: skip
     return rows
 
@@ -1754,8 +1777,9 @@ def _harness_tables(r: VerifyReport, project: Project, h: Harness, files: dict[s
     po = _table(files, f"{base}/pinouts.csv")
     if po:
         conns = sorted(h.connectors, key=lambda c: c.id)
-        _compare_rows(r, "out_pinout", f"The pinout table of {h.id}", po, _pinout_header(project),
-                      _pin_rows(conns, _harness_attached(h), _uses_function(project), _uses_termination(project), _uses_contact(project), _uses_direction(project), _harness_carried(h)), (0, 4), h.id)  # fmt: skip
+        faces = _faces(project, conns)
+        _compare_rows(r, "out_pinout", f"The pinout table of {h.id}", po, _pinout_header(project, faces is not None),
+                      _pin_rows(conns, _harness_attached(h), _uses_function(project), _uses_termination(project), _uses_contact(project), _uses_direction(project), _harness_carried(h), faces), (0, 4), h.id)  # fmt: skip
     bm = _table(files, f"{base}/bom.csv")
     if bm:
         _compare_rows(r, "out_bom", f"The BOM of {h.id}", bm, _BOM_HEADER,
