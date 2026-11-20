@@ -152,13 +152,14 @@ def _number_text(v: float) -> str:
     return text[:-2] if text.endswith(".0") else text
 
 
-def reference_text(project: Project) -> str:
+def reference_lines(project: Project) -> tuple[str, str, str, str]:
     """What every length of a document is measured from, in words from the settings in force
-    (design of 4.1.0, section 6.1): from the rear of a connector along the segments, through the
-    centre of each branch point, to the rear of the other; what Generate adds (the service loops
-    of `model.service_loops_per_wire` and `generation.service_loop_m`, and under the length model
-    `path_loops_allowance_twist` the take-up of twisting and the cut allowance). Every number is
-    the project's; none is invented."""
+    (design of 4.1.0, section 6.1), as four short sentences, so a sheet can print each on a row of its
+    own: from the rear of a connector along the segments, through the centre of each branch point,
+    to the rear of the other; what Generate adds (the service loops of
+    `model.service_loops_per_wire` and `generation.service_loop_m`, and under the length model
+    `path_loops_allowance_twist` the take-up of twisting and the cut allowance); and what *locked*
+    and *segments only* mean. Every number is the project's; none is invented."""
     loops = settings.service_loops(project)
     raw = settings.effective(project, "generation", "service_loop_m").value
     loop = float(raw) if isinstance(raw, int | float) and not isinstance(raw, bool) else None
@@ -176,11 +177,17 @@ def reference_text(project: Project) -> str:
             f"cut allowance of {cut} m"
         )
     return (
-        "Lengths run from the rear of a connector (where the wires leave its body or backshell) "
-        "along the routing segments, through the centre of each branch point, to the rear of the "
-        f'other connector. A wire Generate made adds {added}. "Locked" is a length a person '
-        'typed; "segments only" has no service loops.'
+        "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
+        "They follow the routing segments through the centre of each branch point to the rear of "
+        "the other connector.",
+        f"A wire Generate made adds {added}.",
+        '"Locked" is a length a person typed; "segments only" has no service loops.',
     )
+
+
+def reference_text(project: Project) -> str:
+    """The sentences of `reference_lines` as one text."""
+    return " ".join(reference_lines(project))
 
 
 @dataclass
@@ -292,6 +299,7 @@ __all__ = [
     "loop_segments",
     "path_length",
     "plan_length_import",
+    "reference_lines",
     "reference_text",
     "segment_lengths_known",
 ]

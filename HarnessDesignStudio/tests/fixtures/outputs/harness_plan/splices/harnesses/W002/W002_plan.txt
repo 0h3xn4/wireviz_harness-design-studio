@@ -31,6 +31,7 @@ H6	mini3 (example data)
 N6	W002
 Q6	VERSION: v1.0.0 (draft)
 H8	Harness mini3 (example data)-W002: OBC <–> RW1	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_OBC-J01'.B1]&" <–> "&[$'CON_RW1-J02'.B1]
+H9	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
 H10	used Connectors
 H11	No.
 I11	Part No.
@@ -51,7 +52,7 @@ K16	AWG
 L16	Conductor
 O16	Colours
 R16	No. of wires in cable
-S16	Length [mm]
+S16	Length [mm] rear to rear
 H17	1
 I17	EX-WIRE-TWISTED-SHIELDED
 R17	2
@@ -81,7 +82,7 @@ J28	Direction
 K28	Color
 L28	Cable / Type
 M28	Shielding / (Grouping)
-N28	Length [mm]
+N28	Length [mm] rear to rear
 O28	Level
 P28	Cable / Type
 Q28	Color
@@ -182,6 +183,106 @@ AA42	30	=IF(ISNA(MATCH([.V42];[.V29:.V33];0));"";MATCH([.V42];[.V29:.V33];0)+28)
 V43	5	=[$'CON_RW1-J02'.A23]
 AA43		=IF(ISNA(MATCH([.V43];[.V29:.V33];0));"";MATCH([.V43];[.V29:.V33];0)+28)
 H45	Block diagram: harnesses/W002/drawing_A3.pdf
+== Production
+A1	Production sheet of W002
+A2	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
+A3	Pin
+B3	Signal
+C3	Wire
+D3	Goes to
+E3	Wire part
+F3	Colour
+G3	AWG
+H3	Length [mm] rear to rear
+I3	Length from
+J3	Label at this end
+K3	Shield group: here / far end
+A4	W002-P1   ·   EX-MICROD-25-M   ·   male   ·   mates OBC-J01 (OBC:J01)   ·   label W002-P1 mates OBC-J01
+A5	1
+B5	TX+/RX+
+C5	W002-001
+D5	W002-P2.3 (RW1:J02)
+E5	EX-WIRE-TWISTED-SHIELDED
+F5	to fill in
+G5	to fill in
+H5	to fill in
+J5	W002-001 TX+/RX+ to W002-P2.3
+K5	W002-S1 shielded pair: here floating, far floating
+A6	2
+B6	TX-/RX-
+C6	W002-003
+D6	W002-P2.4 (RW1:J02)
+E6	EX-WIRE-TWISTED-SHIELDED
+F6	to fill in
+G6	to fill in
+H6	to fill in
+J6	W002-003 TX-/RX- to W002-P2.4
+K6	W002-S1 shielded pair: here floating, far floating
+A7	3
+B7	TX+/RX+
+C7	W002-002
+D7	W002-P2.1 (RW1:J02)
+E7	EX-WIRE-TWISTED-SHIELDED
+F7	to fill in
+G7	to fill in
+H7	to fill in
+J7	W002-002 TX+/RX+ to W002-P2.1
+K7	W002-S2 shielded pair: here floating, far floating
+A8	4
+B8	TX-/RX-
+C8	W002-004
+D8	W002-P2.2 (RW1:J02)
+E8	EX-WIRE-TWISTED-SHIELDED
+F8	to fill in
+G8	to fill in
+H8	to fill in
+J8	W002-004 TX-/RX- to W002-P2.2
+K8	W002-S2 shielded pair: here floating, far floating
+A9	5
+C9	(spare)
+A11	W002-P2   ·   EX-MICROD-15-F   ·   female   ·   mates RW1-J02 (RW1:J02)   ·   label W002-P2 mates RW1-J02
+A12	1
+B12	TX+/RX+
+C12	W002-002
+D12	W002-P1.3 (OBC:J01)
+E12	EX-WIRE-TWISTED-SHIELDED
+F12	to fill in
+G12	to fill in
+H12	to fill in
+J12	W002-002 TX+/RX+ to W002-P1.3
+K12	W002-S2 shielded pair: here floating, far floating
+A13	2
+B13	TX-/RX-
+C13	W002-004
+D13	W002-P1.4 (OBC:J01)
+E13	EX-WIRE-TWISTED-SHIELDED
+F13	to fill in
+G13	to fill in
+H13	to fill in
+J13	W002-004 TX-/RX- to W002-P1.4
+K13	W002-S2 shielded pair: here floating, far floating
+A14	3
+B14	TX+/RX+
+C14	W002-001
+D14	W002-P1.1 (OBC:J01)
+E14	EX-WIRE-TWISTED-SHIELDED
+F14	to fill in
+G14	to fill in
+H14	to fill in
+J14	W002-001 TX+/RX+ to W002-P1.1
+K14	W002-S1 shielded pair: here floating, far floating
+A15	4
+B15	TX-/RX-
+C15	W002-003
+D15	W002-P1.2 (OBC:J01)
+E15	EX-WIRE-TWISTED-SHIELDED
+F15	to fill in
+G15	to fill in
+H15	to fill in
+J15	W002-003 TX-/RX- to W002-P1.2
+K15	W002-S1 shielded pair: here floating, far floating
+A16	5
+C16	(spare)
 == Notes
 B2	Notes
 B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.
