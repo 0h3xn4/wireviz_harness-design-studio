@@ -15,7 +15,15 @@ the EMC class in brackets. The setting `model.label_format` selects another:
   DEVICE`);
 - `custom`: the templates `model.label_wire_template` and `model.label_connector_template`, text
   with `{field}` places (WIRE_FIELDS, CONNECTOR_FIELDS). A template that is not set gives the
-  standard text of its kind.
+  standard text of its kind;
+- `harness_device_connector` (4.1.0, design of 4.1.0 part B): a connector
+  `HARNESS:DEVICE:DEVICE CONNECTOR NAME` (`W001:MTQ1:J01`, the name as the device calls its
+  connector, `Connector.name`), a loose end `W009:W009-P2 open end`, a connector that plugs into
+  nothing `W001:W001-P3`; a wire the standard text. The person's label of a connector is not part
+  of it: the form is fixed so that the bench can rely on it (`custom` with
+  `{name} {harness}:{device}:{mates_name}` gives both). A new project starts in it
+  (`NEW_PROJECT_FORMAT`, `samples.start_project`); the default, what a file that names no format is
+  read as, stays `standard`.
 
 A template is only ever filled in by this module (a plain replacement of `{field}` by its text;
 there is no format specification, no attribute and no call), and `check_template` refuses a field
@@ -31,8 +39,11 @@ from collections.abc import Mapping
 from harness_design_studio.core import settings
 from harness_design_studio.core.model import Project
 
-FORMATS = ("standard", "compact", "descriptive", "custom")
+FORMATS = ("standard", "compact", "descriptive", "custom", "harness_device_connector")
 DEFAULT_FORMAT = "standard"
+# The format a project a person starts is written with (`samples.start_project`, design of 4.1.0
+# section 4.3); the registry default stays DEFAULT_FORMAT, so a project keeps its labels.
+NEW_PROJECT_FORMAT = "harness_device_connector"
 FORMAT_TEXT = {
     "standard": (
         "wire ID, name, 'to', the far end and the EMC class; "
@@ -44,9 +55,12 @@ FORMAT_TEXT = {
         "and with the device a connector plugs into"
     ),
     "custom": "the templates of model.label_wire_template and model.label_connector_template",
+    "harness_device_connector": (
+        "harness, device and device connector name (W001:MTQ1:J01); a wire: the standard text"
+    ),
 }
 WIRE_FIELDS = ("harness", "wire", "signal", "name", "interface", "emc", "end", "from", "to")
-CONNECTOR_FIELDS = ("harness", "connector", "name", "mates", "device")
+CONNECTOR_FIELDS = ("harness", "connector", "name", "mates", "device", "mates_name")
 FIELD_TEXT = {
     "harness": "the harness ID",
     "wire": "the wire ID",
@@ -62,6 +76,7 @@ FIELD_TEXT = {
     "connector": "the cable connector ID",
     "mates": "the device connector it plugs into",
     "device": "the device that connector belongs to",
+    "mates_name": ("the name of the device connector it plugs into, as the device calls it (J01)"),
 }
 TEMPLATE_KEYS = {"wire": "label_wire_template", "connector": "label_connector_template"}
 MAX_TEMPLATE = 200  # characters; a label is a few lines of text on a small sticker

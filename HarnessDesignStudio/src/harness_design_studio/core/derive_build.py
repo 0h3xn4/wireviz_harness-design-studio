@@ -343,6 +343,8 @@ def _label_how(project: Project, kind: str, fmt: str) -> tuple[str, str]:
             f"model.{key} is not set: the standard text",
             f"the standard text (model.{key} is not set)",
         )
+    if fmt == "harness_device_connector" and kind == "wire":
+        fmt = "standard"  # a wire's labels in this format are the standard text (section 4.2)
     if kind == "wire":
         return {
             "standard": (
@@ -364,6 +366,11 @@ def _label_how(project: Project, kind: str, fmt: str) -> tuple[str, str]:
         "descriptive": (
             "name (ID mates DEVICE-CONNECTOR of DEVICE), or just 'ID mates DEVICE-CONNECTOR of DEVICE'",
             "connector label + ' (' + ID + ' mates ' + device connector + ' of ' + device + ')'",
+        ),
+        "harness_device_connector": (
+            "'HARNESS:DEVICE:DEVICE CONNECTOR NAME'; a loose end 'HARNESS:ID open end'; "
+            "a connector that plugs into no device connector 'HARNESS:ID'",
+            "harness ID + ':' + device + ':' + name of the device connector",
         ),
     }[fmt]
 
@@ -495,10 +502,35 @@ def connector_label_derivation(project: Project, h: Harness, c: Connector) -> De
             f"connector {c.id}",
         ),
     ]
+    named = fmt == "harness_device_connector"
+    if named:  # the inputs of the format: the device and the name it gives its connector
+        inputs += [
+            Input("Harness", h.id, "", "the harness of the connector"),
+            Input(
+                "Device",
+                (box.unit_id or None) if box else None,
+                "",
+                f"connector {box.id}: Device" if box else "it plugs into no device connector",
+            ),
+            Input(
+                "Device connector name",
+                box.name if box else None,
+                "",
+                f"connector {box.id}: Name, as the device calls it"
+                if box
+                else "it plugs into no device connector",
+            ),
+        ]
     if (
         fmt != label_format.DEFAULT_FORMAT
     ):  # the default keeps its text: only another model is named
         inputs.append(_format_input(project, fmt))
+    if named:  # the person's label is not part of this format (section 4.2)
+        from_where += (
+            "; not printed: the label of a connector is not part of the format "
+            "harness_device_connector, whose form is fixed so that the bench can rely on it "
+            "(for both, use custom with {name} {harness}:{device}:{mates_name})"
+        )
     steps = [
         text_step("Name", from_where, name or "(none)", ""),
         text_step(
