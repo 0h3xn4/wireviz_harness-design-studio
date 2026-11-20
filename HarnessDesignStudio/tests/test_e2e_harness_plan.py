@@ -157,7 +157,8 @@ def test_the_harness_plan_end_to_end(tmp_path: Path, capsys: pytest.CaptureFixtu
     data = (proj / "outputs" / PLAN).read_bytes()
     sheets = read_plan(data)
     assert list(sheets) == [
-        "Cover", "Change_Register", "W001", "Notes", "CON_DEV1-J01", "CON_DEV2-J01", "About",
+        "Cover", "Change_Register", "W001", "Production", "Notes", "CON_DEV1-J01", "CON_DEV2-J01",
+        "About",
     ]  # fmt: skip
     assert check_values(sheets) == []  # every formula gives its stored value
     cover = sheets["Cover"]

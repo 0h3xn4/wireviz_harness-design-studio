@@ -31,6 +31,7 @@ H6	branching
 N6	W001
 Q6	VERSION: v1.0.0 (draft)
 H8	Harness branching-W001: DEV1 + DEV4 <–> DEV2 + DEV3	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_DEV1-J01'.B1]&" + "&[$'CON_DEV4-J01'.B1]&" <–> "&[$'CON_DEV2-J01'.B1]&" + "&[$'CON_DEV3-J01'.B1]
+H9	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
 H10	used Connectors
 H11	No.
 I11	Part No.
@@ -47,7 +48,7 @@ K15	AWG
 L15	Conductor
 O15	Colours
 R15	No. of wires in cable
-S15	Length [mm]
+S15	Length [mm] rear to rear
 H16	1
 I16	EX-WIRE-TWISTED-SHIELDED
 R16	2
@@ -79,7 +80,7 @@ J27	Direction
 K27	Color
 L27	Cable / Type
 M27	Shielding / (Grouping)
-N27	Length [mm]
+N27	Length [mm] rear to rear
 O27	Level
 P27	Cable / Type
 Q27	Color
@@ -244,7 +245,7 @@ J59	Direction
 K59	Color
 L59	Cable / Type
 M59	Shielding / (Grouping)
-N59	Length [mm]
+N59	Length [mm] rear to rear
 O59	Level
 P59	Cable / Type
 Q59	Color
@@ -522,6 +523,360 @@ AB114		=IF(ISNA(MATCH([.W114];[.W28:.W84];0));"";MATCH([.W114];[.W28:.W84];0)+27
 AD114	25	=[$'CON_DEV3-J01'.A43]
 AI114		=IF(ISNA(MATCH([.AD114];[.AD28:.AD84];0));"";MATCH([.AD114];[.AD28:.AD84];0)+27)
 H116	Block diagram: harnesses/W001/drawing_A3.pdf
+== Production
+A1	Production sheet of W001
+A2	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
+A3	Pin
+B3	Signal
+C3	Wire
+D3	Goes to
+E3	Wire part
+F3	Colour
+G3	AWG
+H3	Length [mm] rear to rear
+I3	Length from
+J3	Label at this end
+K3	Shield group: here / far end
+A4	W001-P1   ·   EX-MICROD-25-M   ·   male   ·   mates DEV1-J01 (DEV1:J01)   ·   label W001-P1 mates DEV1-J01
+A5	1
+B5	TX+/RX+
+C5	W001-001
+D5	W001-P3.3 (DEV2:J01)
+E5	EX-WIRE-TWISTED-SHIELDED
+F5	to fill in
+G5	to fill in
+H5	1875
+I5	segments only, no service loops
+J5	W001-001 TX+/RX+ to W001-P3.3
+K5	W001-S1 shielded pair: here floating, far floating
+A6	2
+B6	TX-/RX-
+C6	W001-003
+D6	W001-P3.4 (DEV2:J01)
+E6	EX-WIRE-TWISTED-SHIELDED
+F6	to fill in
+G6	to fill in
+H6	1875
+I6	segments only, no service loops
+J6	W001-003 TX-/RX- to W001-P3.4
+K6	W001-S1 shielded pair: here floating, far floating
+A7	3
+B7	TX+/RX+
+C7	W001-002
+D7	W001-P3.1 (DEV2:J01)
+E7	EX-WIRE-TWISTED-SHIELDED
+F7	to fill in
+G7	to fill in
+H7	1875
+I7	segments only, no service loops
+J7	W001-002 TX+/RX+ to W001-P3.1
+K7	W001-S2 shielded pair: here floating, far floating
+A8	4
+B8	TX-/RX-
+C8	W001-004
+D8	W001-P3.2 (DEV2:J01)
+E8	EX-WIRE-TWISTED-SHIELDED
+F8	to fill in
+G8	to fill in
+H8	1875
+I8	segments only, no service loops
+J8	W001-004 TX-/RX- to W001-P3.2
+K8	W001-S2 shielded pair: here floating, far floating
+A9	5
+B9	TX+/RX+
+C9	W001-009
+D9	W001-P4.3 (DEV3:J01)
+E9	EX-WIRE-TWISTED-SHIELDED
+F9	to fill in
+G9	to fill in
+H9	to fill in
+J9	W001-009 TX+/RX+ to W001-P4.3
+K9	W001-S5 shielded pair: here floating, far floating
+A10	6
+B10	TX-/RX-
+C10	W001-011
+D10	W001-P4.4 (DEV3:J01)
+E10	EX-WIRE-TWISTED-SHIELDED
+F10	to fill in
+G10	to fill in
+H10	to fill in
+J10	W001-011 TX-/RX- to W001-P4.4
+K10	W001-S5 shielded pair: here floating, far floating
+A11	7
+B11	TX+/RX+
+C11	W001-010
+D11	W001-P4.1 (DEV3:J01)
+E11	EX-WIRE-TWISTED-SHIELDED
+F11	to fill in
+G11	to fill in
+H11	to fill in
+J11	W001-010 TX+/RX+ to W001-P4.1
+K11	W001-S6 shielded pair: here floating, far floating
+A12	8
+B12	TX-/RX-
+C12	W001-012
+D12	W001-P4.2 (DEV3:J01)
+E12	EX-WIRE-TWISTED-SHIELDED
+F12	to fill in
+G12	to fill in
+H12	to fill in
+J12	W001-012 TX-/RX- to W001-P4.2
+K12	W001-S6 shielded pair: here floating, far floating
+A13	9 to 25
+C13	(spare)
+A15	W001-P2   ·   EX-MICROD-25-M   ·   male   ·   mates DEV4-J01 (DEV4:J01)   ·   label W001-P2 mates DEV4-J01
+A16	1
+B16	TX+/RX+
+C16	W001-005
+D16	W001-P3.7 (DEV2:J01)
+E16	EX-WIRE-TWISTED-SHIELDED
+F16	to fill in
+G16	to fill in
+H16	to fill in
+J16	W001-005 TX+/RX+ to W001-P3.7
+K16	W001-S3 shielded pair: here floating, far floating
+A17	2
+B17	TX-/RX-
+C17	W001-007
+D17	W001-P3.8 (DEV2:J01)
+E17	EX-WIRE-TWISTED-SHIELDED
+F17	to fill in
+G17	to fill in
+H17	to fill in
+J17	W001-007 TX-/RX- to W001-P3.8
+K17	W001-S3 shielded pair: here floating, far floating
+A18	3
+B18	TX+/RX+
+C18	W001-006
+D18	W001-P3.5 (DEV2:J01)
+E18	EX-WIRE-TWISTED-SHIELDED
+F18	to fill in
+G18	to fill in
+H18	to fill in
+J18	W001-006 TX+/RX+ to W001-P3.5
+K18	W001-S4 shielded pair: here floating, far floating
+A19	4
+B19	TX-/RX-
+C19	W001-008
+D19	W001-P3.6 (DEV2:J01)
+E19	EX-WIRE-TWISTED-SHIELDED
+F19	to fill in
+G19	to fill in
+H19	to fill in
+J19	W001-008 TX-/RX- to W001-P3.6
+K19	W001-S4 shielded pair: here floating, far floating
+A20	5
+B20	TX+/RX+
+C20	W001-013
+D20	W001-P4.7 (DEV3:J01)
+E20	EX-WIRE-TWISTED-SHIELDED
+F20	to fill in
+G20	to fill in
+H20	to fill in
+J20	W001-013 TX+/RX+ to W001-P4.7
+K20	W001-S7 shielded pair: here floating, far floating
+A21	6
+B21	TX-/RX-
+C21	W001-015
+D21	W001-P4.8 (DEV3:J01)
+E21	EX-WIRE-TWISTED-SHIELDED
+F21	to fill in
+G21	to fill in
+H21	to fill in
+J21	W001-015 TX-/RX- to W001-P4.8
+K21	W001-S7 shielded pair: here floating, far floating
+A22	7
+B22	TX+/RX+
+C22	W001-014
+D22	W001-P4.5 (DEV3:J01)
+E22	EX-WIRE-TWISTED-SHIELDED
+F22	to fill in
+G22	to fill in
+H22	to fill in
+J22	W001-014 TX+/RX+ to W001-P4.5
+K22	W001-S8 shielded pair: here floating, far floating
+A23	8
+B23	TX-/RX-
+C23	W001-016
+D23	W001-P4.6 (DEV3:J01)
+E23	EX-WIRE-TWISTED-SHIELDED
+F23	to fill in
+G23	to fill in
+H23	to fill in
+J23	W001-016 TX-/RX- to W001-P4.6
+K23	W001-S8 shielded pair: here floating, far floating
+A24	9 to 25
+C24	(spare)
+A26	W001-P3   ·   EX-MICROD-25-M   ·   male   ·   mates DEV2-J01 (DEV2:J01)   ·   label W001-P3 mates DEV2-J01
+A27	1
+B27	TX+/RX+
+C27	W001-002
+D27	W001-P1.3 (DEV1:J01)
+E27	EX-WIRE-TWISTED-SHIELDED
+F27	to fill in
+G27	to fill in
+H27	1875
+I27	segments only, no service loops
+J27	W001-002 TX+/RX+ to W001-P1.3
+K27	W001-S2 shielded pair: here floating, far floating
+A28	2
+B28	TX-/RX-
+C28	W001-004
+D28	W001-P1.4 (DEV1:J01)
+E28	EX-WIRE-TWISTED-SHIELDED
+F28	to fill in
+G28	to fill in
+H28	1875
+I28	segments only, no service loops
+J28	W001-004 TX-/RX- to W001-P1.4
+K28	W001-S2 shielded pair: here floating, far floating
+A29	3
+B29	TX+/RX+
+C29	W001-001
+D29	W001-P1.1 (DEV1:J01)
+E29	EX-WIRE-TWISTED-SHIELDED
+F29	to fill in
+G29	to fill in
+H29	1875
+I29	segments only, no service loops
+J29	W001-001 TX+/RX+ to W001-P1.1
+K29	W001-S1 shielded pair: here floating, far floating
+A30	4
+B30	TX-/RX-
+C30	W001-003
+D30	W001-P1.2 (DEV1:J01)
+E30	EX-WIRE-TWISTED-SHIELDED
+F30	to fill in
+G30	to fill in
+H30	1875
+I30	segments only, no service loops
+J30	W001-003 TX-/RX- to W001-P1.2
+K30	W001-S1 shielded pair: here floating, far floating
+A31	5
+B31	TX+/RX+
+C31	W001-006
+D31	W001-P2.3 (DEV4:J01)
+E31	EX-WIRE-TWISTED-SHIELDED
+F31	to fill in
+G31	to fill in
+H31	to fill in
+J31	W001-006 TX+/RX+ to W001-P2.3
+K31	W001-S4 shielded pair: here floating, far floating
+A32	6
+B32	TX-/RX-
+C32	W001-008
+D32	W001-P2.4 (DEV4:J01)
+E32	EX-WIRE-TWISTED-SHIELDED
+F32	to fill in
+G32	to fill in
+H32	to fill in
+J32	W001-008 TX-/RX- to W001-P2.4
+K32	W001-S4 shielded pair: here floating, far floating
+A33	7
+B33	TX+/RX+
+C33	W001-005
+D33	W001-P2.1 (DEV4:J01)
+E33	EX-WIRE-TWISTED-SHIELDED
+F33	to fill in
+G33	to fill in
+H33	to fill in
+J33	W001-005 TX+/RX+ to W001-P2.1
+K33	W001-S3 shielded pair: here floating, far floating
+A34	8
+B34	TX-/RX-
+C34	W001-007
+D34	W001-P2.2 (DEV4:J01)
+E34	EX-WIRE-TWISTED-SHIELDED
+F34	to fill in
+G34	to fill in
+H34	to fill in
+J34	W001-007 TX-/RX- to W001-P2.2
+K34	W001-S3 shielded pair: here floating, far floating
+A35	9 to 25
+C35	(spare)
+A37	W001-P4   ·   EX-MICROD-25-M   ·   male   ·   mates DEV3-J01 (DEV3:J01)   ·   label W001-P4 mates DEV3-J01
+A38	1
+B38	TX+/RX+
+C38	W001-010
+D38	W001-P1.7 (DEV1:J01)
+E38	EX-WIRE-TWISTED-SHIELDED
+F38	to fill in
+G38	to fill in
+H38	to fill in
+J38	W001-010 TX+/RX+ to W001-P1.7
+K38	W001-S6 shielded pair: here floating, far floating
+A39	2
+B39	TX-/RX-
+C39	W001-012
+D39	W001-P1.8 (DEV1:J01)
+E39	EX-WIRE-TWISTED-SHIELDED
+F39	to fill in
+G39	to fill in
+H39	to fill in
+J39	W001-012 TX-/RX- to W001-P1.8
+K39	W001-S6 shielded pair: here floating, far floating
+A40	3
+B40	TX+/RX+
+C40	W001-009
+D40	W001-P1.5 (DEV1:J01)
+E40	EX-WIRE-TWISTED-SHIELDED
+F40	to fill in
+G40	to fill in
+H40	to fill in
+J40	W001-009 TX+/RX+ to W001-P1.5
+K40	W001-S5 shielded pair: here floating, far floating
+A41	4
+B41	TX-/RX-
+C41	W001-011
+D41	W001-P1.6 (DEV1:J01)
+E41	EX-WIRE-TWISTED-SHIELDED
+F41	to fill in
+G41	to fill in
+H41	to fill in
+J41	W001-011 TX-/RX- to W001-P1.6
+K41	W001-S5 shielded pair: here floating, far floating
+A42	5
+B42	TX+/RX+
+C42	W001-014
+D42	W001-P2.7 (DEV4:J01)
+E42	EX-WIRE-TWISTED-SHIELDED
+F42	to fill in
+G42	to fill in
+H42	to fill in
+J42	W001-014 TX+/RX+ to W001-P2.7
+K42	W001-S8 shielded pair: here floating, far floating
+A43	6
+B43	TX-/RX-
+C43	W001-016
+D43	W001-P2.8 (DEV4:J01)
+E43	EX-WIRE-TWISTED-SHIELDED
+F43	to fill in
+G43	to fill in
+H43	to fill in
+J43	W001-016 TX-/RX- to W001-P2.8
+K43	W001-S8 shielded pair: here floating, far floating
+A44	7
+B44	TX+/RX+
+C44	W001-013
+D44	W001-P2.5 (DEV4:J01)
+E44	EX-WIRE-TWISTED-SHIELDED
+F44	to fill in
+G44	to fill in
+H44	to fill in
+J44	W001-013 TX+/RX+ to W001-P2.5
+K44	W001-S7 shielded pair: here floating, far floating
+A45	8
+B45	TX-/RX-
+C45	W001-015
+D45	W001-P2.6 (DEV4:J01)
+E45	EX-WIRE-TWISTED-SHIELDED
+F45	to fill in
+G45	to fill in
+H45	to fill in
+J45	W001-015 TX-/RX- to W001-P2.6
+K45	W001-S7 shielded pair: here floating, far floating
+A46	9 to 25
+C46	(spare)
 == Notes
 B2	Notes
 B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.

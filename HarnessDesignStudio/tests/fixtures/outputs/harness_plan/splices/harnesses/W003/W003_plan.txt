@@ -31,6 +31,7 @@ H6	mini3 (example data)
 N6	W003
 Q6	VERSION: v1.0.0 (draft)
 H8	Harness mini3 (example data)-W003: OBC + OBC <–> PCDU	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_OBC-J02'.B1]&" + "&[$'CON_OBC-J03'.B1]&" <–> "&[$'CON_PCDU-J02'.B1]
+H9	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
 H10	used Connectors
 H11	No.
 I11	Part No.
@@ -55,7 +56,7 @@ K17	AWG
 L17	Conductor
 O17	Colours
 R17	No. of wires in cable
-S17	Length [mm]
+S17	Length [mm] rear to rear
 H19	used Backshells
 H20	No.
 I20	Part No.
@@ -81,7 +82,7 @@ J28	Direction
 K28	Color
 L28	Cable / Type
 M28	Shielding / (Grouping)
-N28	Length [mm]
+N28	Length [mm] rear to rear
 O28	Level
 P28	Cable / Type
 Q28	Color
@@ -146,7 +147,7 @@ J38	Direction
 K38	Color
 L38	Cable / Type
 M38	Shielding / (Grouping)
-N38	Length [mm]
+N38	Length [mm] rear to rear
 O38	Level
 P38	Cable / Type
 Q38	Color
@@ -195,7 +196,7 @@ J44	To
 K44	Color
 L44	Cable / Type
 M44	Shielding / (Grouping)
-N44	Length [mm]
+N44	Length [mm] rear to rear
 H45	W003-001
 I45	W003-P1.1
 J45	W003-X1.1
@@ -231,6 +232,152 @@ AA53	30	=IF(ISNA(MATCH([.V53];[.V29:.V41];0));"";MATCH([.V53];[.V29:.V41];0)+28)
 V54	3	=[$'CON_PCDU-J02'.A21]
 AA54		=IF(ISNA(MATCH([.V54];[.V29:.V41];0));"";MATCH([.V54];[.V29:.V41];0)+28)
 H56	Block diagram: harnesses/W003/drawing_A3.pdf
+== Production
+A1	Production sheet of W003
+A2	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
+A3	Pin
+B3	Signal
+C3	Wire
+D3	Goes to
+E3	Wire part
+F3	Colour
+G3	AWG
+H3	Length [mm] rear to rear
+I3	Length from
+J3	Label at this end
+K3	Shield group: here / far end
+A4	W003-P1   ·   EX-MICROD-9-M   ·   male   ·   mates PCDU-J02 (PCDU:J02)   ·   label W003-P1 mates PCDU-J02
+A5	1
+B5	PWR
+C5	W003-001
+D5	W003-X1.1 (splice)
+E5	to fill in
+F5	red (RD)
+G5	22
+H5	500
+I5	segments only, no service loops
+J5	W003-001 PWR to W003-X1.1
+A6	2
+B6	RTN
+C6	W003-004
+D6	W003-X2.1 (splice)
+E6	to fill in
+F6	black (BK)
+G6	22
+H6	520
+I6	segments only, no service loops
+J6	W003-004 RTN to W003-X2.1
+A7	3
+C7	(spare)
+A9	W003-P2   ·   EX-MICROD-9-M   ·   male   ·   mates OBC-J02 (OBC:J02)   ·   label W003-P2 mates OBC-J02
+A10	1
+B10	PWR
+C10	W003-002
+D10	W003-X1.1 (splice)
+E10	to fill in
+F10	red (RD)
+G10	24
+H10	1000
+I10	segments only, no service loops
+J10	W003-002 PWR to W003-X1.1
+A11	2
+B11	RTN
+C11	W003-005
+D11	W003-X2.1 (splice)
+E11	to fill in
+F11	black (BK)
+G11	24
+H11	1020
+I11	segments only, no service loops
+J11	W003-005 RTN to W003-X2.1
+A12	3
+C12	(spare)
+A14	W003-P3   ·   EX-MICROD-15-M   ·   male   ·   mates OBC-J03 (OBC:J03)   ·   label W003-P3 mates OBC-J03
+A15	1
+B15	PWR
+C15	W003-003
+D15	W003-X1.1 (splice)
+E15	to fill in
+F15	red (RD)
+G15	24
+H15	1250
+I15	segments only, no service loops
+J15	W003-003 PWR to W003-X1.1
+A16	2
+B16	RTN
+C16	W003-006
+D16	W003-X2.1 (splice)
+E16	to fill in
+F16	black (BK)
+G16	24
+H16	1270
+I16	segments only, no service loops
+J16	W003-006 RTN to W003-X2.1
+A17	3
+C17	(spare)
+A19	Splices: each node joins the wires listed on it
+A21	W003-X1   ·   EX-SPLICE-1   ·   splice   ·   1 node
+A22	1
+B22	PWR
+C22	W003-001
+D22	W003-P1.1 (PCDU:J02)
+E22	to fill in
+F22	red (RD)
+G22	22
+H22	500
+I22	segments only, no service loops
+J22	W003-001 PWR to W003-P1.1
+A23	1
+B23	PWR
+C23	W003-002
+D23	W003-P2.1 (OBC:J02)
+E23	to fill in
+F23	red (RD)
+G23	24
+H23	1000
+I23	segments only, no service loops
+J23	W003-002 PWR to W003-P2.1
+A24	1
+B24	PWR
+C24	W003-003
+D24	W003-P3.1 (OBC:J03)
+E24	to fill in
+F24	red (RD)
+G24	24
+H24	1250
+I24	segments only, no service loops
+J24	W003-003 PWR to W003-P3.1
+A26	W003-X2   ·   EX-SPLICE-1   ·   splice   ·   1 node
+A27	1
+B27	RTN
+C27	W003-004
+D27	W003-P1.2 (PCDU:J02)
+E27	to fill in
+F27	black (BK)
+G27	22
+H27	520
+I27	segments only, no service loops
+J27	W003-004 RTN to W003-P1.2
+A28	1
+B28	RTN
+C28	W003-005
+D28	W003-P2.2 (OBC:J02)
+E28	to fill in
+F28	black (BK)
+G28	24
+H28	1020
+I28	segments only, no service loops
+J28	W003-005 RTN to W003-P2.2
+A29	1
+B29	RTN
+C29	W003-006
+D29	W003-P3.2 (OBC:J03)
+E29	to fill in
+F29	black (BK)
+G29	24
+H29	1270
+I29	segments only, no service loops
+J29	W003-006 RTN to W003-P3.2
 == Notes
 B2	Notes
 B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.
