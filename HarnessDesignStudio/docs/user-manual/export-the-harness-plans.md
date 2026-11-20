@@ -49,6 +49,10 @@ harness-design-studio export wheel-link --harness-plan
 
 Each harness gets `outputs/harnesses/<ID>/<ID>_plan.ods`, next to its build workbook. The option is one choice for all harnesses, as `--drawings` is; without it no plan is written. With `--json` the result lists the plans under `harness_plans`. The plan opens in LibreOffice Calc and in other programs that read OpenDocument spreadsheets; every formula carries its value, so a program that does not recalculate shows the same.
 
+**The Production sheet** (since 4.1.0). After the harness sheet, the sheet *Production* is the one to print for the bench: one block per cable connector (the far ones too), so every wire is in two rows, one at each end, with where it goes, its part, colour, gauge, length in mm, where the length comes from, the label printed at that end and its shield groups with their end here and at the far end. A run of spare pins is one row (`3 to 9`). While the plan colours the ends by pin code (section 4), a column *Pigtail colour* shows the colour of the code at that end. Every length of the plan runs from the rear of a connector to the rear of the other (*Length [mm] rear to rear*); row 2 of *Production* and `H9` of the harness sheet say so in words, with the service loops of your settings.
+
+**Print** (since 4.1.0). The harness sheet prints on A4 landscape at a fixed scale, as large as its width allows on one page wide (61 % for W001 of `flatsat`, which has nine far connectors; each far connector makes it 22 mm wider and so a little smaller), with rows 6 to 9 at the top of every page and a new page before a connector block that would not fit on the one before. *Production* prints at 100 % with its title, the length note and the headings on every page. The page breaks are worked out from the column widths and the length of the texts; a program can still break a long text elsewhere. The other sheets print on one page each, as before.
+
 **Search a column** (since 3.1.0). On the harness sheet, above the table, type a text into `I3` (Function) or `M3` (Shielding) in place of `#`: every Function or Shielding cell of the rows of the near connectors that contains the text, without regard to case, shows in red bold. `tx` marks `RS422_TX+` and `TX`; an empty box marks nothing. LibreOffice reads the text as typed; Excel reads `*`, `?` and `~` in it as wildcards. A plan saved with a typed search text is a changed plan: search in a copy, or close it without saving.
 
 ## 3. Check the plans
@@ -57,7 +61,7 @@ Each harness gets `outputs/harnesses/<ID>/<ID>_plan.ods`, next to its build work
 harness-design-studio verify wheel-link --outputs
 ```
 
-The check works out each plan again from the design and compares every sheet and cell, the formulas and the values they give. A plan changed after the export fails the check: export again.
+The check works out each plan again from the design and compares every sheet and cell, the formulas and the values they give, and (since 4.1.0) the print set-up of the harness sheet and of *Production*: the scale, the rows on every page, the print range and the page breaks. A plan changed after the export fails the check: export again.
 
 ## 4. Colour the ends by pin number
 

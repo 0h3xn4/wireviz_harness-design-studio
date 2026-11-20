@@ -160,8 +160,9 @@ def test_the_whole_path_of_3_0_0_end_to_end(
     w001 = read_plan((outputs / plans[0]).read_bytes())
     assert "VERSION: v1.1.0 (draft)" in {c.value for c in w001["W001"].values()}
     spliced = read_plan((outputs / plans[2]).read_bytes())
-    shown = {str(c.value) for sheet in spliced.values() for c in sheet.values()}
-    # a Y through a splice: the two branches at the near end, the trunk under Further wires
+    shown = {str(c.value) for c in spliced[hid].values()}
+    # a Y through a splice: the two branches at the near end, the trunk under Further wires (the
+    # sheet Production of 4.1.0 lists every wire at both ends)
     assert {"Further wires", f"{hid}-001"} <= shown and f"{hid}-002" not in shown
     tests = (outputs / "harnesses" / hid / "tests.csv").read_text(encoding="utf-8")
     assert f"{hid}-P1.1,{hid}-P3.1 via {hid}-X1" in tests
