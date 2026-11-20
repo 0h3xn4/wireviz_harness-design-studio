@@ -29,7 +29,15 @@ from harness_design_studio.core.drc.rules import RULES, contact_rating, contact_
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.generate import bundle
 from harness_design_studio.core.generate.bundle import bundle_size
-from harness_design_studio.core.generate.lengths import generated_length, path_trail, wire_length
+from harness_design_studio.core.generate.lengths import (
+    ORIGIN_LOCKED,
+    ORIGIN_NONE,
+    ORIGIN_SEGMENTS,
+    generated_length,
+    length_origin,
+    path_trail,
+    wire_length,
+)
 from harness_design_studio.core.generate.mass import harness_mass, open_end_missing, wire_mass_g
 from harness_design_studio.core.generate.sizing import (
     Sizing,
@@ -497,6 +505,7 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
     )
     assumptions = ("A-PATH-UNIQUE", "A-SERVICE-LOOP")
     length = wire_length(h, w)
+    origin = length_origin(h, w)  # the first cut, as the Production sheet says it (4.1.0, 6.3)
     trail = path_trail(h, w.from_connector, w.to_connector) if h.segments else None
     known = trail is not None and all(x is not None for _, x in trail)
     seg_sum = float(sum(x for _, x in trail if x is not None)) if trail and known else None
@@ -505,7 +514,7 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
         if seg_sum is not None
         else None
     )
-    if w.length_m is None and length is None:
+    if origin == ORIGIN_NONE:
         missing = [
             "the length of the wire (enter routing segment lengths, or set a length on the wire)"
         ]
@@ -585,24 +594,24 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
             if settings.choice(project, "model", "length_model") == "path_loops_allowance_twist"
             else Step("Generated length", f"{_g(seg_sum)} + {_g(extra)}", seg_sum + extra, "m")
         )
-    if w.length_m is None:
+    if origin == ORIGIN_SEGMENTS:
         basis = "the routing segments of its path (no length is stored on the wire; no service loop is added here)"
         value = length
         if seg_sum is not None:
             steps = steps[:1]
-    elif seg_sum is not None and math.isclose(w.length_m, expected or 0.0, rel_tol=0, abs_tol=1e-9):
+    elif seg_sum is not None and math.isclose(length, expected or 0.0, rel_tol=0, abs_tol=1e-9):
         basis = "generated: the path through the segments plus two service loops"
-        value = w.length_m
+        value = length  # the length stored on the wire (`wire_length` returns it)
     else:
         basis = (
             f"overridden by the engineer (reason: {w.overrides['length_m']}), so generation keeps it"
             if "length_m" in w.overrides
             else "entered by hand and locked, so generation keeps it"
-            if w.locked
+            if origin == ORIGIN_LOCKED
             else "a length stored on the wire that does not equal its path plus two service loops (entered, imported, or the segments changed since)"
         )
-        value = w.length_m
-        inputs.insert(0, Input("Length stored on the wire", w.length_m, "m", f"wire {w.id}"))
+        value = length
+        inputs.insert(0, Input("Length stored on the wire", length, "m", f"wire {w.id}"))
     steps.append(Step("Length used by the tables, mass and rules", basis, value, "m"))
     return Derivation(
         "wire-length", subject, "Length", value, "m", equation,

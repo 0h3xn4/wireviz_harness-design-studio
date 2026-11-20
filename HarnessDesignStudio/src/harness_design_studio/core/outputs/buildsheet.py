@@ -33,6 +33,7 @@ from harness_design_studio.core.wirecolours import resolve
 
 from . import tables
 from .exports import _FIXED, normalise_xlsx
+from .production import colour_text
 from .stamp import Stamp, Table
 from .xlsx_env import ILLEGAL_CHARACTERS_RE, Cell, Workbook, WriteOnlyCell
 
@@ -207,11 +208,9 @@ def _wire_colour_cell(ws: Any, name: str | None) -> Any:
 
 
 def _colour_text(name: str | None) -> str:
-    """The colour in words, with its IEC 60757 code when the table knows it: "red (RD)"."""
-    if not name:
-        return ""
-    code, _screen = resolve(name)
-    return f"{name} ({code})" if code and code != name.upper() else name
+    """The colour in words, with its IEC 60757 code when the table knows it: "red (RD)" (the rule
+    of `production.colour_text`, which the Production sheet uses too)."""
+    return colour_text(name)
 
 
 def _header(ws: Any, lay: _Layout, labels: list[str]) -> list[Any]:

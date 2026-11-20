@@ -8,8 +8,9 @@ project in the format `compact`, `descriptive` or `custom` failed its own self-c
 format, a template using every field included; the verifier reads the labels of a project with
 loose ends and splices as the tables write them, for random templates; it still refuses a wrong
 text in every format (also the standard text where another format is in force); and its own copy
-of the template rules (`verify._LABEL_*`, `_label_template_usable`, `_fill_label`) is the core's
-(`core/label_format.py`), which `verify.py` does not import."""
+of the template rules (`verify_labels._LABEL_*`, `_label_template_usable`, `_fill_label`, moved out of
+`verify.py` for 4.1.0) is the core's (`core/label_format.py`), which neither `verify.py` nor
+`verify_labels.py` imports."""
 
 import io
 from pathlib import Path
@@ -25,6 +26,7 @@ from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import ConfigFile, Project, evolve
 from harness_design_studio.core.outputs import tables
 from harness_design_studio.core.outputs import verify as vf
+from harness_design_studio.core.outputs import verify_labels as vl
 from harness_design_studio.core.outputs.build import DEFAULT_FOLDER, build_outputs
 from harness_design_studio.core.outputs.stamp import parse_csv
 from harness_design_studio.core.outputs.xlsx_env import load_workbook
@@ -197,19 +199,29 @@ def test_a_wrong_label_text_is_refused_in_every_format(
 # ---- the verifier's own copy of the label rules ----------------------------------------------------
 
 
-def test_the_verifier_does_not_import_the_label_rules_or_the_tables() -> None:
-    names = imported_names(SRC / "harness_design_studio/core/outputs/verify.py", SRC)
+@pytest.mark.parametrize("module", ["verify.py", "verify_labels.py"])
+def test_the_verifier_does_not_import_the_label_rules_or_the_tables(module: str) -> None:
+    names = imported_names(SRC / "harness_design_studio/core/outputs" / module, SRC)
     assert names
     for banned in ("harness_design_studio.core.label_format", "harness_design_studio.core.outputs.tables"):  # fmt: skip
         assert not [n for n in names if n == banned or n.startswith(banned + ".")], banned
 
 
+def test_the_label_copy_lives_in_verify_labels_and_verify_uses_it() -> None:
+    names = imported_names(SRC / "harness_design_studio/core/outputs/verify.py", SRC)
+    assert "harness_design_studio.core.outputs.verify_labels._connector_label_text" in names
+    assert "harness_design_studio.core.outputs.verify_labels._wire_label_texts" in names
+    text = (SRC / "harness_design_studio/core/outputs/verify.py").read_text(encoding="utf-8")
+    for name in ("_LABEL_FIELDS =", "def _fill_label(", "def _label_template_usable("):
+        assert name not in text, name  # one copy of the label rules in the verifier
+
+
 def test_the_verifier_s_formats_and_fields_are_the_core_s() -> None:
-    assert vf._LABEL_FORMATS == label_format.FORMATS
-    assert vf._LABEL_DEFAULT == label_format.DEFAULT_FORMAT
-    assert vf._LABEL_FIELDS == {"wire": label_format.WIRE_FIELDS, "connector": label_format.CONNECTOR_FIELDS}  # fmt: skip
-    assert vf._LABEL_TEMPLATE_KEYS == label_format.TEMPLATE_KEYS
-    assert vf._LABEL_TEMPLATE_MAX == label_format.MAX_TEMPLATE
+    assert vl._LABEL_FORMATS == label_format.FORMATS
+    assert vl._LABEL_DEFAULT == label_format.DEFAULT_FORMAT
+    assert vl._LABEL_FIELDS == {"wire": label_format.WIRE_FIELDS, "connector": label_format.CONNECTOR_FIELDS}  # fmt: skip
+    assert vl._LABEL_TEMPLATE_KEYS == label_format.TEMPLATE_KEYS
+    assert vl._LABEL_TEMPLATE_MAX == label_format.MAX_TEMPLATE
 
 
 ALL_FIELDS = sorted({*label_format.WIRE_FIELDS, *label_format.CONNECTOR_FIELDS, "colour", ""})
@@ -226,10 +238,10 @@ templates = st.lists(pieces, max_size=12).map("".join) | st.text(min_size=195, m
 def test_the_verifier_s_template_rules_are_the_core_s(text: str, kind: str) -> None:
     fields = label_format.WIRE_FIELDS if kind == "wire" else label_format.CONNECTOR_FIELDS
     usable = label_format.check_template(text, fields) is None
-    assert vf._label_template_usable(text, kind) == usable
+    assert vl._label_template_usable(text, kind) == usable
     if usable:
         values = {f: f"<{f}>" for f in fields}
-        assert vf._fill_label(text, values) == label_format.fill(text, values)
+        assert vl._fill_label(text, values) == label_format.fill(text, values)
 
 
 wire_templates = st.lists(

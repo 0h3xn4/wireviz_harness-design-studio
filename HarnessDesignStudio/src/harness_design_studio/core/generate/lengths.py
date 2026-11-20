@@ -5,6 +5,7 @@
 import re
 from collections import deque
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.commands import Op, Put
@@ -124,6 +125,64 @@ def wire_length(h: Harness, w: Wire) -> float | None:
     return hit[1]
 
 
+# Where a wire's length comes from, as the Production sheet says it (design of 4.1.0, section 6.3).
+ORIGIN_ON_WIRE = "on the wire"  # `Wire.length_m`, not locked: Generate's length or an imported one
+ORIGIN_LOCKED = "locked"  # `Wire.length_m` on a locked wire: typed in, or an override
+ORIGIN_SEGMENTS = "segments only, no service loops"  # no length of its own: the path alone
+ORIGIN_NONE = ""  # no length at all: the cell reads *to fill in*
+
+
+def length_origin(h: Harness, w: Wire) -> str:
+    """Where the length of a wire comes from, read from the wire and the segments only: its own
+    length (`on the wire`, or `locked` when the wire is locked), the segments of its path
+    (`segments only, no service loops`), or nothing (empty). It does not tell a generated length
+    from an imported one; `derive.wire_length_derivation` does, and starts from this answer."""
+    if w.length_m is not None:
+        return ORIGIN_LOCKED if w.locked else ORIGIN_ON_WIRE
+    return ORIGIN_SEGMENTS if wire_length(h, w) is not None else ORIGIN_NONE
+
+
+def _number_text(v: float) -> str:
+    """A number of the settings as the project holds it: the shortest text that reads back as the
+    value, without an exponent (0.1, 2, 0.05)."""
+    r = round(v, 9) + 0.0
+    text = repr(r)
+    if "e" in text or "E" in text:
+        text = format(Decimal(text), "f")
+    return text[:-2] if text.endswith(".0") else text
+
+
+def reference_text(project: Project) -> str:
+    """What every length of a document is measured from, in words from the settings in force
+    (design of 4.1.0, section 6.1): from the rear of a connector along the segments, through the
+    centre of each branch point, to the rear of the other; what Generate adds (the service loops
+    of `model.service_loops_per_wire` and `generation.service_loop_m`, and under the length model
+    `path_loops_allowance_twist` the take-up of twisting and the cut allowance). Every number is
+    the project's; none is invented."""
+    loops = settings.service_loops(project)
+    raw = settings.effective(project, "generation", "service_loop_m").value
+    loop = float(raw) if isinstance(raw, int | float) and not isinstance(raw, bool) else None
+    if loop is None:
+        added = "no service loop (config/generation.json: service_loop_m is not set)"
+    elif loops == 0:
+        added = "no service loop (config/model.json: service_loops_per_wire is 0)"
+    else:
+        added = f"{loops} service loop{'' if loops == 1 else 's'} of {_number_text(loop)} m"
+    if settings.choice(project, "model", "length_model") == "path_loops_allowance_twist":
+        takeup = _number_text(settings.number(project, "model", "twist_takeup_fraction"))
+        cut = _number_text(settings.number(project, "model", "cut_allowance_m"))
+        added += (
+            f", the take-up of twisting ({takeup}) for a wire of a twisted construction, and a "
+            f"cut allowance of {cut} m"
+        )
+    return (
+        "Lengths run from the rear of a connector (where the wires leave its body or backshell) "
+        "along the routing segments, through the centre of each branch point, to the rear of the "
+        f'other connector. A wire Generate made adds {added}. "Locked" is a length a person '
+        'typed; "segments only" has no service loops.'
+    )
+
+
 @dataclass
 class LengthRow:
     row_number: int
@@ -222,11 +281,17 @@ def segment_lengths_known(h: Harness) -> bool:
 
 __all__ = [
     "LENGTH_UNITS_M",
+    "ORIGIN_LOCKED",
+    "ORIGIN_NONE",
+    "ORIGIN_ON_WIRE",
+    "ORIGIN_SEGMENTS",
     "LengthPlan",
     "LengthRow",
     "Segment",
+    "length_origin",
     "loop_segments",
     "path_length",
     "plan_length_import",
+    "reference_text",
     "segment_lengths_known",
 ]
