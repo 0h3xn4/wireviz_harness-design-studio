@@ -77,7 +77,9 @@ W001-001-B,wire,W001-001 TX+/RX+ to W001-P1.1,1
 - **A wire** prints, at each end, its ID, its label (else its signal, here `TX+/RX+`), `to` and the connector and pin at the **other** end, and the EMC class in brackets when its interface type has one.
 - **A harness** prints its label as it is, and gets no row while it has none.
 
-This is the label format `standard`. The setting `model.label_format` chooses `compact`, `descriptive` or a template of your own ([labels and colours](../models/labels-and-colours.md)); `harness-design-studio explain DIR W001-P1` prints how one label was made.
+This is the label format `standard`. The setting `model.label_format` chooses `compact`, `descriptive`, `harness_device_connector` or a template of your own ([labels and colours](../models/labels-and-colours.md)); `harness-design-studio explain DIR W001-P1` prints how one label was made.
+
+**A project you start with 4.1.0 or later** is in the format `harness_device_connector`: a cable connector's label is the harness, the device and the name the device gives its connector, `W001:OBC1:J01` (a loose end `W001:W001-P2 open end`, a connector that plugs into nothing `W001:W001-P3`), and the wire labels are the text above. The label you give a connector is not printed in this format; for both, choose `custom` with the connector template `{name} {harness}:{device}:{mates_name}`. In the harness plan the `CON_…` sheet then has *Connector Name* in row 4, and the header of a near block reads `[W001:OBC1:J01]`. A project made before 4.1.0, or from one of the other templates, keeps the format it has. A 4.0.x tool refuses a project in this format, so update the whole team at the same time.
 
 ## Before you start
 

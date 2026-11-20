@@ -5,8 +5,8 @@
 both use it (`verify.py` imports `verify_plan.py`, so the copy could not stay in `verify.py`
 without an import cycle once `verify_production.py` needs it).
 
-The label formats (`model.label_format`: `standard`, `compact`, `descriptive`, `custom`) and the
-template rules (`_LABEL_*`, `_label_template_usable`, `_fill_label`) are stated here a second time,
+The label formats (`model.label_format`: `standard`, `compact`, `descriptive`, `custom` and, since
+4.1.0, `harness_device_connector`, design of 4.1.0 section 4.4) and the template rules (`_LABEL_*`, `_label_template_usable`, `_fill_label`) are stated here a second time,
 never imported from `core/label_format.py` or `tables.py`; `tests/test_label_format_outputs.py`
 reads the imports of this module and compares the copy with the core's."""
 
@@ -21,11 +21,11 @@ _OPEN_END = "open end"
 
 # The label formats and the template rules, stated again here, never imported from
 # core/label_format.py or tables.py (D-198).
-_LABEL_FORMATS = ("standard", "compact", "descriptive", "custom")
+_LABEL_FORMATS = ("standard", "compact", "descriptive", "custom", "harness_device_connector")
 _LABEL_DEFAULT = "standard"
 _LABEL_FIELDS = {
     "wire": ("harness", "wire", "signal", "name", "interface", "emc", "end", "from", "to"),
-    "connector": ("harness", "connector", "name", "mates", "device"),
+    "connector": ("harness", "connector", "name", "mates", "device", "mates_name"),
 }
 _LABEL_TEMPLATE_KEYS = {"wire": "label_wire_template", "connector": "label_connector_template"}
 _LABEL_TEMPLATE_MAX = 200
@@ -81,6 +81,15 @@ def _connector_label_text(project: Project, h: Harness, c: Connector, fmt: str) 
     mates = f"{c.id} {_OPEN_END}" if _open(c) else f"{c.id} mates {c.mates_with or '-'}"
     if fmt == "compact":
         return mates
+    if fmt == "harness_device_connector":
+        # The harness, the device and the name the device gives its connector, colon between, and
+        # never the person's label. With no device connector to name, the harness and the plug's
+        # own ID; a loose end says so after its ID.
+        if _open(c):
+            return h.id + ":" + c.id + " " + _OPEN_END
+        if box is not None:
+            return ":".join((h.id, box.unit_id or "", box.name))
+        return ":".join((h.id, c.id))
     if fmt == "descriptive" and box is not None and box.unit_id:
         mates = f"{mates} of {box.unit_id}"
     if fmt == "custom" and (tpl := _label_template(project, "connector")) is not None:
@@ -88,6 +97,7 @@ def _connector_label_text(project: Project, h: Harness, c: Connector, fmt: str) 
             "harness": h.id, "connector": c.id, "name": name,
             "mates": _OPEN_END if _open(c) else (c.mates_with or "-"),
             "device": (box.unit_id or "") if box is not None else "",
+            "mates_name": _OPEN_END if _open(c) else (box.name if box is not None else "-"),
         }  # fmt: skip
         return _fill_label(tpl, values)
     return f"{name} ({mates})" if name else mates

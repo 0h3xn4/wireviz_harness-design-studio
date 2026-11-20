@@ -3,6 +3,7 @@
 """Reference projects. `mini3` is the minimal 3-unit example used by tests and the first-run sample."""
 
 from .model import (
+    ConfigFile,
     Connector,
     Endpoint,
     Harness,
@@ -36,12 +37,18 @@ def start_project(name: str = "Untitled project") -> Project:
     """The project a person starts (the blank example of `new`, the editor's New project):
     `new_project` with `segmentation.mode` = `per_connector_group`, one harness that branches
     where a device connector carries interfaces to several devices (owner decision of 2026-11-18,
-    D-247: most connectors are custom and bespoke)."""
+    D-247: most connectors are custom and bespoke), and `config/model.json` with `label_format` =
+    `harness_device_connector`, the labels `W001:MTQ1:J01` (design of 4.1.0, section 4.3). The model
+    file is not a placeholder: a label text is not an engineering value."""
     from .generate.segmentation import NEW_PROJECT_MODE
+    from .label_format import NEW_PROJECT_FORMAT
 
     p = new_project(name)
     seg = p.config["segmentation"]
     p.config["segmentation"] = evolve(seg, values={**seg.values, "mode": NEW_PROJECT_MODE})
+    p.config["model"] = ConfigFile(
+        name="model", placeholder=False, values={"label_format": NEW_PROJECT_FORMAT}
+    )
     return p
 
 

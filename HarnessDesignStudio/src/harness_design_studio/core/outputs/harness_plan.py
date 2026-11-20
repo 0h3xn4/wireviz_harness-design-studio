@@ -34,6 +34,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from harness_design_studio.core import label_format
 from harness_design_studio.core.generate.lengths import wire_length
 from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.links import effective_role
@@ -396,6 +397,9 @@ class ConSheet:
     # pins in the order of the near block (row by row, then the pins in no row); else empty
     pin_rows: dict[str, Value] | None = None
     order: tuple[str, ...] = ()
+    # B4, *Connector Name*, the name the device gives its connector: only while the label format is
+    # harness_device_connector (design of 4.1.0, section 4.5); the near block header then reads it
+    connector_name: str | None = None
 
 
 def con_name(box: Connector) -> str:
@@ -430,6 +434,10 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
         if label:
             g.put(r, 0, label, BOLD)
         g.set(r, 1, cell)
+    named = label_format.format_of(project) == "harness_device_connector"
+    if named:  # row 4 is empty in every other format, so those plans keep their bytes
+        g.put(3, 0, "Connector Name", BOLD)
+        g.set(3, 1, Cell(box.name))
     device_text = device if device else TO_FILL
     pn = f"{ctype} {count} {box.gender}"
     g.put(8, 0, "Connector Name/Part Number", BOLD)
@@ -476,7 +484,15 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
         page=Page("A4", landscape=False, fit=True, footer=_footer(stamp)),
     )
     return ConSheet(
-        name, sheet, pins, values, device_text, desc, pin_rows, face.order() if face else ()
+        name,
+        sheet,
+        pins,
+        values,
+        device_text,
+        desc,
+        pin_rows,
+        face.order() if face else (),
+        box.name if named else None,
     )
 
 
@@ -829,9 +845,11 @@ class _HarnessSheet:
         if is_open_end(c):
             ctype = f"{OPEN_END}, {TO_FILL}"
         if box is not None and con is not None:
-            value = f"{ctype} [{self.h.id}:{con.device}:{box.id}]"
+            # the box connector's ID from B2, or its name from B4 in harness_device_connector
+            last, at = (box.id, 1) if con.connector_name is None else (con.connector_name, 3)
+            value = f"{ctype} [{self.h.id}:{con.device}:{last}]"
             dev = _there(con.name, 0, 1) if con.device != TO_FILL else _text(TO_FILL)
-            formula = f'{_text(ctype + " [")}&{_here(5, COL_N)}&":"&{dev}&":"&{_there(con.name, 1, 1)}&"]"'
+            formula = f'{_text(ctype + " [")}&{_here(5, COL_N)}&":"&{dev}&":"&{_there(con.name, at, 1)}&"]"'
             g.put(row + 4, COL_H, value, BOLD, formula=formula)
         else:
             g.put(row + 4, COL_H, f"{ctype} [{self.h.id}:{c.id}]", BOLD)

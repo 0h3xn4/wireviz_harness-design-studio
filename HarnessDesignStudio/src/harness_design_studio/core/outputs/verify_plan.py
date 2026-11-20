@@ -53,6 +53,7 @@ from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 from harness_design_studio.core.verify import VerifyReport
 
 from .stamp import Stamp, stamp_of
+from .verify_labels import _label_format
 
 # ---- the words of the plan, stated here a second time (never imported from the layout) --------
 
@@ -477,6 +478,8 @@ class _Con:
     # a near block (row by row, then the pins in no row in pin order)
     faces: dict[str, Value] | None = None
     order: tuple[str, ...] = ()
+    # B4 *Connector Name* while the label format is harness_device_connector, else None
+    named: str | None = None
 
 
 def _con(project: Project, box: Connector) -> _Con:
@@ -500,6 +503,12 @@ def _con(project: Project, box: Connector) -> _Con:
     ):
         _put(g, r, 0, label)
         _put(g, r, 1, value)
+    # In the label format harness_device_connector the sheet names the connector as its device
+    # does, in row 4 (empty otherwise), and the near block header reads it (design of 4.1.0, 4.5).
+    named = box.name if _label_format(project) == "harness_device_connector" else None
+    if named is not None:
+        _put(g, 3, 0, "Connector Name")
+        _put(g, 3, 1, named)
     pn = f"{ctype} {count} {box.gender}"
     description = f"{device} [{box.id}]: {'; '.join(names)}; {pn}"
     _put(g, 8, 0, "Connector Name/Part Number")
@@ -537,7 +546,7 @@ def _con(project: Project, box: Connector) -> _Con:
             _put(g, 18 + n, k, item)
         if faces is not None:
             _put(g, 18 + n, COL_F, faces[pin.id])
-    return _Con(CON + box.id, g, rows, values, device, description, faces, order)
+    return _Con(CON + box.id, g, rows, values, device, description, faces, order, named)
 
 
 @dataclass
@@ -809,8 +818,10 @@ class _HarnessSheet:
             ctype = f"{OPEN_END}, {TO_FILL}"
         if box is not None and con is not None:
             dev = _there(con.name, 0, 1) if con.device != TO_FILL else _quoted(TO_FILL)
-            formula = f'{_quoted(ctype + " [")}&{_here(5, COL_N)}&":"&{dev}&":"&{_there(con.name, 1, 1)}&"]"'
-            self.put(row + 4, COL_H, f"{ctype} [{h.id}:{con.device}:{box.id}]", formula)
+            # the last part: B2, the connector's ID; B4, its name, in harness_device_connector
+            last, cell = (box.id, 1) if con.named is None else (con.named, 3)
+            formula = f'{_quoted(ctype + " [")}&{_here(5, COL_N)}&":"&{dev}&":"&{_there(con.name, cell, 1)}&"]"'
+            self.put(row + 4, COL_H, f"{ctype} [{h.id}:{con.device}:{last}]", formula)
         else:
             self.put(row + 4, COL_H, f"{ctype} [{h.id}:{c.id}]")
         head = row + 5
