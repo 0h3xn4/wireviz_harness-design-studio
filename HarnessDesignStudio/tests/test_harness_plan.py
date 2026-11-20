@@ -167,6 +167,7 @@ def test_the_sheets_are_in_the_order_of_section_3_7() -> None:
         "Cover",
         "Change_Register",
         "W001",
+        "Production",
         "Notes",
         "CON_A-J1",
         "CON_B-J1",
@@ -176,6 +177,7 @@ def test_the_sheets_are_in_the_order_of_section_3_7() -> None:
 
 def test_a_harness_id_that_reads_as_a_fixed_sheet_gets_a_prefix() -> None:
     assert hp.harness_sheet_name(Harness(id="Notes", name="n")) == "Harness_Notes"
+    assert hp.harness_sheet_name(Harness(id="Production", name="n")) == "Harness_Production"
     assert hp.harness_sheet_name(Harness(id="con_X", name="n")) == "Harness_con_X"
     assert hp.harness_sheet_name(Harness(id="W001", name="n")) == "W001"
 
@@ -314,7 +316,7 @@ def test_the_part_tables() -> None:
         "Conductor",
         "Colours",
         "No. of wires in cable",
-        "Length [mm]",
+        "Length [mm] rear to rear",
     ]
     assert [v(harness, f"{c}{types + 2}") for c in "HIKOR"] == [1, "EX-WIRE-SINGLE", "", "black", 1]
     assert [v(harness, f"{c}{types + 3}") for c in "HIKOR"] == [
@@ -735,7 +737,9 @@ def test_a_loose_end_is_a_far_column_with_no_con_sheet() -> None:
     loose = evolve(h.connectors[1], role="loose", mates_with=None, part_id="TBD-CONNECTOR")
     p.harnesses["W001"] = evolve(h, connectors=[h.connectors[0], loose])
     s = sheets(p)
-    assert list(s) == ["Cover", "Change_Register", "W001", "Notes", "CON_A-J1", "About"]
+    assert list(s) == [
+        "Cover", "Change_Register", "W001", "Production", "Notes", "CON_A-J1", "About",
+    ]  # fmt: skip
     harness = s["W001"]
     head = row_of(harness, "B", "Pin No.")
     assert v(harness, f"T{head}") == "open end, to fill in"
@@ -798,7 +802,7 @@ def test_the_stamp_and_the_notice_are_on_the_about_sheet_the_cover_and_every_foo
         f"<style:footer><text:p>{stamp.line}</text:p><text:p>{stamp.notice}</text:p></style:footer>"
     )
     assert styles.count(footer) == styles.count("<style:master-page ") >= 1
-    assert sheets_in_file == 7 and "<style:footer style:display" not in styles
+    assert sheets_in_file == 8 and "<style:footer style:display" not in styles
 
 
 def test_a_plan_is_the_same_bytes_every_time() -> None:

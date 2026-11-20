@@ -14,8 +14,9 @@ verifier's own copy in `verify_labels.py`. `tests/test_production_verify.py` rea
 and compares every row with the core's on the examples, the fixtures and random harnesses.
 
 `verify.py` (`_build_production`) checks the Production sheet of the build workbook with it, row
-by row, with the headings `HEADER` stated here a second time; `verify_plan.py` takes it up with
-the plan's sheet (pull request 5 of the design)."""
+by row, with the headings `HEADER` stated here a second time; `verify_plan.py` checks the sheet
+*Production* of the harness plan with it, cell by cell, and `H9` and row 2 of that sheet with
+`_length_lines` (pull requests 3 and 5 of the design)."""
 
 from dataclasses import dataclass
 from decimal import Decimal

@@ -26,6 +26,18 @@ changes the plan only where a box connector has one, so every other plan keeps i
 `CON_…` sheet gets the column *Pin row* in F (the row of each pin, empty for a pin in no row), and
 a near block on it lists the pins row by row in the order of the layout, then the pins in no row in
 pin order, with a column *Pin row* in A whose cells copy column F of the `CON_…` sheet.
+
+The print set-up (4.1.0, design of 4.1.0 section 5, part C): the harness sheet prints at a fixed
+scale, the largest whole percent at which its print range is one A4 landscape page wide
+(`print_scale`), with rows 6 to 9 at the top of every page (the system, harness and version line,
+the title and the length note `H9`) and a page break before a near block that would not fit in
+what is left of the page (`row_heights`, `page_breaks`: an estimate from the column widths, the font
+sizes and the wrapped headings, not a measurement). The sheet *Production* (part A) follows it:
+one block per cable connector, the splices last, both ends of every wire
+(`production.production_blocks`), plain values only, lengths in mm, rows 1 to 3 (the title, the
+length note and the column headings) at the top of every page and the same page breaks. Every
+length heading says *rear to rear*, and `H9` and row 2 of *Production* say what the lengths are
+measured from (`lengths.reference_lines`, part D). The other sheets keep their one page.
 """
 
 import math
@@ -33,8 +45,9 @@ import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import reference_lines, wire_length
 from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.label_format import format_of
 from harness_design_studio.core.links import effective_role
@@ -45,11 +58,13 @@ from harness_design_studio.core.vcs.report import one_line
 
 from . import ods
 from .ods import Cell, Condition, Page, Sheet, Style, Workbook, column, sheet_ref
+from .production import NO_WIRE, PLAN_HEADER, SPARE, production_blocks
 from .stamp import Stamp
 from .tables import OPEN_END, TO_FILL, is_open_end, natural_key
 
 FILE_SUFFIX = "_plan.ods"
 COVER, REGISTER, NOTES, ABOUT = "Cover", "Change_Register", "Notes", "About"
+PRODUCTION = "Production"  # the production sheet, after the harness sheet (4.1.0, part A)
 CON_PREFIX = "CON_"
 OVERWRITE_TEXT = (
     "This file is written by Harness Design Studio. An export overwrites it; work on a copy."
@@ -100,6 +115,11 @@ BOX = Style(border=True)
 RED_BOLD = Style(bold=True, colour=_RED)
 REGISTER_HEAD = Style(bold=True, background=_REGISTER, border=True)
 WRAP = Style(wrap=True)
+NOTE = Style(italic=True)  # the length note: one sentence a line, each line as long as it is
+BAND = Style(bold=True, background=_LIGHT)  # the heading row of a block of the Production sheet
+CELL = Style(border=True, wrap=True)  # a cell of the Production sheet: long texts wrap
+SPARE_CELL = Style(background=_GREY, border=True, wrap=True)
+FILL_CELL = Style(background=_AMBER, border=True, wrap=True)
 
 # The columns of the harness sheet (0-based): the device side B:F, the harness side H:S, then one
 # far pin column per far connector from T, a gap, and a group of seven columns per far box connector
@@ -109,11 +129,33 @@ COL_P, COL_Q, COL_R, COL_S, COL_T = 15, 16, 17, 18, 19
 GROUP_WIDTH = 7  # Pinout, Function, Direction, Level, Description, Used in Row, a gap
 HARNESS_HEAD = [
     "Pinout", "Function", "Direction", "Color", "Cable / Type", "Shielding / (Grouping)",
-    "Length [mm]", "Level", "Cable / Type", "Color", "Direction", "Function",
+    "Length [mm] rear to rear", "Level", "Cable / Type", "Color", "Direction", "Function",
 ]  # fmt: skip
+LENGTH_HEAD = "Length [mm] rear to rear"  # every length column of the plan (4.1.0, part D)
 DEVICE_HEAD = ["Pin No.", "Function", "Direction", "Level", "Description"]
 PIN_HEAD = ["Pinout", "Function", "Direction", "Level", "Description"]
 PIN_ROW_HEAD = "Pin row"  # column F of a CON_ sheet and A of a near block, with a row layout
+# The Production sheet (4.1.0, part A): the columns of `production.PLAN_HEADER`, and while the
+# plan colours by pin code a column *Pigtail colour* after *Colour* (P8 of the design); widths in
+# mm that sum to less than the width of the page (270 mm), so it prints at 100 %
+PIGTAIL_HEAD = "Pigtail colour"
+PRODUCTION_WIDTHS = (14, 26, 20, 34, 30, 18, 10, 18, 24, 38, 38)
+PIGTAIL_WIDTHS = (14, 24, 20, 30, 28, 18, 18, 10, 18, 22, 34, 34)
+SPLICE_BLOCK = "Splices: each node joins the wires listed on it"  # as on *Connectors*
+
+# The print set-up (4.1.0, part C). The page: A4 landscape less the writer's margins of 10 mm (277
+# mm; LibreOffice 24.2 prints a range of exactly 277 mm on two pages, so 1 mm is kept free), and
+# less the footer (two lines of the stamp and its spacing). The rows, as a reader shows them
+# without a height of their own: 4.52 mm a line of 10 pt, in proportion for a larger font; a
+# wrapped text takes a line for each CHAR_MM × characters that fill the width of its column less
+# PAD_MM. An estimate: the program that prints the file may break a line elsewhere.
+PAGE_WIDTH_MM = 276
+PAGE_HEIGHT_MM = 175
+ROW_MM = Fraction("4.52")
+CHAR_MM = Fraction("1.9")
+PAD_MM = Fraction(2)
+HARNESS_HEADING = (5, 8)  # rows 6 to 9 of the harness sheet, repeated on every page
+PRODUCTION_HEADING = (0, 2)  # rows 1 to 3 of the Production sheet
 
 Value = str | int | float
 
@@ -568,6 +610,7 @@ class _HarnessSheet:
         self.block_rows: list[tuple[int, int]] = []  # (first, last) pin rows of each near block
         self.wire_rows: list[tuple[int, int]] = []  # the same, and the rows of the further wires
         self.harness_rows: list[int] = []
+        self.blocks: list[tuple[int, int]] = []  # (title row, last row) of each near block
 
     def box(self, c: Connector) -> Connector | None:
         """The box connector a cable connector plugs into, when it has a `CON_…` sheet here."""
@@ -656,6 +699,7 @@ class _HarnessSheet:
         g.put(5, COL_Q, f"VERSION: v{h.version} ({STATUS_WORDS[h.status]})", BOLD)
         if self.signal_ground_open():
             g.put(5, COL_T, NO_SGND, RED_BOLD)
+        g.put(8, COL_H, "\n".join(reference_lines(project)), NOTE)  # H9: the length note
         for col in (COL_I, COL_M):
             g.put(SEARCH_ROW - 1, col, SEARCH_LABEL, BOLD)
             g.put(SEARCH_ROW, col, SEARCH_TEXT, TYPED)
@@ -699,13 +743,17 @@ class _HarnessSheet:
         for far in self.far:
             if far.group_col is not None:
                 widths += [16, 36, 16, 16, 40, 16, 4]
+        cells = g.rows()
+        scale = print_scale(widths[COL_H : self.last_col + 1])
         return Sheet(
             self.name,
-            g.rows(),
+            cells,
             widths=tuple(widths),
-            page=Page("A4", landscape=True, fit=True, footer=_footer(self.stamp)),
+            page=Page("A4", landscape=True, scale=scale, footer=_footer(self.stamp)),
             print_range=f"H6:{_addr(last, self.last_col)}",
             conditions=tuple(conditions),
+            repeat_rows=HARNESS_HEADING,
+            breaks=page_breaks(row_heights(cells, widths), HARNESS_HEADING, self.blocks, scale),
         )
 
     def signal_ground_open(self) -> bool:
@@ -777,7 +825,7 @@ class _HarnessSheet:
         g.put(row, COL_H, "used Cable Types", BOLD)
         heads = (
             (COL_H, "No."), (COL_I, "Part No."), (COL_K, "AWG"), (COL_L, "Conductor"), (COL_O, "Colours"),
-            (COL_R, "No. of wires in cable"), (COL_S, "Length [mm]"),
+            (COL_R, "No. of wires in cable"), (COL_S, LENGTH_HEAD),
         )  # fmt: skip
         for col, head in heads:
             g.put(row + 1, col, head, HEAD)
@@ -882,6 +930,7 @@ class _HarnessSheet:
         for n, r in enumerate(rows):
             noted = self.pin_row(start + n, r, con, noted)
         end = start + max(len(rows), 1) - 1
+        self.blocks.append((row, end))
         if rows:
             self.block_rows.append((start, end))
             self.wire_rows.append((start, end))
@@ -1034,7 +1083,7 @@ class _HarnessSheet:
         g = self.g
         g.put(row, COL_H, "Further wires", BOLD)
         heads = ((COL_H, "Wire"), (COL_I, "From"), (COL_J, "To"), (COL_K, "Color"), (COL_L, "Cable / Type"),
-                 (COL_M, "Shielding / (Grouping)"), (COL_N, "Length [mm]"))  # fmt: skip
+                 (COL_M, "Shielding / (Grouping)"), (COL_N, LENGTH_HEAD))  # fmt: skip
         for col, text in heads:
             g.put(row + 1, col, text, HEAD)
         start = row + 2
@@ -1124,6 +1173,155 @@ class _HarnessSheet:
                 formula=f'IF(ISNA({match});"";{match}+{first})',
             )
         return r
+
+
+# ---- the print set-up (4.1.0, design of 4.1.0 section 5) --------------------------------------
+
+
+def print_scale(widths: Sequence[float]) -> int:
+    """The largest whole percent at which columns of these widths (mm) print one A4 landscape page
+    wide: `PAGE_WIDTH_MM` / their sum, at most 100 and at least 10 (the smallest scale a reader
+    takes)."""
+    total = sum((Fraction(str(w)) for w in widths), Fraction(0))
+    if total <= 0:
+        return 100
+    return max(10, min(100, math.floor(Fraction(PAGE_WIDTH_MM * 100) / total)))
+
+
+def _lines(text: str, width: Fraction) -> int:
+    """The lines a wrapped text takes in a column of `width` mm (an estimate)."""
+    room = max(width - PAD_MM, Fraction(1))
+    return max(1, math.ceil(len(text) * CHAR_MM / room))
+
+
+def row_heights(rows: Sequence[Sequence[Cell | None]], widths: Sequence[float]) -> list[Fraction]:
+    """The height of each row in mm as a reader shows it at 100 %, estimated from its cells: a line
+    a paragraph of the text, a wrapped text as many lines as `_lines` gives in the width of its
+    column (or of the columns it spans), each line `ROW_MM` for 10 pt and in proportion for a
+    larger font; an empty row one line."""
+    width = [Fraction(str(w)) for w in widths]
+    out = []
+    for row in rows:
+        height = ROW_MM
+        for c, cell in enumerate(row):
+            if cell is None or cell.value == "":
+                continue
+            parts = ods._clean(cell.value).split("\n") if isinstance(cell.value, str) else [""]
+            if cell.style.wrap and isinstance(cell.value, str):
+                span = sum(width[c : c + cell.cols], Fraction(0))
+                lines = sum(_lines(part, span) for part in parts)
+            else:
+                lines = len(parts)
+            size = Fraction(str(cell.style.size_pt or 10)) / 10
+            height = max(height, ROW_MM * lines * max(size, Fraction(1)))
+        out.append(height)
+    return out
+
+
+def page_breaks(
+    heights: Sequence[Fraction],
+    heading: tuple[int, int],
+    blocks: Sequence[tuple[int, int]],
+    scale: int,
+) -> tuple[int, ...]:
+    """The rows before which a page starts: the first row of a block (`blocks`: first and last row)
+    that would not fit in what is left of the page, unless the page holds nothing yet. A page holds
+    `PAGE_HEIGHT_MM` at `scale` percent, less the heading rows printed at its top; a row the
+    estimate has not placed on a page starts a page of its own, as a reader would do, and a block
+    longer than a page is split by the reader where it falls."""
+    room = Fraction(PAGE_HEIGHT_MM * 100, scale) - sum(heights[heading[0] : heading[1] + 1])
+    sizes = {first: sum(heights[first : last + 1], Fraction(0)) for first, last in blocks}
+    end = max((last for _, last in blocks), default=heading[1])
+    out: list[int] = []
+    used = Fraction(0)
+    for r in range(heading[1] + 1, min(end + 1, len(heights))):
+        if r in sizes and used and used + sizes[r] > room:
+            out.append(r)
+            used = Fraction(0)
+        if used and used + heights[r] > room:
+            used = Fraction(0)
+        used += heights[r]
+    return tuple(out)
+
+
+# ---- the Production sheet (4.1.0, design of 4.1.0 part A) -------------------------------------
+
+
+def _mm(length: float | str) -> Value:
+    """A length of the rows (m) as the plan writes it: mm rounded to 0.1, or *to fill in*."""
+    return length if isinstance(length, str) else round(length * 1000, 1) + 0.0
+
+
+def production_sheet(project: Project, h: Harness, stamp: Stamp, settings: PlanSettings) -> Sheet:
+    """The sheet *Production* (design of 4.1.0, sections 3 and 5.1): the title, the length note
+    (`lengths.reference_lines`, a sentence a line) and the column headings in rows 1 to 3, repeated
+    on every page; then the blocks of `production.production_blocks`, each a heading row and one
+    row per pin and wire, then an empty row; the splices last under their own title. Plain values
+    only (no formula): the length in mm, *to fill in* on amber for a value the design does not
+    hold. While the plan colours by pin code, a column *Pigtail colour* after *Colour* holds the
+    colour of the pin code at this end, from the same lookup as the harness sheet (*to fill in*
+    for a pin the code does not list, empty for a connector whose part has no code). A4 landscape
+    at the scale of `print_scale`, a page break before a block that would not fit."""
+    pigtail = settings.colour_rule == "pin_code"
+    head = [*PLAN_HEADER[:6], *([PIGTAIL_HEAD] if pigtail else []), *PLAN_HEADER[6:]]
+    widths = PIGTAIL_WIDTHS if pigtail else PRODUCTION_WIDTHS
+    codes: dict[str, ColourCode] = {}
+    for listed in settings.codes if pigtail else ():
+        for part in listed.parts:
+            codes.setdefault(part, listed)
+    tables = {  # each code as its table on Notes: the pins as cells, in natural order
+        code.name: tuple(
+            (cell_value(p), v) for p, v in sorted(code.pins, key=lambda x: natural_key(x[0]))
+        )
+        for code in codes.values()
+    }
+    connectors = {c.id: c for c in h.connectors}
+    g = _Grid()
+    g.put(0, 0, f"Production sheet of {h.id}", TITLE)
+    g.put(1, 0, "\n".join(reference_lines(project)), NOTE)
+    for n, text in enumerate(head):
+        g.put(2, n, text, HEAD)
+    row, spans, titled = 3, [], False
+    for block in production_blocks(project, h):
+        first = row
+        if block.splice and not titled:  # the splices: a title of their own, as on Connectors
+            titled = True
+            g.put(row, 0, SPLICE_BLOCK, BOLD)
+            row += 2
+        g.put(row, 0, block.heading, BAND)
+        for n in range(1, len(head)):
+            g.put(row, n, "", BAND)
+        row += 1
+        c = connectors[block.connector_id]
+        for r in block.rows:
+            values: list[Value] = [*r.values()]
+            values[7] = _mm(r.length)
+            if pigtail:
+                code = codes.get(c.part_id)
+                colour = ""
+                if r.goes_to and code is not None:  # a wire's row at a connector with a code
+                    found = lookup(tables[code.name], cell_value(r.pin)) or ""
+                    colour = found if r.pin in dict(code.pins) else TO_FILL
+                values.insert(6, colour)
+            plain = r.wire in (SPARE, NO_WIRE)
+            for n, v in enumerate(values):
+                style = FILL_CELL if v == TO_FILL else SPARE_CELL if plain else CELL
+                g.put(row, n, v, style)
+            row += 1
+        spans.append((first, row - 1))
+        row += 1
+    rows = g.rows()
+    last = max(row - 2, 2)
+    scale = print_scale(widths)
+    return Sheet(
+        PRODUCTION,
+        rows,
+        widths=widths,
+        page=Page("A4", landscape=True, scale=scale, footer=_footer(stamp)),
+        print_range=f"A1:{_addr(last, len(head) - 1)}",
+        repeat_rows=PRODUCTION_HEADING,
+        breaks=page_breaks(row_heights(rows, widths), PRODUCTION_HEADING, spans, scale),
+    )
 
 
 # ---- Cover, Change_Register, Notes, About -----------------------------------------------------
@@ -1297,7 +1495,7 @@ def _about(stamp: Stamp) -> Sheet:
 
 # ---- the plan ---------------------------------------------------------------------------------
 
-_FIXED_NAMES = frozenset(n.casefold() for n in (COVER, REGISTER, NOTES, ABOUT))
+_FIXED_NAMES = frozenset(n.casefold() for n in (COVER, REGISTER, PRODUCTION, NOTES, ABOUT))
 
 
 def harness_sheet_name(h: Harness) -> str:
@@ -1399,6 +1597,7 @@ def plan_workbook(
         _cover(project, h, stamp),
         _register(project, h, stamp, name),
         harness,
+        production_sheet(project, h, stamp, settings),
         notes,
         *(cons[n].sheet for n in cons),
         _about(stamp),
@@ -1417,6 +1616,9 @@ def plan_path(h: Harness) -> str:
 
 __all__ = [
     "FILE_SUFFIX",
+    "LENGTH_HEAD",
+    "PIGTAIL_HEAD",
+    "PRODUCTION",
     "ColourCode",
     "PlanSettings",
     "Sides",
@@ -1425,6 +1627,8 @@ __all__ = [
     "con_sheet",
     "direction_word",
     "harness_sheet_name",
+    "page_breaks",
+    "print_scale",
     "joined_wires",
     "lookup",
     "mirrored",
@@ -1434,6 +1638,8 @@ __all__ = [
     "plan_settings",
     "plan_sides",
     "plan_workbook",
+    "production_sheet",
     "reached_pins",
+    "row_heights",
     "used_codes",
 ]

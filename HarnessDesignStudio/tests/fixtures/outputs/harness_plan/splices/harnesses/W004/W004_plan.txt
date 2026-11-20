@@ -31,6 +31,7 @@ H6	mini3 (example data)
 N6	W004
 Q6	VERSION: v1.0.0 (draft)
 H8	Harness mini3 (example data)-W004: W004-P2 + W004-P3 <–> PCDU	="Harness "&[.H6]&"-"&[.N6]&": "&"W004-P2"&" + "&"W004-P3"&" <–> "&[$'CON_PCDU-J03'.B1]
+H9	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
 H10	used Connectors
 H11	No.
 I11	Part No.
@@ -55,7 +56,7 @@ K17	AWG
 L17	Conductor
 O17	Colours
 R17	No. of wires in cable
-S17	Length [mm]
+S17	Length [mm] rear to rear
 H19	used Backshells
 H20	No.
 I20	Part No.
@@ -73,7 +74,7 @@ J28	Direction
 K28	Color
 L28	Cable / Type
 M28	Shielding / (Grouping)
-N28	Length [mm]
+N28	Length [mm] rear to rear
 O28	Level
 P28	Cable / Type
 Q28	Color
@@ -118,7 +119,7 @@ J37	Direction
 K37	Color
 L37	Cable / Type
 M37	Shielding / (Grouping)
-N37	Length [mm]
+N37	Length [mm] rear to rear
 O37	Level
 P37	Cable / Type
 Q37	Color
@@ -144,7 +145,7 @@ J42	To
 K42	Color
 L42	Cable / Type
 M42	Shielding / (Grouping)
-N42	Length [mm]
+N42	Length [mm] rear to rear
 H43	W004-001
 I43	W004-P1.1
 J43	W004-X1.1
@@ -173,6 +174,109 @@ AA50	30	=IF(ISNA(MATCH([.V50];[.V29:.V39];0));"";MATCH([.V50];[.V29:.V39];0)+28)
 V51	3	=[$'CON_PCDU-J03'.A21]
 AA51		=IF(ISNA(MATCH([.V51];[.V29:.V39];0));"";MATCH([.V51];[.V29:.V39];0)+28)
 H53	Block diagram: harnesses/W004/drawing_A3.pdf
+== Production
+A1	Production sheet of W004
+A2	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
+A3	Pin
+B3	Signal
+C3	Wire
+D3	Goes to
+E3	Wire part
+F3	Colour
+G3	AWG
+H3	Length [mm] rear to rear
+I3	Length from
+J3	Label at this end
+K3	Shield group: here / far end
+A4	W004-P1   ·   EX-MICROD-15-M   ·   male   ·   mates PCDU-J03 (PCDU:J03)   ·   label W004-P1 mates PCDU-J03
+A5	1
+B5	SIG
+C5	W004-001
+D5	W004-X1.1 (splice)
+E5	to fill in
+F5	to fill in
+G5	to fill in
+H5	500
+I5	segments only, no service loops
+J5	W004-001 SIG to W004-X1.1
+A6	2
+B6	RTN
+C6	W004-004
+D6	W004-P2.2
+E6	to fill in
+F6	to fill in
+G6	to fill in
+H6	900
+I6	segments only, no service loops
+J6	W004-004 RTN to W004-P2.2
+A7	3
+C7	(spare)
+A9	W004-P2   ·   EX-MICROD-9-M   ·   male   ·   not plugged into a unit   ·   label W004-P2 mates -
+A10	1
+B10	SIG
+C10	W004-002
+D10	W004-X1.1 (splice)
+E10	to fill in
+F10	to fill in
+G10	to fill in
+H10	800
+I10	segments only, no service loops
+J10	W004-002 SIG to W004-X1.1
+A11	2
+B11	RTN
+C11	W004-004
+D11	W004-P1.2 (PCDU:J03)
+E11	to fill in
+F11	to fill in
+G11	to fill in
+H11	900
+I11	segments only, no service loops
+J11	W004-004 RTN to W004-P1.2
+A13	W004-P3   ·   EX-MICROD-9-M   ·   male   ·   not plugged into a unit   ·   label W004-P3 mates -
+A14	1
+B14	SIG
+C14	W004-003
+D14	W004-X1.1 (splice)
+E14	to fill in
+F14	to fill in
+G14	to fill in
+H14	400
+I14	segments only, no service loops
+J14	W004-003 SIG to W004-X1.1
+A15	2
+C15	(spare)
+A17	Splices: each node joins the wires listed on it
+A19	W004-X1   ·   EX-SPLICE-1   ·   splice   ·   1 node
+A20	1
+B20	SIG
+C20	W004-001
+D20	W004-P1.1 (PCDU:J03)
+E20	to fill in
+F20	to fill in
+G20	to fill in
+H20	500
+I20	segments only, no service loops
+J20	W004-001 SIG to W004-P1.1
+A21	1
+B21	SIG
+C21	W004-002
+D21	W004-P2.1
+E21	to fill in
+F21	to fill in
+G21	to fill in
+H21	800
+I21	segments only, no service loops
+J21	W004-002 SIG to W004-P2.1
+A22	1
+B22	SIG
+C22	W004-003
+D22	W004-P3.1
+E22	to fill in
+F22	to fill in
+G22	to fill in
+H22	400
+I22	segments only, no service loops
+J22	W004-003 SIG to W004-P3.1
 == Notes
 B2	Notes
 B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.
