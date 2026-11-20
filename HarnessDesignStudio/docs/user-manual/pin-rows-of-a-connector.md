@@ -246,7 +246,7 @@ Only a project in which some connector has rows changes; every other project wri
 
 ## Older versions of the tool
 
-The rows are saved in format 4. Versions 3.x open a format 4 project read-only. A part or a connector with rows breaks the files of format 3, so 3.0.0 sets it aside (*quarantined: … row_layout: Extra inputs are not permitted*), and with it the connectors of such a part lose their part: `validate` lists errors, and `generate` and `export` refuse the project (*the project has damaged files*) and write nothing. Upgrade the whole team together ([upgrade a project](upgrade-a-project.md#8-from-format-3-to-format-4-400)).
+The rows are saved in format 4. Versions 3.x open a format 4 project read-only. A part or a connector with rows breaks the files of format 3, so 3.x (3.0.0 to 3.1.0) sets it aside (*quarantined: … row_layout: Extra inputs are not permitted*), and with it the connectors of such a part lose their part: `validate` lists errors, and `generate`, `export` and `drc` refuse the project (*the project has damaged files*) and write nothing. Upgrade the whole team together ([upgrade a project](upgrade-a-project.md#8-from-format-3-to-format-4-400)).
 
 ## What is not in 4.0.0
 
