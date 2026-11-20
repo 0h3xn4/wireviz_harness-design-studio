@@ -22,10 +22,10 @@ table while some connector of the harness has one; `export.json` carries `row_la
 and the box connectors as the model does.
 
 The text of a label follows the label format in force (`model.label_format`, D-198): `standard`,
-`compact`, `descriptive` or `custom`, whose templates are filled in here with this module's own copy
-of the template rules (`_LABEL_*`, `_label_template_usable`, `_fill_label`, never
-`core/label_format.py` or `tables.py`); `tests/test_label_format_outputs.py` reads the imports and
-compares the copy with the core's. The labels table and the Labels sheet of the build workbook are
+`compact`, `descriptive` or `custom`, whose templates are filled in with the verifier's own copy
+of the template rules (`verify_labels.py`: `_LABEL_*`, `_label_template_usable`, `_fill_label`,
+never `core/label_format.py` or `tables.py`); `tests/test_label_format_outputs.py` reads the imports
+and compares the copy with the core's. The labels table and the Labels sheet of the build workbook are
 the only outputs that carry the texts."""
 
 import csv
@@ -57,10 +57,16 @@ from harness_design_studio.core.verify import VerifyReport, link_issues
 
 from .export_units import missing_units
 from .stamp import parse_csv
+from .verify_labels import (
+    _OPEN_END,
+    _connector_label_text,
+    _label_format,
+    _open,
+    _wire_label_texts,
+)
 from .verify_plan import face_rows, plan_stamp, row_numbers, verify_plans
 
 # A loose cable end, worded independently of tables.py, drawing.py and buildsheet.py (D-201).
-_OPEN_END = "open end"
 _OPEN_PART_TAG = " (loose end)"
 _OPEN_BOM_PART = "(open end)"
 _OPEN_BOM_TEXT = "Connector not chosen yet (loose end)"
@@ -70,21 +76,6 @@ _VIA = "Via"
 _SPLICE_ISOLATION = "all other nets and shields"
 _SPLICE_BLOCK = "Splices: each node joins the wires listed on it"
 _JSON_VERSION = 2  # `format_version` of system/export.json since 4.0.0 (D-251, L4)
-# The label formats and the template rules, stated again here, never imported from
-# core/label_format.py or tables.py (D-198).
-_LABEL_FORMATS = ("standard", "compact", "descriptive", "custom")
-_LABEL_DEFAULT = "standard"
-_LABEL_FIELDS = {
-    "wire": ("harness", "wire", "signal", "name", "interface", "emc", "end", "from", "to"),
-    "connector": ("harness", "connector", "name", "mates", "device"),
-}
-_LABEL_TEMPLATE_KEYS = {"wire": "label_wire_template", "connector": "label_connector_template"}
-_LABEL_TEMPLATE_MAX = 200
-_LABEL_TOKEN = re.compile(r"\{\{|\}\}|\{([^{}]*)\}")
-
-
-def _open(c: Connector) -> bool:
-    return c.role == LOOSE_ROLE
 
 
 def _open_ends(h: Harness) -> set[str]:
@@ -1501,85 +1492,6 @@ def _test_header(rows: list[list[Cell]]) -> list[str]:
 
 
 _LABEL_HEADER = ["Label", "Kind", "Text", "Quantity"]
-
-
-def _emc_class(project: Project, w: Wire) -> str:
-    i = project.interfaces.get(w.interface_id or "")
-    t = project.interface_types.get(i.type_id) if i else None
-    return (t.emc_class if t else None) or ""
-
-
-def _label_format(project: Project) -> str:
-    value = settings.effective(project, "model", "label_format").value
-    return str(value) if value in _LABEL_FORMATS else _LABEL_DEFAULT
-
-
-def _label_template_usable(text: str, kind: str) -> bool:
-    """A template is used when it is at most `_LABEL_TEMPLATE_MAX` characters, names only fields
-    of its kind and has no single brace (`{{` and `}}` are braces)."""
-    if len(text) > _LABEL_TEMPLATE_MAX:
-        return False
-    fields = _LABEL_FIELDS[kind]
-    if any(
-        m.group(1) is not None and m.group(1) not in fields for m in _LABEL_TOKEN.finditer(text)
-    ):
-        return False
-    return not re.search(r"[{}]", _LABEL_TOKEN.sub("", text))
-
-
-def _label_template(project: Project, kind: str) -> str | None:
-    """The template of `kind` in force, or None (not set, empty or not usable: the standard text)."""
-    value = settings.effective(project, "model", _LABEL_TEMPLATE_KEYS[kind]).value
-    if not isinstance(value, str) or not value.strip() or not _label_template_usable(value, kind):
-        return None
-    return value
-
-
-def _fill_label(text: str, values: dict[str, str]) -> str:
-    """Every `{field}` replaced by its text, `{{` and `}}` by a brace; nothing else is read."""
-    return _LABEL_TOKEN.sub(
-        lambda m: m.group(0)[0] if m.group(1) is None else values[m.group(1)], text
-    )
-
-
-def _connector_label_text(project: Project, h: Harness, c: Connector, fmt: str) -> str:
-    box = project.connectors.get(c.mates_with or "")
-    name = c.label or ((box.label or "") if box is not None else "")
-    mates = f"{c.id} {_OPEN_END}" if _open(c) else f"{c.id} mates {c.mates_with or '-'}"
-    if fmt == "compact":
-        return mates
-    if fmt == "descriptive" and box is not None and box.unit_id:
-        mates = f"{mates} of {box.unit_id}"
-    if fmt == "custom" and (tpl := _label_template(project, "connector")) is not None:
-        values = {
-            "harness": h.id, "connector": c.id, "name": name,
-            "mates": _OPEN_END if _open(c) else (c.mates_with or "-"),
-            "device": (box.unit_id or "") if box is not None else "",
-        }  # fmt: skip
-        return _fill_label(tpl, values)
-    return f"{name} ({mates})" if name else mates
-
-
-def _wire_label_texts(project: Project, h: Harness, w: Wire, fmt: str) -> tuple[str, str]:
-    far, near = f"{w.to_connector}.{w.to_pin}", f"{w.from_connector}.{w.from_pin}"
-    wname = w.label or w.signal or ""
-    head = f"{w.id} {wname}" if wname else w.id
-    emc = _emc_class(project, w)
-    tag = f" [EMC {emc}]" if emc else ""
-    if fmt == "compact":
-        return f"{w.id} to {far}", f"{w.id} to {near}"
-    if fmt == "descriptive" and (i := project.interfaces.get(w.interface_id or "")) is not None:
-        head = f"{head} ({i.id} {i.name})"
-    if fmt == "custom" and (tpl := _label_template(project, "wire")) is not None:
-        values = {
-            "harness": h.id, "wire": w.id, "signal": w.signal or "", "name": wname,
-            "interface": w.interface_id or "", "emc": emc,
-        }  # fmt: skip
-        return (
-            _fill_label(tpl, {**values, "end": "A", "from": near, "to": far}),
-            _fill_label(tpl, {**values, "end": "B", "from": far, "to": near}),
-        )
-    return f"{head} to {far}{tag}", f"{head} to {near}{tag}"
 
 
 def _label_rows(project: Project, h: Harness) -> list[list[Cell]]:
