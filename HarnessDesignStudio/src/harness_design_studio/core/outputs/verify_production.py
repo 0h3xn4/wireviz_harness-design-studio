@@ -30,14 +30,6 @@ from .verify_labels import _OPEN_END, _connector_label_text, _label_format, _wir
 # ---- the words of the sheet, stated here a second time (never imported from production.py) ----
 _TO_FILL = "to fill in"
 _DOT = "   ·   "
-_HEADER = (
-    "Pin", "Signal", "Wire", "Goes to", "Wire part", "Colour", "AWG", "Length (m), rear to rear",
-    "Length from", "Label at this end", "Shield group: here / far end",
-)  # fmt: skip
-_PLAN_HEADER = (
-    "Pin", "Signal", "Wire", "Goes to", "Wire part", "Colour", "AWG", "Length [mm] rear to rear",
-    "Length from", "Label at this end", "Shield group: here / far end",
-)  # fmt: skip
 _NO_WIRE = "(no wire)"
 _SPARE = "(spare)"
 _UNPLUGGED = "not plugged into a unit"

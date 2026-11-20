@@ -185,12 +185,16 @@ def test_the_origin_agrees_with_the_explanation_in_every_case() -> None:
     # the texts of the explanation are those of 4.0.1
     texts = [_basis(derive.wire_length_derivation(p, h, w)) for w in wires[:4]]
     assert texts == [
-        "a length stored on the wire that does not equal its path plus two service loops "
-        "(entered, imported, or the segments changed since)",
+        (
+            "a length stored on the wire that does not equal its path plus two service loops "
+            "(entered, imported, or the segments changed since)"
+        ),
         "entered by hand and locked, so generation keeps it",
         "overridden by the engineer (reason: measured on the mock-up), so generation keeps it",
-        "the routing segments of its path (no length is stored on the wire; no service loop is "
-        "added here)",
+        (
+            "the routing segments of its path (no length is stored on the wire; no service loop is "
+            "added here)"
+        ),
     ]
     assert derive.wire_length_derivation(p, h, wires[4]).missing == (
         "the length of every routing segment on the path: W001-L2",
