@@ -127,19 +127,27 @@ def wire_length(h: Harness, w: Wire) -> float | None:
 
 # Where a wire's length comes from, as the Production sheet says it (design of 4.1.0, section 6.3).
 ORIGIN_ON_WIRE = "on the wire"  # `Wire.length_m`, not locked: Generate's length or an imported one
-ORIGIN_LOCKED = "locked"  # `Wire.length_m` on a locked wire: typed in, or an override
+ORIGIN_LOCKED = "locked"  # a length Generate keeps: typed in on a locked wire, or overridden
 ORIGIN_SEGMENTS = "segments only, no service loops"  # no length of its own: the path alone
 ORIGIN_NONE = ""  # no length at all: the cell reads *to fill in*
 
 
 def length_origin(h: Harness, w: Wire) -> str:
     """Where the length of a wire comes from, read from the wire and the segments only: its own
-    length (`on the wire`, or `locked` when the wire is locked), the segments of its path
+    length (`on the wire`, or `locked` when Generate keeps it, `length_is_kept`), the segments of its path
     (`segments only, no service loops`), or nothing (empty). It does not tell a generated length
     from an imported one; `derive.wire_length_derivation` does, and starts from this answer."""
     if w.length_m is not None:
-        return ORIGIN_LOCKED if w.locked else ORIGIN_ON_WIRE
+        return ORIGIN_LOCKED if length_is_kept(w) else ORIGIN_ON_WIRE
     return ORIGIN_SEGMENTS if wire_length(h, w) is not None else ORIGIN_NONE
+
+
+def length_is_kept(w: Wire) -> bool:
+    """Whether Generate keeps the wire's length: a locked wire with no override (a person entered
+    it), or one whose length is overridden. A wire locked by an override of its gauge, part or
+    colour only gets the length of its path again (`engine`: "the other values follow the
+    design"), so its length is not *locked*."""
+    return w.locked and (not w.overrides or "length_m" in w.overrides)
 
 
 def _number_text(v: float) -> str:
