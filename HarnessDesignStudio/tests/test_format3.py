@@ -790,7 +790,8 @@ def test_the_record_is_what_2x_wrote(name: str) -> None:
 def test_the_written_files_of_3_0_are_those_of_2x_after_the_word_list() -> None:
     """Every file of every recorded project, as this tool writes it, equals the file of 2.x after
     the steps of section 5.6 (`tests/format3_support.py`): the stamp, the file name, the word
-    list, the length rule and the manifest. Any other difference fails, and so does an entry of
+    list, the length rule and the manifest, then the steps of 4.0.0 and 4.1.0. Any other
+    difference fails, and so does an entry of
     the list that matches nowhere in the whole set."""
     from tests import format3_support as f3
 
@@ -799,11 +800,35 @@ def test_the_written_files_of_3_0_are_those_of_2x_after_the_word_list() -> None:
     for name in f3.recorded():
         new, raw = f3.dump_now(name)
         rec = f3.record(name)
-        found = f3.compare(rec["files"], new, raw, used, rec["tool_version"])
+        found = f3.compare(
+            rec["files"], new, raw, used, rec["tool_version"], f3.shield_groups(name)
+        )
         problems += [f"{name}: {p}" for p in found]
     assert problems == []
     unused = [c["old"] for c, n in zip(f3.word_changes(), used, strict=True) if n == 0]
     assert unused == []
+
+
+def test_the_step_of_4_1_0_names_every_shield_group_and_nothing_else() -> None:
+    """Step 7 on a record of flatsat: a wire of a pair in an overall shield gets both groups in all
+    three tables and the cut list column its width; a cell whose 2.x text is not one of the groups
+    is left as it is, so the comparison still reports it."""
+    from tests import format3_support as f3
+
+    groups = f3.shield_groups("example-flatsat")
+    assert groups["W002"]["W002-009"] == "W002-S8;W002-S9"
+    files = f3.record("example-flatsat")["files"]
+    after = f3.every_shield_group(files, groups)
+    cut = after["harnesses/W002/W002_build.xlsx"]["sheets"]["Cut list"]
+    assert cut["cells"]["L9"] == "W002-S8;W002-S9" and cut["widths"]["L"] == 19.0
+    assert after["harnesses/W002/W002.xlsx"]["sheets"]["Wire list"]["cells"]["L10"] == (
+        "W002-S8;W002-S9"
+    )
+    assert ",W002-S8;W002-S9," in after["harnesses/W002/wirelist.csv"]["text"]
+    assert after["harnesses/W001/wirelist.csv"] == files["harnesses/W001/wirelist.csv"]
+    wrong = {"W002": {**groups["W002"], "W002-009": "W002-S1;W002-S2"}}  # 2.x said W002-S9
+    kept = f3.every_shield_group(files, wrong)["harnesses/W002/wirelist.csv"]["text"]
+    assert "W002-S1;W002-S2" not in kept
 
 
 def test_a_word_change_left_out_of_the_list_fails_the_comparison(monkeypatch) -> None:
