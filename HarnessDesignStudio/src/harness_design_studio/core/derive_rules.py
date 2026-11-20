@@ -46,6 +46,7 @@ from harness_design_studio.core.drc.standard_rules import (
     _temperature_users,
     connector_voltage_limit,
     emc_class_bundles,
+    face_gap,
 )
 from harness_design_studio.core.generate.bundle import bundle_size
 from harness_design_studio.core.generate.sizing import (
@@ -53,7 +54,16 @@ from harness_design_studio.core.generate.sizing import (
     exceeds,
     wire_current_limit,
 )
-from harness_design_studio.core.model import Harness, Project, ShieldGroup
+from harness_design_studio.core.model import (
+    Connector,
+    Harness,
+    Pin,
+    Project,
+    RowLayout,
+    ShieldGroup,
+)
+from harness_design_studio.core.model.base import MAX_PIN_COUNT
+from harness_design_studio.core.row_layout import PinRows, layout_of, layout_text
 from harness_design_studio.core.units import AWG_MAX, AWG_MIN, format_awg
 
 RULE_IDS = EXPLAINABLE_RULES
@@ -395,6 +405,11 @@ def _power_return(project: Project, oid: str) -> Derivation | None:
     k, m = ids.index(p_id), ids.index(q_id)
     if k > m:
         k, m = m, k
+    layout = layout_of(project, conn)
+    if layout is not None:
+        face = _power_return_face(project, conn, layout, order[k], order[m], gap_raw)
+        if face is not None:
+            return face
     free = sum(1 for x in order[k + 1 : m] if x.interface_id is None and not x.signal)
     missing = [] if gap_raw is not None else ["generation.power_return_gap_pins"]
     ok = gap_raw is None or not free < gap_raw
@@ -418,6 +433,59 @@ def _power_return(project: Project, oid: str) -> Derivation | None:
         [Step("Unassigned contacts between them", f"pins {order[k].id} to {order[m].id} with no interface and no signal", free, "contacts")],
         check, ("A-RETURN-GAP",),
         "Neighbours are neighbours in the list of pins (ECSS-Q-ST-30-11C 6.11.3 a is cited by the rule).", missing,
+    )  # fmt: skip
+
+
+def _power_return_face(
+    project: Project, conn: Connector, layout: PinRows, a: Pin, b: Pin, gap_raw: float | None
+) -> Derivation | None:
+    """The derivation of `power-return-adjacent` for two pins that are both in rows of the
+    connector's layout (design of 4.0.0 section 8): the function the rule calls (`face_gap`) gives
+    the contacts between them on the face, or says that the rule does not judge the pair. None when
+    a pin is in no row (the list of pins is read, as before)."""
+    pins = {p.id: p for p in conn.pins}
+    window = (
+        int(gap_raw) if gap_raw is not None and 1 <= gap_raw <= MAX_PIN_COUNT else MAX_PIN_COUNT
+    )
+    g = face_gap(layout, pins, a.id, b.id, window)
+    if g is None:
+        return None
+    missing = [] if gap_raw is not None else ["generation.power_return_gap_pins"]
+    rows = f"rows {g.rows[0]} and {g.rows[1]}" if g.rows[0] != g.rows[1] else f"row {g.rows[0]}"
+    if layout.rings:
+        rows = rows.replace("row", "ring")
+    source = f"the row layout of {conn.id} ({layout.source} {layout.source_id}): {layout_text(RowLayout(rows=[list(r) for r in layout.rows if r], rings=layout.rings))}"
+    way = {
+        "row": f"pins between {a.id} and {b.id} along {rows} with no interface and no signal",
+        "ring": f"pins between {a.id} and {b.id} the shorter way round {rows} with no interface and no signal",
+        "across": f"{a.id} and {b.id} are neighbours on the face ({rows}): no contact between them",
+        "apart": f"{a.id} and {b.id} are not neighbours on the face ({rows}): the rule does not judge them",
+        "rings": f"{a.id} and {b.id} are in different rings ({rows}): the rule does not judge them (listed under unchecked-config)",
+    }[g.way]
+    steps = [Step("Where the pins sit", source, 0, "", text=rows)]
+    check = None
+    if g.free is not None:
+        steps.append(Step("Unassigned contacts between them on the face", way, g.free, "contacts"))
+        if gap_raw is not None:
+            ok = not g.free < gap_raw
+            check = Check(
+                float(g.free), gap_raw, "contacts", ok, g.free - gap_raw,
+                f"{g.free} contact(s) between the pins and {_g(gap_raw)} required: "
+                + ("enough" if ok else f"{_g(gap_raw - g.free)} short"),
+            )  # fmt: skip
+    else:
+        steps.append(Step("Not judged", way, 0, "", text=g.way))
+    return _derivation(
+        f"Pins {a.id} and {b.id} of {conn.id}", "Contacts required between power and return",
+        gap_raw, "contacts",
+        "unassigned contacts between the two pins on the face of the connector must be at least the gap required; neighbours in rows next to each other have none between them",
+        [
+            _cfg_input(project, "Contacts required between", "generation", "power_return_gap_pins", "contacts"),
+            Input("Signals", f"{a.signal} (pin {a.id}) and {b.signal} (pin {b.id})", "", f"connector {conn.id}"),
+            Input("Row layout", source, "", f"connector {conn.id}"),
+        ],
+        steps, check, ("A-RETURN-GAP",),
+        "Neighbours are neighbours on the face where the connector has a row layout, with the rows centred on each other (ECSS-Q-ST-30-11C 6.11.3 a is cited by the rule).", missing,
     )  # fmt: skip
 
 

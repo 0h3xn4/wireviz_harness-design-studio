@@ -129,6 +129,9 @@ The functions, by what you do:
 | read the engineering values | `get_config(project_or_folder)` | `config` |
 | read every setting and where its value comes from | `get_settings(project_or_folder)` | `settings` |
 | set an engineering value | `set_config(folder, file, key, value)` | what the editor's *Engineering values* dialog does |
+| read the row layout of a connector and where it comes from | `row_layout_of(project_or_folder, connector_id)` returns a `RowLayoutRecord` | the rows from the top of the face: a box connector's own, else its part's; a cable connector's part, else the device connector it plugs into |
+| give a connector part or a device connector its rows | `set_row_layout(folder, part=None, connector=None, rows=..., rings=False)` | `rows` as lists of pin names or as `"1–11 / 12–21"`; one undo step, in the journal |
+| remove those rows | `clear_row_layout(folder, part=None, connector=None)` | a device connector then takes the rows of its part |
 
 A function that reads takes a folder or a `Project` you loaded; one that writes takes a folder. Results are small frozen dataclasses (`ValidationResult`, `CheckResult`, `GenerateResult`, `ExportResult` ...). Read a field (`result.open_errors`), or call `result.to_dict()` to get the dictionary that `--json` prints: a script and a shell pipeline see the same data. Nothing is printed and the program is never ended by a function; failures are exceptions ([section 8](#8-handle-errors)).
 

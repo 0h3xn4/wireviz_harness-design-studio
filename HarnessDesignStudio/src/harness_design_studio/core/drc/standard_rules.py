@@ -18,6 +18,8 @@ serves (the requirement lists, which hold the text of the standards, are not in 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from harness_design_studio.core.generate.bundle import BASIS_TEXT, basis, bundle_size
 from harness_design_studio.core.generate.sizing import (
@@ -26,7 +28,8 @@ from harness_design_studio.core.generate.sizing import (
     exceeds,
     wire_current_limit,
 )
-from harness_design_studio.core.model import Connector, Harness, Project
+from harness_design_studio.core.model import Connector, Harness, Pin, Project
+from harness_design_studio.core.row_layout import PinRows, layout_of
 
 from .base import Hit, Rule, cfg, number
 
@@ -185,25 +188,153 @@ def _wire_specification(project: Project) -> Iterator[Hit]:
 
 def _adjacent_power_return(project: Project) -> Iterator[Hit]:
     """Power and return pins side by side (30-11C 6.11.3 a), only when a gap is required."""
-    gap = number(cfg(project, "generation").get("power_return_gap_pins"))
-    if gap is None or not 1 <= gap <= 1000:  # also rules out nan and inf
+    gap = return_gap(project)
+    if gap is None:
         return
     for conn in sorted(project.connectors.values(), key=lambda x: x.id):
-        yield from _power_pairs(project, conn, int(gap))
+        yield from _power_pairs(project, conn, gap)
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
         for c in h.connectors:
-            yield from _power_pairs(project, c, int(gap))
+            yield from _power_pairs(project, c, gap)
+
+
+def return_gap(project: Project) -> int | None:
+    """The contacts `power-return-adjacent` asks for between power and return, or None while the
+    rule is silent (not set, or outside 1 to 1000)."""
+    gap = number(cfg(project, "generation").get("power_return_gap_pins"))
+    if gap is None or not 1 <= gap <= 1000:  # also rules out nan and inf
+        return None
+    return int(gap)
+
+
+def _is_power(project: Project, pin: Pin) -> bool:
+    i = project.interfaces.get(pin.interface_id or "")
+    itype = project.interface_types.get(i.type_id) if i else None
+    return itype is not None and itype.category in ("power", "ground")
+
+
+def _is_free(pin: Pin) -> bool:
+    return pin.interface_id is None and not pin.signal
+
+
+@dataclass(frozen=True)
+class FaceGap:
+    """How `power-return-adjacent` judges two pins that are both in rows of a connector's layout
+    (design of 4.0.0 section 8). `free` is the number of unassigned contacts between them, or None
+    when the rule does not judge the pair; `way` says how: `row` (along one row), `ring` (the
+    shorter way round one ring), `across` (neighbours on the face in rows next to each other, no
+    contact between), `apart` (not neighbours: more than the gap between them in a row, or not
+    next to each other across rows) and `rings` (in different rings, which the layout cannot
+    judge). `rows` are the rows of the two pins, counted from 1."""
+
+    free: int | None
+    way: Literal["row", "ring", "across", "apart", "rings"]
+    rows: tuple[int, int]
+    between: tuple[str, ...] = ()  # the pins between them along the way counted
+
+
+def face_gap(layout: PinRows, pins: dict[str, Pin], a: str, b: str, gap: int) -> FaceGap | None:
+    """How the rule judges the pins `a` and `b` on the face of `layout` with `gap` contacts
+    required; None when one of them is in no row (the rule then reads the list of pins). Rows are
+    taken as centred on each other: in a row of n places with L the longest row, place i sits at
+    x = i + (L - n) / 2, and two pins of rows next to each other are neighbours when their x differ
+    by at most 1 (the pin straight across and both diagonal pins for rows of equal length)."""
+    ra, rb = layout.row_of(a), layout.row_of(b)
+    if ra is None or rb is None:
+        return None
+    rows = (ra, rb)
+    if ra == rb:
+        row = layout.rows[ra - 1]
+        i, j = sorted((row.index(a), row.index(b)))
+        ways = [row[i + 1 : j]]
+        if layout.rings:
+            ways.append((*row[j + 1 :], *row[:i]))
+        counted = sorted(
+            (tuple(w) for w in ways), key=lambda w: (len(w), sum(_is_free(pins[n]) for n in w))
+        )[0]
+        if len(counted) > gap:
+            return FaceGap(None, "apart", rows, counted)
+        free = sum(1 for n in counted if _is_free(pins[n]))
+        return FaceGap(free, "ring" if layout.rings else "row", rows, counted)
+    if layout.rings:
+        return FaceGap(None, "rings", rows)
+    if abs(ra - rb) != 1:
+        return FaceGap(None, "apart", rows)
+    longest = max(len(r) for r in layout.rows)
+
+    def twice_x(r: int, name: str) -> int:  # 2x, so that the half places stay whole numbers
+        row = layout.rows[r - 1]
+        return 2 * row.index(name) + longest - len(row)
+
+    if abs(twice_x(ra, a) - twice_x(rb, b)) <= 2:
+        return FaceGap(0, "across", rows)
+    return FaceGap(None, "apart", rows)
+
+
+def _list_hit(conn: Connector, p: Pin, q: Pin, free: int, gap: int) -> Hit:
+    return Hit(
+        f"{conn.id}.{p.id}+{q.id}",
+        f"{conn.id}: {p.signal} (pin {p.id}) and {q.signal} (pin {q.id}) have {free} unassigned contact(s) between them, fewer than the {gap} required",
+    )
+
+
+def _face_hit(conn: Connector, p: Pin, q: Pin, g: FaceGap, gap: int) -> Hit:
+    oid = f"{conn.id}.{p.id}+{q.id}"
+    if g.way == "across":
+        lo, hi = sorted(g.rows)
+        return Hit(
+            oid,
+            f"{conn.id}: {p.signal} (pin {p.id}) and {q.signal} (pin {q.id}) are neighbours on the face of the connector (rows {lo} and {hi}), with no unassigned contact between them",
+        )
+    where = f"{'ring' if g.way == 'ring' else 'row'} {g.rows[0]}"
+    return Hit(
+        oid,
+        f"{conn.id}: {p.signal} (pin {p.id}) and {q.signal} (pin {q.id}) have {g.free} unassigned contact(s) between them along {where} of the face, fewer than the {gap} required",
+    )
 
 
 def _power_pairs(project: Project, conn: Connector, gap: int) -> Iterator[Hit]:
     """Any two power or ground pins of different signals that have fewer than `gap` unassigned
-    contacts between them (only pairs with at most `gap` contacts between are looked at)."""
+    contacts between them (only pairs with at most `gap` contacts between are looked at). On a
+    connector with a row layout (`core/row_layout.py`) two pins that are both in rows are judged on
+    the face (`face_gap`); a pair with a pin in no row is judged in the list of pins, as before."""
     order = list(conn.pins)
+    layout = layout_of(project, conn)
+    if layout is None:
+        yield from _list_pairs(project, conn, order, gap, set())
+        return
+    placed = {n for row in layout.rows for n in row}
+    found = list(_list_pairs(project, conn, order, gap, placed, keyed=True))
+    pins = {p.id: p for p in order}
+    power = [
+        (k, p) for k, p in enumerate(order) if p.id in placed and p.signal and _is_power(project, p)
+    ]
+    for n, (k, p) in enumerate(power):
+        for m, q in power[n + 1 :]:
+            if q.signal == p.signal:
+                continue
+            g = face_gap(layout, pins, p.id, q.id, gap)
+            if g is not None and g.free is not None and g.free < gap:
+                found.append(((k, m), _face_hit(conn, p, q, g, gap)))
+    for _key, hit in sorted(found, key=lambda x: x[0]):
+        yield hit
+
+
+def _list_pairs(
+    project: Project,
+    conn: Connector,
+    order: list[Pin],
+    gap: int,
+    placed: set[str],
+    *,
+    keyed: bool = False,
+) -> Iterator[Any]:
+    """The pairs judged in the order of the list of pins; a pair of two pins in `placed` (both in
+    rows of the layout) is left to the face. With `keyed` each hit comes with its places in the
+    list, so that the hits of the list and of the face can be put in one order."""
 
     def is_power(k: int) -> bool:
-        i = project.interfaces.get(order[k].interface_id or "")
-        itype = project.interface_types.get(i.type_id) if i else None
-        return itype is not None and itype.category in ("power", "ground")
+        return _is_power(project, order[k])
 
     for k, p in enumerate(order):
         if not p.signal or not is_power(k):
@@ -212,12 +343,47 @@ def _power_pairs(project: Project, conn: Connector, gap: int) -> Iterator[Hit]:
             q = order[m]
             if not q.signal or q.signal == p.signal or not is_power(m):
                 continue
+            if p.id in placed and q.id in placed:
+                continue
             free = sum(1 for x in order[k + 1 : m] if x.interface_id is None and not x.signal)
             if free < gap:
-                yield Hit(
-                    f"{conn.id}.{p.id}+{q.id}",
-                    f"{conn.id}: {p.signal} (pin {p.id}) and {q.signal} (pin {q.id}) have {free} unassigned contact(s) between them, fewer than the {gap} required",
-                )
+                hit = _list_hit(conn, p, q, free, gap)
+                yield ((k, m), hit) if keyed else hit
+
+
+def ring_pairs_unjudged(project: Project, conn: Connector) -> list[tuple[str, str]]:
+    """The power and return pins of different rings of a circular insert (pairs of power or
+    ground pins of different signals, by pin ID in list order) that `power-return-adjacent` does
+    not judge: the rows of a layout do not say which contacts of two rings face each other."""
+    layout = layout_of(project, conn)
+    if layout is None or not layout.rings:
+        return []
+    power = [p for p in conn.pins if p.signal and _is_power(project, p)]
+    out = []
+    for n, p in enumerate(power):
+        for q in power[n + 1 :]:
+            ra, rb = layout.row_of(p.id), layout.row_of(q.id)
+            if q.signal != p.signal and ra is not None and rb is not None and ra != rb:
+                out.append((p.id, q.id))
+    return out
+
+
+def _rings_unchecked(project: Project) -> Iterator[Hit]:
+    if return_gap(project) is None:
+        return  # the rule is silent; the setting that keeps it so is reported for it
+    owners = sorted(project.connectors.values(), key=lambda x: x.id)
+    owners += [
+        c for h in sorted(project.harnesses.values(), key=lambda x: x.id) for c in h.connectors
+    ]
+    for conn in owners:
+        pairs = ring_pairs_unjudged(project, conn)
+        if pairs:
+            listed = ", ".join(f"{a} and {b}" for a, b in pairs)
+            yield Hit(
+                "power-return-rings",
+                f"{conn.id}: power and return pins of different rings of a circular insert were not checked (pins {listed}): the row layout does not say which contacts of two rings face each other",
+                key=f"power-return-rings.{conn.id}",
+            )
 
 
 def unchecked(project: Project) -> Iterator[Hit]:
@@ -321,6 +487,7 @@ def unchecked(project: Project) -> Iterator[Hit]:
             "partial-load",
             "The extra factor L for partially loaded bundles (Table 6-42) is not applied: the tool does not know which wires carry current at the same time. The bundle check is the conservative one (L = 1)",
         )
+    yield from _rings_unchecked(project)
 
 
 def _bundle_table_set(project: Project) -> bool:
@@ -487,7 +654,7 @@ STANDARD_RULES: tuple[Rule, ...] = (
          _emc_class_split, sources=(E + "0080035",)),
     Rule("power-return-adjacent", "warning", "Power and return pins",
          "Power and return on neighbouring contacts raise the risk of a short circuit.",
-         "Leave at least one contact unassigned between them (regenerate the harness).",
+         "Leave at least one contact unassigned between them (regenerate the harness). On a connector with a row layout, a neighbour in the next row counts too; move one pin or lock the pins (Generate does not read the rows).",
          _adjacent_power_return, sources=(Q + "0140052",)),
     Rule("bundle-current", "error", "Bundle current",
          "A wire in a large bundle heats more than a single wire and must carry less.",

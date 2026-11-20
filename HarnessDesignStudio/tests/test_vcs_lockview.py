@@ -191,7 +191,8 @@ def test_cosmetic_fields_are_the_ones_check_locks_lets_through(tmp_path: Path) -
     assert lockview.cosmetic_fields("unit") == {"name", "notes", "zone", "kind"}
     locked_unit = p.interfaces[iid].endpoints[0].unit_id
     check_locks(p, [Put("units", evolve(p.units[locked_unit], kind="battery"))])  # allowed
-    assert lockview.cosmetic_fields("part") == {"notes"}
+    # the rows of a connector part are not frozen by a release (design of 4.0.0 section 3)
+    assert lockview.cosmetic_fields("part") == {"notes", "row_layout"}
     assert lockview.cosmetic_fields("interface_type") == {"name", "notes"}
     box = next(c for k, c in lockview.locked_objects(p) if k == "box_connector")
     free = lockview.cosmetic_fields("box_connector")

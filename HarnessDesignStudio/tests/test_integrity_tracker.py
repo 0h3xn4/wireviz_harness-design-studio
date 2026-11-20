@@ -384,8 +384,9 @@ def as_181(issue) -> tuple:
 
 
 def test_the_checks_the_tracker_leaves_out_can_only_warn() -> None:
-    """`_check_mating` and the placement check are not run by the tracker: they must never be
-    able to report an error (if one ever does, the tracker has to run it)."""
+    """`_check_mating`, the placement check and the checks of the row layout (4.0.0) are not run
+    by the tracker: they must never be able to report an error (if one ever does, the tracker has
+    to run it)."""
     for seed in range(40):
         rng = random.Random(seed)
         p = starting_project(seed)
@@ -393,7 +394,8 @@ def test_the_checks_the_tracker_leaves_out_can_only_warn() -> None:
             ops = one_edit(p, rng)
             if ops:
                 apply_if_possible(p, ops)
-            for issue in [*integrity._check_mating(p), *integrity._placement_issues(p)]:
+            found = [*integrity._check_mating(p), *integrity._placement_issues(p)]
+            for issue in [*found, *integrity.row_layout_issues(p)]:
                 assert issue.severity != "error", issue
 
 

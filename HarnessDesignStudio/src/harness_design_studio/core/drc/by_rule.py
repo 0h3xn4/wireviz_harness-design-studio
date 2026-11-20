@@ -238,6 +238,7 @@ NOTES: dict[str, Note] = {
     "no-voltage-wire": (("wire-voltage",), "data", None),
     "no-emc-class": (("emc-mixed",), "data", None),
     "no-emc-class-split": (("emc-class-split",), "data", None),
+    "power-return-rings": (("power-return-adjacent",), "data", None),  # one note per connector (4.0.0)
 }  # fmt: skip
 _GATE_NOTES = frozenset(
     {"derating", "voltage-drop", "grounding", "separation", "emc", "spare-pins", "temperature"}

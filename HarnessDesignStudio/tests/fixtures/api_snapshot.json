@@ -32,6 +32,7 @@
   "ProjectLockedError",
   "ProjectSource",
   "ReadOnlyProjectError",
+  "RowLayoutRecord",
   "RuleInfo",
   "SaveError",
   "SettingRecord",
@@ -44,6 +45,7 @@
   "accept_deviation",
   "annotate_config",
   "clear_override",
+  "clear_row_layout",
   "create_project",
   "explain",
   "explain_all",
@@ -64,10 +66,12 @@
   "list_templates",
   "load_project",
   "remove_deviation",
+  "row_layout_of",
   "run_checks",
   "save_project",
   "set_config",
   "set_override",
+  "set_row_layout",
   "start_journal",
   "validate",
   "verify",
@@ -142,6 +146,7 @@
   "accept_deviation": "(folder: 'PathLike', finding_id: 'str', reason: 'str', *, author: 'str | None' = None) -> 'DeviationReport'",
   "annotate_config": "(folder: 'PathLike', *, remove: 'bool' = False) -> 'AnnotationResult'",
   "clear_override": "(folder: 'PathLike', wire_id: 'str', field: 'str', *, author: 'str | None' = None) -> 'OverrideResult'",
+  "clear_row_layout": "(folder: 'PathLike', *, part: 'str | None' = None, connector: 'str | None' = None, author: 'str | None' = None) -> 'RowLayoutRecord'",
   "create_project": "(folder: 'PathLike', template: 'str' = 'blank', name: 'str | None' = None, *, journal: 'bool' = True, annotate_config: 'bool' = False) -> 'Project'",
   "explain": "(source: 'ProjectSource', object_id: 'str') -> 'list[Derivation]'",
   "explain_all": "(source: 'ProjectSource') -> 'list[Derivation]'",
@@ -162,10 +167,12 @@
   "list_templates": "() -> 'list[TemplateInfo]'",
   "load_project": "(folder: 'PathLike') -> 'Project'",
   "remove_deviation": "(folder: 'PathLike', finding_id: 'str', *, author: 'str | None' = None) -> 'DeviationReport'",
+  "row_layout_of": "(source: 'ProjectSource', connector_id: 'str') -> 'RowLayoutRecord'",
   "run_checks": "(source: 'ProjectSource') -> 'CheckResult'",
   "save_project": "(project: 'Project', folder: 'PathLike') -> 'None'",
   "set_config": "(folder: 'PathLike', file: 'str', key: 'str', value: 'object', *, placeholder: 'bool | None' = None) -> 'ConfigValue'",
   "set_override": "(folder: 'PathLike', wire_id: 'str', field: 'str', value: 'object', reason: 'str', *, author: 'str | None' = None) -> 'OverrideResult'",
+  "set_row_layout": "(folder: 'PathLike', *, part: 'str | None' = None, connector: 'str | None' = None, rows: 'Sequence[Sequence[str]] | str', rings: 'bool' = False, author: 'str | None' = None) -> 'RowLayoutRecord'",
   "start_journal": "(folder: 'PathLike', *, author: 'str | None' = None) -> 'bool'",
   "validate": "(folder: 'PathLike', *, merge_check: 'bool' = False) -> 'ValidationResult'",
   "verify": "(folder: 'PathLike', *, outputs: 'bool' = False) -> 'VerifyResult'",
@@ -481,6 +488,20 @@
    "methods": {
     "all_connectors": "(self) -> 'dict[str, Connector]'",
     "placeholder_configs": "(self) -> 'list[str]'"
+   }
+  },
+  "RowLayoutRecord": {
+   "fields": {
+    "kind": "str",
+    "object": "str",
+    "rings": "bool",
+    "rows": "tuple[tuple[str, ...], ...]",
+    "source": "str",
+    "source_id": "str",
+    "text": "str"
+   },
+   "methods": {
+    "to_dict": "(self) -> 'dict[str, Any]'"
    }
   },
   "RuleInfo": {
