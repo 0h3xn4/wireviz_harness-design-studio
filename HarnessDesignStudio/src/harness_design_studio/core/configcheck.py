@@ -210,7 +210,7 @@ _MODEL_CHOICES: dict[str, tuple[str, ...]] = {
     "mass_model": ("connectors_and_wires", "full_bom"),
     "pin_fit_strategy": ("first_fit", "last_fit", "spread"),
     "connector_choice": ("first_free", "fewest_spare_pins", "most_spare_pins"),
-    "label_format": ("standard", "compact", "descriptive", "custom"),
+    "label_format": label_format.FORMATS,
 }
 _MODEL_TEMPLATES = {  # key: the fields its text may use (core/label_format.py)
     "label_wire_template": label_format.WIRE_FIELDS,

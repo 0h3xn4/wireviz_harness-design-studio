@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The label formats in the written outputs (`model.label_format`, D-198, since 1.15.0).
+"""The label formats in the written outputs (`model.label_format`, D-198, since 1.15.0; the format
+`harness_device_connector` and the field `{mates_name}` since 4.1.0, REQ-LABEL-02).
 
 From 1.15.0 to 4.0.0 the independent verifier knew only the standard text of a label, so `export` of a
 project in the format `compact`, `descriptive` or `custom` failed its own self-check (`out_labels`,
-`out_build` of the Labels sheet) and wrote nothing. Here: `export` of an example passes for every
-format, a template using every field included; the verifier reads the labels of a project with
+`out_build` of the Labels sheet) and wrote nothing. Here: `export` of every example passes for
+every format, a template using every field included; the verifier reads the labels of a project with
 loose ends and splices as the tables write them, for random templates; it still refuses a wrong
 text in every format (also the standard text where another format is in force); and its own copy
 of the template rules (`verify_labels._LABEL_*`, `_label_template_usable`, `_fill_label`, moved out of
@@ -13,6 +14,9 @@ of the template rules (`verify_labels._LABEL_*`, `_label_template_usable`, `_fil
 `verify_labels.py` imports."""
 
 import io
+import re
+import zipfile
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -21,7 +25,7 @@ from hypothesis import strategies as st
 
 from harness_design_studio.cli.main import main as cli_main
 from harness_design_studio.core import edit, label_format
-from harness_design_studio.core.generate.engine import generate_project
+from harness_design_studio.core.generate.engine import generate_project, plan_generation
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import ConfigFile, Project, evolve
 from harness_design_studio.core.outputs import tables
@@ -34,15 +38,18 @@ from harness_design_studio.core.samples import mini3
 from harness_design_studio.resources import examples_path
 from tests.helpers import copy_project
 from tests.loose_support import generated_loose
+from tests.plan_support import read_plan
 from tests.splice_support import splice_project
 from tests.static_scan import imported_names
 from tests.test_outputs import edit_csv
+from tests.test_verify_plan import has, once, plan_errors, with_content
+from tests.test_verify_plan import projects as plan_projects
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 # A template of each kind that uses every one of its fields, and the braces.
 WIRE_TEMPLATE = "{harness}/{wire} {end}: {name} [{signal}] {interface} <{emc}> {from} > {to} {{x}}"
-CONNECTOR_TEMPLATE = "{harness}:{connector} {name} -> {mates} of {device} {{y}}"
+CONNECTOR_TEMPLATE = "{harness}:{connector} {name} -> {mates} of {device} ({mates_name}) {{y}}"
 
 # The settings of `config/model.json` per case: every format, and `custom` with and without templates.
 CASES: dict[str, dict[str, str]] = {
@@ -56,7 +63,10 @@ CASES: dict[str, dict[str, str]] = {
     },
     "custom-wire-only": {"label_format": "custom", "label_wire_template": WIRE_TEMPLATE},
     "custom-no-template": {"label_format": "custom"},
+    "harness_device_connector": {"label_format": "harness_device_connector"},
 }
+# Every example with harnesses (the blank example has none, so there is nothing to export).
+EXAMPLES = ("first-steps", "minimal-satellite", "small-satellite", "flatsat")
 NOT_STANDARD = [k for k in CASES if CASES[k] and k != "custom-no-template"]
 
 
@@ -109,12 +119,13 @@ def projects(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Project]:
 
 
 @pytest.mark.parametrize("case", list(CASES))
-def test_export_of_an_example_passes_its_self_check_in_every_label_format(
-    case: str, tmp_path: Path
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_export_of_every_example_passes_its_self_check_in_every_label_format(
+    example: str, case: str, tmp_path: Path
 ) -> None:
     root = examples_path()
     assert root is not None
-    folder = copy_project(root / "projects" / "minimal-satellite", tmp_path / "p")
+    folder = copy_project(root / "projects" / example, tmp_path / "p")
     for key, value in CASES[case].items():
         assert cli_main(["settings", str(folder), "--set", f"model.{key}={value!r}".replace("'", '"')]) == 0  # fmt: skip
     assert cli_main(["generate", str(folder)]) == 0
@@ -276,3 +287,225 @@ def test_the_verifier_reads_every_label_as_the_tables_write_it(
             want = {r[0]: r for r in tables.labels(p, h)[1:]}
             got = {r[0]: r for r in vf._label_rows(p, h)}
             assert got == want, h.id
+
+
+# ---- the format harness_device_connector and {mates_name} (4.1.0, REQ-LABEL-02) ----------------
+# Design of 4.1.0 (`docs/ait/DESIGN_4.1_PRODUCTION_SHEET.md`) part B: a cable connector reads
+# HARNESS:DEVICE:NAME of the device connector, never the person's label; a wire the standard text.
+
+HDC = {"label_format": "harness_device_connector"}
+
+
+def _connector_texts(p: Project, hid: str) -> dict[str, str]:
+    return {r[0]: r[2] for r in tables.labels(p, p.harnesses[hid])[1:] if r[1] == "connector"}
+
+
+def _with_connectors(p: Project, hid: str, changes: Mapping[str, Mapping[str, object]]) -> Project:
+    """A copy of `p` with fields of cable connectors of harness `hid` changed (ID -> fields)."""
+    q = edit.clone_with(p, [])
+    h = q.harnesses[hid]
+    cons = [evolve(c, **changes[c.id]) if c.id in changes else c for c in h.connectors]
+    q.harnesses[hid] = evolve(h, connectors=cons)
+    return q
+
+
+def _agree(p: Project) -> None:
+    """The verifier words every label of every harness as the tables write it."""
+    for h in p.harnesses.values():
+        assert {r[0]: r for r in vf._label_rows(p, h)} == {r[0]: r for r in tables.labels(p, h)[1:]}
+
+
+def test_a_connector_on_a_device_connector_reads_harness_device_and_name(
+    projects: dict[str, Project],
+) -> None:
+    p = with_model(projects["mini3"], HDC)
+    # W001-P1 has the label "Plug one" and RW1-J01 the label "Wheel port": neither is printed
+    assert _connector_texts(p, "W001") == {"W001-P1": "W001:PCDU:J01", "W001-P2": "W001:RW1:J01"}
+    assert _connector_texts(p, "W002") == {"W002-P1": "W002:OBC:J01", "W002-P2": "W002:RW1:J02"}
+    std = with_model(projects["mini3"], {})
+    for h in p.harnesses.values():  # a wire's labels are the standard text
+        wires = [r for r in tables.labels(p, h)[1:] if r[1] == "wire"]
+        assert wires == [r for r in tables.labels(std, h)[1:] if r[1] == "wire"]
+    _agree(p)
+
+
+def test_a_connector_that_plugs_into_nothing_reads_harness_and_its_id(
+    projects: dict[str, Project],
+) -> None:
+    p = _with_connectors(
+        with_model(projects["mini3"], HDC),
+        "W001",
+        {"W001-P1": {"mates_with": None}, "W001-P2": {"mates_with": "NOPE-J9"}},
+    )
+    # nothing, or a mates_with that names no connector of the project: as the plan's header
+    assert _connector_texts(p, "W001") == {"W001-P1": "W001:W001-P1", "W001-P2": "W001:W001-P2"}
+    _agree(p)
+
+
+def test_a_loose_end_reads_open_end_and_a_splice_has_no_label(
+    projects: dict[str, Project],
+) -> None:
+    loose = with_model(projects["loose"], HDC)
+    found = 0
+    for h in loose.harnesses.values():
+        texts = _connector_texts(loose, h.id)
+        for c in h.connectors:
+            if tables.is_open_end(c):
+                assert texts[c.id] == f"{h.id}:{c.id} open end"
+                found += 1
+    assert found
+    _agree(loose)
+    spliced = with_model(projects["splices"], HDC)
+    splices = [c.id for h in spliced.harnesses.values() for c in h.connectors if c.role == "splice"]
+    assert splices
+    for h in spliced.harnesses.values():
+        assert not set(splices) & set(_connector_texts(spliced, h.id))
+    _agree(spliced)
+
+
+def test_the_field_mates_name_is_the_device_connector_s_name(projects: dict[str, Project]) -> None:
+    custom = {"label_format": "custom", "label_connector_template": "{mates_name}|{mates}"}
+    p = with_model(projects["mini3"], custom)
+    assert _connector_texts(p, "W001") == {"W001-P1": "J01|PCDU-J01", "W001-P2": "J01|RW1-J01"}
+    q = _with_connectors(
+        p, "W001", {"W001-P1": {"mates_with": None}, "W001-P2": {"mates_with": "NOPE-J9"}}
+    )
+    assert _connector_texts(q, "W001") == {"W001-P1": "-|-", "W001-P2": "-|NOPE-J9"}
+    _agree(q)
+    loose = with_model(projects["loose"], custom)
+    texts = {
+        c.id: _connector_texts(loose, h.id)[c.id]
+        for h in loose.harnesses.values()
+        for c in h.connectors
+        if tables.is_open_end(c)
+    }
+    assert texts and set(texts.values()) == {"open end|open end"}
+    # the person's label and the new field together, the form the design names for both
+    both = {"label_format": "custom", "label_connector_template": "{name} {harness}:{device}:{mates_name}"}  # fmt: skip
+    assert _connector_texts(with_model(projects["mini3"], both), "W001")["W001-P1"] == "Plug one W001:PCDU:J01"  # fmt: skip
+
+
+def test_two_plugs_of_a_harness_on_one_device_connector_warn_label_not_unique() -> None:
+    """Only a harness made by hand can have them (Generate makes one plug per device connector);
+    the new format holds no ID of a cable connector, so both read the same."""
+    base = mini3()  # its W001 is a harness made by hand
+    h = base.harnesses["W001"]
+    assert not h.generated
+    shared = {"W001-P2": {"mates_with": h.connectors[0].mates_with}}
+    p = _with_connectors(with_model(base, HDC), "W001", shared)
+    assert _connector_texts(p, "W001") == {"W001-P1": "W001:PCDU:J01", "W001-P2": "W001:PCDU:J01"}
+    found = [f for f in plan_generation(p).report.findings if f.code == "label_not_unique"]
+    assert len(found) == 1 and found[0].severity == "warning" and found[0].object_id == "W001"
+    assert "W001-P1, W001-P2 all read 'W001:PCDU:J01'" in found[0].message
+    assert "harness_device_connector" in found[0].message
+    std = _with_connectors(with_model(base, {}), "W001", shared)
+    assert not [f for f in plan_generation(std).report.findings if f.code == "label_not_unique"]
+    assert not [  # one plug per device connector: no warning
+        f for f in plan_generation(with_model(base, HDC)).report.findings if f.code == "label_not_unique"
+    ]  # fmt: skip
+
+
+# ---- the plan's header in the new format (section 4.5) ----------------------------------------
+
+
+def _plan(p: Project, hid: str = "W001") -> bytes:
+    return build_outputs(p, harness_plan=True).files[f"harnesses/{hid}/{hid}_plan.ods"]
+
+
+def test_the_plan_names_the_device_connector_in_b4_and_its_header_reads_it(
+    projects: dict[str, Project],
+) -> None:
+    p = with_model(projects["mini3"], HDC)
+    sheets = read_plan(_plan(p))
+    con = sheets["CON_PCDU-J01"]
+    assert con[3, 0].value == "Connector Name" and con[3, 1].value == "J01"
+    assert con[1, 1].value == "PCDU-J01"  # the ID stays in B2
+    heads = [c for c in sheets["W001"].values() if "[W001:" in str(c.value)]
+    assert heads and all(str(c.value).endswith(":J01]") for c in heads), heads
+    assert all(".B4]" in c.formula and ".B2]" not in c.formula for c in heads if c.formula)
+    assert any(c.formula for c in heads)
+    assert vf.verify_outputs(p, build_outputs(p, harness_plan=True).files).ok
+
+
+# the column of the plan's Production sheet that holds the label at this end (4.1.0)
+LABEL_COLUMN = 9
+
+
+@pytest.mark.parametrize("case", [k for k in CASES if k != "harness_device_connector"])
+def test_in_any_other_format_the_plan_is_as_before(projects: dict[str, Project], case: str) -> None:
+    """No row 4 on a CON_ sheet and the header from B2: the cells of the plan are those of the
+    standard format, whose plans the goldens of `tests/fixtures/outputs/harness_plan/` hold. The one
+    exception is the sheet *Production* (4.1.0), whose label at each end, in its column and in the
+    block heading, follows the format."""
+
+    def cells(p: Project) -> dict[str, dict[tuple[int, int], object]]:
+        # the stamp holds the model hash, which the settings change
+        return {
+            name: {at: re.sub(r"model [0-9a-f]{12}", "model -", str(c)) for at, c in sheet.items()}
+            for name, sheet in read_plan(_plan(p)).items()
+        }
+
+    std = cells(with_model(projects["mini3"], {}))
+    sheets = cells(with_model(projects["mini3"], CASES[case]))
+    assert list(sheets) == list(std)
+    for name in sheets:
+        if name.startswith("CON_"):
+            assert (3, 0) not in sheets[name] and (3, 1) not in sheets[name]
+        if name == "Production":  # 4.1.0: the label at each end follows the format, nothing else
+            moved = {k for k in sheets[name].keys() | std[name].keys()
+                     if sheets[name].get(k) != std[name].get(k)}  # fmt: skip
+            assert all(col == LABEL_COLUMN or (col == 0 and "label" in str(std[name].get((row, col), "")))
+                       for row, col in moved), (name, sorted(moved))  # fmt: skip
+        elif name != "About":  # About holds the whole model hash as well
+            assert sheets[name] == std[name], name
+    about, about_std = sheets["About"], std["About"]
+    assert {k for k in about if about[k] != about_std.get(k)} == (
+        {(1, 1)} if CASES[case] else set()
+    )
+
+
+def test_the_verifier_refuses_a_wrong_connector_name_in_b4(projects: dict[str, Project]) -> None:
+    p = with_model(projects["mini3"], HDC)
+    data = _plan(p)
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        text = z.read("content.xml").decode("utf-8")
+    cell = "<text:p>Connector Name</text:p></table:table-cell><table:table-cell office:value-type=\"string\"><text:p>J01</text:p>"  # fmt: skip
+    assert text.count(cell) == 2  # PCDU-J01 and RW1-J01 are both named J01; the first is changed
+    bad = with_content(data, once(cell, cell.replace(">J01<", ">J99<")))
+    assert has(plan_errors(p, bad), "out_plan")
+    missing = with_content(data, once(cell, cell.replace("Connector Name", "Connector")))
+    assert has(plan_errors(p, missing), "out_plan")
+
+
+def test_the_verifier_refuses_the_header_from_b2_in_the_new_format(
+    projects: dict[str, Project],
+) -> None:
+    p = with_model(projects["mini3"], HDC)
+    data = _plan(p)
+    bad = with_content(data, once("'CON_PCDU-J01'.B4]", "'CON_PCDU-J01'.B2]"))
+    found = plan_errors(p, bad)
+    assert has(found, "out_plan") or has(found, "out_plan_formula"), found
+
+
+# ---- the verifier's copy against the core's, on random harnesses ------------------------------
+
+
+@settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    p=plan_projects(),
+    names=st.lists(st.sampled_from(["J01", "J 2", "A:B", "x"]), min_size=4, max_size=4),
+    dangling=st.booleans(),
+    template=st.sampled_from([None, "{mates_name}", "{name} {harness}:{device}:{mates_name}"]),
+)
+def test_the_verifier_words_the_new_format_as_the_core_on_random_harnesses(
+    p: Project, names: list[str], dangling: bool, template: str | None
+) -> None:
+    """Boxes with and without a device and with names of every kind, cable connectors on a box, on
+    none, on one that does not exist, loose ends and splices; the format and `{mates_name}`."""
+    for n, (cid, box) in enumerate(sorted(p.connectors.items())):
+        p.connectors[cid] = evolve(box, name=names[n % len(names)], label=names[n % 2] or None)
+    h = p.harnesses["W001"]
+    if dangling and h.connectors and h.connectors[0].role == "cable":
+        p.harnesses["W001"] = evolve(h, connectors=[evolve(h.connectors[0], mates_with="NOPE-J9"), *h.connectors[1:]])  # fmt: skip
+    values = dict(HDC) if template is None else {"label_format": "custom", "label_connector_template": template}  # fmt: skip
+    _agree(with_model(p, values))

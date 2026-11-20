@@ -71,7 +71,7 @@ The choices added in 1.15.0, all in `config/model.json` and all as the tool alwa
 | --- | --- | --- |
 | `model.pin_fit_strategy` | `first_fit`, `last_fit`, `spread` | which free pins an interface takes on a connector (`explain DIR CONNECTOR.PIN` names it) |
 | `model.connector_choice` | `first_free`, `fewest_spare_pins`, `most_spare_pins` | which connector the tool picks for an interface at a device (`explain DIR CONNECTOR` lists the candidates) |
-| `model.label_format` | `standard`, `compact`, `descriptive`, `custom` (with `model.label_wire_template` and `model.label_connector_template`) | the text of the labels |
+| `model.label_format` | `standard`, `compact`, `descriptive`, `custom` (with `model.label_wire_template` and `model.label_connector_template`), `harness_device_connector` (`W001:MTQ1:J01`; what a new project starts in since 4.1.0) | the text of the labels |
 | `model.bom_contact_spare_fraction` | 0 | spare contacts the bill of materials adds (a fraction of the contacts used, from 0 to 1) |
 | `model.bom_wire_allowance_fraction` | 0 | an allowance on the metres of every wire part in the bill of materials (from 0 to 1) |
 
