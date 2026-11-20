@@ -1,6 +1,6 @@
 # Plan for the feedback of an electrical engineer (November 2026)
 
-This page says what an electrical engineer said after a demo of version 4.0.0, what 4.0.0 does about each point today (checked in the code at the tag `v4.0.0`, commit `c0e0250`, and by running the command line on the `flatsat` and `minimal-satellite` examples), and a proposed order of work. It is a plan and a record, not a promise.
+This page says what an electrical engineer said after a demo of the tool, what 4.0.0 does about each point today (checked in the code at the tag `v4.0.0`, commit `c0e0250`, and by running the command line on the `flatsat` and `minimal-satellite` examples), and a proposed order of work. It is a plan and a record, not a promise.
 
 **Status (2026-11-20).** Feedback received on 2026-11-20 from an electrical engineer. The investigation of what version 4.0.0 does today is done (below). There is no decision of the owner yet (section *Owner questions*). Nothing is built. One fault of 4.0.0 was found on the way (section *Found during the investigation*).
 
