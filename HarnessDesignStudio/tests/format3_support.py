@@ -18,15 +18,23 @@ same project:
    is that of the file of 3.0;
 6. the step of 4.0.0 (design of 4.0.0 section 11, owner answer L4): `export.json` drops the older
    name `revision` that 3.0.x wrote beside `version` in each harness and has `format_version` 2
-   (`drop_older_name`).
+   (`drop_older_name`);
+7. the step of 4.1.0 (design of 4.1.0, P7, #311): the shield-group column of `wirelist.csv`, of
+   the *Wire list* of `<ID>.xlsx` and of the *Cut list* of `<ID>_build.xlsx` names every shield
+   group of a wire in natural ID order, joined by `;`, where 2.x named one of them; the width of
+   the *Cut list* column follows (the longest text plus 2, at most 46). The groups come from the
+   project with the rule stated here a second time (`shield_groups`), and a cell is changed only
+   when the 2.x text is one of the groups the step puts in its place (`every_shield_group`).
 
 Workbooks are compared cell by cell with their column widths and the hash of each member that
 holds no cell (styles, workbook); drawings by their text items and positions; JSON files by their
 content; every other file as text. Any other difference is reported."""
 
 import copy
+import csv
 import fnmatch
 import hashlib
+import io
 import json
 import re
 from collections.abc import Callable
@@ -266,6 +274,103 @@ def drop_older_name(files: Files) -> Files:
     return {**files, EXPORT: {**files[EXPORT], "json": doc}}
 
 
+# ---- step 7: every shield group of a wire, 4.1.0 -------------------------------------------------
+
+SHIELD_HEADING, WIRE_HEADING = "Shield group", "Wire"
+_CUT_WIDTH_CAP = 46.0  # the cap of the build workbook's column widths
+_DIGITS = re.compile(r"(\d+)")
+
+
+def _natural(text: str) -> list[Any]:
+    return [int(p) if p.isdigit() else p for p in _DIGITS.split(text)]
+
+
+def shield_groups(name: str) -> dict[str, dict[str, str]]:
+    """For each harness of a recorded project, each wire's shield groups in natural ID order,
+    joined by `;` (the rule of 4.1.0, stated here a second time; never imported from the tool)."""
+    import tempfile
+
+    from tools.format3_record import projects
+
+    with tempfile.TemporaryDirectory() as tmp:
+        project = projects(FIXTURES)[name](Path(tmp))
+    out: dict[str, dict[str, str]] = {}
+    for h in project.harnesses.values():
+        seen: dict[str, list[str]] = {}
+        for s in sorted(h.shields, key=lambda x: _natural(x.id)):
+            for wid in s.wire_ids:
+                if s.id not in seen.setdefault(wid, []):
+                    seen[wid].append(s.id)
+        out[h.id] = {wid: ";".join(ids) for wid, ids in seen.items()}
+    return out
+
+
+def _takes(old: str, new: str) -> bool:
+    """A 2.x cell the step may change: it named one of the groups now listed."""
+    return old != new and old in new.split(";")
+
+
+def _csv_groups(text: str, groups: dict[str, str]) -> str:
+    lines = text.split("\n")
+    head: list[str] | None = None
+    for n, line in enumerate(lines):
+        if not line or line.startswith("#"):
+            continue
+        row = next(csv.reader([line.rstrip("\r")]))
+        if head is None:
+            head = row
+            continue
+        if SHIELD_HEADING not in head or WIRE_HEADING not in head or len(row) != len(head):
+            continue
+        k, w = head.index(SHIELD_HEADING), row[head.index(WIRE_HEADING)]
+        if w in groups and _takes(row[k], groups[w]):
+            row[k] = groups[w]
+            buf = io.StringIO()
+            csv.writer(buf, lineterminator="").writerow(row)
+            lines[n] = buf.getvalue() + ("\r" if line.endswith("\r") else "")
+    return "\n".join(lines)
+
+
+def _sheet_groups(sheet: dict[str, Any], groups: dict[str, str], widen: bool) -> dict[str, Any]:
+    cells = dict(sheet["cells"])
+    cols = {
+        v: k.rstrip("0123456789")
+        for k, v in cells.items()
+        if k.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ") == "1"
+    }
+    if SHIELD_HEADING not in cols or WIRE_HEADING not in cols:
+        return sheet
+    sc, wc = cols[SHIELD_HEADING], cols[WIRE_HEADING]
+    widths = dict(sheet["widths"])
+    for ref, wid in sheet["cells"].items():
+        if ref.rstrip("0123456789") != wc or ref[len(wc) :] == "1" or wid not in groups:
+            continue
+        at = f"{sc}{ref[len(wc) :]}"
+        if _takes(cells.get(at, ""), groups[wid]):
+            cells[at] = groups[wid]
+            if widen and sc in widths:
+                widths[sc] = min(_CUT_WIDTH_CAP, max(widths[sc], len(groups[wid]) + 2.0))
+    return {**sheet, "cells": cells, "widths": widths}
+
+
+def every_shield_group(files: Files, groups: dict[str, dict[str, str]]) -> Files:
+    """The files of 3.0 after the step of 4.1.0 (step 7 of the module text)."""
+    out = dict(files)
+    for rel, entry in files.items():
+        parts = rel.split("/")
+        if len(parts) != 3 or parts[0] != "harnesses" or parts[1] not in groups:
+            continue
+        hid, g = parts[1], groups[parts[1]]
+        if parts[2] == "wirelist.csv" and "text" in entry:
+            out[rel] = {**entry, "text": _csv_groups(entry["text"], g)}
+        for fname, sheet, widen in ((f"{hid}.xlsx", "Wire list", False),
+                                    (f"{hid}_build.xlsx", "Cut list", True)):  # fmt: skip
+            if parts[2] == fname and sheet in entry.get("sheets", {}):
+                sheets = {**entry["sheets"], sheet: _sheet_groups(entry["sheets"][sheet], g, widen)}
+                out[rel] = {**entry, "sheets": sheets}
+    return out
+
+
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -288,7 +393,12 @@ def comparable(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def compare(
-    old: Files, new: Files, raw: dict[str, bytes], used: list[int], old_version: str = ""
+    old: Files,
+    new: Files,
+    raw: dict[str, bytes],
+    used: list[int],
+    old_version: str = "",
+    groups: dict[str, dict[str, str]] | None = None,
 ) -> list[str]:
     """The differences that are left after the steps of section 5.6, one line each."""
     hashes = stamp_map(old, new)  # 1
@@ -303,6 +413,8 @@ def compare(
     if NEW_REPORT in old:  # 4
         old[NEW_REPORT] = {**old[NEW_REPORT], "text": _resort_field(old[NEW_REPORT]["text"])}
     old = drop_older_name(old)  # 6
+    if groups is not None:  # 7
+        old = every_shield_group(old, groups)
     problems: list[str] = []
     if "manifest.json" in old and "manifest.json" in new:  # 5
         a, b = copy.deepcopy(old["manifest.json"]["json"]), new["manifest.json"]["json"]
