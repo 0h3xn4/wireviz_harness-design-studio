@@ -20,7 +20,7 @@
   "unverified_parts": 28,
   "version": "0"
  },
- "model_hash": "751698959a4ce4c2c192a299d2b0bf0f0083d2efac33cbf1be447c75781da8b5",
+ "model_hash": "8e3a53948a790240e261f91abf6609cfc8298b3377dcb53480d1102fcf5d1553",
  "project": "mini3 (example data)",
  "settings": {
   "derating": {
@@ -53,5 +53,5 @@
   }
  },
  "tool": "harness-design-studio",
- "tool_version": "4.0.0"
+ "tool_version": "4.0.1"
 }

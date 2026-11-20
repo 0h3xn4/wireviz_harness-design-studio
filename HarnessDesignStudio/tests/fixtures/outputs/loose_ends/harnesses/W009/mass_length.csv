@@ -1,5 +1,5 @@
-# harness-design-studio 4.0.0 model edbf858fc6a7
-# harness-design-studio 4.0.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 4.0.1 model 3f1d198db6ba
+# harness-design-studio 4.0.1. Provided as is, without warranty. Verify before use.
 Harness,Wires,Connectors,Wire length known (m),Wires without length,Mass of wires and cable connectors (g),Margin (g),Mass with margin (g),Complete,Missing data
 W009,4,2,0,4,12,1.2,13.2,no,mass of open end W009-P2 (no connector chosen yet); mass per metre of wire part (none)
 TOTAL,4,2,0,4,12,1.2,13.2,no,totals count only what is known
