@@ -91,3 +91,9 @@ The major release `3.0.0` (D-249; format 3, versions, the harness plan, splices;
 The note on the publication of the patch release 3.0.1, moved word for word from the first item of the Status section to keep `CLAUDE.md` under its size limit when the publication record of 3.1.0 was written; that item still names 3.0.1 in the list of releases and says where this note is.
 
 The patch release `3.0.1` (D-252; the editor opens nothing with the system's opener; no format change) was published on 2026-11-19 (annotated tag `v3.0.1` on `1c79beb`, the merge of #293; made by the tag workflow, run 44545687219, its eleventh use; release workflow run 44545771026): the latest full release until 3.1.0 is tagged.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 4.0.0 (2026-11-20)
+
+The note on the publication of the minor release 2.2.0, moved word for word from the Status section to keep `CLAUDE.md` under its size limit when 4.0.0 was prepared; the Status section still names 2.2.0 in the list of releases and says where this note is.
+
+**Version `2.2.0` is published** (D-244; 2026-11-17, the latest full release until 2.3.0; no release candidate; tag `v2.2.0` on `a90ef82`, made by the tag workflow, run 44137315323, its sixth use): a minor release with the device library (D-234, D-240; `docs/ait/DESIGN_2.2_DEVICE_LIBRARY.md`, pull requests 246 to 251): a folder of `NAME.device.json` files, `device-libraries.json` at the project root (outside the format), the import record of kind `devices` as the link (`core/library_link.py`), `libraries`/`add-device`/`update-device`/`save-device` (`cli/library.py`), the editor's review (`gui/library_review.py`); no format change, the scripting interface is unchanged, and every project that generates at 2.1.1 generates the same.

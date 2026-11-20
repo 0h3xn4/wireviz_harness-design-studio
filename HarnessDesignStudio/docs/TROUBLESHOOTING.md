@@ -60,11 +60,11 @@ bash: line 1: harness-design-studio: command not found
 - **Run from source or pip into a virtual environment (way C):** the environment is not active in this terminal. Run `. .venv/bin/activate` in the folder where you made it.
 - **Nothing installed yet:** start at [`INSTALL.md`](INSTALL.md).
 
-Check with `harness-design-studio --version`; it prints the version, for example `harness 3.1.0`.
+Check with `harness-design-studio --version`; it prints the version, for example `harness 4.0.0`.
 
 ### I am on Windows or a Mac
 
-Version 3.1.0 is supported on **Ubuntu 24.04 or newer, 64-bit x86**, and on **Windows 10 and 11 (64-bit)**, and on nothing else. There are packages for both: see [`INSTALL.md`](INSTALL.md), way A or B for Ubuntu and way D for Windows (decision D-149). The Windows packages are not signed: Windows SmartScreen shows *Windows protected your PC* (**More info**, then **Run anyway**). **macOS was removed in version 1.6.0** (decision D-168): there is no package for it, and nothing is built, tested or supported for it. The releases 1.2.0 to 1.5.0 still carry macOS disk images on GitHub, but they are unmaintained; use them at your own risk. Version 1.1.0 and older run on Ubuntu only. Other Linux distributions and Ubuntu 22.04 and older are not supported. On Ubuntu, check your system with `lsb_release -rs` (must print 24.04 or higher).
+Version 4.0.0 is supported on **Ubuntu 24.04 or newer, 64-bit x86**, and on **Windows 10 and 11 (64-bit)**, and on nothing else. There are packages for both: see [`INSTALL.md`](INSTALL.md), way A or B for Ubuntu and way D for Windows (decision D-149). The Windows packages are not signed: Windows SmartScreen shows *Windows protected your PC* (**More info**, then **Run anyway**). **macOS was removed in version 1.6.0** (decision D-168): there is no package for it, and nothing is built, tested or supported for it. The releases 1.2.0 to 1.5.0 still carry macOS disk images on GitHub, but they are unmaintained; use them at your own risk. Version 1.1.0 and older run on Ubuntu only. Other Linux distributions and Ubuntu 22.04 and older are not supported. On Ubuntu, check your system with `lsb_release -rs` (must print 24.04 or higher).
 
 ### `E: Unable to locate package ./harness-design-studio_...` or `dpkg: dependency problems`
 
@@ -153,7 +153,7 @@ Nothing was changed. Three causes:
    error: this project is read-only (saved by a newer tool version).
    ```
 
-   The exit code is 2. `harness-design-studio migrate newer` gives the same error. **Fix:** install the newer tool (see [`INSTALL.md`](INSTALL.md)); `harness-design-studio validate` can still read the project with this one. Do not edit `project.json` by hand to make the warning go away.
+   The exit code is 2. `harness-design-studio migrate newer` gives the same error. **Fix:** install the newer tool (see [`INSTALL.md`](INSTALL.md)); `harness-design-studio validate` can still read the project with this one. Do not edit `project.json` by hand to make the warning go away. A 3.x tool shows this for a project that 4.0.0 upgraded to format 4 (*format 4; this tool understands up to 3*); once a part or a connector of it has rows, 3.x also sets each of them aside as a damaged file (*row_layout: Extra inputs are not permitted*), and `generate`, `export` and `drc` refuse the project ([upgrade a project](user-manual/upgrade-a-project.md#8-from-format-3-to-format-4-400)).
 2. **It is open in another window.** See the next entry.
 3. **The folder cannot be locked for editing here** (read-only media, a folder you may not write to). The editor opens it read-only and says so in a note ("This project was opened read-only because it cannot be locked for editing here: ..."). Copy the project to a folder you can write to, or **Save As**. A journal restore and a reload after a change on disk keep a read-only window read-only, and **Discard** or **Save As** from it never deletes the autosave journal of another window.
 
