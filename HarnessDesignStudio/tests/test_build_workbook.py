@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from harness_design_studio.core.commands import Put, apply_ops
+from harness_design_studio.core.generate.lengths import reference_text
 from harness_design_studio.core.model import Harness, Project, evolve
 from harness_design_studio.core.outputs.build import (
     OutputSet,
@@ -154,11 +155,12 @@ def test_the_cut_list_has_each_wire_once_thick_before_thin(
     h = project.harnesses[harness_id]
     data = build_workbook(project, h, stamp_of(project))
     cut = _sheets(data)["Cut list"]
-    rows = [r for r in cut[1:-1] if r[1]]
+    rows = [r for r in cut[1:-3] if r[1]]
     assert sorted(str(r[1]) for r in rows) == sorted(w.id for w in h.wires)
     gauges = [r[3] for r in rows if isinstance(r[3], int)]
     assert gauges == sorted(gauges)  # the lowest AWG number (the thickest wire) first
-    assert cut[-1][1] == f"{len(h.wires)} wires"
+    assert cut[-3][1] == f"{len(h.wires)} wires"  # the totals, an empty row, the length sentence
+    assert not any(cut[-2]) and cut[-1][0] == reference_text(project) and not any(cut[-1][1:])
 
 
 def test_a_wire_colour_is_shown_as_a_fill_and_in_words(project: Project, harness_id: str) -> None:

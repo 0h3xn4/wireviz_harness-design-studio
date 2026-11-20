@@ -203,7 +203,7 @@ def test_a_pin_without_a_wire_gets_no_contact_line(project: Project) -> None:
 
 
 def test_the_workbook_has_the_accessories_sheet_between_parts_and_labels(project: Project, plain: Project) -> None:  # fmt: skip
-    assert SHEETS[3:6] == ("Parts", "Accessories", "Labels") and len(SHEETS) == 8
+    assert SHEETS[4:7] == ("Parts", "Accessories", "Labels") and len(SHEETS) == 9
     for p, hid in ((project, H), (plain, H)):
         data = build_workbook(p, p.harnesses[hid], stamp_of(p))
         assert list(_sheets(data)) == list(SHEETS)
@@ -211,11 +211,11 @@ def test_the_workbook_has_the_accessories_sheet_between_parts_and_labels(project
 
 def test_the_cut_list_shows_strip_lengths_or_to_fill_in(project: Project, plain: Project) -> None:
     data = build_workbook(project, project.harnesses[H], stamp_of(project))
-    rows = {r[1]: r for r in _sheets(data)["Cut list"][1:-1]}
+    rows = {r[1]: r for r in _sheets(data)["Cut list"][1:-3]}
     assert _sheets(data)["Cut list"][0][6:8] == ["Strip A (mm)", "Strip B (mm)"]
     assert rows[f"{H}-001"][6:8] == [6, 7.5] and rows[f"{H}-002"][6:8] == [5, "to fill in"]
     bare = build_workbook(plain, plain.harnesses[H], stamp_of(plain))  # shown even when never used
-    assert all(r[6:8] == ["to fill in", "to fill in"] for r in _sheets(bare)["Cut list"][1:-1])
+    assert all(r[6:8] == ["to fill in", "to fill in"] for r in _sheets(bare)["Cut list"][1:-3])
     ws = load_workbook(io.BytesIO(bare))["Cut list"]
     assert ws["G2"].fill.fgColor.rgb.endswith("FFE699")  # amber
 

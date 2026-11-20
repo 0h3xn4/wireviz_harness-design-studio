@@ -13,8 +13,9 @@ sentence that says what a length is measured from (`_length_reference`). The lab
 verifier's own copy in `verify_labels.py`. `tests/test_production_verify.py` reads the imports
 and compares every row with the core's on the examples, the fixtures and random harnesses.
 
-No sheet is written or checked with it yet (pull request 1 of the design); `verify.py` and
-`verify_plan.py` take it up with the sheets."""
+`verify.py` (`_build_production`) checks the Production sheet of the build workbook with it, row
+by row, with the headings `_HEADER` stated here a second time; `verify_plan.py` takes it up with
+the plan's sheet (pull request 5 of the design)."""
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -30,6 +31,10 @@ from .verify_labels import _OPEN_END, _connector_label_text, _label_format, _wir
 # ---- the words of the sheet, stated here a second time (never imported from production.py) ----
 _TO_FILL = "to fill in"
 _DOT = "   ·   "
+_HEADER = (
+    "Pin", "Signal", "Wire", "Goes to", "Wire part", "Colour", "AWG", "Length (m), rear to rear",
+    "Length from", "Label at this end", "Shield group: here / far end",
+)  # fmt: skip
 _NO_WIRE = "(no wire)"
 _SPARE = "(spare)"
 _UNPLUGGED = "not plugged into a unit"

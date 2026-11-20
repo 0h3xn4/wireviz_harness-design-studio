@@ -203,9 +203,12 @@ def users_harness(folder: Path, capsys: pytest.CaptureFixture[str]) -> Path:
     ]  # fmt: skip
     build = folder_w / "W001_build.xlsx"
     names = sheet_names(build)
-    assert names[:4] == ["Start here", "Cut list", "Routing", "Connectors"]
+    assert names[:5] == ["Start here", "Cut list", "Routing", "Production", "Connectors"]
     routing = sheet(build, "Routing")
-    assert routing[0] == ("Segment", "From", "To", "Length (m)", "Number of wires", "Wires")
+    assert routing[0] == (
+        "Segment", "From", "To", "Length (m), rear or branch centre", "Number of wires", "Wires"
+    )  # fmt: skip
+    assert str(routing[-1][0]).startswith("Lengths run from the rear of a connector")
     assert routing[1][:5] == ("W001-L1", "W001-B1", "W001-B2", 1.5, 16)
     assert routing[7][:3] == ("Branch point", "Name", "Connectors beyond it, by segment")
     assert routing[8][:3] == (
