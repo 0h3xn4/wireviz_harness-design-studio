@@ -102,7 +102,15 @@ def clear_cache() -> None:
 
 
 def shield_of(h: Harness) -> dict[str, str]:
-    return {wid: s.id for s in h.shields for wid in s.wire_ids}
+    """Every shield group of each wire, in natural ID order, joined by `;` (a pair inside an
+    overall shield is in two groups: `W002-S2;W002-S3`). Before 4.1.0 only the last group was
+    kept."""
+    groups: dict[str, list[str]] = defaultdict(list)
+    for s in sorted(h.shields, key=lambda x: natural_key(x.id)):
+        for wid in s.wire_ids:
+            if s.id not in groups[wid]:
+                groups[wid].append(s.id)
+    return {wid: ";".join(ids) for wid, ids in groups.items()}
 
 
 def emc_class_of(project: Project, w: Wire) -> str:
