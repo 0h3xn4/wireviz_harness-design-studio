@@ -300,6 +300,7 @@ EX-SLEEVE,sleeving,,,Braided sleeving (example),pending (example data),0.3,m,,W0
 - **Cut list**: the columns **Strip A (mm)** and **Strip B (mm)** after **Length (m)**.
 - **Connectors**: the columns **Contact** and **Tool** after **Contact size**: the contact part of the pin and the crimp tool of that part. A pin in use without a contact reads `to fill in`.
 - **Accessories**: a sheet between **Parts** and **Labels**, with **Done (x)** and the columns of `accessories.csv`. A harness-level target shows as `(harness)`; with none entered the sheet says `No accessories entered.`
+- **Production** (since 4.1.0): an accessory of the kind **label** on a connector puts its **Position** at the end of that connector's block heading, `label at 50 mm from the P1 end`, so the label and the place it goes are on one line; two such labels are joined by `; `, and one without a position reads `label, position to fill in`. A label accessory on a wire stays on the **Accessories** sheet only.
 - **Start here**: two more `NOTE` lines, **Wires without strip lengths** and **Pins in use without a contact part**, each with the number open and what to do. A `NOTE` does not stop `Ready to build`.
 
 For `W001` of the practice project, whose four wires have strip lengths and whose pins in use have contacts, both lines say `0` and `OK`. The harness `W002` has neither, and its **Start here** says:
