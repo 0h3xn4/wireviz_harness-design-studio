@@ -24,7 +24,18 @@ same project:
    group of a wire in natural ID order, joined by `;`, where 2.x named one of them; the width of
    the *Cut list* column follows (the longest text plus 2, at most 46). The groups come from the
    project with the rule stated here a second time (`shield_groups`), and a cell is changed only
-   when the 2.x text is one of the groups the step puts in its place (`every_shield_group`).
+   when the 2.x text is one of the groups the step puts in its place (`every_shield_group`);
+8. the step of 4.1.0 for the build workbook (design of 4.1.0 parts A and D, pull request 3):
+   `<ID>_build.xlsx` has the new sheet *Production*, taken as the file of 4.1.0 has it (2.x has no
+   such sheet; its own tests and the independent check of the outputs read it), and the members
+   that list the sheets and the styles (`BUILD_SHEET_MEMBERS`) follow; *Start here* has the row
+   *Lengths* with the four sentences after *Released on* and the line *Production* in *How to use
+   this workbook* after *Cut list* (and *Routing*); the length heading of *Cut list* is
+   `Length (m), rear to rear` and of *Routing* `Length (m), rear or branch centre`, each column as
+   wide as its heading plus 2, and both sheets end with the four sentences after an empty row
+   below their last row. The first, second and fourth sentences are
+   stated here; the third names the service loops of the project, so it is taken from the file of
+   4.1.0 when it has the form stated here (`production_sheet`).
 
 Workbooks are compared cell by cell with their column widths and the hash of each member that
 holds no cell (styles, workbook); drawings by their text items and positions; JSON files by their
@@ -371,6 +382,113 @@ def every_shield_group(files: Files, groups: dict[str, dict[str, str]]) -> Files
     return out
 
 
+# ---- step 8: the Production sheet and the length reference, 4.1.0 --------------------------------
+
+PRODUCTION = "Production"
+PRODUCTION_LINE = (
+    "one block per connector: where each wire goes, its part, colour, gauge, length, label and "
+    "shield"
+)
+LENGTH_LINES = (
+    "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
+    "They follow the routing segments through the centre of each branch point to the rear of the "
+    "other connector.",
+    None,  # "A wire Generate made adds …." with the project's service loops
+    '"Locked" is a length a person typed; "segments only" has no service loops.',
+)
+LOOPS_LINE = ("A wire Generate made adds ", ".")
+LENGTH_HEADINGS = {
+    "Cut list": ("Length (m)", "Length (m), rear to rear"),
+    "Routing": ("Length (m)", "Length (m), rear or branch centre"),
+}
+BUILD_SHEET_MEMBERS = (
+    "[Content_Types].xml", "xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/styles.xml",
+)  # fmt: skip
+_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _row(ref: str) -> int:
+    return int(ref.lstrip(_LETTERS))
+
+
+def _col(ref: str) -> str:
+    return ref.rstrip("0123456789")
+
+
+def _insert_rows(cells: dict[str, str], at: int, n: int) -> dict[str, str]:
+    """The cells with every row from `at` on moved down by `n` rows."""
+    return {(f"{_col(k)}{_row(k) + n}" if _row(k) >= at else k): v for k, v in cells.items()}
+
+
+def _length_lines(new_entry: dict[str, Any]) -> list[str] | None:
+    """The four sentences, the third read from the cut list of 4.1.0 when it has its form."""
+    cells = new_entry.get("sheets", {}).get("Cut list", {}).get("cells", {})
+    last = max((_row(k) for k in cells if _col(k) == "A"), default=0)
+    third = cells.get(f"A{last - 1}", "")
+    head, tail = LOOPS_LINE
+    if not (third.startswith(head) and third.endswith(tail) and len(third) > len(head + tail)):
+        return None
+    return [line if line is not None else third for line in LENGTH_LINES]
+
+
+def _start_here(cells: dict[str, str], lines: list[str]) -> dict[str, str]:
+    at = next((_row(k) for k, v in cells.items() if _col(k) == "A" and v == "Released on"), None)
+    if at is None:
+        return cells
+    cells = _insert_rows(cells, at + 1, len(lines))
+    for n, line in enumerate(lines):
+        if n == 0:
+            cells[f"A{at + 1}"] = "Lengths"
+        cells[f"B{at + 1 + n}"] = line
+    after = [_row(k) for k, v in cells.items() if _col(k) == "A" and v in ("Cut list", "Routing")]
+    if after:
+        at = max(after)
+        cells = _insert_rows(cells, at + 1, 1)
+        cells[f"A{at + 1}"], cells[f"B{at + 1}"] = PRODUCTION, PRODUCTION_LINE
+    return cells
+
+
+def _ends_with_lines(sheet: dict[str, Any], name: str, lines: list[str]) -> dict[str, Any]:
+    old, new = LENGTH_HEADINGS[name]
+    cells, widths = dict(sheet["cells"]), dict(sheet["widths"])
+    at = next((k for k, v in cells.items() if _row(k) == 1 and v == old), None)
+    if at is None:
+        return sheet
+    cells[at] = new
+    if _col(at) in widths:
+        widths[_col(at)] = min(_CUT_WIDTH_CAP, max(widths[_col(at)], len(new) + 2.0))
+    first = max(_row(k) for k in cells) + 2  # after an empty row
+    for n, line in enumerate(lines):
+        cells[f"A{first + n}"] = line
+    return {**sheet, "cells": cells, "widths": widths}
+
+
+def production_sheet(old: Files, new: Files) -> Files:
+    """The files of 3.0 after the step of 4.1.0 for the build workbook (step 8 of the module
+    text)."""
+    out = dict(old)
+    for rel, entry in old.items():
+        if not rel.endswith("_build.xlsx") or rel not in new or "sheets" not in entry:
+            continue
+        lines = _length_lines(new[rel])
+        if lines is None or PRODUCTION not in new[rel].get("sheets", {}):
+            continue
+        sheets = dict(entry["sheets"])
+        if "Start here" in sheets:
+            here = sheets["Start here"]
+            sheets["Start here"] = {**here, "cells": _start_here(dict(here["cells"]), lines)}
+        for name in LENGTH_HEADINGS:
+            if name in sheets:
+                sheets[name] = _ends_with_lines(sheets[name], name, lines)
+        sheets[PRODUCTION] = new[rel]["sheets"][PRODUCTION]
+        members = dict(entry.get("members", {}))
+        for m in BUILD_SHEET_MEMBERS:
+            if m in members and m in new[rel].get("members", {}):
+                members[m] = new[rel]["members"][m]
+        out[rel] = {**entry, "sheets": sheets, "members": members}
+    return out
+
+
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -415,6 +533,7 @@ def compare(
     old = drop_older_name(old)  # 6
     if groups is not None:  # 7
         old = every_shield_group(old, groups)
+    old = production_sheet(old, new)  # 8
     problems: list[str] = []
     if "manifest.json" in old and "manifest.json" in new:  # 5
         a, b = copy.deepcopy(old["manifest.json"]["json"]), new["manifest.json"]["json"]
