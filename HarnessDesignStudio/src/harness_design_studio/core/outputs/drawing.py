@@ -31,6 +31,7 @@ from harness_design_studio.core import configcheck
 from harness_design_studio.core.deviations import deviation_lines, override_lines
 from harness_design_studio.core.generate.lengths import wire_length
 from harness_design_studio.core.model import Connector, Harness, Project, ShieldGroup, Wire
+from harness_design_studio.core.shield_ends import reference_wire
 from harness_design_studio.core.wirecolours import resolve
 
 from .canvas import CHAR_EM, SHEETS, Curve, Line, Rect, Sheet, Text, fit, fit_size
@@ -421,10 +422,9 @@ def _draw_sleeve(
 def _reference_wire(h: Harness, shield: ShieldGroup, page_wires: list[Wire]) -> Wire:
     """The wire that says which end of the shield is end A: the shield's wire with the lowest ID
     in the whole harness, not the first one on this sheet."""
-    by_id = {w.id: w for w in h.wires}
-    ids = sorted(i for i in shield.wire_ids if i in by_id)
-    if ids:
-        return by_id[ids[0]]
+    first = reference_wire(h, shield)
+    if first is not None:
+        return first
     return next((w for w in page_wires if w.id in shield.wire_ids), page_wires[0])
 
 
