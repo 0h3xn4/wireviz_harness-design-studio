@@ -34,9 +34,9 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from harness_design_studio.core import label_format
 from harness_design_studio.core.generate.lengths import wire_length
 from harness_design_studio.core.issues import Issue
+from harness_design_studio.core.label_format import format_of
 from harness_design_studio.core.links import effective_role
 from harness_design_studio.core.model import Connector, Harness, Pin, Project, Wire
 from harness_design_studio.core.nets import splice_ids
@@ -434,7 +434,7 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
         if label:
             g.put(r, 0, label, BOLD)
         g.set(r, 1, cell)
-    named = label_format.format_of(project) == "harness_device_connector"
+    named = format_of(project) == "harness_device_connector"
     if named:  # row 4 is empty in every other format, so those plans keep their bytes
         g.put(3, 0, "Connector Name", BOLD)
         g.set(3, 1, Cell(box.name))
