@@ -427,10 +427,16 @@ def test_the_plan_names_the_device_connector_in_b4_and_its_header_reads_it(
     assert vf.verify_outputs(p, build_outputs(p, harness_plan=True).files).ok
 
 
+# the column of the plan's Production sheet that holds the label at this end (4.1.0)
+LABEL_COLUMN = 9
+
+
 @pytest.mark.parametrize("case", [k for k in CASES if k != "harness_device_connector"])
 def test_in_any_other_format_the_plan_is_as_before(projects: dict[str, Project], case: str) -> None:
     """No row 4 on a CON_ sheet and the header from B2: the cells of the plan are those of the
-    standard format, whose plans the goldens of `tests/fixtures/outputs/harness_plan/` hold."""
+    standard format, whose plans the goldens of `tests/fixtures/outputs/harness_plan/` hold. The one
+    exception is the sheet *Production* (4.1.0), whose label at each end, in its column and in the
+    block heading, follows the format."""
 
     def cells(p: Project) -> dict[str, dict[tuple[int, int], object]]:
         # the stamp holds the model hash, which the settings change
@@ -445,7 +451,12 @@ def test_in_any_other_format_the_plan_is_as_before(projects: dict[str, Project],
     for name in sheets:
         if name.startswith("CON_"):
             assert (3, 0) not in sheets[name] and (3, 1) not in sheets[name]
-        if name != "About":  # About holds the whole model hash as well
+        if name == "Production":  # 4.1.0: the label at each end follows the format, nothing else
+            moved = {k for k in sheets[name].keys() | std[name].keys()
+                     if sheets[name].get(k) != std[name].get(k)}  # fmt: skip
+            assert all(col == LABEL_COLUMN or (col == 0 and "label" in str(std[name].get((row, col), "")))
+                       for row, col in moved), (name, sorted(moved))  # fmt: skip
+        elif name != "About":  # About holds the whole model hash as well
             assert sheets[name] == std[name], name
     about, about_std = sheets["About"], std["About"]
     assert {k for k in about if about[k] != about_std.get(k)} == (
