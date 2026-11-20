@@ -31,6 +31,7 @@ H6	branching
 N6	W002
 Q6	VERSION: v1.0.0 (draft)
 H8	Harness branching-W002: DEV5 <–> DEV6	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_DEV5-J01'.B1]&" <–> "&[$'CON_DEV6-J01'.B1]
+H9	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
 H10	used Connectors
 H11	No.
 I11	Part No.
@@ -47,7 +48,7 @@ K15	AWG
 L15	Conductor
 O15	Colours
 R15	No. of wires in cable
-S15	Length [mm]
+S15	Length [mm] rear to rear
 H16	1
 I16	EX-WIRE-TWISTED-SHIELDED
 R16	2
@@ -77,7 +78,7 @@ J27	Direction
 K27	Color
 L27	Cable / Type
 M27	Shielding / (Grouping)
-N27	Length [mm]
+N27	Length [mm] rear to rear
 O27	Level
 P27	Cable / Type
 Q27	Color
@@ -238,6 +239,106 @@ AA81		=IF(ISNA(MATCH([.V81];[.V28:.V52];0));"";MATCH([.V81];[.V28:.V52];0)+27)
 V82	25	=[$'CON_DEV6-J01'.A43]
 AA82		=IF(ISNA(MATCH([.V82];[.V28:.V52];0));"";MATCH([.V82];[.V28:.V52];0)+27)
 H84	Block diagram: harnesses/W002/drawing_A3.pdf
+== Production
+A1	Production sheet of W002
+A2	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
+A3	Pin
+B3	Signal
+C3	Wire
+D3	Goes to
+E3	Wire part
+F3	Colour
+G3	AWG
+H3	Length [mm] rear to rear
+I3	Length from
+J3	Label at this end
+K3	Shield group: here / far end
+A4	W002-P1   ·   EX-MICROD-25-M   ·   male   ·   mates DEV5-J01 (DEV5:J01)   ·   label W002-P1 mates DEV5-J01
+A5	1
+B5	TX+/RX+
+C5	W002-001
+D5	W002-P2.3 (DEV6:J01)
+E5	EX-WIRE-TWISTED-SHIELDED
+F5	to fill in
+G5	to fill in
+H5	to fill in
+J5	W002-001 TX+/RX+ to W002-P2.3
+K5	W002-S1 shielded pair: here floating, far floating
+A6	2
+B6	TX-/RX-
+C6	W002-003
+D6	W002-P2.4 (DEV6:J01)
+E6	EX-WIRE-TWISTED-SHIELDED
+F6	to fill in
+G6	to fill in
+H6	to fill in
+J6	W002-003 TX-/RX- to W002-P2.4
+K6	W002-S1 shielded pair: here floating, far floating
+A7	3
+B7	TX+/RX+
+C7	W002-002
+D7	W002-P2.1 (DEV6:J01)
+E7	EX-WIRE-TWISTED-SHIELDED
+F7	to fill in
+G7	to fill in
+H7	to fill in
+J7	W002-002 TX+/RX+ to W002-P2.1
+K7	W002-S2 shielded pair: here floating, far floating
+A8	4
+B8	TX-/RX-
+C8	W002-004
+D8	W002-P2.2 (DEV6:J01)
+E8	EX-WIRE-TWISTED-SHIELDED
+F8	to fill in
+G8	to fill in
+H8	to fill in
+J8	W002-004 TX-/RX- to W002-P2.2
+K8	W002-S2 shielded pair: here floating, far floating
+A9	5 to 25
+C9	(spare)
+A11	W002-P2   ·   EX-MICROD-25-M   ·   male   ·   mates DEV6-J01 (DEV6:J01)   ·   label W002-P2 mates DEV6-J01
+A12	1
+B12	TX+/RX+
+C12	W002-002
+D12	W002-P1.3 (DEV5:J01)
+E12	EX-WIRE-TWISTED-SHIELDED
+F12	to fill in
+G12	to fill in
+H12	to fill in
+J12	W002-002 TX+/RX+ to W002-P1.3
+K12	W002-S2 shielded pair: here floating, far floating
+A13	2
+B13	TX-/RX-
+C13	W002-004
+D13	W002-P1.4 (DEV5:J01)
+E13	EX-WIRE-TWISTED-SHIELDED
+F13	to fill in
+G13	to fill in
+H13	to fill in
+J13	W002-004 TX-/RX- to W002-P1.4
+K13	W002-S2 shielded pair: here floating, far floating
+A14	3
+B14	TX+/RX+
+C14	W002-001
+D14	W002-P1.1 (DEV5:J01)
+E14	EX-WIRE-TWISTED-SHIELDED
+F14	to fill in
+G14	to fill in
+H14	to fill in
+J14	W002-001 TX+/RX+ to W002-P1.1
+K14	W002-S1 shielded pair: here floating, far floating
+A15	4
+B15	TX-/RX-
+C15	W002-003
+D15	W002-P1.2 (DEV5:J01)
+E15	EX-WIRE-TWISTED-SHIELDED
+F15	to fill in
+G15	to fill in
+H15	to fill in
+J15	W002-003 TX-/RX- to W002-P1.2
+K15	W002-S1 shielded pair: here floating, far floating
+A16	5 to 25
+C16	(spare)
 == Notes
 B2	Notes
 B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.

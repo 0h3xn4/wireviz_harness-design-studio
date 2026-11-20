@@ -31,6 +31,7 @@ H6	mini3 (example data)
 N6	W001
 Q6	VERSION: v1.0.0 (draft)
 H8	Harness mini3 (example data)-W001: PCDU <–> RW1	="Harness "&[.H6]&"-"&[.N6]&": "&[$'CON_PCDU-J01'.B1]&" <–> "&[$'CON_RW1-J01'.B1]
+H9	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
 H10	used Connectors
 H11	No.
 I11	Part No.
@@ -51,7 +52,7 @@ K16	AWG
 L16	Conductor
 O16	Colours
 R16	No. of wires in cable
-S16	Length [mm]
+S16	Length [mm] rear to rear
 H18	used Backshells
 H19	No.
 I19	Part No.
@@ -78,7 +79,7 @@ J27	Direction
 K27	Color
 L27	Cable / Type
 M27	Shielding / (Grouping)
-N27	Length [mm]
+N27	Length [mm] rear to rear
 O27	Level
 P27	Cable / Type
 Q27	Color
@@ -152,6 +153,62 @@ AA37	30	=IF(ISNA(MATCH([.V37];[.V28:.V30];0));"";MATCH([.V37];[.V28:.V30];0)+27)
 V38	3	=[$'CON_RW1-J01'.A21]
 AA38		=IF(ISNA(MATCH([.V38];[.V28:.V30];0));"";MATCH([.V38];[.V28:.V30];0)+27)
 H40	Block diagram: harnesses/W001/drawing_A3.pdf
+== Production
+A1	Production sheet of W001
+A2	Lengths run from the rear of a connector, where the wires leave its body or backshell.\nThey follow the routing segments through the centre of each branch point to the rear of the other connector.\nA wire Generate made adds no service loop (config/generation.json: service_loop_m is not set).\n"Locked" is a length a person typed; "segments only" has no service loops.
+A3	Pin
+B3	Signal
+C3	Wire
+D3	Goes to
+E3	Wire part
+F3	Colour
+G3	AWG
+H3	Length [mm] rear to rear
+I3	Length from
+J3	Label at this end
+K3	Shield group: here / far end
+A4	W001-P1   ·   EX-MICROD-9-M   ·   male   ·   mates PCDU-J01 (PCDU:J01)   ·   label W001-P1 mates PCDU-J01
+A5	1
+B5	PWR
+C5	W001-001
+D5	W001-P2.1 (RW1:J01)
+E5	to fill in
+F5	to fill in
+G5	to fill in
+H5	to fill in
+J5	W001-001 PWR to W001-P2.1
+A6	2
+B6	RTN
+C6	W001-002
+D6	W001-P2.2 (RW1:J01)
+E6	to fill in
+F6	to fill in
+G6	to fill in
+H6	to fill in
+J6	W001-002 RTN to W001-P2.2
+A7	3
+C7	(spare)
+A9	W001-P2   ·   EX-MICROD-9-F   ·   female   ·   mates RW1-J01 (RW1:J01)   ·   label W001-P2 mates RW1-J01
+A10	1
+B10	PWR
+C10	W001-001
+D10	W001-P1.1 (PCDU:J01)
+E10	to fill in
+F10	to fill in
+G10	to fill in
+H10	to fill in
+J10	W001-001 PWR to W001-P1.1
+A11	2
+B11	RTN
+C11	W001-002
+D11	W001-P1.2 (PCDU:J01)
+E11	to fill in
+F11	to fill in
+G11	to fill in
+H11	to fill in
+J11	W001-002 RTN to W001-P1.2
+A12	3
+C12	(spare)
 == Notes
 B2	Notes
 B5	Direction: PWR power, PWR-RET power return, GND ground, SGND signal ground, SHIELD shield, IN input, OUT output, IN/OUT both ways; empty for a spare pin or a pin with no direction set. On the harness side IN and OUT are swapped.

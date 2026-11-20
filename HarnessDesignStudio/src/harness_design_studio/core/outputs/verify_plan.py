@@ -29,9 +29,18 @@ and works out on its own, from the project, what each plan must hold:
    over the stored cells. A conditional format is checked by its formula text and its base cell
    only; the search boxes' formats (3.1.0, section 25) need `content.xml` to turn regular
    expressions and wildcards off (`check_settings`).
+5. **The print set-up** (`out_plan`; 4.1.0, design of 4.1.0 section 5.2) of the harness sheet and
+   of the sheet *Production*: the page layout is not fitted to one page (no
+   `style:scale-to-pages`) and its `style:scale-to` is the scale worked out here (`_scale`) from
+   the column widths as the file states them over the print range; the heading rows are rows 6 to
+   9 of the harness sheet and rows 1 to 3 of *Production*; the print range is the design's; and
+   every page break is before the first row of a block, where the verifier's own estimate of the
+   row heights (`_heights`, `_breaks`) puts one: a block that fits on a page is not split.
+   *Production* itself (part A) is worded by `verify_production.production_rows`, the verifier's
+   own copy of its rows, and `H9` and row 2 of *Production* by `verify_production._length_lines`.
 
-Not checked: the styles, the column widths, the print set-up and how a program shows the file.
-The stamp is read from the About sheet (`plan_stamp`, for `out_stamp` in `verify.py`); a plan
+Not checked: the styles, the column widths, the print set-up of the other sheets and how a program
+shows the file. The stamp is read from the About sheet (`plan_stamp`, for `out_stamp` in `verify.py`); a plan
 changed after the export fails `out_modified` there, as every file does."""
 
 import io
@@ -42,8 +51,9 @@ import zipfile
 import zlib
 from collections import Counter, defaultdict
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
+from fractions import Fraction
 from xml.etree import ElementTree  # noqa: S405 - DOCTYPE and entities are refused before parsing
 
 from harness_design_studio import __version__
@@ -54,6 +64,7 @@ from harness_design_studio.core.verify import VerifyReport
 
 from .stamp import Stamp, stamp_of
 from .verify_labels import _label_format
+from .verify_production import _length_lines, production_rows
 
 # ---- the words of the plan, stated here a second time (never imported from the layout) --------
 
@@ -62,6 +73,7 @@ MIMETYPE = "application/vnd.oasis.opendocument.spreadsheet"
 ENTRIES = ("mimetype", "META-INF/manifest.xml", "meta.xml", "styles.xml", "content.xml")
 ZIP_DATE = (1980, 1, 1, 0, 0, 0)
 COVER, REGISTER, NOTES, ABOUT, CON = "Cover", "Change_Register", "Notes", "About", "CON_"
+PRODUCTION = "Production"
 TO_FILL, OPEN_END = "to fill in", "open end"
 OVERWRITE = (
     "This file is written by Harness Design Studio. An export overwrites it; work on a copy."
@@ -112,8 +124,23 @@ PIN_HEAD = ("Pinout", "Function", "Direction", "Level", "Description")
 DEVICE_HEAD = ("Pin No.", "Function", "Direction", "Level", "Description")
 HARNESS_HEAD = (
     "Pinout", "Function", "Direction", "Color", "Cable / Type", "Shielding / (Grouping)",
-    "Length [mm]", "Level", "Cable / Type", "Color", "Direction", "Function",
+    "Length [mm] rear to rear", "Level", "Cable / Type", "Color", "Direction", "Function",
 )  # fmt: skip
+LENGTH = "Length [mm] rear to rear"  # every length heading of the plan (4.1.0, part D)
+# the sheet Production (4.1.0, part A): its columns, with "Pigtail colour" after "Colour" while
+# the plan colours by pin code
+PRODUCTION_HEAD = (
+    "Pin", "Signal", "Wire", "Goes to", "Wire part", "Colour", "AWG", LENGTH, "Length from",
+    "Label at this end", "Shield group: here / far end",
+)  # fmt: skip
+PIGTAIL = "Pigtail colour"
+SPLICES = "Splices: each node joins the wires listed on it"
+# the print set-up (4.1.0, section 5): the width and height of the printed page in mm, a line of
+# 10 pt, the width of a character and the cell's padding, all in mm; the heading rows (0-based)
+PAGE_WIDTH, PAGE_HEIGHT = 276, 175
+LINE, CHAR, PAD = Fraction("4.52"), Fraction("1.9"), Fraction(2)
+TITLE_SIZE = Fraction(14, 10)  # a title of 14 pt is that much taller than a line of 10 pt
+HARNESS_HEADING, PRODUCTION_HEADING = (5, 8), (0, 2)
 # the columns of the harness sheet, 0-based: B to F the device side, H to S the harness side, one
 # far pin column per far connector from T, a gap, then seven columns per far box connector
 COL_A, COL_B, COL_C, COL_D, COL_E, COL_F = range(6)
@@ -429,16 +456,30 @@ class Want:
 Grid = dict[tuple[int, int], Want]
 
 
+@dataclass(frozen=True)
+class Printed:
+    """What the print set-up of a sheet must be (4.1.0, section 5): its heading rows, its print
+    range, the first and last row of each block (a page break is before a first row, where one
+    is needed) and the look of the cells that are not a plain line of 10 pt (`title`: 14 pt;
+    `wrap`: wrapped in its column), for the estimate of the row heights."""
+
+    heading: tuple[int, int]
+    print_range: str
+    blocks: tuple[tuple[int, int], ...]
+    looks: dict[tuple[int, int], str]
+
+
 @dataclass
 class Expected:
     """The sheets of a plan in their order, each with its cells; the conditional formats of the
-    harness sheet (cell -> (formula, base cell)); and the rows that each hold one pin or wire
-    (row -> what it holds), for the row check."""
+    harness sheet (cell -> (formula, base cell)); the rows that each hold one pin or wire
+    (row -> what it holds), for the row check; and the print set-up of the sheets that have one."""
 
     sheets: list[tuple[str, Grid]]
     harness_sheet: str
     conditions: dict[tuple[int, int], tuple[tuple[str, str], ...]]
     rows: dict[int, str]
+    printed: dict[str, Printed] = field(default_factory=dict)
 
 
 def _put(g: Grid, row: int, col: int, value: Value, formula: str = "", link: str = "") -> None:
@@ -458,7 +499,7 @@ def _link(g: Grid, row: int, col: int, text: str, link: str | None) -> None:
 
 
 def plan_sheet_name(h: Harness) -> str:
-    fixed = {COVER.casefold(), REGISTER.casefold(), NOTES.casefold(), ABOUT.casefold()}
+    fixed = {n.casefold() for n in (COVER, REGISTER, PRODUCTION, NOTES, ABOUT)}
     clash = h.id.casefold() in fixed or h.id.casefold().startswith(CON.casefold())
     return f"Harness_{h.id}" if clash else h.id
 
@@ -608,9 +649,22 @@ class _HarnessSheet:
         self.per_cable: dict[str, int] = {}
         self.pin_rows: list[int] = []
         self.wire_blocks: list[tuple[int, int]] = []
+        self.looks: dict[tuple[int, int], str] = {}  # a title of 14 pt, or a wrapped heading
+        self.blocks: list[tuple[int, int]] = []  # the first and last row of each near block
+        self.last = 0  # the last row of the print range
 
     def put(self, row: int, col: int, value: Value, formula: str = "", link: str = "") -> None:
         _put(self.g, row, col, value, formula, link)
+
+    def head(self, row: int, col: int, text: str) -> None:
+        """A column heading: wrapped in its column."""
+        self.put(row, col, text)
+        self.looks[row, col] = "wrap"
+
+    def big(self, row: int, col: int, value: Value, formula: str = "") -> None:
+        """A title of 14 pt."""
+        self.put(row, col, value, formula)
+        self.looks[row, col] = "title"
 
     def con(self, c: Connector) -> _Con | None:
         box = self.project.connectors.get(c.mates_with or "")
@@ -624,6 +678,7 @@ class _HarnessSheet:
         self.put(5, COL_Q, f"VERSION: v{h.version} ({STATUS.get(h.status, h.status)})")
         if self.sgnd_open():
             self.put(5, COL_T, NO_SGND)
+        self.put(8, COL_H, "\n".join(_length_lines(self.project)))  # H9: the length note
         for col in (COL_I, COL_M):
             self.put(1, col, SEARCH_LABEL)
             self.put(2, col, SEARCH_TEXT)
@@ -640,7 +695,9 @@ class _HarnessSheet:
             if con is not None and group is not None:
                 last = max(last, self.reference(row, con, group))
         if drawings:
-            self.put(last + 2, COL_H, f"Block diagram: harnesses/{h.id}/drawing_A3.pdf")
+            last += 2
+            self.put(last, COL_H, f"Block diagram: harnesses/{h.id}/drawing_A3.pdf")
+        self.last = last
 
     def sgnd_open(self) -> bool:
         for c in self.h.connectors:
@@ -672,7 +729,7 @@ class _HarnessSheet:
         if refs[1]:
             formula += f'&" <–> "&{refs[1]}'
             value += f" <–> {texts[1]}"
-        self.put(7, COL_H, value, formula)
+        self.big(7, COL_H, value, formula)
 
     def part_tables(self) -> int:
         project, h = self.project, self.h
@@ -683,7 +740,7 @@ class _HarnessSheet:
             (COL_M, "Quantity"),
             (COL_N, "Remark"),
         ):
-            self.put(10, col, text)
+            self.head(10, col, text)
         row = 11
         parts: dict[str, list[Connector]] = defaultdict(list)
         for c in h.connectors:
@@ -702,9 +759,9 @@ class _HarnessSheet:
         self.put(row + 1, COL_H, "used Cable Types")
         for col, text in (
             (COL_H, "No."), (COL_I, "Part No."), (COL_K, "AWG"), (COL_L, "Conductor"), (COL_O, "Colours"),
-            (COL_R, "No. of wires in cable"), (COL_S, "Length [mm]"),
+            (COL_R, "No. of wires in cable"), (COL_S, LENGTH),
         ):  # fmt: skip
-            self.put(row + 2, col, text)
+            self.head(row + 2, col, text)
         row += 3
         for n, pid in enumerate(self.types, start=1):
             ws = [w for w in h.wires if w.part_id == pid]
@@ -728,7 +785,7 @@ class _HarnessSheet:
             (COL_M, "Quantity"),
             (COL_N, "Remark"),
         ):
-            self.put(row + 2, col, text)
+            self.head(row + 2, col, text)
         row += 3
         shells = sorted(
             (a for a in h.accessories if a.kind == "backshell"), key=lambda a: natural_key(a.id)
@@ -804,7 +861,7 @@ class _HarnessSheet:
         con = self.con(c)
         box = self.project.connectors.get(c.mates_with or "") if con is not None else None
         part = project.parts.get(c.part_id)
-        self.put(row, COL_B, box.id if box else c.id)
+        self.big(row, COL_B, box.id if box else c.id)
         if part is not None and part.link:
             self.put(row + 1, COL_H, f"Part link: {part.link}", link=part.link)
         if box is not None and con is not None:
@@ -827,22 +884,22 @@ class _HarnessSheet:
         head = row + 5
         if box is not None:
             for n, text in enumerate(DEVICE_HEAD):
-                self.put(head, COL_B + n, text)
+                self.head(head, COL_B + n, text)
         if con is not None and con.faces is not None:
-            self.put(head, COL_A, PIN_ROW)
+            self.head(head, COL_A, PIN_ROW)
         for n, text in enumerate(HARNESS_HEAD):
-            self.put(head, COL_H + n, text)
+            self.head(head, COL_H + n, text)
         for fc, fcon, pin_col, group in self.columns.values():
             if _is_open(fc):
                 label = f"{OPEN_END}, {TO_FILL}"
             else:
                 label = f"Pinout (of {fcon.device if fcon else fc.id})"
-            self.put(head, pin_col, label)
+            self.head(head, pin_col, label)
             if first and fcon is not None and group is not None:
-                self.put(head - 2, group, fcon.name.removeprefix(CON))
+                self.big(head - 2, group, fcon.name.removeprefix(CON))
                 self.put(head - 1, group, f"Data from {fcon.name}")
                 for n, text in enumerate(PIN_HEAD):
-                    self.put(head, group + n, text)
+                    self.head(head, group + n, text)
         start = head + 1
         noted = any(w.value == NOT_CONNECTED for w in self.g.values())
         for n, line in enumerate(lines):
@@ -850,6 +907,7 @@ class _HarnessSheet:
             what = f"pin {line.cable.id}.{line.pin.id}"
             self.rows[start + n] = f"wire {line.wire.id} ({what})" if line.wire else what
         end = start + max(len(lines), 1) - 1
+        self.blocks.append((row, end))
         if lines:
             self.pin_rows += range(start, end + 1)
             self.wire_blocks.append((start, end))
@@ -1017,9 +1075,9 @@ class _HarnessSheet:
         self.put(row, COL_H, "Further wires")
         for col, text in (
             (COL_H, "Wire"), (COL_I, "From"), (COL_J, "To"), (COL_K, "Color"), (COL_L, "Cable / Type"),
-            (COL_M, "Shielding / (Grouping)"), (COL_N, "Length [mm]"),
+            (COL_M, "Shielding / (Grouping)"), (COL_N, LENGTH),
         ):  # fmt: skip
-            self.put(row + 1, col, text)
+            self.head(row + 1, col, text)
         start = row + 2
         for n, w in enumerate(wires):
             self.put(start + n, COL_H, w.id)
@@ -1034,7 +1092,7 @@ class _HarnessSheet:
     def sums(self, row: int) -> int:
         self.put(row, COL_H, "Sum of length of cable type [mm]")
         for col, text in ((COL_H, "No."), (COL_I, "Part No."), (COL_N, "Sum of length [mm]")):
-            self.put(row + 1, col, text)
+            self.head(row + 1, col, text)
         r = row + 1
         for no, pid in enumerate(self.types, start=1):
             r += 1
@@ -1061,11 +1119,11 @@ class _HarnessSheet:
 
     def reference(self, row: int, con: _Con, col: int) -> int:
         box = self.project.connectors[con.name.removeprefix(CON)]
-        self.put(row, col, box.id)
+        self.big(row, col, box.id)
         _link(self.g, row + 1, col, box.source_doc or "", box.source_link)
         self.put(row + 2, col, f"Data from {con.name}")
         for n, text in enumerate([*PIN_HEAD, "Used in Row"]):
-            self.put(row + 3, col + n, text)
+            self.head(row + 3, col + n, text)
         r = row + 3
         for pin in box.pins:
             r += 1
@@ -1191,6 +1249,69 @@ def _notes(
     return g, tables
 
 
+def _production(
+    project: Project, h: Harness, rule: str, codes: list[_Code]
+) -> tuple[Grid, Printed]:
+    """The sheet *Production* (4.1.0, part A) from the verifier's own rows
+    (`verify_production.production_rows`): the title, the length note and the headings in rows 1
+    to 3, then each block's heading row, its rows (the length in mm) and an empty row, the splices
+    last under their own title; while the plan colours by pin code a column *Pigtail colour* after
+    *Colour*: the colour of the code at this end (*to fill in* for a pin the code does not list,
+    empty for a part without a code)."""
+    g: Grid = {}
+    looks: dict[tuple[int, int], str] = {(0, 0): "title"}
+    pigtail = rule == "pin_code"
+    heads = [*PRODUCTION_HEAD[:6], *([PIGTAIL] if pigtail else []), *PRODUCTION_HEAD[6:]]
+    by_part: dict[str, _Code] = {}
+    for listed in codes if pigtail else []:
+        for part in listed.parts:
+            by_part.setdefault(part, listed)
+    _put(g, 0, 0, f"Production sheet of {h.id}")
+    _put(g, 1, 0, "\n".join(_length_lines(project)))
+    for n, text in enumerate(heads):
+        _put(g, 2, n, text)
+        looks[2, n] = "wrap"
+    parts = {c.id: c.part_id for c in h.connectors}
+    row, blocks, titled = 3, [], False
+    for block in production_rows(project, h):
+        first = row
+        if block.splice and not titled:
+            titled = True
+            _put(g, row, 0, SPLICES)
+            row += 2
+        _put(g, row, 0, block.heading)
+        row += 1
+        code = by_part.get(parts[block.connector_id])
+        for line in block.rows:
+            cells: list[Value] = list(line)
+            if not isinstance(cells[7], str):
+                cells[7] = round(float(cells[7]) * 1000, 1) + 0.0
+            if pigtail:
+                colour: Value = ""
+                pin = str(line[0])
+                if line[3] and code is not None:
+                    table = tuple(
+                        (cell_value(k), v)
+                        for k, v in sorted(code.pins, key=lambda x: natural_key(x[0]))
+                    )
+                    colour = (
+                        (lookup(table, cell_value(pin)) or "")
+                        if pin in dict(code.pins)
+                        else TO_FILL
+                    )
+                cells.insert(6, colour)
+            for n, v in enumerate(cells):
+                _put(g, row, n, v)
+                looks[row, n] = "wrap"
+            row += 1
+        blocks.append((first, row - 1))
+        row += 1
+    last = max(row - 2, 2)
+    return g, Printed(
+        PRODUCTION_HEADING, f"A1:{address(last, len(heads) - 1)}", tuple(blocks), looks
+    )
+
+
 def _about(stamp: Stamp) -> Grid:
     g: Grid = {}
     for r, (label, value) in enumerate(
@@ -1214,11 +1335,13 @@ def expected_plan(project: Project, h: Harness, stamp: Stamp, drawings: bool) ->
     name = plan_sheet_name(h)
     sheet = _HarnessSheet(project, h, name, cons, tables, rule, codes)
     sheet.build(drawings)
+    production, printed = _production(project, h, rule, codes)
     return Expected(
         [
             (COVER, _cover(project, h, stamp)),
             (REGISTER, _register(project, h, name)),
             (name, sheet.g),
+            (PRODUCTION, production),
             (NOTES, notes_grid),
             *((n, cons[n].grid) for n in cons),
             (ABOUT, _about(stamp)),
@@ -1226,6 +1349,15 @@ def expected_plan(project: Project, h: Harness, stamp: Stamp, drawings: bool) ->
         name,
         sheet.conditions,
         sheet.rows,
+        {
+            name: Printed(
+                HARNESS_HEADING,
+                f"H6:{address(sheet.last, sheet.last_col)}",
+                tuple(sheet.blocks),
+                sheet.looks,
+            ),
+            PRODUCTION: printed,
+        },
     )
 
 
@@ -1240,6 +1372,7 @@ _NS = {
     "manifest": "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0",
     "meta": "urn:oasis:names:tc:opendocument:xmlns:meta:1.0",
     "dc": "http://purl.org/dc/elements/1.1/",
+    "fo": "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
 }
 
 
@@ -1459,6 +1592,190 @@ def plan_stamp(data: bytes) -> str:
         return ""
     cell = about.get((1, 1))
     return cell.value[:12] if cell is not None and isinstance(cell.value, str) else ""
+
+
+# ---- the print set-up (4.1.0, design of 4.1.0 section 5.2) -------------------------------------
+
+MAX_COLUMNS = 16_384  # more columns than a spreadsheet program has is damage, not a plan
+
+
+@dataclass
+class PrintSetUp:
+    """The print set-up of a sheet as stored: the width of each column in mm (None for a column
+    without a width in mm), the heading rows (first and last, 0-based) inside
+    `table:table-header-rows`, the rows that start a page (`fo:break-before="page"` in their row
+    style), the print range without its sheet names (`H6:AB178`) and the `style:scale-to` and
+    `style:scale-to-pages` of its page layout (`styles.xml`)."""
+
+    widths: list[Fraction | None]
+    heading: tuple[int, int] | None
+    breaks: list[int]
+    print_range: str
+    scale: str | None
+    fit: str | None
+
+
+def read_print(content: ElementTree.Element, styles: ElementTree.Element | None) -> dict[str, PrintSetUp]:  # fmt: skip
+    """The print set-up of every sheet of `content.xml`, with the page layouts of `styles.xml`."""
+    widths: dict[str, Fraction | None] = {}
+    breaking: set[str] = set()
+    masters: dict[str, str] = {}
+    auto = content.find("office:automatic-styles", _NS)
+    for st in auto if auto is not None else []:
+        name, family = st.get(_q("style", "name"), ""), st.get(_q("style", "family"), "")
+        if family == "table-column":
+            props = st.find("style:table-column-properties", _NS)
+            text = props.get(_q("style", "column-width"), "") if props is not None else ""
+            m = re.fullmatch(r"([0-9]{1,6}(?:\.[0-9]{1,9})?)mm", text)
+            widths[name] = Fraction(m.group(1)) if m else None
+        elif family == "table-row":
+            props = st.find("style:table-row-properties", _NS)
+            if props is not None and props.get(_q("fo", "break-before")) == "page":
+                breaking.add(name)
+        elif family == "table":
+            masters[name] = st.get(_q("style", "master-page-name"), "")
+    layouts: dict[str, ElementTree.Element] = {}
+    pages: dict[str, ElementTree.Element] = {}
+    for layout in styles.iter(_q("style", "page-layout")) if styles is not None else ():
+        props = layout.find("style:page-layout-properties", _NS)
+        if props is not None:
+            layouts[layout.get(_q("style", "name"), "")] = props
+    for master in styles.iter(_q("style", "master-page")) if styles is not None else ():
+        props = layouts.get(master.get(_q("style", "page-layout-name"), ""))
+        if props is not None:
+            pages[master.get(_q("style", "name"), "")] = props
+    out: dict[str, PrintSetUp] = {}
+    for table in content.iter(_q("table", "table")):
+        cols: list[Fraction | None] = []
+        for col in table.iter(_q("table", "table-column")):
+            n = _count(col, "number-columns-repeated")
+            if len(cols) + n > MAX_COLUMNS:
+                raise PlanUnreadable(f"a sheet has more than {MAX_COLUMNS} columns")
+            cols += [widths.get(col.get(_q("table", "style-name"), ""))] * n
+        heading: tuple[int, int] | None = None
+        breaks: list[int] = []
+        r = 0
+        for child in table:
+            group = child.tag == _q("table", "table-header-rows")
+            if not group and child.tag != _q("table", "table-row"):
+                continue
+            first = r
+            for row in child.iter(_q("table", "table-row")):
+                if row.get(_q("table", "style-name"), "") in breaking:
+                    breaks.append(r)
+                r += _count(row, "number-rows-repeated")
+            if group and r > first:
+                heading = (first, r - 1)
+        ranges = table.get(_q("table", "print-ranges"), "")
+        page = pages.get(masters.get(table.get(_q("table", "style-name"), ""), ""))
+        out[table.get(_q("table", "name"), "")] = PrintSetUp(
+            cols,
+            heading,
+            breaks,
+            ":".join(part.rpartition(".")[2] for part in ranges.split(":")) if ranges else "",
+            page.get(_q("style", "scale-to")) if page is not None else None,
+            page.get(_q("style", "scale-to-pages")) if page is not None else None,
+        )
+    return out
+
+
+def _scale(widths: Sequence[Fraction]) -> int:
+    """The largest whole percent at which columns of these widths print one page wide, from 10 to
+    100 (the verifier's own copy of the rule of section 5.1)."""
+    total = sum(widths, Fraction(0))
+    if total <= 0:
+        return 100
+    return min(100, max(10, math.floor(PAGE_WIDTH * 100 / total)))
+
+
+def _heights(grid: Grid, looks: dict[tuple[int, int], str], widths: Sequence[Fraction | None]) -> list[Fraction]:  # fmt: skip
+    """The estimated height of each row in mm at 100 %: a line a paragraph of 10 pt (14 pt for a
+    title), and a wrapped text a line for each `CHAR` mm of characters in its column's width less
+    `PAD`."""
+    out = [LINE] * (max((r for r, _ in grid), default=-1) + 1)
+    for (r, c), want in grid.items():
+        if want.value == "":
+            continue
+        look = looks.get((r, c), "")
+        texts = want.value.split("\n") if isinstance(want.value, str) else [""]
+        if look == "wrap" and isinstance(want.value, str):
+            width = widths[c] if c < len(widths) else None
+            room = max((width or Fraction(0)) - PAD, Fraction(1))
+            lines = sum(max(1, math.ceil(len(t) * CHAR / room)) for t in texts)
+        else:
+            lines = len(texts)
+        out[r] = max(out[r], LINE * lines * (TITLE_SIZE if look == "title" else 1))
+    return out
+
+
+def _breaks(heights: list[Fraction], want: Printed, scale: int) -> list[int]:
+    """The rows a page must start before: the first row of a block that would not fit in what is
+    left of the page (A4 landscape at `scale`, less the heading rows), unless nothing is on the
+    page yet; a row the estimate cannot place on the page starts the next one."""
+    top, bottom = want.heading
+    room = Fraction(PAGE_HEIGHT * 100, scale) - sum(heights[top : bottom + 1], Fraction(0))
+    starts = {first: sum(heights[first : last + 1], Fraction(0)) for first, last in want.blocks}
+    end = min(max((last for _, last in want.blocks), default=bottom) + 1, len(heights))
+    out, used = [], Fraction(0)
+    for r in range(bottom + 1, end):
+        if r in starts and used > 0 and used + starts[r] > room:
+            out.append(r)
+            used = Fraction(0)
+        if used > 0 and used + heights[r] > room:
+            used = Fraction(0)
+        used += heights[r]
+    return out
+
+
+def _rows_text(rows: Sequence[int]) -> str:
+    return ", ".join(str(r + 1) for r in rows) or "none"
+
+
+def _printed(out: _Findings, sheet: str, got: PrintSetUp | None, want: Printed, grid: Grid) -> None:
+    """The print set-up of the harness sheet or of *Production* against the design (section 5.2)."""
+    where = f"sheet {sheet!r}"
+    if got is None:
+        return
+    if got.print_range != want.print_range:
+        out.add(
+            "out_plan",
+            f"{where} prints the range {got.print_range or 'of the whole sheet'}, the design gives {want.print_range}",
+        )
+    first, _, last = want.print_range.partition(":")
+    c0, c1 = _address_of(first)[1], _address_of(last)[1]
+    widths = got.widths[c0 : c1 + 1]
+    if len(widths) != c1 - c0 + 1 or any(w is None for w in widths):
+        out.add("out_plan", f"{where} does not give every column of its print range a width in mm")
+        return
+    scale = _scale([w for w in widths if w is not None])
+    if got.fit is not None:
+        out.add(
+            "out_plan",
+            f"{where} is fitted to {got.fit} page(s) (style:scale-to-pages), where the design prints it at {scale} %",
+        )
+    if got.scale != f"{scale}%":
+        out.add(
+            "out_plan",
+            f"{where} prints at {got.scale or 'no fixed scale'}, the design gives {scale}% from the widths of its print range",
+        )
+    if got.heading != want.heading:
+        shown = f"rows {got.heading[0] + 1} to {got.heading[1] + 1}" if got.heading else "no rows"
+        out.add(
+            "out_plan",
+            f"{where} repeats {shown} on every page, the design gives rows {want.heading[0] + 1} to {want.heading[1] + 1}",
+        )
+    starts = {a for a, _ in want.blocks}
+    for b in got.breaks:
+        if b not in starts:
+            out.add(
+                "out_plan", f"{where} has a page break before row {b + 1}, which starts no block"
+            )
+    wanted = _breaks(_heights(grid, want.looks, got.widths), want, scale)
+    if got.breaks != wanted:
+        out.add(
+            "out_plan",
+            f"{where} has page breaks before the rows {_rows_text(got.breaks)}, the design gives {_rows_text(wanted)} (a block that fits on a page is not split)",
+        )
 
 
 # ---- the formulas: the closed list and a small evaluator ---------------------------------------
@@ -2030,14 +2347,22 @@ def check_plan(
             out.add("out_plan_formula", p)
         try:
             read = read_cells(roots["content.xml"])
+            prints = read_print(roots["content.xml"], roots.get("styles.xml"))
         except (PlanUnreadable, ValueError) as exc:
             out.add("out_plan_package", f"content.xml cannot be read ({exc})")
         else:
-            _compare(out, project, h, read, drawings)
+            _compare(out, project, h, read, drawings, prints)
     out.close()
 
 
-def _compare(out: _Findings, project: Project, h: Harness, read: Read, drawings: bool) -> None:
+def _compare(
+    out: _Findings,
+    project: Project,
+    h: Harness,
+    read: Read,
+    drawings: bool,
+    prints: dict[str, PrintSetUp] | None = None,
+) -> None:
     want = expected_plan(project, h, stamp_of(project), drawings)
     names = [n for n, _ in want.sheets]
     have = [n for n, _ in read.sheets]
@@ -2066,6 +2391,8 @@ def _compare(out: _Findings, project: Project, h: Harness, read: Read, drawings:
         _formulas(out, name, stored[name], grid, ev, known)
         wanted = want.conditions if name == want.harness_sheet else {}
         _conditions(out, name, read.conditions.get(name, {}), wanted, known)
+        if prints is not None and name in want.printed:
+            _printed(out, name, prints.get(name), want.printed[name], grid)
 
 
 # ---- the plans of an output set ----------------------------------------------------------------
@@ -2138,6 +2465,8 @@ __all__ = [
     "FormulaError",
     "Got",
     "PlanUnreadable",
+    "PrintSetUp",
+    "Printed",
     "Want",
     "cell_value",
     "check_package",
@@ -2152,5 +2481,6 @@ __all__ = [
     "plan_sides",
     "plan_stamp",
     "read_cells",
+    "read_print",
     "verify_plans",
 ]
