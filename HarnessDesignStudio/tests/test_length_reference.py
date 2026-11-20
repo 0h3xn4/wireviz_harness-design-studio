@@ -9,6 +9,8 @@ sheet prints each on a row of its own, pull request 3); `lengths.length_origin(h
 `locked`, `segments only, no service loops` or nothing. `derive.wire_length_derivation` starts from
 `length_origin`, so the two agree on every wire of every example, and its texts are as before."""
 
+from pathlib import Path
+
 import pytest
 
 from harness_design_studio.core import derive
@@ -151,7 +153,9 @@ def _agrees(project: Project, h: Harness, w: Wire) -> None:
     elif origin == ORIGIN_LOCKED:
         assert w.locked and basis.startswith(("generated", "overridden", "entered by hand")), w.id
     else:
-        assert not w.locked and basis.startswith(("generated", "a length stored")), (w.id, basis)
+        # not locked, or locked by an override of another value (its length follows the path)
+        assert "length_m" not in w.overrides and not (w.locked and not w.overrides), w.id
+        assert basis.startswith(("generated", "a length stored")), (w.id, basis)
 
 
 @pytest.mark.parametrize("name", GOLDEN_PROJECTS)
@@ -212,3 +216,36 @@ def test_the_reference_is_four_sentences_a_sheet_prints_a_row_each(name: str) ->
     assert lines[2].startswith("A wire Generate made adds ") and lines[2].endswith(".")
     assert max(len(line) for line in lines[:2]) <= 110  # one printed line each
     assert lines[3] == '"Locked" is a length a person typed; "segments only" has no service loops.'
+
+
+# ---- a wire locked by an override of another value (found by the end-to-end test of 4.1.0) ------
+
+
+def test_an_override_of_the_gauge_alone_leaves_the_length_to_the_path(tmp_path: Path) -> None:
+    """An override of the gauge, part or colour locks the wire, but Generate gives it the length of
+    its path again ("the other values follow the design"), so its length is *on the wire*, not
+    *locked*; the verifier's copy says the same, `explain` says *generated*, and a changed segment
+    moves the length. An override of the length is *locked* and stays."""
+    from harness_design_studio import api
+    from harness_design_studio.core import change_ops
+    from harness_design_studio.core.io.loader import load_project
+    from harness_design_studio.core.io.saver import save_project
+    from harness_design_studio.core.outputs import verify_production as vp
+
+    p = golden_project("flatsat")
+    h = p.harnesses["W001"]
+    gauge, length = [w for w in h.wires if w.length_m is not None and not w.locked][:2]
+    assert change_ops.set_override(p, gauge.id, "gauge_awg", 24, "Example reason")
+    assert change_ops.set_override(p, length.id, "length_m", 9.5, "Example reason")
+    save_project(p, tmp_path)
+    assert api.generate(tmp_path).ok
+    q = load_project(tmp_path).project
+    hq = q.harnesses["W001"]
+    g, n = (next(w for w in hq.wires if w.id == x.id) for x in (gauge, length))
+    assert g.locked and n.locked and n.length_m == 9.5
+    assert length_origin(hq, g) == ORIGIN_ON_WIRE == vp._length_origin(hq, g)
+    assert length_origin(hq, n) == ORIGIN_LOCKED == vp._length_origin(hq, n)
+    assert _basis(derive.wire_length_derivation(q, hq, g)).startswith("generated")
+    assert _basis(derive.wire_length_derivation(q, hq, n)).startswith("overridden")
+    for w in (g, n):
+        _agrees(q, hq, w)

@@ -124,7 +124,10 @@ def _length(h: Harness, w: Wire) -> float | None:
 
 def _length_origin(h: Harness, w: Wire) -> str:
     if w.length_m is not None:
-        return _FROM_LOCKED if w.locked else _FROM_WIRE
+        # Generate keeps the length of a locked wire with no override, or with one of its length;
+        # an override of the gauge, part or colour alone leaves the length to the path
+        kept = w.locked and (not w.overrides or "length_m" in w.overrides)
+        return _FROM_LOCKED if kept else _FROM_WIRE
     return "" if _length(h, w) is None else _FROM_SEGMENTS
 
 
