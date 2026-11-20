@@ -3,6 +3,8 @@
 Version 2.0.0rc1 is the first version that saves projects in **format 2**. A project saved by 1.17.1 or older is in format 1. This page shows how to upgrade such a project once, what changes in the folder, and what the older versions do with it afterwards.
 
 > **Since 3.0.0** projects are saved in **format 3**, and a project saved by 2.x is upgraded once more, in the same way: see [7. From format 2 to format 3](#7-from-format-2-to-format-3-300). A project of 1.17.1 or older goes through both steps in one upgrade.
+>
+> **Since 4.0.0** projects are saved in **format 4**, and a project saved by 3.x is upgraded once more: see [8. From format 3 to format 4](#8-from-format-3-to-format-4-400). A project of 2.x or older goes through every step in one upgrade.
 
 ## Contents
 
@@ -14,6 +16,7 @@ Version 2.0.0rc1 is the first version that saves projects in **format 2**. A pro
 - [5. What the older versions do](#5-what-the-older-versions-do)
 - [6. Go back](#6-go-back)
 - [7. From format 2 to format 3 (3.0.0)](#7-from-format-2-to-format-3-300)
+- [8. From format 3 to format 4 (4.0.0)](#8-from-format-3-to-format-4-400)
 
 ## Before you start
 
@@ -202,5 +205,54 @@ Then `harness-design-studio migrate wheel-link`, or **Upgrade** in the editor's 
 - **The backup** is the folder `.migration-backup-v2/`, with the record `MIGRATION.json`, which names each mapping (`W001: revision A → version 1.0.0`).
 - **Older versions.** After the upgrade, versions 2.x open the project read-only and change nothing, so the whole team upgrades together. Upgrade on the main branch first; a branch still in format 2 that is merged later is put right by `merge-fix` ([versions](versions.md#after-a-merge-with-a-branch-of-2x)).
 - **Go back** with Git to the commit before the upgrade. Without Git, copy the files of `.migration-backup-v2/` back into the project folder, then delete `MIGRATION.json` from the project folder and each baseline under its new name (`baselines/W001/W001.1.0.0.json`, beside `W001.A.json` again). The project is then in format 2, and 2.x can edit it.
+
+## 8. From format 3 to format 4 (4.0.0)
+
+Version 4.0.0 saves projects in **format 4**, which can hold the rows of pins on the face of a connector ([pin rows of a connector](pin-rows-of-a-connector.md)). A project saved by 3.x is in format 3, and a command that saves refuses it as above:
+
+```
+error: This project is in format 3, older than this tool writes (format 4), so nothing was saved. Upgrade it first: `harness-design-studio migrate DIR` (`--dry-run` shows what changes), or open it in the editor and choose Upgrade.
+```
+
+**What changes.** The number in `project.json`, and nothing else: no project has rows before format 4, and the new key is left out of the files while it is unset. So this step, like the step to format 2, changes no model hash, no finding and no written file. Look first (a project saved by 3.0.0 with `new wheel-link --template first-steps` and `generate`):
+
+```
+harness-design-studio migrate wheel-link --dry-run
+```
+
+```
+Project format 3; this tool writes format 4.
+Files that would change (2):
+  changed  journal.jsonl
+  changed  project.json
+Objects by kind, before and after:
+  ...
+  journal entries: 4 -> 5
+  ...
+Model hash: <hash> -> <hash> (equal).
+A full export before and after: identical.
+The journal gets one entry: "migrated from format 3".
+Nothing is lost. Nothing was written.
+```
+
+A project without a change journal has only `project.json` in the list. Then upgrade:
+
+```
+harness-design-studio migrate wheel-link
+```
+
+```
+Migrated; the original files are kept in a .migration-backup-* folder.
+Format 3 to 4. Record: .migration-backup-v3/MIGRATION.json.
+Checked after the write: same model hash, same findings, baselines untouched, identical export.
+```
+
+Or **Upgrade** in the editor's question (*This project is in format 3. Upgrade? …*). A project of format 2 goes through the step 2 to 3 (with `--set-version` where it needs it) and this step in one upgrade; a project of format 1 through all three.
+
+- **Export once after the upgrade.** The design and its hash do not change, but `system/export.json` of 4.0.0 has `format_version` 2 and no longer the older key `revision` beside `version` (see the release notes, *For scripts*). So `verify --outputs` fails on the outputs of 3.x, with `error: [out_json] The JSON export does not match the design.` beside the tool version of `system/provenance.json` ([section 4](#4-what-changed-in-the-folder)), until you export them with 4.0.0; `migrate` says so after the upgrade, as in [section 3](#3-upgrade-on-the-command-line). A project without rows writes every other file as 3.x wrote it.
+- **The backup** is the folder `.migration-backup-v3/`, with the record `MIGRATION.json`.
+- **Older versions.** After the upgrade, versions 3.x open the project read-only: `generate` and `export` say `error: this project is read-only (saved by a newer tool version).` with exit code 2, and `validate` says `WARNING newer_version: This project was saved by a newer version of the tool (format 4; this tool understands up to 3). It is opened read-only. [project.json]`. Once a part or a connector has rows, 3.0.0 also sets each of them aside as a damaged file (*row_layout: Extra inputs are not permitted*) and refuses `generate` and `export` for it. So the whole team upgrades together.
+- **Git branches.** Upgrade on the main branch first, then bring the other branches up to date before they merge, so that nobody on a format 3 branch edits a project that format 3 cannot hold. The files of a format 3 branch are valid in format 4 (no key was renamed), so a merge needs no rewrite.
+- **Go back** with Git to the commit before the upgrade. Without Git, copy the files of `.migration-backup-v3/` back into the project folder. The project is then in format 3, and 3.x can edit it; rows entered after the upgrade are lost with it.
 
 Next: [Use Git and CI](use-git-and-ci.md), [Override a value and keep a history](override-and-keep-a-history.md) (the change journal), [`TROUBLESHOOTING.md`](../TROUBLESHOOTING.md#this-project-is-in-format-1-older-than-this-tool-writes-format-2-so-nothing-was-saved)
