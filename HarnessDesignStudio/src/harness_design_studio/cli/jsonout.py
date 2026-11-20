@@ -77,7 +77,7 @@ SHAPES: dict[str, tuple[str, ...]] = {
     ),
     "import-pinout": (
         "ok", "dry_run", "changed", "connectors", "pins", "rows", "warnings", "unmatched_signals",
-        "ports", "import",
+        "ports", "row_layouts", "import",
     ),
     "import-devices": ("ok", "dry_run", "changed", "rows", "notes", "import"),
     "import-devices --list": ("ok", "devices"),
@@ -101,6 +101,11 @@ SHAPES: dict[str, tuple[str, ...]] = {
     # version, release and title
     "document": (
         "ok", "changed", "harness", "system", "title", "company", "contact", "plans",
+    ),
+    # the row layout of a part or a connector (4.0.0): rows, rings, where they come from (own,
+    # part, mated, none) and the part or connector that is, the short text form
+    "pin-rows": (
+        "ok", "changed", "object", "kind", "rows", "rings", "source", "source_id", "text",
     ),
     # `notes`: the notes of the design of 3.0.0 section 5.3 (a pinout change, a major version)
     "review": ("ok", "action", "by", "notes", "blockers", "outputs"),

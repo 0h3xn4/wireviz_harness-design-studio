@@ -27,6 +27,7 @@ from harness_design_studio.cli import (
     library,
     merge,
     open_data,
+    pin_rows_cmd,
     settings_cmd,
     start,
 )
@@ -157,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
     settings_cmd.register(sub)
     changes.register(sub)
     document_cmd.register(sub)
+    pin_rows_cmd.register(sub)
     data.register(sub)
     library.register(sub)
     asbuilt_cmd.register(sub)
@@ -580,7 +582,7 @@ NOTHING_DONE = {
     "workflow": "listed", "asbuilt": "reported", "import-asbuilt": "imported",
     "export-asbuilt": "exported",
     "libraries": "listed or changed", "add-device": "added", "update-device": "compared or changed",
-    "save-device": "saved", "document": "shown or changed",
+    "save-device": "saved", "document": "shown or changed", "pin-rows": "shown or changed",
 }  # fmt: skip
 
 MUTATING = {
@@ -598,6 +600,7 @@ def _project_lock(args: argparse.Namespace) -> Iterator[None]:
         args.command in MUTATING
         or (args.command in journal_cmd.COMMANDS and journal_cmd.mutates(args))
         or (args.command in document_cmd.COMMANDS and document_cmd.mutates(args))
+        or (args.command in pin_rows_cmd.COMMANDS and pin_rows_cmd.mutates(args))
         or (args.command in asbuilt_cmd.COMMANDS and asbuilt_cmd.mutates(args))
         or (args.command in library.COMMANDS and library.mutates(args))
         or (
@@ -681,6 +684,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return changes.run(args)
     if args.command in document_cmd.COMMANDS:
         return document_cmd.run(args)
+    if args.command in pin_rows_cmd.COMMANDS:
+        return pin_rows_cmd.run(args)
     if args.command in asbuilt_cmd.COMMANDS:
         return asbuilt_cmd.run(args)
     if args.command in extensions_cmd.COMMANDS:

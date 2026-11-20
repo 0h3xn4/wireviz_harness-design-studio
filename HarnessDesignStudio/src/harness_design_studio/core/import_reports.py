@@ -157,6 +157,9 @@ def pinout_report(
             row=w.row, field="direction", read=w.word, unit=DIRECTION_UNIT, stored=NOT_SET,
             item=f"{w.connector} pin {w.pin}",
         )  # fmt: skip
+    if plan.row_layouts:  # the Pin row column gave connectors rows of their own (4.0.0)
+        report.notes.append(f"Row layouts set: {', '.join(plan.row_layouts)}.")
+    report.notes += plan.row_notes
     return report
 
 
