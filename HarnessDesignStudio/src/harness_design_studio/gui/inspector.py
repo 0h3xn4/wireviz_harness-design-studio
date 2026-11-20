@@ -65,6 +65,7 @@ from harness_design_studio.gui.icons import icon_button
 from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
 from harness_design_studio.gui.panels import PropertiesPanel, heading, muted
 from harness_design_studio.gui.routing_panel import branch_segments, length_text
+from harness_design_studio.gui.row_layout_dialog import part_rows_words, rows_words
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
@@ -240,6 +241,8 @@ def _part_facts(p: Project, oid: str) -> list[dict[str, Any]]:
     ]
     if part.category == "contact":
         rows.append(_fact(strings.INS_FACT_TOOL, part.tool or ""))
+    if part.category == "connector":  # its pin rows (format 4, design of 4.0.0 section 9)
+        rows.append(_fact(strings.INS_ROWS, part_rows_words(p, oid), tip=strings.INS_ROWS_TIP_PART))
     if part.category == "wire" and part.conductors > 1:
         rows.append(_fact(strings.INS_FACT_CONDUCTORS, str(part.conductors)))
     if part.unverified:
@@ -332,6 +335,9 @@ def _cable_end_facts(p: Project, oid: str) -> list[dict[str, Any]]:
         where = f"{box.unit_id} {box.name} ({box.id})" if box is not None else strings.INS_END_FREE
         rows.append(_fact(strings.INS_FACT_PART, c.part_id))
         rows.append(_fact(strings.INS_FACT_PLUGGED, where))
+    # the rows it takes, read-only: a cable connector has none of its own (design of 4.0.0
+    # sections 3 and 9)
+    rows.append(_fact(strings.INS_ROWS, rows_words(p, c), tip=strings.INS_ROWS_TIP_CABLE))
     return rows
 
 
@@ -451,6 +457,7 @@ class Inspector(QWidget):
     showRequested = Signal(str, str)
     plugRequested = Signal(str)  # a cable end: "Plug into…" was pressed (the window asks where)
     libraryReviewRequested = Signal(str)  # a device: *Review…* of its library chip (D-240)
+    rowsRequested = Signal(str, str)  # a connector part: *Edit rows…* ("part", ID; format 4)
 
     def __init__(
         self,
@@ -555,6 +562,10 @@ class Inspector(QWidget):
         self.link_box = PartLinkBox(ctl, theme)  # a part: its web link (3.0.0)
         self.link_box.setVisible(False)
         facts_lay.addWidget(self.link_box)
+        self.rows_box = PartRowsBox(ctl, theme)  # a connector part: its pin rows (4.0.0)
+        self.rows_box.rowsRequested.connect(lambda pid: self.rowsRequested.emit("part", pid))
+        self.rows_box.setVisible(False)
+        facts_lay.addWidget(self.rows_box)
         self.stack.addWidget(facts_page)
         page_lay.addWidget(self.stack, 1)
         self.used_box = QWidget()
@@ -787,6 +798,9 @@ class Inspector(QWidget):
         if kind == "part":
             self.link_box.show_part(oid, reload=reload)
         part = self.ctl.project.parts.get(oid) if kind == "part" else None
+        self.rows_box.setVisible(part is not None and part.category == "connector")
+        if part is not None and part.category == "connector":
+            self.rows_box.show_part(oid)
         show = part is not None and part.category == "contact"
         self.tool_box.setVisible(show)
         if not show or part is None:
@@ -1226,6 +1240,46 @@ class PartLinkBox(QWidget):
         part = self.ctl.project.parts.get(self.part_id)
         link = part.link if part is not None else None
         return weblinks.copy_web_link(link, self.copier)
+
+
+class PartRowsBox(QWidget):
+    """The pin rows of a connector part (format 4, design of 4.0.0 section 9): the rows in the
+    text form and *Edit rows…*, which asks the window for the dialog *Pin rows of part …*; every
+    connector of the part without rows of its own takes them."""
+
+    rowsRequested = Signal(str)
+
+    def __init__(self, ctl: EditorController, theme: ThemeManager) -> None:
+        super().__init__()
+        self.ctl = ctl
+        self.setObjectName("part-rows-box")
+        self.part_id = ""
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
+        lay.setSpacing(theme.space(4))
+        title = QLabel(strings.INS_ROWS)
+        title.setProperty("heading", True)
+        lay.addWidget(title)
+        self.text = QLabel()
+        self.text.setObjectName("part-rows-text")
+        self.text.setWordWrap(True)
+        self.text.setToolTip(strings.INS_ROWS_TIP_PART)
+        mark_mono(self.text)
+        self.edit_btn = QPushButton(strings.DV_ROWS_EDIT)
+        self.edit_btn.setObjectName("part-rows-edit")
+        self.edit_btn.setAccessibleName(strings.DV_ROWS_EDIT)
+        row = QHBoxLayout()
+        row.addWidget(self.text, 1)
+        row.addWidget(self.edit_btn)
+        lay.addLayout(row)
+        self.edit_btn.clicked.connect(lambda: self.rowsRequested.emit(self.part_id))
+
+    def show_part(self, part_id: str) -> None:
+        self.part_id = part_id
+        self.text.setText(part_rows_words(self.ctl.project, part_id))
+        ro = self.ctl.read_only
+        self.edit_btn.setEnabled(not ro)
+        self.edit_btn.setToolTip(strings.WHY_READ_ONLY if ro else strings.INS_ROWS_EDIT_TIP)
 
 
 def _alive(widget: QWidget, root: QWidget) -> bool:

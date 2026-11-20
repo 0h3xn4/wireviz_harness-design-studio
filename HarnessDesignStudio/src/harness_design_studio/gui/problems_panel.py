@@ -10,6 +10,14 @@ Columns: severity (icon and word), rule ID, object and message. Click a row to g
 The list is a plain model/view table, so a project with thousands of findings stays fast; it is
 filled when the panel is shown and refreshed (debounced) while it is open. It reads
 `ctl.open_findings()`; the window decides where it sits.
+
+The checks of the row layouts (format 4, design of 4.0.0 sections 4.3 and 9): the two warnings
+`row_layout_pin_missing` and `row_layout_mate_differs` are findings of the rule
+model-inconsistent; the note `row_layout_pins_outside` is no finding of a rule, so the list adds
+it from `ctl.layout_notes()` as a row of severity Info (the count says it too). A click on any of
+them goes to the connector (`connectorRequested`: the Devices tab for a device connector, the
+Inspector for a cable connector); the row menu has *Edit the pin rows of …* (`rowsRequested`), for
+the object whose rows the connector takes (`rows_target`).
 """
 
 from collections.abc import Mapping
@@ -29,8 +37,10 @@ from PySide6.QtWidgets import (
 
 from harness_design_studio.core.branching import PlugFix, plug_fix
 from harness_design_studio.core.checks import Finding
+from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.model.physical import TBD_PART_ID
+from harness_design_studio.core.row_layout import layout_of
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.controller import EditorController
 from harness_design_studio.gui.tables import Column, DictTableModel, TableView
@@ -84,6 +94,53 @@ def branch_fix(project: Project, f: Finding) -> PlugFix | None:
     return plug_fix(project, f.object_id)
 
 
+ROW_LAYOUT_CODES: Final = (
+    "row_layout_pin_missing", "row_layout_pins_outside", "row_layout_mate_differs",
+)  # fmt: skip
+
+
+def row_layout_code(f: Finding) -> str | None:
+    """The check of the row layouts a finding comes from (the warnings are reported through the
+    rule model-inconsistent, whose finding ID carries the code), or None."""
+    if f.rule != "model-inconsistent":
+        return None
+    return next((code for code in ROW_LAYOUT_CODES if f".{code}." in f.id), None)
+
+
+def rows_target(project: Project, object_id: str) -> tuple[str, str] | None:
+    """Where the rows of the object of a row layout check are edited: a part as itself, a device
+    connector as itself (its own rows, or the dialog that starts from its part's), a cable
+    connector at the part or device connector it takes its rows from. None when there is none."""
+    if object_id in project.parts:
+        return "part", object_id
+    box = project.connectors.get(object_id)
+    if box is not None and box.unit_id is not None:
+        return "connector", object_id
+    for h in project.harnesses.values():
+        for c in h.connectors:
+            if c.id == object_id:
+                rows = layout_of(project, c)
+                if rows is None:
+                    return None
+                return ("part" if rows.source == "part" else "connector"), rows.source_id
+    return None
+
+
+def note_row(issue: Issue) -> dict[str, Any]:
+    """A row for a note of the check of the row layouts (not a finding of a rule)."""
+    return {
+        "severity": (_ORDER["info"], strings.CHECKS_SEVERITY["info"]),
+        "state": "info",
+        "rule": issue.code,
+        "object": issue.object_id or strings.CHECKS_WHOLE_DESIGN,
+        "message": issue.message,
+        "why": strings.PROBLEMS_ROWS_NOTE_WHY,
+        "object_id": issue.object_id,
+        "level": "info",
+        "rows": True,
+    }
+
+
 def problem_row(f: Finding) -> dict[str, Any]:
     word = strings.CHECKS_SEVERITY.get(f.severity, f.severity)
     order = _ORDER.get(f.severity, 3)
@@ -104,6 +161,8 @@ class ProblemsList(QWidget):
     detailsRequested = Signal(str)  # the same, for its problems as cards in the inspector
     joinRequested = Signal(str)  # a device connector: join the harnesses that plug into it
     segmentationRequested = Signal()  # open Settings at the segmentation choice
+    connectorRequested = Signal(str)  # a row layout check: go to the connector (or part) it names
+    rowsRequested = Signal(str, str)  # ("part" | "connector", ID): edit the pin rows there
 
     def __init__(
         self, ctl: EditorController, theme: ThemeManager, parent: QWidget | None = None
@@ -185,11 +244,18 @@ class ProblemsList(QWidget):
         for f in found:
             row = problem_row(f)
             row["fix"] = branch_fix(project, f)
+            if row_layout_code(f) is not None:
+                row["rows"] = True
             rows.append(row)
+        notes = self.ctl.layout_notes()
+        rows += [note_row(n) for n in sorted(notes, key=lambda n: (n.object_id or "", n.message))]
+        for row in rows:
+            if row.get("rows") and row.get("object_id"):
+                row["rows_fix"] = rows_target(project, str(row["object_id"]))
         self.model.update_rows(rows)
         self.filters["links"].setVisible(bool(self.ctl.project.links) or self._level == "links")
-        self.empty.setVisible(not found)
-        self.table.setVisible(bool(found))
+        self.empty.setVisible(not rows)
+        self.table.setVisible(bool(rows))
         self._apply_filter()
 
     def _show_count(self) -> None:
@@ -261,6 +327,16 @@ class ProblemsList(QWidget):
         menu.addAction(strings.PROBLEMS_DETAILS, lambda: self._details(index))
         row = self.model.row(self.table.proxy.mapToSource(index).row())
         fix = row.get("fix") if isinstance(row, Mapping) else None
+        rows_fix = row.get("rows_fix") if isinstance(row, Mapping) else None
+        if isinstance(rows_fix, tuple):
+            menu.addSeparator()
+            kind, ident = rows_fix
+            act = menu.addAction(
+                strings.PROBLEMS_EDIT_ROWS.format(ident),
+                lambda: self.rowsRequested.emit(kind, ident),
+            )
+            act.setObjectName("problems-fix-rows")
+            act.setEnabled(not self.ctl.read_only)
         if isinstance(fix, PlugFix):
             menu.addSeparator()
             if fix.kind == "join":
@@ -278,5 +354,7 @@ class ProblemsList(QWidget):
         source = self.table.proxy.mapToSource(index)
         row = self.model.row(source.row())  # (a dict: this table is built from dicts)
         target = row.get("object_id", "") if isinstance(row, Mapping) else ""
-        if target:
+        if target and isinstance(row, Mapping) and row.get("rows"):
+            self.connectorRequested.emit(str(target))  # (Show goes to the connector, section 9)
+        elif target:
             self.showRequested.emit(str(target))

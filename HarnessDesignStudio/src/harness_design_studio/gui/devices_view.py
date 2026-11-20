@@ -16,6 +16,9 @@ exported, and the notes the pin checks give. Plugged into the window as the sixt
   the interface type of the pin's signal and are empty, with the reason as tooltip, when nothing
   can be said: nothing is guessed. Port is the complete named port of a fixed pinout the pin is in
   and the interface on it (`devices.pin_ports`, D-237): worked out, never stored or exported.
+* The pin rows (format 4, D-251), on the line of the pin table: the rows of the connector in the
+  short text form and where they come from (`row_layout_dialog.rows_words`), with *Edit rows…*
+  (`rowsRequested`); the pin table's column *Pin row* shows while the connector has a row layout.
 * Notes under the pin table (`core.devices.pinout_problems`) and "Pinout as exported": exactly
   the rows of `system/box_pinouts.csv` for this unit.
 * Every number and sentence comes from headless code in `core.devices`, and every change goes
@@ -29,7 +32,16 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QEvent,
+    QItemSelectionModel,
+    QModelIndex,
+    QObject,
+    QSettings,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -41,6 +53,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMenu,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
     QStackedWidget,
@@ -55,6 +68,7 @@ from harness_design_studio.core.links import effective_role
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.outputs import exports
 from harness_design_studio.core.outputs.stamp import Table, csv_bytes, stamp_of
+from harness_design_studio.core.row_layout import PinRows, layout_of
 from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.gui import strings, weblinks
 from harness_design_studio.gui.controller import EditorController
@@ -69,6 +83,8 @@ from harness_design_studio.gui.harness_view import REFRESH_DELAY_MS
 from harness_design_studio.gui.icons import icon_button, tooltip_text
 from harness_design_studio.gui.library_review import LibraryChip, LinkLookup
 from harness_design_studio.gui.lists_panel import table_columns
+from harness_design_studio.gui.row_layout_dialog import rows_words
+from harness_design_studio.gui.shell import ElidedLabel
 from harness_design_studio.gui.states import StateChip
 from harness_design_studio.gui.tables import Column, DictTableModel, Row, TableView, natural_key
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
@@ -186,6 +202,9 @@ def _field(row: Row, key: str) -> Any:
 
 PIN_COLUMNS = [
     Column("pin", strings.DV_COL_PIN, mono=True, width=56),
+    # the row of the pin on the face (format 4, design of 4.0.0 section 9): shown only while the
+    # connector has a row layout, as the Pin row column of box_pinouts.csv
+    Column("pin_row", strings.DV_COL_PIN_ROW, numeric=True, tooltip=lambda _r: strings.DV_COL_PIN_ROW_TIP, width=64),
     Column("signal", strings.DV_COL_SIGNAL, mono=True, width=104),
     # the port next to the signal it is read from: at 1440 x 900 the tab scrolls sideways, and a
     # column further right was out of view (2.1.1); wide enough for "RS422_1 (IF-001)"
@@ -256,6 +275,7 @@ class DevicesView(QWidget):
     deviceChanged = Signal(str)
     connectorChanged = Signal(str)
     libraryReviewRequested = Signal(str)  # *Review…* of the library chip (D-240)
+    rowsRequested = Signal(str)  # *Edit rows…* of a connector's Pin rows (format 4, D-251)
 
     def __init__(
         self, ctl: EditorController, theme: ThemeManager, settings: QSettings | None = None
@@ -664,6 +684,7 @@ class DevicesView(QWidget):
         # where the pinout comes from (format 3, D-242, design of 3.0.0 section 4.1): the
         # document, its version and a web link to it, shown in the harness plan
         self.source_edits: dict[str, QLineEdit] = {}
+        source_box = QHBoxLayout()
         for k, (field, words, tip_text) in enumerate(
             (
                 ("source_doc", strings.DV_CARD_SOURCE, strings.DV_CARD_SOURCE_TIP),
@@ -679,8 +700,16 @@ class DevicesView(QWidget):
             edit.setPlaceholderText(strings.DV_CARD_NONE)
             edit.editingFinished.connect(partial(self._source_edited, field))
             self.source_edits[field] = edit
-            grid.addWidget(caption(words), k, 0, top)
-            if field == "source_link":
+            if field == "source_version":  # (on the line of Source, as Keying beside Gender:
+                source_box.addWidget(caption(words))  # the card stays short, 4.0.0)
+                source_box.addWidget(edit, 1)
+                continue
+            row = k if k == 5 else k - 1
+            grid.addWidget(caption(words), row, 0, top)
+            if field == "source_doc":
+                source_box.addWidget(edit, 2)
+                grid.addLayout(source_box, row, 1)
+            elif field == "source_link":
                 mark_mono(edit)
                 self.source_open = QPushButton()
                 self.source_open.setObjectName("devices-card-source-copy")
@@ -689,16 +718,32 @@ class DevicesView(QWidget):
                 link_box = QHBoxLayout()
                 link_box.addWidget(edit, 1)
                 link_box.addWidget(self.source_open)
-                grid.addLayout(link_box, k, 1)
-            else:
-                grid.addWidget(edit, k, 1)
+                grid.addLayout(link_box, row, 1)
         grid.setColumnStretch(1, 1)
         rl.addWidget(self.card)
 
         bar = QHBoxLayout()
-        self.pins_caption = self._caption(strings.DV_PINS)
+        self.pins_caption = ElidedLabel(strings.DV_PINS)  # (cut, not wider, as the rows' text)
+        self.pins_caption.setProperty("heading", True)
+        self.pins_caption.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.pins_caption.setMinimumWidth(1)  # (its whole text while there is room, cut after)
         bar.addWidget(self.pins_caption)
-        bar.addStretch(1)
+        # the pin rows of the connector and where they come from (format 4, design of 4.0.0
+        # section 9), on the line of the pin table so that the card does not grow: cut when the
+        # window is narrow (the whole text is the tooltip); Edit rows… opens the dialog
+        self.rows_text = ElidedLabel()
+        self.rows_text.setObjectName("devices-pin-rows")
+        self.rows_text.setAccessibleName(strings.DV_CARD_ROWS)
+        self.rows_text.setProperty("muted", True)
+        bar.addWidget(self.rows_text, 1)
+        self.rows_btn = QPushButton()
+        self.rows_btn.setObjectName("devices-pin-rows-edit")
+        icon_button(
+            self.rows_btn, "list", theme, strings.DV_ROWS_EDIT_TIP, text=strings.DV_ROWS_EDIT
+        )
+        self.rows_btn.clicked.connect(self._edit_rows)
+        bar.addWidget(self.rows_btn)
+        self.pin_bar = right  # (a narrow pane shows Edit rows… as its icon: `_fit_pin_bar`)
         self.pin_buttons: dict[str, QPushButton] = {}
         for key, icon_name, text, tip, shortcut, slot in (
             ("add", "plus", strings.DV_ADD_PIN, strings.DV_ADD_PIN_TIP, "Insert", self._insert_pin),
@@ -730,10 +775,15 @@ class DevicesView(QWidget):
         bar.addWidget(self.pin_filter)
         bar.addWidget(self.contact_btn)
         rl.addLayout(bar)
+        self._bar_layout = bar
+        # the least the button takes is its icon (the pane can be made that narrow: the text then
+        # goes, the tooltip and the accessible name stay)
+        self.rows_btn.setMinimumWidth(theme.px(36))
+        right.installEventFilter(self)
         self.pin_model = PinModel(PIN_COLUMNS, (), self.theme)
         self.pin_table = PinTable(
             self.pin_model, self.theme, name=strings.DV_PINS, settings=self.settings,
-            key="devices-pins-3",  # a column was added in 3.0.0 (Level): widths saved before do not fit
+            key="devices-pins-4",  # a column was added in 4.0.0 (Pin row): widths saved before do not fit
         )  # fmt: skip
         self.pin_table.setObjectName("devices-pin-table")
         self.pin_table.setItemDelegate(
@@ -767,9 +817,17 @@ class DevicesView(QWidget):
         self.pin_count = QLabel()
         self.pin_count.setObjectName("devices-pin-count")
         self.pin_count.setProperty("muted", True)
-        rl.addWidget(self.pin_count)
-
-        rl.addWidget(self._caption(strings.DV_NOTES))
+        self.note_label = QLabel()
+        self.note_label.setObjectName("devices-note-label")
+        self.note_label.setProperty("muted", True)
+        # one line under the pin table: the count of the pins, the notes' caption and their count
+        # (4.0.0: two lines less, so that the pin table keeps its rows at 1440 x 900)
+        under = QHBoxLayout()
+        under.addWidget(self.pin_count)
+        under.addSpacing(theme.space(16))
+        under.addWidget(self._caption(strings.DV_NOTES))
+        under.addWidget(self.note_label, 1)
+        rl.addLayout(under)
         self.note_model = DictTableModel(NOTE_COLUMNS, (), self.theme)
         self.note_table = TableView(
             self.note_model, self.theme, name=strings.DV_NOTES, settings=self.settings,
@@ -780,10 +838,6 @@ class DevicesView(QWidget):
         self.note_table.setMaximumHeight(theme.px(96))
         self.note_table.activated.connect(self._note_activated)
         rl.addWidget(self.note_table)
-        self.note_label = QLabel()
-        self.note_label.setObjectName("devices-note-label")
-        self.note_label.setProperty("muted", True)
-        rl.addWidget(self.note_label)
         self.hsplit.addWidget(right)
 
         self.pin_filter.textChanged.connect(self.pin_table.proxy.set_text)
@@ -1216,6 +1270,7 @@ class DevicesView(QWidget):
                 self.label_edit,
                 *self.source_edits.values(),
                 self.source_open,
+                self.rows_btn,
             ):
                 w.setEnabled(False)
             for edit in self.source_edits.values():
@@ -1232,6 +1287,8 @@ class DevicesView(QWidget):
             self.label_edit.setText("")
             self.pin_count.setText("")
             self.note_label.setText("")
+            self.rows_text.set_full_text("")
+            self._show_pin_rows(None)
             return
         c = p.connectors[cid]
         part = p.parts.get(c.part_id)
@@ -1257,6 +1314,12 @@ class DevicesView(QWidget):
         for edit in self.source_edits.values():
             edit.setEnabled(not ro)
         self.source_open.setEnabled(bool(c.source_link))
+        words = strings.DV_ROWS_LINE.format(rows_words(p, c))
+        self.rows_text.set_full_text(words, f"{words}\n{strings.DV_CARD_ROWS_TIP}")
+        self.rows_btn.setEnabled(not ro)
+        self.rows_btn.setToolTip(strings.WHY_READ_ONLY if ro else strings.DV_ROWS_EDIT_TIP)
+        face = layout_of(p, c)
+        self._show_pin_rows(face)
         self.part_edit.setToolTip(frozen or strings.DV_CARD_PART_TIP)
         self.gender_edit.setToolTip(frozen or strings.DV_CARD_GENDER_TIP)
         self.keying_edit.setToolTip(frozen or strings.DV_CARD_KEYING_TIP)
@@ -1285,6 +1348,10 @@ class DevicesView(QWidget):
         roles = {x.id: (x.role, effective_role(x, p, c)) for x in c.pins}
         levels = {x.id: x.level or "" for x in c.pins}
         data = pin_rows_for_table(rows, problems, frozen, roles, devices.pin_ports(p, cid), levels)
+        if face is not None:
+            for row in data:
+                number = face.row_of(str(row["pin"]))
+                row["pin_row"] = "" if number is None else str(number)
         self._pin_index = {r.pin: k for k, r in enumerate(rows)}
         self.pins_caption.setText(strings.DV_PIN_TABLE.format(c.name))
         self.pin_table.setAccessibleName(strings.DV_PIN_TABLE.format(c.id))
@@ -1347,6 +1414,47 @@ class DevicesView(QWidget):
             if shown != total
             else strings.DV_PIN_COUNT_ALL.format(total)
         )
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802
+        if obj is self.pin_bar and event.type() == QEvent.Type.Resize:
+            self._fit_pin_bar()
+        return super().eventFilter(obj, event)
+
+    def _fit_pin_bar(self) -> None:
+        """*Edit rows…* with its text while the line of the pin table has room for every button
+        with its text, else as its icon (the text of the rows is cut first: `ElidedLabel`)."""
+        bar = self._bar_layout
+        need = 0
+        for k in range(bar.count()):
+            item = bar.itemAt(k)
+            w = item.widget() if item is not None else None
+            if w is None or w.isHidden():
+                continue
+            if w in (self.pins_caption, self.rows_text):
+                width = w.minimumSizeHint().width()
+            else:
+                width = self._rows_btn_full if w is self.rows_btn else w.sizeHint().width()
+            need += width + bar.spacing()
+        text = strings.DV_ROWS_EDIT if need <= self.pin_bar.width() else ""
+        if self.rows_btn.text() != text:
+            self.rows_btn.setText(text)
+            self.rows_btn.setProperty("iconOnly", not text)
+            self.rows_btn.style().unpolish(self.rows_btn)
+            self.rows_btn.style().polish(self.rows_btn)
+
+    @property
+    def _rows_btn_full(self) -> int:
+        """The width of *Edit rows…* with its text."""
+        fm = self.rows_btn.fontMetrics()
+        return self.rows_btn.iconSize().width() + fm.horizontalAdvance(strings.DV_ROWS_EDIT) + 32
+
+    def _show_pin_rows(self, face: PinRows | None) -> None:
+        """The Pin row column only while the connector shown has a row layout (section 9)."""
+        self.pin_table.setColumnHidden(self.pin_model.column_index("pin_row"), face is None)
+
+    def _edit_rows(self) -> None:
+        if self._cid is not None and not self.ctl.read_only:
+            self.rowsRequested.emit(self._cid)
 
     def _contact_toggled(self, on: bool) -> None:
         for key in CONTACT_COLUMNS:

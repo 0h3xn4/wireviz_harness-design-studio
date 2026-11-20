@@ -4,7 +4,8 @@
 """Render screenshots of the real Qt editor (offscreen) into docs/ux/qt for the docs and the UX review.
 Files 01 to 13 show the built-in sample; 14 and up show the views and dialogs of the editor on the
 flatsat example, as the Electrical / AIT engineer (project tree, Harness, Lists, Checks, Releases, engineering values, export, import
-wizard, release dialog, new project, stale banner, and the two Settings sections of the harness plans). Usage: python -m tools.gui_screenshots"""
+wizard, release dialog, new project, stale banner, the two Settings sections of the harness plans, and the pin rows of a
+connector of 4.0.0: the Devices tab and the dialog). Usage: python -m tools.gui_screenshots"""
 
 import shutil
 import sys
@@ -127,6 +128,7 @@ def main() -> int:
     win.ctl.release()
     views()
     wizard_and_release()
+    pin_rows()
     return 0
 
 
@@ -342,6 +344,48 @@ def wizard_and_release() -> None:
 
     win.run_dialog = release  # type: ignore[assignment]
     win.change_flow("release", "W001")
+    _settle(win)
+    win.close()
+
+
+def pin_rows() -> None:
+    """Pictures 29 and 30 (4.0.0, the row layout of a connector): the Devices tab of a connector
+    whose part has rows (the row Pin rows and the column Pin row) and the dialog Pin rows of it.
+    The rows are an example of the form, not the face of a real Micro-D (the tool ships none)."""
+    from harness_design_studio.core.row_layout import parse_text
+
+    tmp = _work_folder("flatsat-rows")
+    root = examples_path()
+    assert root is not None
+    shutil.copytree(root / "projects" / "flatsat", tmp / "flatsat")
+    settings = QSettings(str(tmp / "ui.ini"), QSettings.Format.IniFormat)
+    win = MainWindow(settings, ThemeManager(), first_run=False)
+    win.ask_choice = lambda t, x, b: 1  # type: ignore[assignment]  # (close without saving)
+    win.set_role("electrical")
+    win.resize(1440, 900)
+    win.show()
+    assert win.open_project(tmp / "flatsat")
+    cid = "MTQ1-J01"
+    part = win.ctl.project.connectors[cid].part_id
+    assert win.ctl.set_row_layout(parse_text("1–5 / 6–9"), part=part)
+    _settle(win)
+    win.dock_left.hide()  # (the tab needs the width: the card and the pin table side by side)
+    win.dock_right.hide()
+    win.go_to("devices")
+    win.devices_view.select_connector(cid)
+    _settle(win)
+    _grab(win, "29-devices-pin-rows")
+
+    def rows_dialog(d: QDialog) -> int:
+        d.show()
+        d.rows_edit.setPlainText("1–5\n6–9 10")  # type: ignore[attr-defined]  # (a mistake shown)
+        _wait(300)
+        _grab(win, "30-pin-rows-dialog", d)
+        return 0
+
+    win.run_dialog = rows_dialog  # type: ignore[assignment]
+    win.pin_rows_flow("connector", cid)
+    win.ctl.undo()
     _settle(win)
     win.close()
 

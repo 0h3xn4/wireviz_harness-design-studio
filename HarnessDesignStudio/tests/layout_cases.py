@@ -172,6 +172,26 @@ def _cases() -> list[Case]:
 
     add("Add from library file", lib_dialog, "LibraryDialog")
 
+    # ---- gui/row_layout_dialog.py (4.0.0: the pin rows of a connector or of a part)
+    def pin_rows(c: Ctx) -> QWidget:
+        from harness_design_studio.gui.row_layout_dialog import PinRowsDialog
+
+        cid, _pins = _connector_with_pins(c)
+        dlg = PinRowsDialog(None, c.theme, c.project, connector=cid)
+        dlg.rows_edit.setPlainText("1 2 3\n4 5 999")  # (a mistake: the line under the fields)
+        return dlg
+
+    def part_rows(c: Ctx) -> QWidget:
+        from harness_design_studio.gui.row_layout_dialog import PinRowsDialog
+
+        cid, _pins = _connector_with_pins(c)
+        dlg = PinRowsDialog(None, c.theme, c.project, part=c.project.connectors[cid].part_id)
+        dlg.rows_edit.setPlainText("1–5\n6–8 A1")  # (the connectors that lack a pin, named)
+        return dlg
+
+    add("Pin rows of a connector", pin_rows, "PinRowsDialog")
+    add("Pin rows of a part", part_rows, "PinRowsDialog")
+
     # ---- the connection windows (gui/link_dialog.py)
     add(
         "Link connectors",
