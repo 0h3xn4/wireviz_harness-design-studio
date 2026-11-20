@@ -69,7 +69,7 @@ from .verify_labels import (
     _wire_label_texts,
 )
 from .verify_plan import face_rows, plan_stamp, row_numbers, verify_plans
-from .verify_production import _HEADER as _PRODUCTION_HEADER
+from .verify_production import HEADER as _PRODUCTION_HEADER
 from .verify_production import _length_lines, production_rows
 
 # A loose cable end, worded independently of tables.py, drawing.py and buildsheet.py (D-201).

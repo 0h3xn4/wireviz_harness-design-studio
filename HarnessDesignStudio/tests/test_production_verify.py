@@ -107,7 +107,7 @@ def test_the_verifier_s_copy_takes_its_labels_from_verify_labels() -> None:
 
 
 def test_the_verifier_s_words_are_the_core_s() -> None:
-    assert vp._HEADER == pr.HEADER
+    assert vp.HEADER == pr.HEADER
     assert (vp._NO_WIRE, vp._SPARE, vp._UNPLUGGED, vp._ACROSS) == (
         pr.NO_WIRE, pr.SPARE, pr.NOT_PLUGGED, pr.NOT_DEFINED,
     )  # fmt: skip
