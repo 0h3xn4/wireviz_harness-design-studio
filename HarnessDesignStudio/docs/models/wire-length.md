@@ -10,6 +10,7 @@ This page explains the length the tool gives a wire: the number in the wire list
 - [The assumptions it rests on](#the-assumptions-it-rests-on)
 - [A worked example](#a-worked-example)
 - [Three ways a length can be there](#three-ways-a-length-can-be-there)
+- [What the written files say](#what-the-written-files-say)
 - [Segments and branch points](#segments-and-branch-points)
 - [What happens when a value is missing](#what-happens-when-a-value-is-missing)
 - [What the model does not do](#what-the-model-does-not-do)
@@ -56,6 +57,25 @@ The derivation says which one applies, so a number in the cut list is never of u
 3. **Stored on the wire, origin not recorded.** A length that does not equal the path plus two service loops and is not locked: it was imported, or the segments or the service loop changed since generation. Generate again, or lock the length on purpose, to make the origin clear.
 
 A wire with no length of its own is measured from the segments alone, without service loops, until Generate gives it one.
+
+## What the written files say
+
+Since 4.1.0 every length of a document says what it is measured from. The build workbook heads its lengths **Length (m), rear to rear** (*Cut list* and *Production*) and **Length (m), rear or branch centre** (*Routing*, whose rows are segments); the harness plan heads them **Length [mm] rear to rear**. The words come from the settings of the project, with its own numbers. On `flatsat` they read:
+
+> Lengths run from the rear of a connector, where the wires leave its body or backshell. They follow the routing segments through the centre of each branch point to the rear of the other connector. A wire Generate made adds 2 service loops of 0.1 m. "Locked" is a length a person typed; "segments only" has no service loops.
+
+Without `service_loop_m` the third sentence says that a wire Generate made adds no service loop and names the setting; under the length model `path_loops_allowance_twist` it also names the take-up of twisting and the cut allowance. The build workbook prints the four sentences in the row **Lengths** of *Start here* and in the last rows of *Cut list*, *Routing* and *Production*; the plan in `H9` of its harness sheet and in row 2 of its *Production* sheet.
+
+The column **Length from** of the *Production* sheet answers the first question at the bench, whether this is the length to cut:
+
+| Value | When |
+| --- | --- |
+| `on the wire` | The wire has a length of its own and is not locked: the length Generate gave it, or an imported one (`explain` tells which). |
+| `locked` | The wire has a length of its own and is locked. |
+| `segments only, no service loops` | The wire has no length of its own and the segments give one path: the length has no service loops (see above). |
+| (empty) | No length: the cell reads `to fill in`. |
+
+The CSV files (`wirelist.csv`, `segments.csv`, `mass_length.csv`), the tables workbook `<ID>.xlsx`, `system/export.json` and the drawings keep their headings, because scripts read them; their lengths are measured the same way ([outputs](../OUTPUTS.md#tables)).
 
 ## Segments and branch points
 
