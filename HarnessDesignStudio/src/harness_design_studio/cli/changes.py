@@ -235,8 +235,6 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         if rep.as_json:
             keys = ["entry", "harness", "version", "event", "by", "date", "comment"]
             entries = [dict(zip(keys, r, strict=True)) for r in rows[1:]]
-            for entry in entries:  # the older name of `version`, through 3.0.x (D-242, Q29)
-                entry["revision"] = entry["version"]
             rep.put(harness=args.harness, entries=entries)
         return 0
     if cmd == "diff":

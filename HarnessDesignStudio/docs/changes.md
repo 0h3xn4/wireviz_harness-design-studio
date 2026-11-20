@@ -25,6 +25,14 @@ When a test fails, it names what moved: the wire, the finding or the file. Renew
 
 ## Entries
 
+### 2026-11-19: the older name `revision` dropped from `system/export.json` (4.0.0, D-251, owner answer L4; both stored files written again)
+
+- **Before.** Each harness of `system/export.json` had `version` and, through 3.0.x, `revision` beside it with the same value (D-242, Q29); the file had `format_version` 1.
+- **After.** Each harness has `version` only, and `format_version` is 2 (design of 4.0.0 section 11). `log --json` and the expression field `harness.revision` lose the older name at the same time; they are not written files.
+- **The numbers.** No gauge, length, part, colour, lock or finding moves, and no other file: a script compared `export.json` of the four examples written before and after, and they are equal once `revision` is taken out of each harness (45 harnesses) and `format_version` 1 is read as 2. `tests/test_format3.py` compares the files of 2.x with those of this version with one more step, the older name dropped (`tests/format3_support.drop_older_name`).
+- **What moves.** Only `system/export.json`: 4 entries of `docs/ui/OUTPUT_HASHES_BASELINE.json` (one per example), 11 entries of `tests/fixtures/numbers/snapshot.json` (one per scenario), and in `tests/fixtures/outputs/` the digest of the file in `mini3.json`, `sat15.json`, `sat15_full.json`, `loose_ends.json`, `splices.json` and `row_layout.json` and the text goldens `mini3/system/export.json` and `row_layout/system/export.json`.
+- **Renewed with the tools, not by hand.** `python -m tools.output_hashes --write docs/ui/OUTPUT_HASHES_BASELINE.json` (`BASE_VERSION` stays 2.4.0), `python -m tools.numbers_snapshot --write tests/fixtures/numbers/snapshot.json` and `python -m tools.gen_output_goldens`.
+
 ### 2026-11-18: format 3, the versions and the word *Version* (3.0.0, D-242; both stored files written again)
 
 - **Before.** A harness had a revision letter (`A`); the drawings said *REVISION* `A` and `Revision A  status draft`, *Start here* `Revision A · status …`, the change log the heading *Revision* and *new revision started*, the report was `system/revision_report.md`, and `system/export.json` had `"revision": "A"`.

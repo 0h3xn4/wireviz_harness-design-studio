@@ -208,7 +208,7 @@ def test_the_gauge_stays_the_plain_awg_number_and_existing_fields_do_not_move(
     wire = doc["harnesses"][0]["wires"][0]
     assert isinstance(wire["gauge_awg"], int)
     assert doc["field_units"]["harnesses[].wires[].gauge_awg"] == "AWG"
-    assert doc["format_version"] == 1  # additive: a reader of version 1 still reads the file
+    assert doc["format_version"] == 2  # field_units was additive; 2 dropped `revision` (4.0.0)
     assert "units" in doc and isinstance(doc["units"], list)  # the devices keep the name `units`
     assert "field_units" in doc and isinstance(doc["field_units"], dict)
     without = {k: v for k, v in doc.items() if k != "field_units"}

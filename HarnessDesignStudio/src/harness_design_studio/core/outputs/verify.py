@@ -62,6 +62,7 @@ _OPEN_TEST = "test when the end is decided"
 _VIA = "Via"
 _SPLICE_ISOLATION = "all other nets and shields"
 _SPLICE_BLOCK = "Splices: each node joins the wires listed on it"
+_JSON_VERSION = 2  # `format_version` of system/export.json since 4.0.0 (D-251, L4)
 
 
 def _open(c: Connector) -> bool:
@@ -1081,13 +1082,10 @@ def _system(r: VerifyReport, project: Project, files: dict[str, bytes]) -> None:
                 and ("links" in doc) == bool(project.links)
                 and sum(len(h["wires"]) for h in doc["harnesses"]) == len(wires)
                 and not missing_units(doc)  # a file from before 1.13 has no field_units: no demand
-                # `revision` is the older name of `version` through 3.0.x (D-242, Q29): the two
-                # must agree, then the harness without it is compared with the design
-                and all(h.get("revision") == h.get("version") for h in doc["harnesses"])
-                and {
-                    h["id"]: {k: v for k, v in h.items() if k != "revision"}
-                    for h in doc["harnesses"]
-                }
+                # 2 since 4.0.0 (D-251, L4): each harness as saved, without the older name of
+                # `version` that version 1 carried beside it in 3.0.x
+                and doc["format_version"] == _JSON_VERSION
+                and {h["id"]: h for h in doc["harnesses"]}
                 == {h.id: _saved_order(h) for h in project.harnesses.values()}
                 and all(
                     {o["id"]: o for o in doc[key]}

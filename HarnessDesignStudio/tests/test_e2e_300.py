@@ -10,7 +10,7 @@ gauge and length (`override`), exported, reviewed, released and given a new vers
 back as a 2.x tool wrote it (`tests/migration_support.as_format`: the key `revision` with the
 letters A and B, the kind `new_revision`, the baseline `W001.A`). Then `migrate --dry-run` and
 `migrate`, with each letter mapped to its version (A is 1.0.0, B is 2.0.0); `log --json` with
-`version` and `revision`; `diff --from A`; `new-version --kind minor` on the draft, which chooses the
+`version` (since 4.0.0 without the older name `revision`); `diff --from A`; `new-version --kind minor` on the draft, which chooses the
 kind again (2.0.0 becomes 1.1.0); a harness a person drew with a splice, the splice part from the
 template `splice-parts-EXAMPLE.csv` by `import-parts`; `export --harness-plan --drawings`, one plan
 per harness; `verify --outputs` with 0 errors; the plans read by the tests' own reader with every
@@ -125,9 +125,7 @@ def test_the_whole_path_of_3_0_0_end_to_end(
     code, out = run(capsys, "log", str(proj), "W001", "--json")
     assert code == 0, out
     entries = json.loads(out)["entries"]
-    assert [(e["version"], e["revision"]) for e in entries] == [
-        (e["version"], e["version"]) for e in entries
-    ]  # both keys through 3.0.x, with the same value
+    assert all("revision" not in e for e in entries)  # the older name went with 4.0.0 (L4)
     assert {e["version"] for e in entries} == {"1.0.0", "2.0.0"}
     out = ok(capsys, "diff", proj, "W001", "--from", "A")
     assert "A is read as version 1.0.0" in out
@@ -175,7 +173,7 @@ def test_the_whole_path_of_3_0_0_end_to_end(
     assert (outputs / "system" / "version_report.md").is_file()
     assert not (outputs / "system" / "revision_report.md").exists()
     export = json.loads((outputs / "system" / "export.json").read_bytes())
-    assert all(h["version"] == h["revision"] for h in export["harnesses"])
+    assert export["format_version"] == 2 and all("revision" not in h for h in export["harnesses"])
 
     # 7. a second export: byte-identical
     first = files(outputs)

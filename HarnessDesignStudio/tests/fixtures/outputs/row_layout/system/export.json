@@ -424,7 +424,7 @@
   "parts[].ratings.shield_insulated": "none (flag: 1 = yes, 0 = no)"
  },
  "format": "harness-design-studio-export",
- "format_version": 1,
+ "format_version": 2,
  "generator": {
   "name": "harness-design-studio",
   "version": "3.1.0"
@@ -526,7 +526,6 @@
    "name": "PCDU to RW1 power",
    "notes": "",
    "released_on": null,
-   "revision": "1.0.0",
    "segments": [],
    "shields": [],
    "splices": [],
@@ -697,7 +696,6 @@
    "name": "OBC-J01 to RW1-J02",
    "notes": "",
    "released_on": null,
-   "revision": "1.0.0",
    "segments": [
     {
      "from_node": "W002-P1",

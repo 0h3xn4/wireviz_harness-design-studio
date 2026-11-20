@@ -493,7 +493,6 @@ def test_change_control_commands(tmp_path: Path, capsys: pytest.CaptureFixture[s
         "entry",
         "harness",
         "version",
-        "revision",  # the older name of version, through 3.0.x (D-242, Q29)
         "event",
         "by",
         "date",

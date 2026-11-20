@@ -22,7 +22,8 @@ file `docs/ui/OUTPUT_HASHES_1.2.0.json` is the baseline of releases 1.2.0 to 1.9
 what those releases wrote; nothing compares with it any more. The baseline was written again for 3.0.0
 (D-242, design of 3.0.0 section 5.6: format 3, the versions MAJOR.MINOR.PATCH and the word *Version* in
 the written files); `docs/ui/OUTPUT_HASHES_2.x.json` is the baseline of 2.0.0 to 2.4.0, kept as the record
-of what 2.x wrote.
+of what 2.x wrote. It was written again for 4.0.0 (D-251, owner answer L4): `system/export.json` without the
+older name `revision` and with `format_version` 2.
 """
 
 import hashlib

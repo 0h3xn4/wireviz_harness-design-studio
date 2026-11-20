@@ -571,20 +571,16 @@ def test_an_export_is_the_same_before_and_after_a_round_trip_through_format_2(
 
 # ---- the word guard (section 5.6) ----------------------------------------------------------------------
 
-# The places that may still say *revision*: the key of `export.json` that Q29 keeps beside `version`
-# through 3.0.x, and the sentences that name the word of 2.x (the migration, the older names).
-EXPORT_KEY = b'"revision": '
+# The places that may still say *revision*: the sentences that name the word of 2.x (the migration
+# and its words). The key of `export.json` and of `log --json` and the expression field
+# `harness.revision`, which Q29 kept beside `version` through 3.0.x, went with 4.0.0 (answer L4).
 ALLOWED_SOURCE = {
     "core/io/migrate.py",  # the step from 2 to 3 reads the old key and names it
     "core/io/upgrade.py",  # its proof and its words: "revision B → version 2.0.0"
     "core/vcs/versions.py",  # the mapping of an old letter
     "core/journal.py",  # the reason of the migration entry names the mapping
     "core/generation_status.py",  # the title block field under its old name
-    "core/outputs/exports.py",  # OLD_VERSION_KEY (Q29)
-    "core/outputs/verify.py",  # checks that `revision` equals `version` in export.json
-    "core/extensions/fields.py",  # `harness.revision`, the older name (Q29)
     "cli/main.py",  # migrate --set-version and its words
-    "cli/changes.py",  # `revise`, the older name of new-version, and the log key of Q29
 }
 ALLOWED_HELP = (
     "harness revision",  # migrate --set-version: the old revision it maps
@@ -606,8 +602,6 @@ def _export_texts(project) -> dict[str, str]:
                 for n in z.namelist():
                     out[f"{rel}:{n}"] = z.read(n).decode("utf-8", "replace")
         else:
-            if rel.endswith("export.json"):
-                data = data.replace(EXPORT_KEY, b'"version_q29": ')
             out[rel] = data.decode("latin-1")
     return out
 
@@ -627,7 +621,7 @@ def test_no_written_file_says_revision(name: str, tmp_path: Path) -> None:
     found = sorted(rel for rel, text in texts.items() if "revision" in text.lower())
     assert found == [], found
     doc = json.loads(build_outputs_json(p))
-    assert all(h["version"] == h["revision"] for h in doc["harnesses"])  # Q29
+    assert doc["harnesses"] and all("version" in h for h in doc["harnesses"])
 
 
 def build_outputs_json(project) -> bytes:
