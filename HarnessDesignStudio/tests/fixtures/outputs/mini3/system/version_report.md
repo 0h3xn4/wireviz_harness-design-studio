@@ -1,5 +1,5 @@
-<!-- harness-design-studio 4.0.1 model 8e3a53948a79 -->
-> harness-design-studio 4.0.1. Provided as is, without warranty. Verify before use.
+<!-- harness-design-studio 4.1.0 model 3e5288f59330 -->
+> harness-design-studio 4.1.0. Provided as is, without warranty. Verify before use.
 
 # Version report: mini3 (example data)
 

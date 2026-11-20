@@ -115,3 +115,9 @@ The note on the publication of the minor release 2.3.0, moved word for word from
 The note on the publication of the major release 4.0.0, moved word for word from the first item of the Status section when the publication record of 4.0.1 was written, as the note on 3.1.0 was moved with the publication record of 4.0.0, so that `CLAUDE.md` stays under its size limit; that item still names 4.0.0 in the list of releases and says where this note is.
 
 The major release `4.0.0` (D-254; format 4 with a connector's row layout; format 4 frozen from its tag) was published on 2026-11-20 (annotated tag `v4.0.0` on `c0e0250`, the merge of #304; made by the tag workflow, run 44699479126, its thirteenth use; release workflow run 44699532086): the latest full release until 4.0.1 is tagged.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 4.1.0 (2026-11-20)
+
+The note on the publication of the patch release 2.3.1, moved word for word from the Status section to keep `CLAUDE.md` under its size limit when 4.1.0 was prepared; the Status section still names 2.3.1 in the list of releases and says where this note is.
+
+**Version `2.3.1` is published** (D-246; 2026-11-18, the latest full release until 2.4.0; no release candidate; tag `v2.3.1` on `764061f`, made by the tag workflow, run 44274980246, its eighth use): a patch release with the new logo (#269, which carries the draft #258; the owner's feedback of 2026-11-17 on Ubuntu's dark mode, the owner's consent of 2026-11-18): `gui/appicon.py`, `BRAND` in `gui/theme/tokens.py`, the SVGs, `tests/test_icon_contrast.py`; no format change, no change of behaviour.
