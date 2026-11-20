@@ -1,0 +1,126 @@
+# Plan for the feedback of an electrical engineer (November 2026)
+
+This page says what an electrical engineer said after a demo of the tool, what 4.0.0 does about each point today (checked in the code at the tag `v4.0.0`, commit `c0e0250`, and by running the command line on the `flatsat` and `minimal-satellite` examples), and a proposed order of work. It is a plan and a record, not a promise.
+
+**Status (2026-11-20).** Feedback received on 2026-11-20 from an electrical engineer. The investigation of what version 4.0.0 does today is done (below). There is no decision of the owner yet (section *Owner questions*). Nothing is built. One fault of 4.0.0 was found on the way (section *Found during the investigation*).
+
+## Who gave the feedback
+
+An electrical engineer who designs harnesses today with a harness plan template. They understood the demo (5 of 5). The most useful part for them is a library of the company's devices, ready to use and to link together. The outputs they would use are the harness production plan, the bill of materials and the test tables. Their top request is **production-ready output**: if the tool only says "this connects to that", the harness plan is still made by hand.
+
+## The feedback, grouped
+
+| # | Point | Theme |
+| --- | --- | --- |
+| L | A library of the company's devices, ready to use and link together (the most useful part) | E |
+| O | Outputs they would use: harness production plan, BOM, test tables | A |
+| 1 | How lengths are defined: connector face to connector face, connector backside to connector backside, or mixed | A |
+| 2 | Shielding and twisted pair definitions: RS422 pairs must be twisted; some analog signals need their own shield | B |
+| 3 | Solder joints and their positions: signal or power lines merged or split inside the harness (not enough single wires, or current limit rules) | B |
+| 4 | Links to InvenTree, which holds most procurement and stock data | E |
+| 5 | A label on each connector of a harness: `Harness Number:Device the connector connects to:Connector number on the device` | A |
+| 6 | The wire type of each pin-to-pin connection: several wire types in one harness | A |
+| 7 | Shielding and backshell: where the shield is connected and where not | A, B |
+| 8 | Signal levels and directions shown and checked: a VBUS-level signal must not meet a 3.3 V signal; two inputs must not be joined | B |
+| 9 | A review view: a checklist of what the reviewer checks, and quick links to all sources (pinouts, calculations …) | C |
+| 10 | Automatic signal recognition and connection: an OBC with 10+ interfaces on one connector, connected to TTC1 and TTC2; the TTC1 signals go to TTC1 and the TTC2 signals to TTC2, from the signal and device names | D |
+| 11 | Read the ICDs and their README files, not KiCad files; KiCad lacks critical data such as signal direction | E |
+| P | An output that is easy to print and read during production. A crisscross of wires on a printout is slow to build from. Which pin goes to which pin, with which wire type, which length, which label where, must be clear at a glance | A |
+| Ca | Concern: the effort to create the database and to check it ("validate") | E |
+| Cb | Concern: names that "somebody thought are right" do not fit general rules and need manual work afterwards | D |
+| Cc | Concern: if the output is only "this connects to that", the harness plan is still made by hand; the tool must make production-ready files | A |
+| S | The session was too slow for them (they know they are not the norm); they suggest focus groups per discipline (systems, electrical, AIT have different needs) | F |
+
+Themes: **A** production output, **B** electrical checks, **C** review, **D** names and automatic connection, **E** data sources and the library, **F** the demo.
+
+## What 4.0.0 does today, point by point
+
+| # | Today | Where | Note |
+| --- | --- | --- | --- |
+| L | exists | device library folder (2.2.0, D-240): `NAME.device.json`, `library.json`, `device-libraries.json`; Library window; `add-device`, `save-device`, `update-device`, `export-subsystem` | Devices with every connector and pin; an update shows a diff first. |
+| O | exists | `harnesses/<ID>/<ID>_plan.ods` (`export --harness-plan`, D-242), `bom.csv`, `tests.csv`, the build workbook `<ID>_build.xlsx` (D-169) | The plan is written only when asked for. |
+| 1 | partly | `core/generate/lengths.py`, `docs/models/wire-length.md`, `config/model.json` `length_model` | One built-in convention; no choice of reference; no output says which one. |
+| 2 | partly | `ShieldGroup` (`core/model/physical.py`), `InterfaceType.construction`, `shielding`, `SignalDef.pair`; `wires.plan_group_wires` | Generate twists and shields from the interface type; no rule finds a pair that is not twisted. |
+| 3 | partly | splices (format 3, `core/splices.py`, editor *Splices* list); rule `pin-shared` | Drawn harnesses only; no current per wire of a split. |
+| 4 | partly | `import-parts` reads an InvenTree export file (D-165); `Part.link` (format 3) | Offline by decision; no stock. |
+| 5 | partly | `labels.csv`, *Labels* sheet; `model.label_format` (`core/label_format.py`); plan header `[W001:MTQ1:MTQ1-J01]` | The plan header is nearly the asked form; the labels are not; non-standard label formats fail the export (below). |
+| 6 | exists | `Wire.part_id`; *Edit wire*; `override`; plan columns *Cable / Type* and *used Cable Types* | Several wire parts in one harness work (harness W002 of `flatsat`). |
+| 7 | partly | `ShieldGroup.end_a`/`end_b` (`backshell_360`, `pigtail`, `floating`); accessory of kind `backshell`; rules `shield-*` | Shield ends are in the drawings and `export.json` only, not on the production sheets; no pin for a pigtail. |
+| 8 | partly | `Pin.direction` (1.9.0), `Pin.level` (format 3); rules `direction-conflict`, `link-direction` | Directions are checked for interfaces and connections, not for wires drawn by hand; levels are never compared. |
+| 9 | partly | `review`/`release` and their dialog; Problems panel; `templates` → `design-review-checklist.md`; `explain`; plan *Link to ICD*, *Part link* | The parts exist; no single review view gathers them. |
+| 10 | partly | ports (2.1.0, D-237, `core/ports.py`); pairing by name (`links.propose_pairs`, `core/counterparts.py`) | Generate takes ports in name order, not by the far device's name. |
+| 11 | partly | `import-pinout` (CSV, XLSX; the plan's `CON_…` headings since 3.0.0); `import-netlist` (KiCad) | No reader for an ICD's README; the ICD format is not known yet. |
+| P | partly | build workbook (*Cut list*, *Connectors*, *Labels*, *Tests*); plan harness sheet; drawings (`export --drawings`) | No one sheet has pin, far pin, wire type, length and label in one row; the plan's harness sheet prints on one page. |
+| Ca | partly | `import-pinout`, `import-netlist`, library update with a diff, part approval, `Connector.source_doc`/`source_version` | No checked state on a device. |
+| Cb | partly | `config/naming.json` `signal_counterparts`; port separators `_ . -`; `Pin.direction` and `Pin.role` win over names | The person confirms every proposal; names are not otherwise mapped. |
+| Cc | partly | build workbook (*Start here*, *Ready to build*), harness plan | The files exist; the gaps of theme A keep them from being complete. |
+| S | — | roles `systems`, `electrical`, `ait` (`gui/roles.py`, D-176); usability kit `docs/usability/` | A demo per role is possible today. |
+
+**A. Production output.** *Lengths (1):* a segment runs from the rear of a connector (where the wires leave the body or the backshell) to the centre of a branch point (`docs/models/wire-length.md`); a generated wire is its path plus two service loops (`service_loop_m`, `service_loops_per_wire`), and the length model `path_loops_allowance_twist` adds `cut_allowance_m` and the take-up of twisting. So "backside to backside plus loops" is built in. There is no field or setting for face-to-face or for a mixed reference, a connector part has no depth, and no written file says which reference its lengths use; the plan's *Length [mm]* is the wire's length (`generate.lengths.wire_length`). *Labels (5):* the default text of a cable connector label is `W001-P1 mates MTQ1-J01` (`outputs/tables.py` `connector_label_text`). The custom template `{harness}:{device}:{mates}` gives `W001:MTQ1:MTQ1-J01`: there is no field for the name of the device connector (`Connector.name`, `J01`), so the asked form `W001:MTQ1:J01` cannot be made. The harness plan writes `[W001:MTQ1:MTQ1-J01]` in the header of each near connector (`outputs/harness_plan.py`, from the users' template `[<number>:DEV2:J4711]`), but not in the labels. Where a label goes is the accessory of kind `label` with a *Position* in words (D-170). *Wire type (6):* every wire has its own part; the plan lists each cable type with its gauges, colours and length. *Shield and backshell (7):* a shield group has a termination per end (360° backshell, pigtail, floating), checked by `shield-unterminated`, `shield-wrong-end`, `shield-bonding`, `shield-parts`; the ends are drawn in the PDF drawings and written to `system/export.json`; the plan's *Shielding / (Grouping)* column and the build workbook show only the group ID (`W001-S9`); a backshell is an accessory on a connector, not tied to a shield end; a pigtail has no pin it lands on (a pin can have the role `shield`, but no group points to it). *Printing (P):* the build workbook prints landscape with the header row on every page; its *Connectors* sheet has one row per pin with wire, colour, AWG and *Goes to*, but no wire part, no length and no label; the *Cut list* has part and length but is in cut order; the plan's harness sheet is printed scaled to **one** A4 page (`Page("A4", landscape=True, fit=True)`, `scale-to-pages="1"`), which for harness W001 of `flatsat` is 143 rows and 18 connector blocks on one sheet of paper; the drawings are the wire picture, off unless asked for (D-169).
+
+**B. Electrical checks.** *Twisting and shields (2):* Generate makes twisted pairs, shielded pairs and overall shields from the interface type (`construction`, `shielding`, signals with the same `pair`; the starter type `rs422` is `twisted_shielded_pair`, `per_pair`). A harness made from a connection or by hand gets no group; a person groups wires in the editor (*Group wires*, `wires.plan_group_wires`). No rule says that a signal pair (TX+/TX-) is not twisted, and "this analog signal needs its own shield" can only be said through the interface type. *Solder joints (3):* a splice (format 3, D-243 section 6, D-249) is a connector of role `splice`; each pin is a node that joins wires (`core/nets.py`); its termination is `crimp` or `solder`; a segment may end at it, so its position is the segment lengths. Generate makes no splice (owner answer B8) and a harness made from a connection refuses one; there is no command or scripting function for splices. The current rules (`current-over-wire`, `bundle-current`) take the current of the interface (`max_current_a`) for each of its wires: there is no current per pin or per wire, no split over parallel wires and no check for a wire drawn by hand. What soldering needs beyond the termination is still open since 1.4.0 (`docs/OPEN_DECISIONS.md`). *Levels and directions (8):* a pin has a direction (`in`, `out`, `bidir`) and a level (free text such as `RS422-3V3`, from the plan's `CON_…` sheets). `link-direction` stops output-to-output and input-to-input in a connection; `direction-conflict` judges a generated wire by the directions of its interface type. A wire drawn by hand is judged by neither, and no rule reads `Pin.level`: two levels that must not meet are not found. There are 39 rules (`docs/RULES.md`).
+
+**C. Review (9).** `review` and `release` (command line and the release dialog: who, checker, comment); a release is blocked while checks fail; the Problems panel and *Design > Check my connections*; `templates FOLDER` copies `design-review-checklist.md`, a Markdown list to tick by hand. The sources exist one by one: the ICD of a box connector (`Connector.source_doc`, `source_version`, `source_link`) in the plan's `CON_…` sheets as *Link to ICD* and *ICD version*; the web page of a part (`Part.link`) as *Part link*; every calculation through `explain` and the *Why* tab. Nothing gathers them into one view per harness, and a tick of a reviewer is not stored.
+
+**D. Names and automatic connection.** *(10):* since 2.1.0 a connector carries several interfaces, one per port, and a port is read from the signal name (`TTC1_TX+` is TX+ of port `TTC1`, prefix or suffix, separators `_ . -`, exact and case-sensitive). Generate gives an interface the first free complete port **in name order** (design of 2.1.0, section 4), or the port a person chooses (*Choose port…*). It does not match the port name with the name of the far device, so the interface to TTC2 can get port `TTC1` when its ID comes first. In a connection (pinout first, D-172, D-173) the proposal pairs equal names and TX/RX counterparts only when the rest of the names is equal: `TTC1_TX` on the OBC and `RX` on TTC1 are not paired. *(Cb):* the counterpart words are the project's table (`naming.json` `signal_counterparts`); a direction or role set on a pin wins over its name; the tool only proposes and the person confirms (D-172). There is no table that maps a team's own names to the type's signal names.
+
+**E. Data sources and the library.** *InvenTree (4):* `import-parts` reads an InvenTree export file (`IPN` as the part ID, `MPN`, the category path) and, since format 3, a `Link` column; nothing connects to a server (D-165), and InvenTree stays the master where a team has one, exchanging by file and a separate script (D-200 (c)). Stock is not read. *ICDs (11):* `import-pinout` reads CSV and XLSX pinouts with *Direction* and *Level*, also with the headings of the plan's `CON_…` sheets (since 3.0.0); `import-netlist` reads a KiCad netlist and, with `use_pin_type_direction`, takes in, out and bidirectional from KiCad pin types, nothing else. No importer reads a README or another text ICD. *Database (Ca):* parts have an approval state; devices have none; a connector names the ICD and version it came from; `update-device` shows what the library changes before it is taken.
+
+**F. The demo.** The tool has three roles (`systems`, `electrical`, `ait`), each a reduced workspace (D-176, `gui/roles.py`), and a usability kit with tasks, a SUS questionnaire and a session schedule (`docs/usability/`).
+
+## Found during the investigation
+
+**Every label format other than `standard` makes `export` fail its own check.** On `flatsat` and on `minimal-satellite`: `settings DIR --set model.label_format="compact"` (or `descriptive`, or `custom` with a template), `generate DIR`, `export DIR` stops with `error: [out_labels] The labels of W011 differs from the design …`, `[out_build] … (Labels) …` and *Not written: the outputs failed their self-check.* The cause: the independent verifier (`core/outputs/verify.py` `_label_rows`) knows only the standard text; the formats came with 1.15.0 (D-198) and the verifier never learned them. The tests of the formats (`tests/test_more_models.py`, `tests/test_loose_end_outputs.py`) read the label texts and never export. This blocks point 5 today and should be fixed first (milestone E0).
+
+## What earlier plans and decisions already say
+
+- The AIT engineers asked for InvenTree (requirement 1), twisting (7), soldering (9) and labels (10) in October; 1.4.0 answered with an offline import, groups a person makes, the termination column and editable labels ([`AIT_FEEDBACK_PLAN.md`](AIT_FEEDBACK_PLAN.md)). What soldering needs is still open.
+- The test users asked for an actionable build spreadsheet; 1.7.0 made the build workbook and the build data (D-169, D-170; [`TEST_USER_FEEDBACK_PLAN.md`](TEST_USER_FEEDBACK_PLAN.md)).
+- The workshop decided that the pinout is the truth and that the tool proposes and the person confirms (D-172, D-173), and made the roles (D-176; [`WORKSHOP_FEEDBACK_PLAN.md`](WORKSHOP_FEEDBACK_PLAN.md)).
+- Limits that stand: the tool is offline (D-165, D-200 (c)); it never invents an engineering value (D-11, D-12); Generate makes no splice (B8 of the design of 2.3.0); format 4 is frozen at `v4.0.0` (D-254), and a new key in a project file is a format change (design of 4.0.0, section 1), so a new field means format 5 and a major release 5.0.0. A new setting in `config/` or a new output fits a minor release, as `segmentation.mode` `per_connector_group` did in 2.3.0 (D-243).
+
+## Proposed milestones (order to be confirmed by the owner)
+
+The order follows the top request (production-ready output), then the effort. E0 to E4 fit format 4; everything that needs a new field waits for E5.
+
+| Order | Milestone | Points | Format |
+| --- | --- | --- | --- |
+| E0 | **Fix the label self-check (patch 4.0.1).** The verifier learns the four label formats from its own copy of the rules, and a test exports every format. | 5 | format 4; patch |
+| E1 | **The production sheet (4.1.0).** A sheet in the build workbook and the plan, one block per connector, one row per pin: pin, far connector and pin, wire, wire part, colour, gauge, length, the label text at this end, shield group and its ends. A named label format `harness:device:connector` with a new template field for the device connector's name (`W001:MTQ1:J01`). The plan's harness sheet printed over several pages with its headings repeated, not on one page. Every length column says its reference (today: rear of the connector plus service loops). | P, Cc, 5, 6, 7, 1 (stated) | format 4; minor (outputs and a setting) |
+| E2 | **Electrical checks (4.2.0).** New rules: a signal pair that is not twisted (by `SignalDef.pair` or `+`/`-` names), a signal whose interface type asks for a shield that has none, two levels that must not meet (from a project table of level words in `config/`, empty by default, so nothing is invented), and the directions of a wire drawn by hand. | 2, 8 | format 4; minor (rules and a setting) |
+| E3 | **The review view (4.3.0).** A *Review* page per harness in the editor and a *Review* sheet in the build workbook: the project's checklist (a list in `config/`, the template's list as a start), every open finding and value, and the links to the ICDs, part pages and `explain` of each number. The reviewer's ticks go into the sheet and the release comment, not the model. | 9 | format 4; minor |
+| E4 | **Names and ports (4.4.0).** An opt-in setting so that Generate gives an interface the port named after its far device (`TTC1_…` to TTC1), and a pairing that reads a device-name prefix; a name map in `config/` for a team's own signal names. An importer for the team's ICD format once an example is given. | 10, 11, Cb | format 4; minor (opt-in, so other projects keep their bytes) |
+| E5 | **Format 5 (5.0.0).** The fields that need the format, together, so it changes once: the length reference of each cable connector end (face, rear) and the depth of a connector part; a current per pin, so a split over parallel wires and a splice can be checked; the pin a pigtail lands on and the backshell a shield end uses; a checked state of a library device (by whom, when, against which ICD version). | 1, 3, 7, Ca | format 5; major |
+
+Rules for every milestone, as in the earlier plans: a project that does not use a new feature keeps byte-identical files and outputs where the milestone says "opt-in"; new columns and sheets are listed in the release notes; the verifier learns every new text; the tool proposes and the person confirms; no engineering value is invented; the tool stays offline.
+
+Not in the milestones: InvenTree beyond the export file (point 4). Our recommendation is to keep the file exchange of D-165 and D-200 (c) and to say in the manual how a team keeps `Part.link` and the IPN in step with InvenTree.
+
+## Owner questions
+
+Each with our recommendation first.
+
+1. **Fix the label formats in a patch 4.0.1 before anything else?** Recommended: yes. Today any format but `standard` stops the export.
+2. **The order E0, E1, E2, E3, E4, E5?** Recommended: yes. E1 answers the top request with the least risk and no format change; E5 collects every new field into one major release after E1 to E4 have shown what is needed.
+3. **The label form `HARNESS:DEVICE:CONNECTOR` (`W001:MTQ1:J01`): a named format only, or the default for new projects?** Recommended: a named format, and the default for new projects only, so existing projects keep their labels.
+4. **Lengths: which references does a team need (face to face, rear to rear, mixed per end), and where does the depth of a connector come from?** Recommended: in 4.x, state today's reference on every output; in format 5, a reference per cable connector end and a depth on the connector part, entered or imported, never assumed.
+5. **Levels: which level words may meet?** Recommended: a project table in `config/`, empty by default; the rule says *not checked* while it is empty. We need the team's level words (the template's are `TTL-5V`, `RS422-3V3`, `LVDS`, `18V`, `3V3`).
+6. **Splices and current: may a harness made from a connection have a splice, and is a current per pin wanted?** Recommended: keep B8 for Generate, allow a splice on a harness made from a connection in E5, with a current per pin, so that a power line split over several wires is checked.
+7. **InvenTree: stay with the export file (D-165, D-200 (c))?** Recommended: yes. Stock changes every day and does not belong in the design files.
+8. **Review ticks: in the exported sheet and the release comment (format 4), or stored in the project (format 5)?** Recommended: the sheet and the comment first; store them only if teams ask after using E3.
+9. **ICDs: may we have an example ICD with its README?** Recommended: yes, before E4 designs the importer; without an example the tool guesses, which it must not.
+10. **The next demo: focus groups per discipline?** Recommended: yes (next section).
+
+## For the next demo: focus groups per discipline
+
+The engineer found the session too slow and asked for groups per discipline. We recommend three short sessions, one per role of the tool (systems, electrical, AIT), each with that role's workspace and tasks from the usability kit (`docs/usability/tasks.md`, `session_schedule.md`): the systems session on devices, interfaces and the library; the electrical session on connections, the checks and the harness plan; the AIT session on the build workbook, labels, tests and the as-built sheet. Each session ends with the SUS questionnaire, and its notes are kept per role, so the next plan can tell the needs of each discipline apart.
+
+## What is not planned
+
+- A live connection to InvenTree or any other server (the tool stays offline, D-165).
+- Connections made without a person's confirmation (D-172).
+- Engineering values the tool makes up: levels that may meet, currents, connector depths, strip lengths.
+- Reading KiCad schematics for data a netlist does not hold.
+- Stock and procurement data in the project.
+
+Next: [`WORKSHOP_FEEDBACK_PLAN.md`](WORKSHOP_FEEDBACK_PLAN.md), [`DESIGN_3.0_HARNESS_PLAN.md`](DESIGN_3.0_HARNESS_PLAN.md), [`../usability/README.md`](../usability/README.md).
