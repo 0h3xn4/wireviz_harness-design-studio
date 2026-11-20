@@ -831,6 +831,41 @@ def test_the_step_of_4_1_0_names_every_shield_group_and_nothing_else() -> None:
     assert "W002-S1;W002-S2" not in kept
 
 
+def test_the_step_of_4_1_0_for_the_build_workbook_hides_no_other_change() -> None:
+    """Step 8 on mini3: the build workbook of this tool equals the one of 2.x after the step. A cell
+    of the cut list changed by hand, a third sentence that does not name the service loops, or a
+    Production line out of its place still differ."""
+    import copy
+
+    from tests import format3_support as f3
+
+    rel = "harnesses/W001/W001_build.xlsx"
+    new, raw = f3.dump_now("mini3")
+    rec = f3.record("mini3")
+    groups = f3.shield_groups("mini3")
+
+    def problems(files: f3.Files) -> list[str]:
+        used = [0] * len(f3.word_changes())
+        return f3.compare(rec["files"], files, raw, used, rec["tool_version"], groups)
+
+    assert rel not in "".join(problems(new))
+    cut = copy.deepcopy(new)
+    cut[rel]["sheets"]["Cut list"]["cells"]["B2"] = "W001-999"
+    assert f"{rel}: differs" in problems(cut)
+    loops = copy.deepcopy(new)
+    cells = loops[rel]["sheets"]["Cut list"]["cells"]
+    third = max((k for k in cells if k.startswith("A")), key=lambda k: int(k[1:]))
+    third = f"A{int(third[1:]) - 1}"
+    assert cells[third].startswith("A wire Generate made adds ")
+    cells[third] = "Every wire adds a metre."
+    assert f"{rel}: differs" in problems(loops)
+    here = copy.deepcopy(new)
+    cells = here[rel]["sheets"]["Start here"]["cells"]
+    at = next(k for k, v in cells.items() if v == "Production")
+    cells[at], cells[f"A{int(at[1:]) + 1}"] = cells[f"A{int(at[1:]) + 1}"], cells[at]
+    assert f"{rel}: differs" in problems(here)
+
+
 def test_a_word_change_left_out_of_the_list_fails_the_comparison(monkeypatch) -> None:
     """A mutation: without the entry for the header line of a drawing, one *Revision* stays in the
     2.x file after the list, and the comparison says so."""

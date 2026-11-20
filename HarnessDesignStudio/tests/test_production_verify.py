@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The independent verifier's own wording of the Production sheet (design of 4.1.0, section 3.6;
-pull request 1: no sheet is written or read yet).
+"""The independent verifier's own wording of the Production sheet (design of 4.1.0, section 3.6)
+and its check of the sheet of the build workbook (pull request 3: `verify._build_production`).
 
 `core/outputs/verify_production.py` words every block heading and every row again from the
 project. It names no builder among its imports (not `production.py`, `buildsheet.py`,
@@ -10,15 +10,26 @@ project. It names no builder among its imports (not `production.py`, `buildsheet
 which names no builder either. Its rows are the core's on every example, on the splice, loose-end
 and branching fixtures and on random harnesses (Hypothesis: shield groups, segments with loops and
 missing lengths, splices, loose ends, label formats and templates, the length settings), and so
-are its copies of the shield end, the length, the origin of a length and the reference sentence."""
+are its copies of the shield end, the length, the origin of a length and the reference sentence.
+The mutation tests change each column of one row of the written sheet, tick *Done (x)*, change a
+block heading, a heading or the sentence, or remove the sheet, and expect `out_build`; the length
+words of *Start here*, *Cut list* (`out_build`) and *Routing* (`out_routing`) the same."""
 
+import io
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from harness_design_studio.core.generate.lengths import length_origin, reference_text, wire_length
+from harness_design_studio.core.generate.lengths import (
+    length_origin,
+    reference_lines,
+    reference_text,
+    wire_length,
+)
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import (
     Accessory,
@@ -30,6 +41,9 @@ from harness_design_studio.core.model import (
 )
 from harness_design_studio.core.outputs import production as pr
 from harness_design_studio.core.outputs import verify_production as vp
+from harness_design_studio.core.outputs.build import build_outputs
+from harness_design_studio.core.outputs.verify import verify_outputs
+from harness_design_studio.core.outputs.xlsx_env import load_workbook
 from harness_design_studio.core.shield_ends import end_at
 from tests.loose_support import generated_loose
 from tests.plan_support import GOLDEN_PROJECTS, golden_project
@@ -72,6 +86,7 @@ def assert_agree(p: Project) -> None:
             for c in h.connectors:
                 assert vp._end_at(h, s, c.id) == end_at(h, s, c.id), (s.id, c.id)
     assert vp._length_reference(p) == reference_text(p)
+    assert vp._length_lines(p) == reference_lines(p)
 
 
 # ---- independence ---------------------------------------------------------------------------------
@@ -92,6 +107,7 @@ def test_the_verifier_s_copy_takes_its_labels_from_verify_labels() -> None:
 
 
 def test_the_verifier_s_words_are_the_core_s() -> None:
+    assert vp.HEADER == pr.HEADER
     assert (vp._NO_WIRE, vp._SPARE, vp._UNPLUGGED, vp._ACROSS) == (
         pr.NO_WIRE, pr.SPARE, pr.NOT_PLUGGED, pr.NOT_DEFINED,
     )  # fmt: skip
@@ -231,3 +247,161 @@ def production_projects(draw: st.DrawFn) -> Project:
 @given(production_projects())
 def test_the_verifier_words_every_row_of_a_random_harness_as_the_core(p: Project) -> None:
     assert_agree(p)
+
+
+# ---- the sheet of the build workbook: the verifier can fail (pull request 3) ----------------------
+
+H = "W002"
+REL = f"harnesses/{H}/{H}_build.xlsx"
+
+
+@pytest.fixture(scope="module")
+def flatsat_built() -> tuple[Project, dict[str, bytes]]:
+    p = golden_project("flatsat")
+    return p, build_outputs(p, drawings=False).files
+
+
+def _errors(p: Project, files: dict[str, bytes]) -> list[tuple[str, str, str]]:
+    return [(i.code, i.object_id or "", i.message) for i in verify_outputs(p, files).issues if i.severity == "error"]  # fmt: skip
+
+
+def _changed(built: tuple[Project, dict[str, bytes]], change: Callable[[Any], None], rel: str = REL) -> list[tuple[str, str, str]]:  # fmt: skip
+    p, files = built
+    wb = load_workbook(io.BytesIO(files[rel]))
+    change(wb)
+    out = io.BytesIO()
+    wb.save(out)
+    return _errors(p, {**files, rel: out.getvalue()})
+
+
+def _full_row(ws: Any) -> int:
+    """The first row of the sheet with every one of the eleven columns filled in."""
+    return next(
+        r for r in range(2, ws.max_row + 1) if all(ws.cell(r, c).value not in (None, "") for c in range(1, 12))
+    )  # fmt: skip
+
+
+def test_the_written_sheet_passes_the_verifier(flatsat_built: tuple[Project, dict[str, bytes]]) -> None:  # fmt: skip
+    p, files = flatsat_built
+    assert _errors(p, files) == []
+    ws = load_workbook(io.BytesIO(files[REL]))["Production"]
+    row = _full_row(ws)
+    assert str(ws.cell(row, 11).value).startswith(f"{H}-S")  # a row with a shield group
+
+
+@pytest.mark.parametrize("col", range(1, 12))
+def test_a_changed_cell_of_a_row_is_out_build(flatsat_built: tuple[Project, dict[str, bytes]], col: int) -> None:  # fmt: skip
+    def change(wb: Any) -> None:
+        ws = wb["Production"]
+        cell = ws.cell(_full_row(ws), col)
+        cell.value = cell.value + 1.0 if isinstance(cell.value, float) else f"{cell.value}X"
+
+    errors = _changed(flatsat_built, change)
+    assert errors and all(code == "out_build" and "(Production)" in msg for code, _obj, msg in errors), errors  # fmt: skip
+    assert errors[0][1].startswith(f"{H}-P")  # the object is the connector of the block
+
+
+@pytest.mark.parametrize(
+    ("name", "change", "words"),
+    [
+        (
+            "a tick in Done (x)",
+            lambda wb: setattr(
+                wb["Production"].cell(_full_row(wb["Production"]), 12), "value", "x"
+            ),
+            "ticks",
+        ),  # fmt: skip
+        (
+            "a changed block heading",
+            lambda wb: setattr(wb["Production"]["A2"], "value", "W002-P1   ·   X"),
+            "W002-P1",
+        ),  # fmt: skip
+        (
+            "a missing row",
+            lambda wb: wb["Production"].delete_rows(_full_row(wb["Production"])),
+            "blocks and rows",
+        ),  # fmt: skip
+        (
+            "a changed heading",
+            lambda wb: setattr(wb["Production"]["H1"], "value", "Length (m)"),
+            "column headings",
+        ),  # fmt: skip
+        (
+            "the sentence changed",
+            lambda wb: setattr(
+                wb["Production"].cell(wb["Production"].max_row, 1), "value", "Lengths."
+            ),
+            "measured from",
+        ),  # fmt: skip
+        ("the sheet removed", lambda wb: wb.remove(wb["Production"]), "sheets"),
+    ],
+)
+def test_a_wrong_sheet_is_out_build(flatsat_built: tuple[Project, dict[str, bytes]], name: str, change: Callable[[Any], None], words: str) -> None:  # fmt: skip
+    errors = _changed(flatsat_built, change)
+    assert [code for code, _o, _m in errors] == ["out_build"], (name, errors)
+    assert words in errors[0][2], (name, errors)
+
+
+def _start_cell(label: str, col: int, value: object) -> Callable[[Any], None]:
+    def change(wb: Any) -> None:
+        ws = wb["Start here"]
+        row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == label)
+        ws.cell(row, col).value = value
+
+    return change
+
+
+def _last_cell(sheet: str, value: object) -> Callable[[Any], None]:
+    def change(wb: Any) -> None:
+        ws = wb[sheet]
+        ws.cell(ws.max_row, 1).value = value
+
+    return change
+
+
+@pytest.mark.parametrize(
+    ("name", "change", "rel", "code"),
+    [
+        (
+            "Start here: the length row changed",
+            _start_cell("Lengths", 2, "from the face"),
+            REL,
+            "out_build",
+        ),  # fmt: skip
+        (
+            "Start here: the Production line removed",
+            _start_cell("Production", 1, None),
+            REL,
+            "out_build",
+        ),  # fmt: skip
+        ("Cut list: the sentence removed", _last_cell("Cut list", None), REL, "out_build"),
+        (
+            "Cut list: the old heading",
+            lambda wb: setattr(wb["Cut list"]["F1"], "value", "Length (m)"),
+            REL,
+            "out_build",
+        ),  # fmt: skip
+        (
+            "Routing: the sentence removed",
+            _last_cell("Routing", None),
+            "harnesses/W001/W001_build.xlsx",
+            "out_routing",
+        ),  # fmt: skip
+        (
+            "Routing: the old heading",
+            lambda wb: setattr(wb["Routing"]["D1"], "value", "Length (m)"),
+            "harnesses/W001/W001_build.xlsx",
+            "out_routing",
+        ),  # fmt: skip
+    ],
+)
+def test_the_length_words_of_the_other_sheets_are_checked(flatsat_built: tuple[Project, dict[str, bytes]], name: str, change: Callable[[Any], None], rel: str, code: str) -> None:  # fmt: skip
+    errors = _changed(flatsat_built, change, rel)
+    assert errors and {c for c, _o, _m in errors} == {code}, (name, errors)
+
+
+def test_the_verifier_imports_no_builder_for_the_sheet() -> None:
+    names = imported_names(SRC / "harness_design_studio/core/outputs/verify.py", SRC)
+    assert f"{PKG}.outputs.verify_production.production_rows" in names
+    found = [n for n in names if any(n == b or n.startswith(b + ".") for b in BUILDERS)]
+    assert found == []

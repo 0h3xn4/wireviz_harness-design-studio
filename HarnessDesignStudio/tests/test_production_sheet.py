@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 """The rows of the Production sheet (`core/outputs/production.py`, design of 4.1.0, sections 3.2 to
-3.5 and the edge cases of section 8 that apply to rows; pull request 1: no sheet is written yet).
+3.5 and the edge cases of section 8 that apply to rows) and the sheet of the build workbook that
+writes them (pull request 3: `buildsheet._production_sheet`, the *Start here* lines and the length
+headings and sentences of *Cut list* and *Routing*).
 
 A small drawn harness holds every case at once (`small`): natural ID order with the splices last,
 the four kinds of heading, the label accessories, a pin with two wires (one row per wire), the runs
@@ -11,13 +13,17 @@ without part, colour, gauge or length (*to fill in*), the three origins of a len
 defined …`). Then the examples and fixtures: `flatsat` (the counts of the design), the splice, the
 loose-end and the branching fixtures."""
 
+import copy
+import io
 from pathlib import Path
 
 import pytest
 
+from harness_design_studio.core.generate.lengths import reference_lines
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import (
     Accessory,
+    AsBuiltRecord,
     BranchPoint,
     Connector,
     Harness,
@@ -29,8 +35,11 @@ from harness_design_studio.core.model import (
     Wire,
 )
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
+from harness_design_studio.core.outputs import buildsheet as bs
 from harness_design_studio.core.outputs import production as pr
 from harness_design_studio.core.outputs import tables
+from harness_design_studio.core.outputs.stamp import stamp_of
+from harness_design_studio.core.outputs.xlsx_env import Workbook, load_workbook
 from harness_design_studio.core.samples import new_project
 from tests.loose_support import generated_loose
 from tests.plan_support import golden_project
@@ -456,3 +465,143 @@ def test_a_wire_to_a_connector_that_is_not_in_the_harness_has_nothing_in_bracket
     # IDs that start with a digit sort as the core's natural order does
     ids = ["10a", "9", "a1", "1", "01", "a10", "a2"]
     assert sorted(ids, key=vp._natural) == sorted(ids, key=tables.natural_key)
+
+
+# ---- the sheet of the build workbook (pull request 3) ---------------------------------------------
+
+
+def _expected_sheet(p: Project, h: Harness) -> list[list[object]]:
+    """The Production sheet as the rows of the core make it: the headings, the splice title above
+    the first splice, each block's heading, rows and an empty row, and the length sentence last."""
+    want: list[list[object]] = [list(bs.PRODUCTION_HEADER)]
+    titled = False
+    for b in pr.production_blocks(p, h):
+        if b.splice and not titled:
+            titled = True
+            want += [[bs.SPLICE_BLOCK], []]
+        want.append([b.heading])
+        want += [list(r.values()) for r in b.rows]
+        want.append([])
+    want += [[line] for line in reference_lines(p)]
+    return [_trim(row) for row in want]
+
+
+def _trim(row: list[object]) -> list[object]:
+    cells = ["" if v is None else v for v in row]
+    while cells and cells[-1] == "":
+        cells.pop()
+    return cells
+
+
+def _book(p: Project, hid: str) -> Workbook:
+    return load_workbook(io.BytesIO(bs.build_workbook(p, p.harnesses[hid], stamp_of(p))))
+
+
+def test_the_sheet_comes_after_the_cut_list_and_the_routing_before_connectors(
+    flatsat: Project,
+) -> None:
+    assert bs.SHEETS == (
+        "Start here", "Cut list", "Production", "Connectors", "Parts", "Accessories", "Labels",
+        "Tests", "About",
+    )  # fmt: skip
+    straight, branching = flatsat.harnesses["W003"], flatsat.harnesses["W001"]
+    assert not tables.has_branches(straight) and tables.has_branches(branching)
+    assert bs.sheet_names(flatsat, straight) == list(bs.SHEETS)
+    assert bs.sheet_names(flatsat, branching)[:5] == [
+        "Start here", "Cut list", "Routing", "Production", "Connectors",
+    ]  # fmt: skip
+    assert _book(flatsat, "W003").sheetnames == list(bs.SHEETS)
+    with_records = copy.deepcopy(flatsat)
+    with_records.asbuilt["R1"] = AsBuiltRecord(
+        id="R1", kind="harness", harness_id="W003", subject="W003"
+    )
+    assert bs.sheet_names(with_records, with_records.harnesses["W003"])[-3:] == [
+        "Tests", bs.ASBUILT_SHEET, "About",
+    ]  # fmt: skip
+
+
+@pytest.mark.parametrize("hid", ["W001", "W002", "W005"])
+def test_the_sheet_holds_the_rows_of_the_core_and_the_length_sentence_last(
+    flatsat: Project, hid: str
+) -> None:
+    ws = _book(flatsat, hid)[bs.PRODUCTION_SHEET]
+    got = [_trim(list(r)) for r in ws.iter_rows(values_only=True)]
+    assert got == _expected_sheet(flatsat, flatsat.harnesses[hid])
+
+
+def test_a_small_harness_with_a_splice_a_loose_end_and_a_wire_to_fill_in() -> None:
+    p = small()
+    wb = _book(p, "W001")
+    ws = wb[bs.PRODUCTION_SHEET]
+    got = [_trim(list(r)) for r in ws.iter_rows(values_only=True)]
+    assert got == _expected_sheet(p, p.harnesses["W001"])
+    assert [bs.SPLICE_BLOCK] in got  # the splices under their own title, last
+    assert got.index([bs.SPLICE_BLOCK]) > max(
+        n for n, r in enumerate(got) if r and str(r[0]).startswith("W001-P")
+    )
+    row = next(n for n, r in enumerate(ws.iter_rows(values_only=True), start=1) if r[2] == "W001-003")  # fmt: skip
+    for col in (5, 6, 7, 8):  # part, colour, gauge and length to fill in: amber
+        assert ws.cell(row, col).value == TO_FILL
+        assert ws.cell(row, col).fill.fgColor.rgb.endswith("FFE699"), col
+
+
+def test_the_print_set_up_the_colour_cells_and_the_ticks(flatsat: Project) -> None:
+    wb = _book(flatsat, "W002")
+    ws = wb[bs.PRODUCTION_SHEET]
+    assert ws.page_setup.orientation == "landscape" and ws.page_setup.paperSize == 9
+    assert ws.page_setup.fitToWidth == 1 and ws.page_setup.fitToHeight == 0
+    assert ws.print_title_rows == "$1:$1" and ws.freeze_panes == "A2"
+    assert stamp_of(flatsat).line in ws.oddFooter.left.text
+    assert ws.cell(1, 12).value == "Done (x)"
+    assert all(ws.cell(r, 12).value is None for r in range(2, ws.max_row + 1))  # nothing ticked
+    ticked = {str(dv.sqref) for dv in ws.data_validations.dataValidation}
+    assert ticked and all(ref.startswith("L") for ref in ticked)
+    red = next(r for r in range(2, ws.max_row + 1) if ws.cell(r, 6).value == "red (RD)")
+    cut = wb["Cut list"]
+    in_cut = next(c for row in cut.iter_rows() for c in row if c.value == "red (RD)")
+    assert ws.cell(red, 6).fill.fgColor.rgb == in_cut.fill.fgColor.rgb  # as the cut list
+    assert ws.cell(red, 6).fill.fgColor.rgb not in ("00000000", None)
+
+
+def test_a_page_break_comes_before_a_block_that_would_pass_42_rows(flatsat: Project) -> None:
+    ws = _book(flatsat, "W002")[bs.PRODUCTION_SHEET]
+    breaks = [b.id for b in ws.row_breaks.brk]
+    assert breaks  # W002 has 74 rows in 22 blocks: more than one page
+    heads = [
+        r for r in range(2, ws.max_row + 1)
+        if ws.cell(r, 1).fill.fgColor.rgb.endswith("1F3A5F")
+    ]  # fmt: skip
+    assert all(b + 1 in heads for b in breaks)  # never inside a block
+    for start, end in zip([1, *breaks], [*breaks, ws.max_row - 1], strict=True):
+        assert end - start <= 42, (start, end)
+
+
+def test_start_here_lists_the_sheet_and_says_what_the_lengths_are_measured_from(
+    flatsat: Project,
+) -> None:
+    ws = _book(flatsat, "W001")["Start here"]
+    rows = [_trim(list(r)) for r in ws.iter_rows(values_only=True)]
+    first = [str(r[0]) for r in rows if r]
+    assert first.index("Routing") < first.index("Production") < first.index("Connectors")
+    assert [bs.PRODUCTION_SHEET, bs.PRODUCTION_TEXT] in rows
+    lengths = [r for r in rows if r[:1] == [bs.LENGTHS_ROW]]
+    at = rows.index(lengths[0])
+    lines = reference_lines(flatsat)
+    assert rows[at : at + len(lines)] == [
+        [bs.LENGTHS_ROW, lines[0]],
+        *(["", line] for line in lines[1:]),
+    ]
+    assert first.index("Released on") < first.index(bs.LENGTHS_ROW) < first.index("How to use this workbook")  # fmt: skip
+
+
+def test_the_cut_list_and_the_routing_say_what_their_lengths_run_between(flatsat: Project) -> None:
+    wb = _book(flatsat, "W001")
+    cut = [_trim(list(r)) for r in wb["Cut list"].iter_rows(values_only=True)]
+    assert cut[0][5] == "Length (m), rear to rear" == bs.CUT_HEADER[5]
+    lines = [[line] for line in reference_lines(flatsat)]
+    n = len(lines)
+    assert cut[-(n + 2)][1] == "18 wires" and cut[-(n + 1)] == [] and cut[-n:] == lines
+    routing = [_trim(list(r)) for r in wb["Routing"].iter_rows(values_only=True)]
+    assert routing[0][3] == "Length (m), rear or branch centre"
+    assert routing[-(n + 1) :] == [[], *lines]
+    assert tables.SEGMENT_HEADER[3] == "Length (m)"  # segments.csv keeps its heading

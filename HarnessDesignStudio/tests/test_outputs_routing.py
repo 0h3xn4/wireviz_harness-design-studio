@@ -12,6 +12,7 @@ import pytest
 
 from harness_design_studio.core.commands import Put, apply_ops
 from harness_design_studio.core.generate.engine import generate_project
+from harness_design_studio.core.generate.lengths import reference_lines
 from harness_design_studio.core.model import BranchPoint, Project, Segment, evolve
 from harness_design_studio.core.outputs import buildsheet, tables
 from harness_design_studio.core.outputs.build import build_outputs
@@ -89,12 +90,12 @@ def test_the_build_workbook_has_the_routing_sheet_after_the_cut_list(project: Pr
     sheets = _values(data)
     names = buildsheet.sheet_names(project, project.harnesses[H])
     assert list(sheets) == names == [
-        "Start here", "Cut list", "Routing", "Connectors", "Parts", "Accessories", "Labels", "Tests",
-        "About",
+        "Start here", "Cut list", "Routing", "Production", "Connectors", "Parts", "Accessories",
+        "Labels", "Tests", "About",
     ]  # fmt: skip
     routing = [[v for v in row if v is not None] for row in sheets["Routing"]]
     assert routing == [
-        ["Segment", "From", "To", "Length (m)", "Number of wires", "Wires"],
+        ["Segment", "From", "To", "Length (m), rear or branch centre", "Number of wires", "Wires"],
         ["W001-L1", "W001-B1", "W001-B2", 0.5, 16, "; ".join(TRUNK)],
         ["W001-L2", "W001-P1", "W001-B1", 0.25, 8, "; ".join(P1)],
         ["W001-L3", "W001-P2", "W001-B1", "to fill in", 8, "; ".join(P2)],
@@ -104,8 +105,10 @@ def test_the_build_workbook_has_the_routing_sheet_after_the_cut_list(project: Pr
         ["Branch point", "Name", "Connectors beyond it, by segment"],
         ["W001-B1", "Branch X", "W001-L1: W001-P3, W001-P4; W001-L2: W001-P1; W001-L3: W001-P2"],
         ["W001-B2", "Branch Y", "W001-L1: W001-P1, W001-P2; W001-L4: W001-P3; W001-L5: W001-P4"],
+        [],
+        *([line] for line in reference_lines(project)),
     ]
-    assert routing == [list(r) for r in buildsheet.routing_rows(project.harnesses[H])]
+    assert routing == [list(r) for r in buildsheet.routing_rows(project, project.harnesses[H])]
     ws = load_workbook(io.BytesIO(data))["Routing"]
     assert ws["D4"].fill.start_color.rgb.endswith("FFE699")  # a length to fill in is amber
     assert ws["D2"].fill.fill_type is None

@@ -26,25 +26,36 @@ from harness_design_studio.core.deviations import (
     override_text,
     tests_band,
 )
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import reference_lines, wire_length
 from harness_design_studio.core.model import Connector, Harness, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
 from harness_design_studio.core.wirecolours import resolve
 
 from . import tables
 from .exports import _FIXED, normalise_xlsx
-from .production import colour_text
+from .production import HEADER as PRODUCTION_COLUMNS
+from .production import colour_text, production_blocks
 from .stamp import Stamp, Table
 from .xlsx_env import ILLEGAL_CHARACTERS_RE, Cell, Workbook, WriteOnlyCell
 
 FILE_SUFFIX = "_build.xlsx"
 
 SHEETS = (
-    "Start here", "Cut list", "Connectors", "Parts", "Accessories", "Labels", "Tests", "About"
+    "Start here", "Cut list", "Production", "Connectors", "Parts", "Accessories", "Labels", "Tests",
+    "About",
 )  # fmt: skip
 ASBUILT_SHEET = "As-built"  # between Tests and About, only for a harness that has as-built records
 ROUTING_SHEET = "Routing"  # after Cut list, only for a harness with a branch point (D-243 B7)
 ROUTING_TEXT = "the segments of the bundle with their lengths and wires, and the branch points"
+# The Production sheet (4.1.0, design of 4.1.0 part A): one block per connector, both ends of every
+# wire, the rows of `production.production_blocks`, a tick column last.
+PRODUCTION_SHEET = "Production"
+PRODUCTION_TEXT = (
+    "one block per connector: where each wire goes, its part, colour, gauge, length, label and "
+    "shield"
+)
+PRODUCTION_HEADER = [*PRODUCTION_COLUMNS, "Done (x)"]
+LENGTHS_ROW = "Lengths"  # the row of *Start here* (From the design) with the length reference
 
 
 def sheet_names(project: Project, h: Harness) -> list[str]:
@@ -64,8 +75,13 @@ def has_asbuilt(project: Project, h: Harness) -> bool:
 
 
 CUT_HEADER = [
-    "Cut (x)", "Wire", "Colour", "AWG", "Part", "Length (m)", "Strip A (mm)", "Strip B (mm)", "From",
-    "To", "Signal or label", "Shield group", "Note",
+    "Cut (x)", "Wire", "Colour", "AWG", "Part", "Length (m), rear to rear", "Strip A (mm)",
+    "Strip B (mm)", "From", "To", "Signal or label", "Shield group", "Note",
+]  # fmt: skip
+# The *Routing* sheet says what a segment's length runs between (4.1.0, part D); `segments.csv` and
+# the *Segments* sheet of `<ID>.xlsx` keep `tables.SEGMENT_HEADER`, which scripts read.
+ROUTING_HEADER = [
+    *tables.SEGMENT_HEADER[:3], "Length (m), rear or branch centre", *tables.SEGMENT_HEADER[4:]
 ]  # fmt: skip
 CONNECTOR_HEADER = [
     "Pin", "Signal", "Function", "Wire", "Colour", "AWG", "Goes to", "Termination", "Contact size",
@@ -454,6 +470,13 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     ):  # fmt: skip
         body.append([_cell(ws, label, fill=_BAND), _cell(ws, value or "not set")])
         lay.see(1, label)
+    # what every length of the workbook is measured from (4.1.0, part D): a sentence a row, each
+    # running over the empty cells to its right, as the lines of *How to use this workbook*
+    for n, line in enumerate(reference_lines(project)):
+        body.append([
+            _cell(ws, "" if n else LENGTHS_ROW, fill=_BAND),
+            _cell(ws, line, box=False, wrap=False),
+        ])  # fmt: skip
     if placeholders:  # the files behind the answer above (audit F-06)
         files = ", ".join(f"config/{n}.json" for n in placeholders)
         body.append([_cell(ws, "Placeholder files", fill=_BAND), _cell(ws, files)])
@@ -473,6 +496,7 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     for name, what in (
         ("Cut list", "cut the wires in this order; tick each when done"),
         *([(ROUTING_SHEET, ROUTING_TEXT)] if tables.has_branches(h) else []),
+        (PRODUCTION_SHEET, PRODUCTION_TEXT),
         ("Connectors", "one block per connector: the pins, the wire for each and the steps"),
         ("Parts", "what to take from stock and whether each part is approved"),
         ("Accessories", "sleeving, heat shrink, labels and backshells to fit; tick each when done"),
@@ -502,6 +526,15 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
 def _strip(v: float | None) -> float | str:
     """A strip length for a cell: the number, or *to fill in*."""
     return round(v, 9) + 0.0 if v is not None else TO_FILL
+
+
+def _reference_rows(ws: Any, project: Project) -> list[list[Any]]:
+    """The last rows of a sheet with lengths: what they are measured from, in words from the
+    settings in force (`lengths.reference_lines`), a sentence a row, each running over the empty
+    cells to its right."""
+    return [
+        [_cell(ws, line, italic=True, box=False, wrap=False)] for line in reference_lines(project)
+    ]
 
 
 def _cut_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
@@ -545,6 +578,8 @@ def _cut_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         _cell(ws, round(total, 9) + 0.0, bold=True, fill=_BAND, centre=True),
         *[_cell(ws, "", fill=_BAND) for _ in range(7 + (1 if over else 0))],
     ])  # fmt: skip
+    body.append([])
+    body.extend(_reference_rows(ws, project))
     ws.auto_filter.ref = f"A1:{_letter(len(header))}{last}"
     if wires:
         _tick_rules(ws, f"A2:A{last}")
@@ -622,17 +657,22 @@ def _routing_blocks(h: Harness) -> tuple[list[list[object]], list[list[object]]]
     return segs, points
 
 
-def routing_rows(h: Harness) -> list[list[object]]:
+def routing_rows(project: Project, h: Harness) -> list[list[object]]:
     """The *Routing* sheet as plain values, in its order: the header of the segments, one row per
     segment (the rows of `segments.csv` with the length a number or *to fill in*, the number of
     wires a number and the wires joined by `; `), an empty row, the header of the branch points and
     one row per branch point (its ID, its name and the connectors beyond it on each side,
-    one part per segment that meets it, all on one line: `tables.side_text`)."""
+    one part per segment that meets it, all on one line: `tables.side_text`), then an empty row and
+    the sentences that say what the lengths are measured from (`lengths.reference_lines`), a row
+    each."""
     segs, points = _routing_blocks(h)
-    return [list(tables.SEGMENT_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points]
+    lines: list[list[object]] = [[line] for line in reference_lines(project)]
+    return [
+        list(ROUTING_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points, [], *lines,
+    ]  # fmt: skip
 
 
-def _routing_sheet(wb: Any, h: Harness, stamp: Stamp) -> None:
+def _routing_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     """The routing of a harness that branches (2.3.0, D-243 B7): the segments with their lengths
     and wires, then the branch points with the connectors beyond each side. A segment without a
     length reads *to fill in* on an amber cell; its wires are already counted under *Wires without
@@ -640,7 +680,7 @@ def _routing_sheet(wb: Any, h: Harness, stamp: Stamp) -> None:
     ws = wb.create_sheet(ROUTING_SHEET)
     lay = _Layout({})
     segs, points = _routing_blocks(h)
-    body: list[list[Any]] = [_header(ws, lay, tables.SEGMENT_HEADER)]
+    body: list[list[Any]] = [_header(ws, lay, ROUTING_HEADER)]
     for values in segs:
         body.append([
             _cell(ws, values[0], bold=True), _cell(ws, values[1]), _cell(ws, values[2]),
@@ -655,6 +695,8 @@ def _routing_sheet(wb: Any, h: Harness, stamp: Stamp) -> None:
         body.append([_cell(ws, values[0], bold=True), _cell(ws, values[1]), _cell(ws, values[2])])
         for n, v in enumerate(values, start=1):
             lay.see(n, str(v))
+    body.append([])
+    body.extend(_reference_rows(ws, project))
     _finish(ws, lay, stamp, body, tab="5D6D7E", freeze="B2")
 
 
@@ -711,6 +753,73 @@ def _connector_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> Non
         _tick_rules(ws, f"{_letter(12)}{first}:{_letter(14)}{last}")
     lay.widths[1] = max(lay.widths.get(1, 0), 8.0)
     _finish(ws, lay, stamp, body, tab="B5651D", freeze="A2")
+
+
+def _amber_or(value: object, fill: str | None) -> str | None:
+    """Amber for a value the design does not hold (*to fill in*), else the row's own fill."""
+    return _AMBER if value == TO_FILL else fill
+
+
+def _production_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
+    """The Production sheet (4.1.0, design of 4.1.0 part A): the blocks of
+    `production.production_blocks`, the cable connectors in natural ID order and the splices last
+    under `SPLICE_BLOCK`; each block a heading row and one row per pin and wire, a run of spare
+    pins on one row. Lengths in metres and colours as the cut list writes them; a value the design
+    does not hold reads *to fill in* on an amber cell. A tick column *Done (x)* last; a manual page
+    break before a block that would pass 42 rows on the page, as on *Connectors*; the last rows
+    are the sentences that say what the lengths are measured from, a row each."""
+    from openpyxl.worksheet.pagebreak import Break
+
+    ws = wb.create_sheet(PRODUCTION_SHEET)
+    lay = _Layout({})
+    body: list[list[Any]] = [_header(ws, lay, PRODUCTION_HEADER)]
+    wires = {w.id: w for w in h.wires}
+    width = len(PRODUCTION_HEADER)
+    row, since_break, ticks = 1, 0, []
+    first_splice = True
+    for block in production_blocks(project, h):
+        if block.splice and first_splice:  # the splices: a block of their own, as on Connectors
+            first_splice = False
+            body.append([_cell(ws, SPLICE_BLOCK, bold=True, size=11, wrap=False, box=False)])
+            body.append([])
+            row += 2
+        size = len(block.rows) + 2
+        if since_break and since_break + size > 42:
+            ws.row_breaks.append(Break(id=row))
+            since_break = 0
+        body.append([
+            _cell(ws, block.heading, bold=True, fill=_NAVY, colour=_WHITE, size=11, wrap=False, box=False),
+            *[_cell(ws, "", fill=_NAVY, box=False) for _ in range(width - 1)],
+        ])  # fmt: skip
+        row += 1
+        first = row + 1
+        for r in block.rows:
+            w = wires.get(r.wire)
+            grey = _SPARE if w is None else None
+            body.append([
+                _cell(ws, r.pin, bold=True, fill=grey), _cell(ws, r.signal, fill=grey),
+                _cell(ws, r.wire, fill=grey, colour=_GREY_TEXT if w is None else None),
+                _cell(ws, r.goes_to, fill=grey), _cell(ws, r.part, fill=_amber_or(r.part, grey)),
+                _wire_colour_cell(ws, w.colour) if w is not None else _cell(ws, "", fill=grey),
+                _cell(ws, r.awg, fill=_amber_or(r.awg, grey), centre=True),
+                _cell(ws, r.length, fill=_amber_or(r.length, grey), centre=True),
+                _cell(ws, r.length_from, fill=grey), _cell(ws, r.label, fill=grey),
+                _cell(ws, r.shields, fill=grey), _cell(ws, "", fill=grey, centre=True),
+            ])  # fmt: skip
+            row += 1
+            for n, v in enumerate(r.values(), start=1):
+                lay.see(n, str(v))
+        if block.rows:
+            ticks.append((first, row))
+        body.append([])
+        row += 1
+        since_break += size
+    body.extend(_reference_rows(ws, project))
+    for first, last in ticks:
+        _tick_rules(ws, f"{_letter(width)}{first}:{_letter(width)}{last}")
+    lay.widths[1] = max(lay.widths.get(1, 0), 8.0)
+    lay.widths[width] = 10.0
+    _finish(ws, lay, stamp, body, tab="1F6F8B", freeze="A2")
 
 
 def _parts_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
@@ -878,7 +987,8 @@ def build_workbook(project: Project, h: Harness, stamp: Stamp) -> bytes:
     _start_sheet(wb, project, h, stamp)
     _cut_sheet(wb, project, h, stamp)
     if tables.has_branches(h):
-        _routing_sheet(wb, h, stamp)
+        _routing_sheet(wb, project, h, stamp)
+    _production_sheet(wb, project, h, stamp)
     _connector_sheet(wb, project, h, stamp)
     _parts_sheet(wb, project, h, stamp)
     _accessories_sheet(wb, project, h, stamp)
@@ -911,6 +1021,7 @@ def cut_rows(project: Project, h: Harness) -> Table:
 
 
 __all__ = [
-    "ASBUILT_SHEET", "FILE_SUFFIX", "ROUTING_SHEET", "SHEETS", "Check", "build_workbook", "cut_rows",
-    "has_asbuilt", "readiness", "ready_text", "routing_rows", "sheet_names",
+    "ASBUILT_SHEET", "CUT_HEADER", "FILE_SUFFIX", "LENGTHS_ROW", "PRODUCTION_HEADER",
+    "PRODUCTION_SHEET", "ROUTING_HEADER", "ROUTING_SHEET", "SHEETS", "Check", "build_workbook",
+    "cut_rows", "has_asbuilt", "readiness", "ready_text", "routing_rows", "sheet_names",
 ]  # fmt: skip
