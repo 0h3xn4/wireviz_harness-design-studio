@@ -24,7 +24,12 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from harness_design_studio.core.generate.lengths import length_origin, reference_text, wire_length
+from harness_design_studio.core.generate.lengths import (
+    length_origin,
+    reference_lines,
+    reference_text,
+    wire_length,
+)
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import (
     Accessory,
@@ -81,6 +86,7 @@ def assert_agree(p: Project) -> None:
             for c in h.connectors:
                 assert vp._end_at(h, s, c.id) == end_at(h, s, c.id), (s.id, c.id)
     assert vp._length_reference(p) == reference_text(p)
+    assert vp._length_lines(p) == reference_lines(p)
 
 
 # ---- independence ---------------------------------------------------------------------------------

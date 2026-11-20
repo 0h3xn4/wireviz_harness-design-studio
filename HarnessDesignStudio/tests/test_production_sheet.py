@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_design_studio.core.generate.lengths import reference_text
+from harness_design_studio.core.generate.lengths import reference_lines
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import (
     Accessory,
@@ -482,7 +482,7 @@ def _expected_sheet(p: Project, h: Harness) -> list[list[object]]:
         want.append([b.heading])
         want += [list(r.values()) for r in b.rows]
         want.append([])
-    want.append([reference_text(p)])
+    want += [[line] for line in reference_lines(p)]
     return [_trim(row) for row in want]
 
 
@@ -585,7 +585,9 @@ def test_start_here_lists_the_sheet_and_says_what_the_lengths_are_measured_from(
     assert first.index("Routing") < first.index("Production") < first.index("Connectors")
     assert [bs.PRODUCTION_SHEET, bs.PRODUCTION_TEXT] in rows
     lengths = [r for r in rows if r[:1] == [bs.LENGTHS_ROW]]
-    assert lengths == [[bs.LENGTHS_ROW, reference_text(flatsat)]]
+    at = rows.index(lengths[0])
+    lines = reference_lines(flatsat)
+    assert rows[at : at + 3] == [[bs.LENGTHS_ROW, lines[0]], ["", lines[1]], ["", lines[2]]]
     assert first.index("Released on") < first.index(bs.LENGTHS_ROW) < first.index("How to use this workbook")  # fmt: skip
 
 
@@ -593,8 +595,9 @@ def test_the_cut_list_and_the_routing_say_what_their_lengths_run_between(flatsat
     wb = _book(flatsat, "W001")
     cut = [_trim(list(r)) for r in wb["Cut list"].iter_rows(values_only=True)]
     assert cut[0][5] == "Length (m), rear to rear" == bs.CUT_HEADER[5]
-    assert cut[-3][1] == "18 wires" and cut[-2] == [] and cut[-1] == [reference_text(flatsat)]
+    lines = [[line] for line in reference_lines(flatsat)]
+    assert cut[-5][1] == "18 wires" and cut[-4] == [] and cut[-3:] == lines
     routing = [_trim(list(r)) for r in wb["Routing"].iter_rows(values_only=True)]
     assert routing[0][3] == "Length (m), rear or branch centre"
-    assert routing[-2:] == [[], [reference_text(flatsat)]]
+    assert routing[-4:] == [[], *lines]
     assert tables.SEGMENT_HEADER[3] == "Length (m)"  # segments.csv keeps its heading

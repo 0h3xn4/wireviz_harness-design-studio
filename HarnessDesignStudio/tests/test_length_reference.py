@@ -4,7 +4,8 @@
 sections 6.1 and 6.3; pull request 1).
 
 `lengths.reference_text(project)` words the reference from the settings in force, with the
-project's own numbers and none invented; `lengths.length_origin(h, w)` says `on the wire`,
+project's own numbers and none invented, as the three sentences of `lengths.reference_lines` (a
+sheet prints each on a row of its own, pull request 3); `lengths.length_origin(h, w)` says `on the wire`,
 `locked`, `segments only, no service loops` or nothing. `derive.wire_length_derivation` starts from
 `length_origin`, so the two agree on every wire of every example, and its texts are as before."""
 
@@ -17,6 +18,7 @@ from harness_design_studio.core.generate.lengths import (
     ORIGIN_ON_WIRE,
     ORIGIN_SEGMENTS,
     length_origin,
+    reference_lines,
     reference_text,
 )
 from harness_design_studio.core.model import (
@@ -199,3 +201,13 @@ def test_the_origin_agrees_with_the_explanation_in_every_case() -> None:
     assert derive.wire_length_derivation(p, h, wires[4]).missing == (
         "the length of every routing segment on the path: W001-L2",
     )
+
+
+@pytest.mark.parametrize("name", GOLDEN_PROJECTS)
+def test_the_reference_is_three_sentences_a_sheet_prints_a_row_each(name: str) -> None:
+    p = golden_project(name)
+    lines = reference_lines(p)
+    assert len(lines) == 3 and " ".join(lines) == reference_text(p)
+    assert lines[0].startswith("Lengths run from") and lines[0].endswith("the other connector.")
+    assert lines[1].startswith("A wire Generate made adds ") and lines[1].endswith(".")
+    assert lines[2] == '"Locked" is a length a person typed; "segments only" has no service loops.'

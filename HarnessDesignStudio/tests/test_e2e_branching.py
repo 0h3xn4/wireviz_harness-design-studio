@@ -208,7 +208,8 @@ def users_harness(folder: Path, capsys: pytest.CaptureFixture[str]) -> Path:
     assert routing[0] == (
         "Segment", "From", "To", "Length (m), rear or branch centre", "Number of wires", "Wires"
     )  # fmt: skip
-    assert str(routing[-1][0]).startswith("Lengths run from the rear of a connector")
+    assert str(routing[-3][0]).startswith("Lengths run from the rear of a connector")
+    assert str(routing[-1][0]).startswith('"Locked" is a length a person typed')
     assert routing[1][:5] == ("W001-L1", "W001-B1", "W001-B2", 1.5, 16)
     assert routing[7][:3] == ("Branch point", "Name", "Connectors beyond it, by segment")
     assert routing[8][:3] == (

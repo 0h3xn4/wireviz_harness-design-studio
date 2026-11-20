@@ -30,7 +30,7 @@ the only outputs that carry the texts.
 
 The Production sheet of the build workbook (4.1.0) is worded a second time by
 `verify_production.production_rows`, the verifier's own copy of its rows, and every sheet with
-lengths ends with the sentence of `verify_production._length_reference`."""
+lengths ends with the sentences of `verify_production._length_lines`, a row each."""
 
 import csv
 import hashlib
@@ -70,7 +70,7 @@ from .verify_labels import (
 )
 from .verify_plan import face_rows, plan_stamp, row_numbers, verify_plans
 from .verify_production import _HEADER as _PRODUCTION_HEADER
-from .verify_production import _length_reference, production_rows
+from .verify_production import _length_lines, production_rows
 
 # A loose cable end, worded independently of tables.py, drawing.py and buildsheet.py (D-201).
 _OPEN_PART_TAG = " (loose end)"
@@ -1962,13 +1962,13 @@ def _build_workbook(r: VerifyReport, project: Project, h: Harness, files: dict[s
     listed = any(row[:1] == [_ROUTING] for row in sheets["Start here"])
     if listed != branching:
         r.error("out_routing", f"{what} (Start here) lists the {_ROUTING} sheet wrongly.", h.id)
-    sentence = _length_reference(project)
+    lines = _length_lines(project)
     if branching:
-        _build_routing(r, h, what, sheets[_ROUTING], sentence)
+        _build_routing(r, h, what, sheets[_ROUTING], lines)
     if "As-built" in sheets:
         _build_asbuilt(r, project, h, what, sheets["As-built"])
-    _build_cut(r, h, what, sheets["Cut list"], sentence)
-    _build_production(r, project, h, what, sheets[_PRODUCTION], sentence)
+    _build_cut(r, h, what, sheets["Cut list"], lines)
+    _build_production(r, project, h, what, sheets[_PRODUCTION], lines)
     _build_connectors(r, project, h, what, sheets["Connectors"])
     parts = sheets["Parts"]
     _compare_rows(r, "out_build", f"{what} (Parts)", parts, _BOM_HEADER,
@@ -1983,7 +1983,7 @@ def _build_workbook(r: VerifyReport, project: Project, h: Harness, files: dict[s
     else:
         r.error("out_build", f"{what} (Labels) has the wrong column headings.", h.id)
     _build_tests(r, project, h, what, sheets["Tests"])
-    _build_start(r, project, h, what, sheets["Start here"], sentence)
+    _build_start(r, project, h, what, sheets["Start here"], lines)
 
 
 def _trimmed(row: list[str]) -> list[str]:
@@ -1991,16 +1991,17 @@ def _trimmed(row: list[str]) -> list[str]:
     return row[: max((n + 1 for n, cell in enumerate(row) if cell), default=0)]
 
 
-def _without_sentence(rows: list[list[str]], sentence: str) -> list[list[str]] | None:
-    """The rows of a sheet with lengths without its last row, which must be the sentence that says
-    what the lengths are measured from (one cell; empty rows after it do not count); None when the
-    last row is not that sentence."""
+def _without_sentence(rows: list[list[str]], lines: tuple[str, ...]) -> list[list[str]] | None:
+    """The rows of a sheet with lengths without its last rows, which must be the sentences that say
+    what the lengths are measured from, one cell a row, in their order (empty rows after them do
+    not count); None when the last rows are not those sentences."""
     end = len(rows)
     while end and not any(rows[end - 1]):
         end -= 1
-    if not end or _trimmed(rows[end - 1]) != [sentence]:
+    start = end - len(lines)
+    if start < 0 or [_trimmed(row) for row in rows[start:end]] != [[line] for line in lines]:
         return None
-    rows = rows[: end - 1]
+    rows = rows[:start]
     while rows and not any(rows[-1]):
         rows = rows[:-1]
     return rows
@@ -2013,13 +2014,18 @@ def _production_cell_ok(got: str, want: str | int | float) -> bool:
 
 
 def _build_production(
-    r: VerifyReport, project: Project, h: Harness, what: str, rows: list[list[str]], sentence: str
+    r: VerifyReport,
+    project: Project,
+    h: Harness,
+    what: str,
+    rows: list[list[str]],
+    lines: tuple[str, ...],
 ) -> None:
     """The Production sheet (4.1.0) against the verifier's own wording of it
     (`verify_production.production_rows`): the headings, then for each block (the cable connectors
     in natural ID order, the splices last under their own title) its heading row, its rows and an
-    empty row, every cell compared; the tick column *Done (x)* empty; the last row the sentence that
-    says what the lengths are measured from."""
+    empty row, every cell compared; the tick column *Done (x)* empty; the last rows the sentences
+    that say what the lengths are measured from."""
     what = f"{what} ({_PRODUCTION})"
     width = len(_BUILD_PRODUCTION_HEADER)
     if not rows or _trimmed(rows[0]) != _BUILD_PRODUCTION_HEADER:
@@ -2031,7 +2037,7 @@ def _build_production(
     if any(len(row) >= width and row[width - 1] for row in rows[1:]):
         r.error("out_build", f"{what} has ticks in Done (x) before anything was done.", h.id)
         return
-    body = _without_sentence(rows, sentence)
+    body = _without_sentence(rows, lines)
     if body is None:
         r.error("out_build", f"{what} does not end with what the lengths are measured from.", h.id)
         return
@@ -2107,13 +2113,13 @@ def _build_asbuilt(
 
 
 def _build_cut(
-    r: VerifyReport, h: Harness, what: str, rows: list[list[str]], sentence: str
+    r: VerifyReport, h: Harness, what: str, rows: list[list[str]], lines: tuple[str, ...]
 ) -> None:
     over = any(w.overrides for w in h.wires)  # one more column, only for a harness with overrides
     if not rows or rows[0] != [*_BUILD_CUT_HEADER, *(["Override"] if over else [])]:
         r.error("out_build", f"{what} (Cut list) has the wrong column headings.", h.id)
         return
-    kept = _without_sentence(rows, sentence)  # the totals row, then the sentence (4.1.0)
+    kept = _without_sentence(rows, lines)  # the totals row, then the sentences (4.1.0)
     if kept is None:
         r.error("out_build", f"{what} (Cut list) does not end with what the lengths are measured from.", h.id)  # fmt: skip
         return
@@ -2255,10 +2261,16 @@ def _build_accessories(r: VerifyReport, h: Harness, what: str, rows: list[list[s
 
 
 def _build_start(
-    r: VerifyReport, project: Project, h: Harness, what: str, rows: list[list[str]], sentence: str
+    r: VerifyReport,
+    project: Project,
+    h: Harness,
+    what: str,
+    rows: list[list[str]],
+    lines: tuple[str, ...],
 ) -> None:
-    lengths = [_trimmed(row) for row in rows if row[:1] == [_BUILD_LENGTHS]]
-    if lengths != [[_BUILD_LENGTHS, sentence]]:
+    at = [n for n, row in enumerate(rows) if row[:1] == [_BUILD_LENGTHS]]
+    shown = [_trimmed(row) for row in rows[at[0] : at[0] + len(lines)]] if len(at) == 1 else []
+    if shown != [[_BUILD_LENGTHS if not n else "", line] for n, line in enumerate(lines)]:
         r.error("out_build", f"{what} (Start here) does not say what the lengths are measured from.", h.id)  # fmt: skip
     named = [row[0] for row in rows if row[:1] in ([_PRODUCTION], ["Connectors"])]
     if named != [_PRODUCTION, "Connectors"]:
@@ -2423,13 +2435,13 @@ def _routing(r: VerifyReport, h: Harness, files: dict[str, bytes]) -> None:
 
 
 def _build_routing(
-    r: VerifyReport, h: Harness, what: str, rows: list[list[str]], sentence: str
+    r: VerifyReport, h: Harness, what: str, rows: list[list[str]], lines: tuple[str, ...]
 ) -> None:
     """The *Routing* sheet of the build workbook: the segments (a length or *to fill in*, the number
     of wires and the wires joined by `; `), an empty row, then the branch points with the
-    connectors beyond each side, and last the sentence that says what the lengths are measured
+    connectors beyond each side, and last the sentences that say what the lengths are measured
     from."""
-    kept = _without_sentence(rows, sentence)
+    kept = _without_sentence(rows, lines)
     if kept is None:
         r.error("out_routing", f"{what} ({_ROUTING}) does not end with what the lengths are measured from.", h.id)  # fmt: skip
         return

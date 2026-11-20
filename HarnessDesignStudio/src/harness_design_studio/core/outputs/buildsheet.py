@@ -26,7 +26,7 @@ from harness_design_studio.core.deviations import (
     override_text,
     tests_band,
 )
-from harness_design_studio.core.generate.lengths import reference_text, wire_length
+from harness_design_studio.core.generate.lengths import reference_lines, wire_length
 from harness_design_studio.core.model import Connector, Harness, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
 from harness_design_studio.core.wirecolours import resolve
@@ -470,12 +470,13 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     ):  # fmt: skip
         body.append([_cell(ws, label, fill=_BAND), _cell(ws, value or "not set")])
         lay.see(1, label)
-    # what every length of the workbook is measured from (4.1.0, part D); one line that runs over
-    # the empty cells to its right, as the lines of *How to use this workbook*
-    body.append([
-        _cell(ws, LENGTHS_ROW, fill=_BAND),
-        _cell(ws, reference_text(project), box=False, wrap=False),
-    ])  # fmt: skip
+    # what every length of the workbook is measured from (4.1.0, part D): a sentence a row, each
+    # running over the empty cells to its right, as the lines of *How to use this workbook*
+    for n, line in enumerate(reference_lines(project)):
+        body.append([
+            _cell(ws, "" if n else LENGTHS_ROW, fill=_BAND),
+            _cell(ws, line, box=False, wrap=False),
+        ])  # fmt: skip
     if placeholders:  # the files behind the answer above (audit F-06)
         files = ", ".join(f"config/{n}.json" for n in placeholders)
         body.append([_cell(ws, "Placeholder files", fill=_BAND), _cell(ws, files)])
@@ -527,10 +528,13 @@ def _strip(v: float | None) -> float | str:
     return round(v, 9) + 0.0 if v is not None else TO_FILL
 
 
-def _reference_row(ws: Any, project: Project) -> list[Any]:
-    """The last row of a sheet with lengths: what they are measured from, in words from the
-    settings in force (`lengths.reference_text`), one line that runs over the empty cells."""
-    return [_cell(ws, reference_text(project), italic=True, box=False, wrap=False)]
+def _reference_rows(ws: Any, project: Project) -> list[list[Any]]:
+    """The last rows of a sheet with lengths: what they are measured from, in words from the
+    settings in force (`lengths.reference_lines`), a sentence a row, each running over the empty
+    cells to its right."""
+    return [
+        [_cell(ws, line, italic=True, box=False, wrap=False)] for line in reference_lines(project)
+    ]
 
 
 def _cut_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
@@ -575,7 +579,7 @@ def _cut_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         *[_cell(ws, "", fill=_BAND) for _ in range(7 + (1 if over else 0))],
     ])  # fmt: skip
     body.append([])
-    body.append(_reference_row(ws, project))
+    body.extend(_reference_rows(ws, project))
     ws.auto_filter.ref = f"A1:{_letter(len(header))}{last}"
     if wires:
         _tick_rules(ws, f"A2:A{last}")
@@ -659,11 +663,12 @@ def routing_rows(project: Project, h: Harness) -> list[list[object]]:
     wires a number and the wires joined by `; `), an empty row, the header of the branch points and
     one row per branch point (its ID, its name and the connectors beyond it on each side,
     one part per segment that meets it, all on one line: `tables.side_text`), then an empty row and
-    the sentence that says what the lengths are measured from (`lengths.reference_text`)."""
+    the sentences that say what the lengths are measured from (`lengths.reference_lines`), a row
+    each."""
     segs, points = _routing_blocks(h)
+    lines: list[list[object]] = [[line] for line in reference_lines(project)]
     return [
-        list(ROUTING_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points, [],
-        [reference_text(project)],
+        list(ROUTING_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points, [], *lines,
     ]  # fmt: skip
 
 
@@ -691,7 +696,7 @@ def _routing_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         for n, v in enumerate(values, start=1):
             lay.see(n, str(v))
     body.append([])
-    body.append(_reference_row(ws, project))
+    body.extend(_reference_rows(ws, project))
     _finish(ws, lay, stamp, body, tab="5D6D7E", freeze="B2")
 
 
@@ -761,8 +766,8 @@ def _production_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> No
     under `SPLICE_BLOCK`; each block a heading row and one row per pin and wire, a run of spare
     pins on one row. Lengths in metres and colours as the cut list writes them; a value the design
     does not hold reads *to fill in* on an amber cell. A tick column *Done (x)* last; a manual page
-    break before a block that would pass 42 rows on the page, as on *Connectors*; the last row is
-    the sentence that says what the lengths are measured from."""
+    break before a block that would pass 42 rows on the page, as on *Connectors*; the last rows
+    are the sentences that say what the lengths are measured from, a row each."""
     from openpyxl.worksheet.pagebreak import Break
 
     ws = wb.create_sheet(PRODUCTION_SHEET)
@@ -809,7 +814,7 @@ def _production_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> No
         body.append([])
         row += 1
         since_break += size
-    body.append(_reference_row(ws, project))
+    body.extend(_reference_rows(ws, project))
     for first, last in ticks:
         _tick_rules(ws, f"{_letter(width)}{first}:{_letter(width)}{last}")
     lay.widths[1] = max(lay.widths.get(1, 0), 8.0)
