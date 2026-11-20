@@ -257,9 +257,12 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "class in brackets when the interface type has one. A cable connector label reads its own "
             "label, else the label of the device connector it plugs into, then 'ID mates DEVICE-CONNECTOR'. "
             "This is the format standard. The setting model.label_format selects compact (ID and far end "
-            "only), descriptive (with the interface and the device) or custom (the templates "
-            "model.label_wire_template and model.label_connector_template); the words always come from "
-            "the design.",
+            "only), descriptive (with the interface and the device), custom (the templates "
+            "model.label_wire_template and model.label_connector_template) or harness_device_connector "
+            "(a cable connector reads harness, device and the name of the device connector, "
+            "W001:MTQ1:J01, without the person's label; a wire the standard text): the format a new "
+            "project starts in since 4.1.0, while standard stays the format of a file that names none; "
+            "the words always come from the design.",
             "setting",
             "config/model.json: label_format, label_wire_template, label_connector_template; core/label_format.py, core/outputs/tables.py (wire_label_texts, connector_label_text)",
         ),

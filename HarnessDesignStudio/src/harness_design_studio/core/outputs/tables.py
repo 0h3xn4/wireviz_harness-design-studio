@@ -740,7 +740,11 @@ def wire_label_texts(project: Project, w: Wire, h: Harness | None = None) -> tup
 
 def connector_label_text(project: Project, c: Connector, h: Harness | None = None) -> str:
     """The text of the label of a cable connector by the label format in force: its name and what
-    it mates (a loose end: `W009-P2 open end`, and `{mates}` of a template is `open end`)."""
+    it mates (a loose end: `W009-P2 open end`, and `{mates}` of a template is `open end`). In the
+    format `harness_device_connector` it is `HARNESS:DEVICE:NAME` of the device connector
+    (`W001:MTQ1:J01`), `W009:W009-P2 open end` for a loose end and `W001:W001-P3` for a connector
+    that plugs into nothing or into no connector of the project; the person's label is not part
+    of it (design of 4.1.0, section 4.2)."""
     name = connector_label(project, c)
     loose = is_open_end(c)
     mates = f"{c.id} {OPEN_END}" if loose else f"{c.id} mates {c.mates_with or '-'}"
@@ -750,6 +754,14 @@ def connector_label_text(project: Project, c: Connector, h: Harness | None = Non
     box = project.connectors.get(c.mates_with or "")
     if fmt == "descriptive" and box is not None and box.unit_id:
         mates = f"{mates} of {box.unit_id}"
+    if fmt == "harness_device_connector":
+        owner = h or next((x for x in project.harnesses.values() if c in x.connectors), None)
+        hid = owner.id if owner else ""
+        if loose:
+            return f"{hid}:{c.id} {OPEN_END}"
+        if box is None:
+            return f"{hid}:{c.id}"
+        return f"{hid}:{box.unit_id or ''}:{box.name}"
     if fmt == "custom" and (tpl := label_format.template_of(project, "connector")) is not None:
         owner = h or next((x for x in project.harnesses.values() if c in x.connectors), None)
         return label_format.fill(
@@ -758,6 +770,7 @@ def connector_label_text(project: Project, c: Connector, h: Harness | None = Non
                 "harness": owner.id if owner else "", "connector": c.id, "name": name,
                 "mates": OPEN_END if loose else (c.mates_with or "-"),
                 "device": (box.unit_id or "") if box else "",
+                "mates_name": OPEN_END if loose else (box.name if box else "-"),
             },
         )  # fmt: skip
     return f"{name} ({mates})" if name else mates

@@ -128,7 +128,14 @@ _KINDS = ["twisted_pair", "shielded_pair", "overall_shield", "quad", "coax"]
 _ENDS = ["backshell_360", "pigtail", "floating"]
 _LENGTHS = st.sampled_from([None, 0.25, 1.0, 0.1, 2.5])
 _TEMPLATES = st.sampled_from([None, "{harness}:{wire}:{end} {from}>{to}", "{name}{{x}}", "{bad}"])
-_CON_TEMPLATES = st.sampled_from([None, "{harness}:{device}:{mates} {name}", "{connector}"])
+_CON_TEMPLATES = st.sampled_from(
+    [
+        None,
+        "{harness}:{device}:{mates} {name}",
+        "{connector}",
+        "{name} {harness}:{device}:{mates_name}",
+    ]
+)
 
 
 @st.composite
@@ -204,7 +211,7 @@ def production_projects(draw: st.DrawFn) -> Project:
         "segments": segments, "accessories": accessories,
     })  # fmt: skip
     model: dict[str, object] = {
-        "label_format": draw(st.sampled_from(["standard", "compact", "descriptive", "custom", "fancy"])),
+        "label_format": draw(st.sampled_from(["standard", "compact", "descriptive", "custom", "harness_device_connector", "fancy"])),
         "service_loops_per_wire": draw(st.sampled_from([0, 1, 2, 4])),
         "length_model": draw(st.sampled_from(["path_plus_loops", "path_loops_allowance_twist", "odd"])),
         "twist_takeup_fraction": draw(st.sampled_from([0.0, 0.02, 0.5])),
