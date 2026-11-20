@@ -109,3 +109,9 @@ The minor release `3.1.0` (D-253; `SEARCH`/`ISNUMBER` in the plan's search boxes
 The note on the publication of the minor release 2.3.0, moved word for word from the Status section to keep `CLAUDE.md` under its size limit when 4.0.1 was prepared; the Status section still names 2.3.0 in the list of releases and says where this note is.
 
 **Version `2.3.0` is published** (D-245; 2026-11-18, the latest full release until 2.3.1; no release candidate; tag `v2.3.0` on `5104988`, made by the tag workflow, run 44238883189, its seventh use): a minor release with branching harnesses (D-243; `docs/ait/DESIGN_2.3_BRANCHING.md`; #255, #262 to #265 and pull request 7: `per_connector_group`, `core/branching.py`, `segments.csv` and the *Routing* sheet, `routing`, the editor's *Routing* table, legs and the join) and the owner's feedback of 2026-11-17 (the App Center page, #257; the first start on Home with the role question there, no tour, dialogs that fit and move freely, #260); no format change, the scripting interface is unchanged; splices come with format 3 in 3.0.0.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 4.0.1 (2026-11-20)
+
+The note on the publication of the major release 4.0.0, moved word for word from the first item of the Status section when the publication record of 4.0.1 was written, as the note on 3.1.0 was moved with the publication record of 4.0.0, so that `CLAUDE.md` stays under its size limit; that item still names 4.0.0 in the list of releases and says where this note is.
+
+The major release `4.0.0` (D-254; format 4 with a connector's row layout; format 4 frozen from its tag) was published on 2026-11-20 (annotated tag `v4.0.0` on `c0e0250`, the merge of #304; made by the tag workflow, run 44699479126, its thirteenth use; release workflow run 44699532086): the latest full release until 4.0.1 is tagged.
