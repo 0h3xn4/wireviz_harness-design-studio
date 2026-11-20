@@ -122,6 +122,18 @@ def _nat(text: str) -> tuple[tuple[int, int | str], ...]:
     return tuple((0, int(x)) if x.isdigit() else (1, x) for x in re.split(r"(\d+)", text) if x)
 
 
+def _shield_groups(h: Harness) -> dict[str, str]:
+    """The verifier's own word for the shield column: every group a wire is in, in natural ID
+    order, joined by `;`."""
+    out: dict[str, list[str]] = {}
+    for s in sorted(h.shields, key=lambda x: _nat(x.id)):
+        for wid in s.wire_ids:
+            ids = out.setdefault(wid, [])
+            if s.id not in ids:
+                ids.append(s.id)
+    return {wid: ";".join(ids) for wid, ids in out.items()}
+
+
 def _pin_nat(pin: tuple[str, str]) -> tuple[tuple[tuple[int, int | str], ...], ...]:
     return _nat(pin[0]), _nat(pin[1])
 
@@ -528,7 +540,7 @@ def _margin(project: Project) -> float | None:
 
 def _harness_cells(r: VerifyReport, project: Project, h: Harness, files: dict[str, bytes]) -> None:
     base = f"harnesses/{h.id}"
-    shield_of = {wid: s.id for s in h.shields for wid in s.wire_ids}
+    shield_of = _shield_groups(h)
     wl = wl_whole = _table(files, f"{base}/wirelist.csv")
     if wl and _splice_set(h):  # the very last column, only for a harness with a splice
         if wl[0][-1:] != [_VIA]:
@@ -2109,7 +2121,7 @@ def _build_cut(r: VerifyReport, h: Harness, what: str, rows: list[list[str]]) ->
     if [row[1] for row in body] != order:
         r.error("out_build", f"{what} (Cut list) does not list the wires once each in cut order.", h.id)  # fmt: skip
         return
-    shields = {wid: s.id for s in h.shields for wid in s.wire_ids}
+    shields = _shield_groups(h)
     by_id = {w.id: w for w in h.wires}
     bad: list[str] = []
     known = 0.0
