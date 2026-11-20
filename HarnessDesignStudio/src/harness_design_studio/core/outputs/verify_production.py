@@ -9,12 +9,13 @@ rules (`core/label_format.py`) or the shield ends (`core/shield_ends.py`), nor t
 (`core/generate/lengths.py`): it holds its own copies of the folding of spare runs, the far end and
 its brackets, the end of a shield group at a connector (`_end_at`), the length of a wire on the
 one path through the segments (`_length`), where the length comes from (`_length_origin`) and the
-sentence that says what a length is measured from (`_length_reference`). The label texts are the
+sentences that say what a length is measured from (`_length_lines`, joined by `_length_reference`). The label texts are the
 verifier's own copy in `verify_labels.py`. `tests/test_production_verify.py` reads the imports
 and compares every row with the core's on the examples, the fixtures and random harnesses.
 
-No sheet is written or checked with it yet (pull request 1 of the design); `verify.py` and
-`verify_plan.py` take it up with the sheets."""
+`verify_plan.py` checks the sheet *Production* of the harness plan with it, cell by cell, and
+`H9` and row 2 of that sheet with `_length_lines` (pull request 5 of the design); `verify.py` takes
+it up with the build workbook."""
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -144,7 +145,13 @@ def _setting(project: Project, file: str, key: str) -> object:
 
 
 def _length_reference(project: Project) -> str:
-    """What every length of a document is measured from, worded from the settings in force."""
+    """The sentences of `_length_lines` as one text."""
+    return " ".join(_length_lines(project))
+
+
+def _length_lines(project: Project) -> tuple[str, str, str, str]:
+    """What every length of a document is measured from, worded from the settings in force, as the
+    four short sentences a sheet prints on a row each."""
     count = _setting(project, "model", "service_loops_per_wire")
     each = _setting(project, "generation", "service_loop_m")
     if isinstance(each, bool) or not isinstance(each, int | float):
@@ -164,10 +171,11 @@ def _length_reference(project: Project) -> str:
             f"twisted construction, and a cut allowance of {_figure(float(cut))} m"
         )
     return (
-        "Lengths run from the rear of a connector (where the wires leave its body or backshell) "
-        "along the routing segments, through the centre of each branch point, to the rear of the "
-        f'other connector. A wire Generate made adds {loops}. "Locked" is a length a person '
-        'typed; "segments only" has no service loops.'
+        "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
+        "They follow the routing segments through the centre of each branch point to the rear of "
+        "the other connector.",
+        f"A wire Generate made adds {loops}.",
+        '"Locked" is a length a person typed; "segments only" has no service loops.',
     )
 
 
