@@ -1,9 +1,9 @@
-<!-- harness-design-studio 4.0.0 model 751698959a4c -->
-> harness-design-studio 4.0.0. Provided as is, without warranty. Verify before use.
+<!-- harness-design-studio 4.0.1 model 8e3a53948a79 -->
+> harness-design-studio 4.0.1. Provided as is, without warranty. Verify before use.
 
 # Design rule check: mini3 (example data)
 
-Model hash: `751698959a4c`. Rules run: 39.
+Model hash: `8e3a53948a79`. Rules run: 39.
 Open: 0 error(s), 7 warning(s), 4 note(s). Waived: 0.
 
 Placeholder configuration in use: derating, emc, generation, segmentation, segregation, titleblock. Results that depend on it are marked as not checked.
