@@ -11,10 +11,14 @@ attribute order and no pretty printing; automatic styles are numbered in the ord
 the sheets; numbers have no exponent. Formulas are OpenFormula (`of:`) from the closed list of
 section 7.2 and carry their stored value; anything outside the list is refused with `ValueError`.
 `content.xml` turns regular expressions and wildcards off (`CALCULATION_SETTINGS`), so a reader
-compares text as typed.
+compares text as typed. Three print set-up features (design of 4.1.0 section 5.1) are off by
+default and write nothing while off, so a sheet that does not use them keeps its bytes: a fixed
+scale (`Page.scale`), heading rows repeated on every printed page (`Sheet.repeat_rows`) and page
+breaks before rows (`Sheet.breaks`).
 """
 
 import io
+import itertools
 import math
 import re
 import zipfile
@@ -45,6 +49,13 @@ REFUSED = {
     "HYPERLINK": "a link is a text:a element of the cell (Cell.link), not a formula",
 }
 PAPERS = {"A4": (210, 297), "A3": (297, 420)}  # mm, portrait
+# The fixed scales a reader takes, in percent: the range of LibreOffice's and Excel's page set-up.
+SCALES = (10, 400)
+# The row style of a row before which a page starts (ODF 1.2 section 17.17, fo:break-before); the
+# row keeps the height a reader gives an unstyled row.
+BREAK_ROW = (
+    '<style:table-row-properties fo:break-before="page" style:use-optimal-row-height="true"/>'
+)
 ALIGNS = ("", "start", "center", "end")
 ZIP_DATE = (1980, 1, 1, 0, 0, 0)
 
@@ -106,20 +117,29 @@ class Condition:
 
 @dataclass(frozen=True, slots=True)
 class Page:
-    """The printed page of a sheet. `fit` prints the sheet on one page; header and footer are plain
-    text (the stamp)."""
+    """The printed page of a sheet. `fit` prints the sheet on one page; `scale` prints it at a fixed
+    scale in percent (`SCALES`, 10 to 400; 0 leaves it to the reader), written as
+    `style:scale-to`; `fit` and `scale` exclude each other. Header and footer are plain text (the
+    stamp)."""
 
     paper: str = "A4"
     landscape: bool = False
     fit: bool = False
     header: str = ""
     footer: str = ""
+    scale: int = 0
 
 
 @dataclass(frozen=True, slots=True)
 class Sheet:
     """One sheet: `rows[0]` is row 1 and each row starts at column A; None is an empty cell.
-    `widths` are column widths in mm from column A (0 leaves the width to the reader)."""
+    `widths` are column widths in mm from column A (0 leaves the width to the reader).
+    `repeat_rows` (first, last), 0-based, are the rows written inside `table:table-header-rows`,
+    which a reader prints at the top of every page. `breaks`, 0-based and rising, are the rows
+    before which a page starts; each is written with a row style `fo:break-before="page"`. A break
+    is not before row 1 and not inside the heading rows (it may be before their first row or
+    right after their last). Rows are merged into a repeated run only within the heading rows,
+    or within the rows between two breaks, never across."""
 
     name: str
     rows: tuple[tuple[Cell | None, ...], ...] = ()
@@ -127,6 +147,8 @@ class Sheet:
     page: Page = Page()
     print_range: str = ""  # "H6:U64"
     conditions: tuple[Condition, ...] = ()
+    repeat_rows: tuple[int, int] | None = None
+    breaks: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,6 +346,7 @@ class _Styles:
     def __init__(self) -> None:
         self.cells: dict[tuple[Style, tuple[tuple[str, str, str], ...]], str] = {}
         self.columns: dict[float, str] = {}
+        self.rows: dict[str, str] = {}
         self.pages: dict[Page, int] = {}
         self.conditions: dict[Style, str] = {}
 
@@ -332,6 +355,9 @@ class _Styles:
 
     def column(self, width: float) -> str:
         return self.columns.setdefault(width, f"co{len(self.columns) + 1}")
+
+    def row(self, properties: str) -> str:
+        return self.rows.setdefault(properties, f"ro{len(self.rows) + 1}")
 
     def condition(self, s: Style) -> str:
         return self.conditions.setdefault(s, f"Condition{len(self.conditions) + 1}")
@@ -350,6 +376,48 @@ def _check_style(s: Style) -> None:
         raise ValueError(f"{s.align!r} is not an alignment ({', '.join(repr(a) for a in ALIGNS)})")
     if not (0 <= s.size_pt <= 400):
         raise ValueError(f"{s.size_pt!r} is not a font size from 0 to 400 pt")
+
+
+def _check_page(p: Page) -> None:
+    if isinstance(p.scale, bool) or not isinstance(p.scale, int):
+        raise ValueError(f"the scale {p.scale!r} is not a whole percent")
+    if p.scale and not SCALES[0] <= p.scale <= SCALES[1]:
+        raise ValueError(
+            f"the scale {p.scale} % is not from {SCALES[0]} to {SCALES[1]} % (0 leaves it to the reader)"
+        )
+    if p.scale and p.fit:
+        raise ValueError(
+            "a page is either fitted to one page or printed at a fixed scale, not both"
+        )
+
+
+def _whole(v: object) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _print_rows(sh: Sheet, n: int, name: str) -> tuple[tuple[int, int] | None, frozenset[int]]:
+    """The heading rows and the break rows of a sheet of `n` rows, checked."""
+    head = sh.repeat_rows
+    if head is not None and not (
+        len(head) == 2 and all(_whole(r) for r in head) and 0 <= head[0] <= head[1] < n
+    ):
+        raise ValueError(
+            f"{name}, heading rows: {head!r} is not (first, last), 0-based, of the {n} rows of the sheet"
+        )
+    for b in sh.breaks:
+        if not _whole(b) or not 1 <= b < n:
+            raise ValueError(
+                f"{name}, page breaks: {b!r} is not a 0-based row from 1 to {n - 1} of the sheet"
+            )
+    if list(sh.breaks) != sorted(set(sh.breaks)):
+        raise ValueError(f"{name}, page breaks: {sh.breaks!r} are not rising, each once")
+    if head is not None:
+        inside = [b for b in sh.breaks if head[0] < b <= head[1]]
+        if inside:
+            raise ValueError(
+                f"{name}, page breaks: row {inside[0]} lies inside the heading rows {head[0]} to {head[1]}"
+            )
+    return head, frozenset(sh.breaks)
 
 
 def _properties(s: Style) -> str:
@@ -480,6 +548,10 @@ def _table_xml(sh: Sheet, styles: _Styles, sheets: frozenset[str]) -> str:
             parse_range(sh.print_range)
         except ValueError as exc:
             raise ValueError(f"{name}, print range: {exc}") from None
+    try:
+        _check_page(sh.page)
+    except ValueError as exc:
+        raise ValueError(f"{name}, page: {exc}") from None
     used = [*cells, *covered, *maps]
     width = max([len(sh.widths), *(c + 1 for _, c in used)], default=0)
     out = [f'<table:table table:name="{attr(sh.name)}" table:style-name="ta{styles.page(sh.page)}"']
@@ -503,7 +575,9 @@ def _table_xml(sh: Sheet, styles: _Styles, sheets: frozenset[str]) -> str:
     for r, c in used:
         lengths[r] = max(lengths.get(r, 0), c + 1)
     rows = []
-    for r in range(max([len(sh.rows), *(r + 1 for r in lengths)])):
+    n = max([len(sh.rows), *(r + 1 for r in lengths)])
+    head, breaks = _print_rows(sh, n, name)
+    for r in range(n):
         items = []
         for c in range(lengths.get(r, 0)):
             if (r, c) in covered:
@@ -515,14 +589,29 @@ def _table_xml(sh: Sheet, styles: _Styles, sheets: frozenset[str]) -> str:
         if not items:
             items = ["<table:table-cell/>"]
         rows.append(_runs(items))
-    out.append(_repeat_rows(rows))
+    if head is None and not breaks:
+        out.append(_repeat_rows(rows))
+        return "".join(out) + "</table:table>"
+    # The heading rows and every break start a group of their own, so no run crosses them.
+    cuts = sorted({0, n, *breaks, *((head[0], head[1] + 1) if head else ())})
+    style = f' table:style-name="{styles.row(BREAK_ROW)}"' if breaks else ""
+    for a, b in itertools.pairwise(cuts):
+        group = _repeat_rows(rows[a:b], style if a in breaks else "")
+        heading = head is not None and a == head[0]
+        out.append(
+            f"<table:table-header-rows>{group}</table:table-header-rows>" if heading else group
+        )
     return "".join(out) + "</table:table>"
 
 
-def _repeat_rows(rows: list[str]) -> str:
-    """Rows, with a run of equal rows written once with a repeat count."""
+def _repeat_rows(rows: list[str], first: str = "") -> str:
+    """Rows, with a run of equal rows written once with a repeat count; `first` (a style
+    attribute) goes on the first row alone, which then joins no run."""
     out: list[str] = []
     i = 0
+    if first and rows:
+        out.append(f"<table:table-row{first}>{rows[0]}</table:table-row>")
+        i = 1
     while i < len(rows):
         j = i
         while j + 1 < len(rows) and rows[j + 1] == rows[i]:
@@ -561,6 +650,10 @@ def _content(book: Workbook, styles: _Styles) -> str:
         for i, w in enumerate(styles.columns, 1)
     ]
     auto += [
+        f'<style:style style:name="{name}" style:family="table-row">{props}</style:style>'
+        for props, name in styles.rows.items()
+    ]
+    auto += [
         f'<style:style style:name="ta{n}" style:family="table" style:master-page-name="mp{n}">'
         '<style:table-properties table:display="true"/></style:style>'
         for n in styles.pages.values()
@@ -596,6 +689,8 @@ def _styles(styles: _Styles) -> str:
         if page.landscape:
             w, h = h, w
         fit = ' style:scale-to-pages="1"' if page.fit else ""
+        if page.scale:
+            fit = f' style:scale-to="{page.scale}%"'
         layouts.append(
             f'<style:page-layout style:name="pm{n}"><style:page-layout-properties fo:page-width="{w}mm" fo:page-height="{h}mm"'
             f' style:print-orientation="{"landscape" if page.landscape else "portrait"}" fo:margin-top="10mm" fo:margin-bottom="10mm"'
