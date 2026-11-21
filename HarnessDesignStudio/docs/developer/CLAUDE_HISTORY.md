@@ -127,3 +127,9 @@ The note on the publication of the patch release 2.3.1, moved word for word from
 The note on the publication of the patch release 4.0.1, moved word for word from the first item of the Status section when the publication record of 4.1.0 was written, as the note on 4.0.0 was moved with the publication record of 4.0.1, so that `CLAUDE.md` stays under its size limit; that item still names 4.0.1 in the list of releases and says where this note is.
 
 The patch release `4.0.1` (D-255; every label format passes the export's self-check; no format change) was published on 2026-11-20 (annotated tag `v4.0.1` on `d45da91`, the merge of #308; made by the tag workflow, run 44741420907, its fourteenth use; release workflow run 44741460590): the latest full release until 4.1.0 is tagged.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 4.2.0 (2026-11-21)
+
+The note on the publication of the minor release 2.4.0, moved word for word from the Status section to keep `CLAUDE.md` under its size limit when 4.2.0 was prepared, as the note on 2.3.1 was moved with the preparation of 4.1.0; the Status section still names 2.4.0 in the list of releases and says where this note is.
+
+**Version `2.4.0` is published** (D-248; 2026-11-18, the latest full release until 3.0.0; no release candidate; tag `v2.4.0` on `85df2a9`, made by the tag workflow, run 44314858198, its ninth use): a minor release: a new project starts in `per_connector_group` (#271, D-247; the registry default stays `per_connector_pair`; the editor's notice once) and one order of revisions (#272, `core/vcs/versions.py`, R1 of 3.0.0, D-242); no format change.

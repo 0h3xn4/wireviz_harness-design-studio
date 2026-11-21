@@ -1,5 +1,5 @@
-# harness-design-studio 4.1.0 model 7f6aec32367c
-# harness-design-studio 4.1.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 4.2.0 model 3521527325dd
+# harness-design-studio 4.2.0. Provided as is, without warranty. Verify before use.
 Harness,Wires,Connectors,Wire length known (m),Wires without length,Mass of wires and cable connectors (g),Margin (g),Mass with margin (g),Complete,Missing data
 W003,6,3,5.56,0,0,,,no,mass of connector part EX-MICROD-15-M; mass of connector part EX-MICROD-9-M; mass per metre of wire part (none)
 TOTAL,6,3,5.56,0,0,,,no,totals count only what is known
