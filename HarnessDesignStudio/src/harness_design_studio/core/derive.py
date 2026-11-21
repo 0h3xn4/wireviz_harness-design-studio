@@ -956,6 +956,21 @@ def contact_current_derivation(
     )  # fmt: skip
 
 
+def not_an_object(object_id: str, finding: bool = False) -> str:
+    """What `explain_object` says when an ID is none of its objects; the command `explain`, which
+    also looks among the findings (design of 4.3.0, section 7), adds "a finding of this project"."""
+    last = "a test or a finding of this project" if finding else "or a test"
+    return (
+        f"'{object_id}' is not a wire, a harness or a part used in a harness, nor an interface, "
+        f"a connector, a pin, a shield group{',' if finding else ''} {last}."
+    )
+
+
+class NotAnObjectError(EditError):
+    """`explain_object` knows no object by this ID (the command `explain` then looks among the
+    findings, design of 4.3.0, section 7)."""
+
+
 def explain_part(project: Project, part_id: str) -> list[Derivation]:
     """The lines of the bill of materials for a part: one for each unit it is counted in."""
     harnesses = [project.harnesses[i] for i in sorted(project.harnesses)]
@@ -963,10 +978,7 @@ def explain_part(project: Project, part_id: str) -> list[Derivation]:
         part_id = OPEN_END_PART
     units = sorted({c.unit for c in bom_contributions(project, harnesses) if c.part_id == part_id})
     if not units:
-        raise EditError(
-            f"'{part_id}' is not a wire, a harness or a part used in a harness, nor an interface, "
-            "a connector, a pin, a shield group or a test."
-        )
+        raise NotAnObjectError(not_an_object(part_id))
     return [part_bom_derivation(project, part_id, u) for u in units]
 
 
