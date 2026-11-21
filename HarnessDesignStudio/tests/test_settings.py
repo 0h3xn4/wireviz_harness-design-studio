@@ -79,6 +79,7 @@ CALCULATION_MODULES = (
     "core/outputs/tables.py", "core/units.py", "core/derive.py", "core/pairing.py",
     "core/routing.py", "core/derive_export.py", "core/derive_build.py", "core/derive_layout.py",
     "core/derive_rules.py", "core/generate/shields.py", "core/asbuilt.py", "core/derive_asbuilt.py",
+    "core/drc/electrical.py",
 )  # fmt: skip
 _AWG = "definition D-AWG (gauges 0 to 40, the AWG formula)"
 _TICK = "a progress fraction of the progress bar: no result depends on it"

@@ -12,7 +12,7 @@ Rules live in `config/*.json` inside the project, not in code. There are seven f
 - [`derating.json`](#deratingjson)
 - [`generation.json`](#generationjson)
 - [`emc.json`](#emcjson)
-- [`naming.json`](#namingjson), with [`signal_counterparts`](#the-words-for-the-two-ends-of-a-line-since-190), [`release_distinct_roles`](#different-people-in-a-release-since-190) and [`release_requires_asbuilt`](#release-needs-as-built-records-optional)
+- [`naming.json`](#namingjson), with [`signal_counterparts`](#the-words-for-the-two-ends-of-a-line-since-190), [`pair_suffixes`](#the-endings-of-a-signal-pair-since-420), [`release_distinct_roles`](#different-people-in-a-release-since-190) and [`release_requires_asbuilt`](#release-needs-as-built-records-optional)
 - [`titleblock.json`](#titleblockjson)
 - [`model.json`](#modeljson)
 - [Optional values from the supplied standards (D-131)](#optional-values-from-the-supplied-standards-d-131)
@@ -104,6 +104,7 @@ harness-design-studio new my-design --annotate-config      # start a new project
 | `contact_rating_key` | the name of a part rating |
 | `titleblock.fields` | known field names, each at most once, written as text (see below) |
 | `signal_counterparts` (naming) | a list of pairs of two different words made of letters, no word in two pairs; an empty list is allowed (see below) |
+| `pair_suffixes` (naming) | a list of pairs of two different endings of 1 to 3 characters (letters, digits, `+` and `-`), compared exactly, no ending in two pairs; an empty list is allowed (see below) |
 | `release_distinct_roles` (naming) | `true` or `false` (see below) |
 | `release_requires_asbuilt` (naming) | `true` or `false` (see below) |
 
@@ -173,6 +174,16 @@ Not a name pattern but a style choice of the same kind: the words that are the t
 | `signal_counterparts` | not set: `[["TX","RX"], ["TXD","RXD"], ["TXP","RXP"], ["TXN","RXN"], ["DOUT","DIN"], ["MOSI","MISO"], ["SDO","SDI"]]` | a list of pairs of words; the first word of a pair is the transmit word, the second the receive word; case does not matter |
 
 Example for a program that also names its lines `OUT` and `IN`: `"signal_counterparts": [["TX","RX"], ["MOSI","MISO"], ["OUT","IN"]]` (a list replaces the default table, so repeat the pairs you still want). Each word is made of letters only (digits and signs such as `+`, `-` and `_` are separators in a name, not parts of a word), and a word is in one pair only. An empty list `[]` means no counterparts at all: only equal names are paired. The key is left out of new projects and out of the shipped file, so the files of an existing project do not change. A value that is not valid is an error of the check (`config/naming.json: signal_counterparts ...`, rule `config-invalid`, also reported by generation) and the default table is used until it is corrected. `harness-design-studio config DIR --counterparts "TX=RX, MOSI=MISO, OUT=IN"` writes it (`default` takes the key out again, `none` writes `[]`); `config DIR` then lists it. A pin can also say which way it runs (`Pin.direction`, [`FILE_FORMAT.md`](FILE_FORMAT.md#links-and-pin-roles-m2-schema-version-stays-1)); where it does, the directions decide before the names.
+
+### The endings of a signal pair (since 4.2.0)
+
+Also a style choice: the endings by which the names of the two signals of a pair differ. The design rule `pair-untwisted` (design of 4.2.0, section 3) pairs two wires that have no interface (a harness made from a connection, or drawn by hand) by the interface types of the signals at their ends; where no interface type has both signals, two signals whose names differ only by the two endings of a row of this table are a pair: `1PPS+` and `1PPS-`, `TX_P` and `TX_N`, `CANH` and `CANL` (assumption A-PAIR-NAMES, [shields](models/shields.md#the-assumptions-it-rests-on)).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `pair_suffixes` | not set: `[["+","-"], ["P","N"], ["H","L"]]` | a list of pairs of endings; two names that are the same apart from the two endings of one pair, with something left in front of them, are a pair; the comparison is exact (`p` is not `P`) |
+
+Example for a program that names a high and a low side of one heater `HEATER_H` and `HEATER_L`, which are no signal pair: `"pair_suffixes": [["+","-"], ["P","N"]]` (a list replaces the default table, so repeat the pairs you still want). An ending is 1 to 3 characters long, made of letters, digits, `+` and `-`, and is in one pair only. An empty list `[]` means that no two signals are a pair by their names; the pairs that the interface types give stay. The key is left out of new projects and out of the shipped file, so the files of an existing project do not change, and a 4.1 tool reads a project that has it, keeps it on save and says nothing about it. A value that is not valid is an error of the check (`config/naming.json: pair_suffixes ...`, rule `config-invalid`), and no two signals are a pair by their names until it is corrected (the tool does not fall back to the default table). `harness-design-studio settings DIR --set 'naming.pair_suffixes=[["+","-"],["P","N"]]'` writes it; the editor has no field for it.
 
 The shipped file lists only the first four keys; `shield`, `branch` and `segment` use the defaults above until you add them. A pattern that does not give a different valid ID for every number (tried up to 200; a reserved name such as COM1 is not valid) is reported and the default is used. IDs are stable once released.
 
