@@ -133,3 +133,13 @@ The patch release `4.0.1` (D-255; every label format passes the export's self-ch
 The note on the publication of the minor release 2.4.0, moved word for word from the Status section to keep `CLAUDE.md` under its size limit when 4.2.0 was prepared, as the note on 2.3.1 was moved with the preparation of 4.1.0; the Status section still names 2.4.0 in the list of releases and says where this note is.
 
 **Version `2.4.0` is published** (D-248; 2026-11-18, the latest full release until 3.0.0; no release candidate; tag `v2.4.0` on `85df2a9`, made by the tag workflow, run 44314858198, its ninth use): a minor release: a new project starts in `per_connector_group` (#271, D-247; the registry default stays `per_connector_pair`; the editor's notice once) and one order of revisions (#272, `core/vcs/versions.py`, R1 of 3.0.0, D-242); no format change.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 4.2.0 (2026-11-21)
+
+The note on the publication of the minor release 4.1.0, moved word for word from the first item of the Status section when the publication record of 4.2.0 was written, as the note on 4.0.1 was moved with the publication record of 4.1.0, so that `CLAUDE.md` stays under its size limit; that item still names 4.1.0 in the list of releases and says where this note is.
+
+The minor release `4.1.0` (D-257; the production sheet; no format change) was published on 2026-11-21 (annotated tag `v4.1.0` on `cb43f31`, the merge of #320; made by the tag workflow, run 44845357892, its fifteenth use; release workflow run 44845387838): the latest full release until 4.2.0 is tagged.
+
+The note on version 3.0.0, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 3.0.0 too, and the first item still names 3.0.0 in the list of releases.
+
+**Version `3.0.0` is published** (D-249; 2026-11-19, the latest full release until 3.0.1; major; no release candidate; tag `v3.0.0` on `711f204`, made by the tag workflow, run 44444461651, its tenth use): format 3 with versions MAJOR.MINOR.PATCH and the word *Version* (#274, #280; D-242), the harness plan (#277, #278, #279, #281, #284, #283), splices (#282, D-243 section 6), the end-to-end test and documents (#285); format 3 is frozen since the tag `v3.0.0`; a 2.x tool opens it read-only; the editor opens no browser.
