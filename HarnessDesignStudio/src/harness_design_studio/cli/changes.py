@@ -31,6 +31,7 @@ NEW_VERSION = ("new-version", "revise")  # `revise` is the older name of `new-ve
 OPTIONS = {
     "by": "--by", "comment": "--comment", "checker": "--checker", "date": "--date", "kind": "--kind",
     "reason": "--accept-placeholders / --accept-unapproved-parts / --accept-loose-ends / --accept-asbuilt",
+    "ticked": "--ticked",
 }  # fmt: skip
 
 
@@ -109,6 +110,15 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "and not plugged into a device): the reason (at least 10 characters) is kept in the "
         "change log and the baseline",
     )
+    r.add_argument(
+        "--ticked",
+        metavar="POINTS",
+        default=None,
+        help="the points of the project's review checklist (review_checklist in "
+        "config/naming.json) that you say were ticked: all, none, or point numbers and ranges "
+        "such as 1-5,7,9-14; the comment of the release records them with the list hash and "
+        "names the points not ticked; points not ticked do not stop the release",
+    )
     for name, listed in (("new-version", True), ("revise", False)):
         text = (
             "start a new version of a released harness: --kind major (not compatible with the "
@@ -172,7 +182,8 @@ def _apply(path: Path, plan: ReleasePlan, rep: Report, by: str, **extra: Any) ->
     if not plan.ok:
         for b in plan.blockers:
             option = OPTIONS.get(b.about or "")
-            where = f"{option}: " if option else ""
+            # a text that starts with its option (`--ticked must be ...`) is not prefixed twice
+            where = f"{option}: " if option and not b.message.startswith(option) else ""
             print(f"blocked: [{b.code}] {where}{b.message}", file=sys.stderr)
         rep.put(
             action=plan.label,
@@ -265,6 +276,7 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
             accept_unapproved_parts=args.accept_unapproved_parts,
             accept_asbuilt=args.accept_asbuilt,
             accept_loose_ends=args.accept_loose_ends,
+            ticked=args.ticked,
         )
     else:  # new-version, or its older name revise
         plan = plan_new_version(

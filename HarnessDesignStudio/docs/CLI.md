@@ -1086,6 +1086,7 @@ release a harness: baseline, change log entry and lock (blocked while checks fai
 | `--accept-unapproved-parts REASON` | release although the harness uses parts that are not approved (or are example data): the reason (at least 10 characters) is kept in the change log and the baseline |
 | `--accept-asbuilt REASON` | release although the as-built records of the harness are incomplete or a recorded length is out of tolerance (only asked for in a project that sets release_requires_asbuilt in config/naming.json): the reason (at least 10 characters) is kept in the change log and the baseline |
 | `--accept-loose-ends REASON` | release although the harness has a loose end (a cable end with no connector chosen and not plugged into a device): the reason (at least 10 characters) is kept in the change log and the baseline |
+| `--ticked POINTS` | the points of the project's review checklist (review_checklist in config/naming.json) that you say were ticked: all, none, or point numbers and ranges such as 1-5,7,9-14; the comment of the release records them with the list hash and names the points not ticked; points not ticked do not stop the release |
 
 Examples:
 
