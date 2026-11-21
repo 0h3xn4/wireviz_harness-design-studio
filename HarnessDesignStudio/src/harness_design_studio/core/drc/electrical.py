@@ -1,19 +1,24 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The electrical design rules of 4.2.0: twisted pairs and shielded signals (milestone E2).
+"""The electrical design rules of 4.2.0: pairs, shields, signal levels and directions (E2).
 
 The design is `docs/ait/DESIGN_4.2_ELECTRICAL_CHECKS.md` (decision D-258, proposed): one part per
-rule, sections 3 and 4 here. The checks read fields that format 4 has (`SignalDef.pair`, the
-construction and shielding of an interface type, `ShieldGroup`, the signals of the pins) and one
-setting, `config/naming.json` `pair_suffixes`; they change nothing.
+rule, sections 3 to 6. The checks read fields that format 4 has (`SignalDef.pair`, the construction
+and shielding of an interface type, `ShieldGroup`, the signal, `direction` and `level` of the pins,
+the pairs of a connection) and two settings, `config/naming.json` `pair_suffixes` and
+`config/segregation.json` `level_pairs_to_separate`; they change nothing.
 
   pair-untwisted     two wires of a signal pair that no twisted pair, shielded pair or quad holds
   signal-unshielded  a wire of a harness Generate did not make whose signal every interface type
                      that has it shields, in no shield
+  level-conflict     a net, or a pair of a connection without a harness, that joins two device pins
+                     whose levels the project keeps apart (silent while the table is empty)
+  wire-direction     a net of wires drawn by hand that joins two outputs, or only inputs
 
-The rules are `ELECTRICAL_RULES`, with the texts of the design. They are not in the registry
-`rules.RULES` yet (pull request 4 of the design registers them), so `check`, `drc` and every written
-file are as before; the tests call them directly.
+`unchecked` gives the notes of what they could not judge. The rules are `ELECTRICAL_RULES`, with the
+texts of the design. They are not in the registry `rules.RULES` yet (pull request 4 of the design
+registers them), so `check`, `drc` and every written file are as before; the tests call them
+directly.
 """
 
 from __future__ import annotations
@@ -23,18 +28,26 @@ from dataclasses import dataclass
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.configcheck import (
+    LEVEL_PAIRS_FILE,
+    LEVEL_PAIRS_KEY,
     PAIR_SUFFIXES_FILE,
     PAIR_SUFFIXES_KEY,
+    level_pairs_problem,
+    level_word,
     pair_suffixes_problem,
 )
 from harness_design_studio.core.model import (
     Connector,
     Harness,
     InterfaceType,
+    Link,
     Pin,
     Project,
     Wire,
 )
+from harness_design_studio.core.model.physical import SPLICE_ROLE
+from harness_design_studio.core.nets import Net, end_pairs, harness_nets, path_wires
+from harness_design_studio.core.nets import Pin as NetPin
 from harness_design_studio.core.ports import natural_key, read_signal
 
 from .base import Hit, Rule, cfg
@@ -415,7 +428,311 @@ def _signal_unshielded(project: Project) -> Iterator[Hit]:
                 yield Hit(w.id, _unshielded_title(h, w, ask), key=f"{h.id}.{w.id}")
 
 
-# ---- the rules (sections 3.2 and 4.2) ----------------------------------------------------------
+# ---- the device ends of a net (sections 5.2 and 6.1) ---------------------------------------------
+
+
+@dataclass(frozen=True)
+class DeviceEnd:
+    """An end of a net that plugs into a device: the cable pin of the harness and the pin of the
+    device connector it plugs into (the pin with the same ID)."""
+
+    end: NetPin
+    connector: Connector
+    pin: Pin
+
+    @property
+    def ref(self) -> str:
+        return f"{self.connector.id}.{self.pin.id}"
+
+    def text(self) -> str:
+        return f"pin {self.pin.id} of {self.connector.id}"
+
+
+def device_end(project: Project, h: Harness, end: NetPin) -> DeviceEnd | None:
+    """The device pin an end of a net plugs into, or None: a loose end, a cable connector that plugs
+    into nothing or into no connector of the project, and a pin the device connector has not."""
+    cable = next((c for c in h.connectors if c.id == end[0]), None)
+    box = project.connectors.get(cable.mates_with or "") if cable is not None else None
+    pin = next((p for p in box.pins if p.id == end[1]), None) if box is not None else None
+    return DeviceEnd(end, box, pin) if box is not None and pin is not None else None
+
+
+def device_ends(project: Project, h: Harness, net: Net) -> dict[NetPin, DeviceEnd | None]:
+    """Each end of a net (its pins not on a splice) with the device pin it plugs into, or None."""
+    return {e: device_end(project, h, e) for e in net.ends}
+
+
+def _splices_of(h: Harness, wire_ids: Sequence[str]) -> list[str]:
+    splices = {c.id for c in h.connectors if c.role == SPLICE_ROLE}
+    ids = set(wire_ids)
+    found = {
+        cid
+        for w in h.wires
+        if w.id in ids
+        for cid in (w.from_connector, w.to_connector)
+        if cid in splices
+    }
+    return sorted(found, key=natural_key)
+
+
+def _wires_text(h: Harness, wire_ids: Sequence[str], verb: str) -> str:
+    """`Wire W002-003 in W002 joins` for one wire; `The wires W003-001 and W003-002 in W003
+    (through splice W003-X1) join` for several."""
+    ids = sorted(wire_ids, key=natural_key)
+    if len(ids) == 1:
+        return f"Wire {ids[0]} in {h.id} {verb}s"
+    splices = _splices_of(h, ids)
+    via = f" (through splice{'s' if len(splices) > 1 else ''} {_and(splices)})" if splices else ""
+    return f"The wires {_and(ids)} in {h.id}{via} {verb}"
+
+
+# ---- level-conflict (section 5) ------------------------------------------------------------------
+
+
+def level_pairs(project: Project) -> set[frozenset[str]] | None:
+    """The pairs of level words that must not meet (`segregation.level_pairs_to_separate`, compared
+    as `level_word`), or None while the rule has nothing to judge by: the table is not set, empty,
+    or refused (`config-invalid` says why). The tool ships no level word (D-11)."""
+    raw = cfg(project, LEVEL_PAIRS_FILE).get(LEVEL_PAIRS_KEY)
+    if not isinstance(raw, list) or not raw or level_pairs_problem(raw) is not None:
+        return None
+    return {frozenset(level_word(x) for x in p) for p in raw}
+
+
+def _level(pin: Pin) -> str:
+    return level_word(pin.level or "")
+
+
+def _level_text(d: DeviceEnd) -> str:
+    return f"{d.text()} (level {(d.pin.level or '').strip()})"
+
+
+def _unlinked(project: Project) -> list[Link]:
+    """The connections that have no harness: each is judged by its pairs (one fault, one finding)."""
+    return [
+        link
+        for link in sorted(project.links.values(), key=lambda x: natural_key(x.id))
+        if not link.harness_id or link.harness_id not in project.harnesses
+    ]
+
+
+def _link_pins(project: Project, link: Link) -> Iterator[tuple[DeviceEnd, DeviceEnd]]:
+    """The two device pins of each pair of a connection, in the order of its pairs."""
+    a, b = project.connectors.get(link.a_connector), project.connectors.get(link.b_connector)
+    if a is None or b is None:
+        return
+    for pair in link.pairs:
+        pa = next((p for p in a.pins if p.id == pair.a_pin), None)
+        pb = next((p for p in b.pins if p.id == pair.b_pin), None)
+        if pa is not None and pb is not None:
+            yield DeviceEnd((a.id, pa.id), a, pa), DeviceEnd((b.id, pb.id), b, pb)
+
+
+def _level_conflict(project: Project) -> Iterator[Hit]:
+    pairs = level_pairs(project)
+    if not pairs:
+        return
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        for net in harness_nets(h):
+            ends = device_ends(project, h, net)
+            for x, y in end_pairs(net):
+                a, b = ends[x], ends[y]
+                if a is None or b is None or a.ref == b.ref:
+                    continue
+                if frozenset((_level(a.pin), _level(b.pin))) in pairs:
+                    path = path_wires(h, x, y, net.wires) or net.wires
+                    yield Hit(
+                        net.wires[0],
+                        f"{_wires_text(h, path, 'join')} {_level_text(a)} and {_level_text(b)}, "
+                        "two levels the project keeps apart",
+                        key=f"{h.id}.{net.wires[0]}.{a.ref}+{b.ref}",
+                    )
+    for link in _unlinked(project):
+        for a, b in _link_pins(project, link):
+            if frozenset((_level(a.pin), _level(b.pin))) in pairs:
+                yield Hit(
+                    link.id,
+                    f"Link {link.id} pairs {_level_text(a)} with {_level_text(b)}, two levels the "
+                    "project keeps apart",
+                    key=f"{link.id}.{a.pin.id}+{b.pin.id}",
+                )
+
+
+# ---- wire-direction (section 6) ------------------------------------------------------------------
+
+OUT, IN = "out", "in"
+_DIRECTION_WORDS = {OUT: "an output", IN: "an input"}
+
+
+def _linked_pairs(project: Project) -> set[frozenset[str]]:
+    """The two device pins of each pair of every connection, as `CONNECTOR.PIN` references."""
+    return {
+        frozenset((f"{link.a_connector}.{pair.a_pin}", f"{link.b_connector}.{pair.b_pin}"))
+        for link in project.links.values()
+        for pair in link.pairs
+    }
+
+
+@dataclass(frozen=True)
+class DrawnNet:
+    """A net of wires without an interface whose ends are all device pins (two or more), with the
+    direction of each end as the review of connections reads it ("" when it is not known)."""
+
+    harness: Harness
+    net: Net
+    ends: tuple[tuple[DeviceEnd, str], ...]
+
+    @property
+    def verdict(self) -> str:
+        """`outputs` (two or more), `unknown` (an end not known), `inputs` (every end), or ""."""
+        dirs = [d for _e, d in self.ends]
+        if dirs.count(OUT) >= 2:
+            return "outputs"
+        if "" in dirs:
+            return "unknown"
+        if all(d == IN for d in dirs):
+            return "inputs"
+        return ""
+
+
+def drawn_nets(project: Project) -> Iterator[DrawnNet]:
+    """The nets `wire-direction` judges (section 6.1), harness by harness: every wire without an
+    interface, every end a device pin, at least two ends; a net of two ends that a connection pairs
+    is left to `link-direction`, even in an edited harness of that connection."""
+    from harness_design_studio.core.links import (  # local: links builds on devices, which reach the rules
+        pin_direction,
+        signal_index,
+    )
+
+    index = signal_index(project)
+    linked = _linked_pairs(project)
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        wires = {w.id: w for w in h.wires}
+        for net in harness_nets(h):
+            if any(_with_interface(project, wires[wid]) is not None for wid in net.wires):
+                continue
+            ends = list(device_ends(project, h, net).values())
+            if len(ends) < 2 or any(e is None for e in ends):
+                continue
+            found = [e for e in ends if e is not None]
+            if len(found) == 2 and frozenset(e.ref for e in found) in linked:
+                continue
+            yield DrawnNet(
+                h,
+                net,
+                tuple((e, pin_direction(project, e.connector, e.pin, index)) for e in found),
+            )
+
+
+def _signal_text(d: DeviceEnd) -> str:
+    return f"{d.text()} ({d.pin.signal})" if d.pin.signal else d.text()
+
+
+def _direction_title(n: DrawnNet) -> str:
+    h, net = n.harness, n.net
+    if len(net.wires) == 1 and len(n.ends) == 2:
+        (a, da), (b, db) = n.ends
+
+        def one(d: DeviceEnd, direction: str) -> str:
+            words = [x for x in (d.pin.signal, _DIRECTION_WORDS[direction]) if x]
+            return f"{d.text()} ({', '.join(words)})"
+
+        why = (
+            "two outputs drive against each other"
+            if n.verdict == "outputs"
+            else "nothing drives the wire"
+        )
+        return f"Wire {net.wires[0]} in {h.id} joins {one(a, da)} and {one(b, db)}: {why}"
+    if n.verdict == "outputs":
+        outs = [_signal_text(e) for e, d in n.ends if d == OUT]
+        return f"{_wires_text(h, net.wires, 'join')} {len(outs)} outputs: {_and(outs)}"
+    ins = [_signal_text(e) for e, _d in n.ends]
+    return f"{_wires_text(h, net.wires, 'join')} {len(ins)} inputs and no output: {_and(ins)}"
+
+
+def _wire_direction(project: Project) -> Iterator[Hit]:
+    for n in drawn_nets(project):
+        if n.verdict in ("outputs", "inputs"):
+            first = n.net.wires[0]
+            yield Hit(first, _direction_title(n), key=f"{n.harness.id}.{first}")
+
+
+# ---- what the rules could not judge (sections 5.3 and 6.2) --------------------------------------
+
+SHOWN_WORDS = 5  # how many level words the note names: no result depends on it
+
+
+def _level_words(pins: Sequence[Pin]) -> str:
+    words: dict[str, str] = {}
+    for pin in pins:
+        words.setdefault(_level(pin), (pin.level or "").strip())
+    shown = sorted(words.values(), key=lambda w: (w.casefold(), w))
+    more = len(shown) - SHOWN_WORDS
+    return ", ".join(shown[:SHOWN_WORDS]) + (f" and {more} more" if more > 0 else "")
+
+
+def _level_notes(project: Project) -> Iterator[Hit]:
+    raw = cfg(project, LEVEL_PAIRS_FILE).get(LEVEL_PAIRS_KEY)
+    if raw is not None and raw != [] and level_pairs_problem(raw) is not None:
+        return  # config-invalid says why the table is not used
+    with_level = [p for c in project.connectors.values() for p in c.pins if _level(p)]
+    if level_pairs(project) is None:
+        if with_level:
+            yield Hit(
+                "levels",
+                f"Signal levels were not checked: {len(with_level)} pin(s) have a level "
+                f"({_level_words(with_level)}), but no pairs of levels to keep apart are set "
+                f"(config/{LEVEL_PAIRS_FILE}.json: {LEVEL_PAIRS_KEY})",
+            )
+        return
+    if not with_level:
+        yield Hit("no-level", "No pin has a level yet, so the signal level check did not run")
+        return
+    nets: list[str] = []
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        for net in harness_nets(h):
+            found = [e for e in device_ends(project, h, net).values() if e is not None]
+            if len({e.ref for e in found}) >= 2 and any(not _level(e.pin) for e in found):
+                nets.append(net.wires[0])
+    links = [
+        link.id
+        for link in _unlinked(project)
+        for a, b in _link_pins(project, link)
+        if not _level(a.pin) or not _level(b.pin)
+    ]
+    parts = []
+    if nets:
+        parts.append(f"{len(nets)} net(s) (first: wire {nets[0]})")
+    if links:
+        parts.append(f"{len(links)} pair(s) of connections (first: link {links[0]})")
+    if parts:
+        yield Hit(
+            "level-unknown",
+            f"Signal levels were not checked for {' and '.join(parts)}: a pin at an end has no level",
+        )
+
+
+def _direction_notes(project: Project) -> Iterator[Hit]:
+    unknown = [n.net.wires[0] for n in drawn_nets(project) if n.verdict == "unknown"]
+    if unknown:
+        yield Hit(
+            "wire-direction-unknown",
+            f"Directions were not checked for {len(unknown)} net(s) of wires drawn by hand "
+            f"(first: wire {unknown[0]}): a pin at an end has no direction",
+        )
+
+
+def unchecked(project: Project) -> Iterator[Hit]:
+    """The notes of `unchecked-config` for the electrical rules: what they could not judge, only
+    where the project holds the data that makes the question real (a pin with a level, a net drawn
+    by hand to device pins), so that a project without such data keeps its written files (owner
+    question C8). The object IDs are the keys of the notes (`levels`, `no-level`, `level-unknown`,
+    `wire-direction-unknown`). Not called by `rules._unchecked` yet (pull request 4)."""
+    yield from _level_notes(project)
+    yield from _direction_notes(project)
+
+
+# ---- the rules (sections 3.2, 4.2, 5.3 and 6.2) ----------------------------------------------------------
 #
 # Not spliced into `rules.RULES` yet: pull request 4 of the design puts them after
 # `direction-conflict`, so the report keeps the signals together.
@@ -429,4 +746,12 @@ ELECTRICAL_RULES: tuple[Rule, ...] = (
          "A signal that its interface type shields picks up and radiates noise when its wire runs without a shield.",
          "Put the wire into a shielded pair, an overall shield or a coax (Group wires; Change group... for a wire in a twisted pair).",
          _signal_unshielded),
+    Rule("level-conflict", "error", "Signal levels",
+         "A wire that joins two signal levels the project keeps apart can damage the device on the lower level.",
+         "Move the wire to a pin of a level that fits, or correct the level of the pin (Devices tab). The pairs kept apart are config/segregation.json level_pairs_to_separate.",
+         _level_conflict, deviation=True),
+    Rule("wire-direction", "error", "Directions of drawn wires",
+         "Two outputs on one wire drive against each other, and two inputs have nothing to drive them.",
+         "Move the wire to a pin that fits, or correct the direction of the pin (Devices tab).",
+         _wire_direction),
 )  # fmt: skip

@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 """The settings of the electrical rules of 4.2.0 (design `docs/ait/DESIGN_4.2_ELECTRICAL_CHECKS.md`,
-section 7): `naming.pair_suffixes`, the endings that make two signal names a pair. Accepted and
+section 7): `naming.pair_suffixes`, the endings that make two signal names a pair, and
+`segregation.level_pairs_to_separate`, the pairs of level words that must not meet (no default; the
+optional value of the *pairs* form). Accepted and
 refused values with the texts of `config_invalid`, `settings --set`, the Assumptions page, and a
 project of 4.1 that holds the key: it loads, saves and keeps it, and nothing else changes (the
 project format stays 4, no rule reads the key in a written file yet)."""
@@ -127,3 +129,120 @@ def test_a_project_of_4_1_with_the_key_loads_saves_and_keeps_it(tmp_path: Path) 
     assert main(["settings", str(folder), "--set", "naming.release_distinct_roles=true"]) == 0
     values = json.loads(naming.read_text(encoding="utf-8"))["values"]
     assert values["pair_suffixes"] == [["+", "-"], ["P", "N"]] and values["release_distinct_roles"] is True  # fmt: skip
+
+
+# ---- segregation.level_pairs_to_separate -----------------------------------------------------
+
+
+def _with_levels(p: Project, value: object) -> Project:
+    old = p.config["segregation"]
+    p.config["segregation"] = ConfigFile(
+        name="segregation",
+        placeholder=old.placeholder,
+        values={**old.values, "level_pairs_to_separate": value},
+    )
+    return p
+
+
+def _level_issues(p: Project) -> list[str]:
+    return [
+        i.message
+        for i in configcheck.validate(p)
+        if i.object_id == "segregation.level_pairs_to_separate"
+    ]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        [],
+        [["28V", "3V3"]],
+        [["28V", "3V3"], ["VBUS", "RS422-3V3"], ["+5V", "3.3 V"]],
+        [["28V", "3V3"], ["28V", "5V"]],
+    ],  # fmt: skip
+)
+def test_accepted_level_tables(flat: Project, value: object) -> None:
+    assert _level_issues(_with_levels(flat, value)) == []
+
+
+_PAIRS = (
+    'must be a list of pairs of two different names, each pair once, for example [["28V", "3V3"]]'
+)
+
+
+@pytest.mark.parametrize(
+    ("value", "why"),
+    [
+        ("28V, 3V3", _PAIRS),
+        ([["28V"]], _PAIRS),
+        ([["28V", 3.3]], _PAIRS),
+        ([["28V", "  "]], _PAIRS),
+        ([["28V", "x" * 201]], "has a word longer than 200 characters"),
+        ([["3V3", " 3v3"]], "has the pair '3V3' and ' 3v3', which is one word twice (case and outer spaces do not count)"),
+        ([["28V", "3V3"], ["3v3", "28v"]], "has the pair '3v3' and '28v' twice"),
+    ],
+)  # fmt: skip
+def test_refused_level_tables_say_why(flat: Project, value: object, why: str) -> None:
+    assert _level_issues(_with_levels(flat, value)) == [
+        f"config/segregation.json: level_pairs_to_separate {why}."
+    ]
+
+
+def test_the_level_table_is_an_optional_value_with_a_field_and_no_default(flat: Project) -> None:
+    s = settings.setting("segregation", "level_pairs_to_separate")
+    assert s is not None and s.default is None and s.kind == "pairs"
+    assert s.assumption == "A-LEVEL-WORDS"
+    assert settings.effective(flat, "segregation", "level_pairs_to_separate").origin == "unset"
+    need = configcheck.need_for("segregation", "level_pairs_to_separate")
+    assert need is not None and need in configcheck.OPTIONAL_NEEDS
+    assert need not in configcheck.NEEDS and len(configcheck.NEEDS) == 17
+    info = configcheck.FIELD_INFO[("segregation", "level_pairs_to_separate")]
+    assert (info.label, info.kind) == ("Signal levels kept apart", "pairs")
+    assert info.hint == "Write pairs joined by +, separated by commas, like 28V + 3V3"
+    values = {
+        (v.file, v.key): v for v in configcheck.engineering_values(flat, include_optional=True)
+    }
+    assert values[("segregation", "level_pairs_to_separate")].optional
+    assert ("segregation", "level_pairs_to_separate") not in {
+        (v.file, v.key) for v in configcheck.engineering_values(flat)
+    }
+    # the shipped files hold no level word (D-11)
+    assert "level_pairs_to_separate" not in flat.config["segregation"].values
+    before = configcheck.report(flat)
+    assert configcheck.report(_with_levels(flat, [["28V", "3V3"]])) == before
+
+
+def test_the_form_reads_pairs_joined_by_a_plus(flat: Project) -> None:
+    plan = configcheck.plan_set_value(flat, "segregation", "level_pairs_to_separate", "28V + 3V3, VBUS + RS422-3V3")  # fmt: skip
+    assert plan.ok and plan.value == [["28V", "3V3"], ["VBUS", "RS422-3V3"]]
+    refused = configcheck.plan_set_value(flat, "segregation", "level_pairs_to_separate", "3V3 + 3v3")  # fmt: skip
+    assert refused.error == (
+        "Signal levels kept apart has the pair '3V3' and '3v3', which is one word twice (case and "
+        "outer spaces do not count)."
+    )
+    cleared = configcheck.plan_set_value(flat, "segregation", "level_pairs_to_separate", "")
+    assert cleared.ok and cleared.value is None
+
+
+def test_settings_set_takes_any_level_word(tmp_path: Path) -> None:
+    folder = tmp_path / "flat"
+    templates.create_project(folder, "flatsat")
+    seg = folder / "config" / "segregation.json"
+    assert main(["settings", str(folder), "--set", 'segregation.level_pairs_to_separate=[["+5V", "3V3"]]']) == 0  # fmt: skip
+    assert json.loads(seg.read_text(encoding="utf-8"))["values"]["level_pairs_to_separate"] == [["+5V", "3V3"]]  # fmt: skip
+
+
+def test_a_project_of_4_1_with_the_level_table_loads_saves_and_keeps_it(tmp_path: Path) -> None:
+    root = examples_path()
+    assert root is not None
+    folder = copy_project(root / "projects" / "flatsat", tmp_path / "flat")
+    plain = load_project(folder).project
+    seg = folder / "config" / "segregation.json"
+    edit_json(seg, lambda d: d["values"].__setitem__("level_pairs_to_separate", [["28V", "3V3"]]))
+    p = load_project(folder).project
+    assert p.meta.schema_version == 4 and configcheck.validate(p) == configcheck.validate(plain)
+    save_project(p, folder)
+    assert main(["settings", str(folder), "--set", "segregation.forbid_pyro_with_other=true"]) == 0
+    values = json.loads(seg.read_text(encoding="utf-8"))["values"]
+    assert values["level_pairs_to_separate"] == [["28V", "3V3"]]
