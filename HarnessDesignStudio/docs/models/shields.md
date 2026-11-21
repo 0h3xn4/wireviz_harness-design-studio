@@ -23,7 +23,7 @@ The group follows the construction and the shielding of the interface type:
 
 | Interface type | Groups made |
 | --- | --- |
-| `single` construction | none |
+| `single` construction | no twisted pair, even when its signals name a pair; the overall shield below when the type shields overall (since 4.2.0: before, Generate made none, and its own verifier then refused the harness with `shield_missing`) |
 | `coax` | one group of kind `coax` for each wire |
 | `quad` | one group of kind `quad` |
 | a pair of signals (the signals with the same `pair`; the way out and the way back of a power or ground type) | one `twisted_pair`, or a `shielded_pair` when the type shields per pair |
