@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 )
 
 from harness_design_studio import __version__
+from harness_design_studio.core import label_format
 from harness_design_studio.gui import licences, strings
 from harness_design_studio.gui.empty_state import attach_empty_state
 from harness_design_studio.gui.plan_pages import DocumentSection, HarnessPlanSection
@@ -129,6 +130,10 @@ class SettingsPage(QWidget):
         add_project_library: Callable[[], None] = lambda: None,
         remove_project_library: Callable[[str], None] = lambda _path: None,
         set_segmentation: Callable[[str], None] = lambda _mode: None,
+        set_label_format: Callable[[str], None] = lambda _value: None,
+        set_checklist: Callable[[list[str]], None] = lambda _points: None,
+        template_points: Callable[[], list[str]] = lambda: [],
+        file_points: Callable[[], list[str] | str | None] = lambda: None,
         set_document_fields: Callable[[dict[str, str]], bool] = lambda _f: False,
         set_document_contact: Callable[[list[tuple[str, str]]], bool] = lambda _c: False,
         set_plan: Callable[..., bool] = lambda **_c: False,
@@ -272,6 +277,73 @@ class SettingsPage(QWidget):
         self.segmentation_about.setObjectName("settings-segmentation-about")
         col.addWidget(self.segmentation_about)
         self._segmentation_why_not = ""
+        # the format of the labels (model.label_format; 4.3.0 part F, design of 4.1.0 section 6.5)
+        label_title = QLabel(strings.SETTINGS_LABEL_FORMAT)
+        label_title.setProperty("heading", True)
+        col.addWidget(label_title)
+        col.addWidget(_muted(strings.SETTINGS_LABEL_FORMAT_TEXT))
+        self.label_format_combo = QComboBox()
+        self.label_format_combo.setObjectName("settings-label-format")
+        self.label_format_combo.setAccessibleName(strings.SETTINGS_LABEL_FORMAT)
+        self.label_format_combo.setToolTip(strings.SETTINGS_LABEL_FORMAT_TIP)
+        for value in label_format.FORMATS:
+            text = (
+                strings.SETTINGS_LABEL_FORMAT_NEW.format(value)
+                if value == label_format.NEW_PROJECT_FORMAT
+                else value
+            )
+            self.label_format_combo.addItem(text, value)
+        self.label_format_combo.currentIndexChanged.connect(
+            lambda _i: self._label_format_picked(set_label_format)
+        )
+        col.addWidget(self.label_format_combo, 0, Qt.AlignmentFlag.AlignLeft)
+        self.label_format_about = _muted("")
+        self.label_format_about.setObjectName("settings-label-format-about")
+        col.addWidget(self.label_format_about)
+        # the review checklist of the project (naming.review_checklist; 4.3.0 part A, section 3.2):
+        # the box is the person's until Save, which is one undo step
+        checklist_title = QLabel(strings.SETTINGS_CHECKLIST)
+        checklist_title.setProperty("heading", True)
+        col.addWidget(checklist_title)
+        col.addWidget(_muted(strings.SETTINGS_CHECKLIST_TEXT))
+        self.checklist_box = QPlainTextEdit()
+        self.checklist_box.setObjectName("settings-checklist")
+        self.checklist_box.setAccessibleName(strings.SETTINGS_CHECKLIST_BOX)
+        self.checklist_box.setToolTip(strings.SETTINGS_CHECKLIST_BOX_TIP)
+        self.checklist_box.setMinimumHeight(theme.px(140))
+        self.checklist_box.textChanged.connect(self._checklist_edited)
+        col.addWidget(self.checklist_box)
+        checklist_row = QHBoxLayout()
+        self.checklist_template = QPushButton(strings.SETTINGS_CHECKLIST_TEMPLATE)
+        self.checklist_template.setObjectName("settings-checklist-template")
+        self.checklist_template.setToolTip(strings.SETTINGS_CHECKLIST_TEMPLATE_TIP)
+        self.checklist_template.clicked.connect(lambda _c=False: self._checklist_template(template_points))  # fmt: skip
+        self.checklist_file = QPushButton(strings.SETTINGS_CHECKLIST_FILE)
+        self.checklist_file.setObjectName("settings-checklist-file")
+        self.checklist_file.setAccessibleName(strings.SETTINGS_CHECKLIST_FILE.rstrip("…"))
+        self.checklist_file.setToolTip(strings.SETTINGS_CHECKLIST_FILE_TIP)
+        self.checklist_file.clicked.connect(lambda _c=False: self._checklist_file(file_points))
+        self.checklist_save = QPushButton(strings.SETTINGS_CHECKLIST_SAVE)
+        self.checklist_save.setObjectName("settings-checklist-save")
+        self.checklist_save.setProperty("primary", True)
+        self.checklist_save.setToolTip(strings.SETTINGS_CHECKLIST_SAVE_TIP)
+        self.checklist_save.clicked.connect(lambda _c=False: set_checklist(self.checklist_points()))
+        for b in (self.checklist_template, self.checklist_file, self.checklist_save):
+            checklist_row.addWidget(b)
+        checklist_row.addStretch(1)
+        col.addLayout(checklist_row)
+        self.checklist_state = _muted("")
+        self.checklist_state.setObjectName("settings-checklist-state")
+        col.addWidget(self.checklist_state)
+        self.checklist_error = QLabel()
+        self.checklist_error.setObjectName("settings-checklist-error")
+        self.checklist_error.setWordWrap(True)
+        self.checklist_error.setProperty("error", True)
+        self.checklist_error.setVisible(False)
+        col.addWidget(self.checklist_error)
+        self._checklist_saved: tuple[str, ...] | None = None  # the list the box last showed
+        self._checklist_line = ""
+        self._checklist_why_not = ""
         # the library folder (per person; the library window reads it)
         library_title = QLabel(strings.SETTINGS_LIBRARY_FOLDER)
         library_title.setProperty("heading", True)
@@ -560,6 +632,92 @@ class SettingsPage(QWidget):
         self.segmentation_about.setText(" ".join(t for t in (about, why_not) if t))
         combo.setEnabled(not why_not)
         combo.setToolTip(why_not or strings.SETTINGS_SEGMENTATION_TIP)
+
+    def _label_format_picked(self, set_label_format: Callable[[str], None]) -> None:
+        value = self.label_format_combo.currentData()
+        if isinstance(value, str):
+            set_label_format(value)  # the window shows the outcome (`show_label_format`)
+
+    def show_label_format(self, value: str, why_not: str = "") -> None:
+        """Show the label format in force; `why_not` says why it cannot change now ("" when it
+        can). A format of a newer version is shown and never written back by this page."""
+        combo = self.label_format_combo
+        combo.blockSignals(True)
+        while combo.count() > len(label_format.FORMATS):
+            combo.removeItem(combo.count() - 1)
+        i = combo.findData(value)
+        if i < 0:
+            combo.addItem(value, value)
+            i = combo.count() - 1
+        combo.setCurrentIndex(i)
+        combo.blockSignals(False)
+        words = label_format.FORMAT_TEXT.get(value)
+        about = (
+            strings.SETTINGS_LABEL_FORMAT_ABOUT.format(words)
+            if words
+            else strings.SETTINGS_LABEL_FORMAT_UNKNOWN.format(value)
+        )
+        if value == "custom":
+            about = f"{about} {strings.SETTINGS_LABEL_FORMAT_CUSTOM}"
+        self.label_format_about.setText(" ".join(t for t in (about, why_not) if t))
+        combo.setEnabled(not why_not)
+        combo.setToolTip(why_not or strings.SETTINGS_LABEL_FORMAT_TIP)
+
+    def checklist_points(self) -> list[str]:
+        """The points in the box: one per line that is not empty, the spaces around it left out."""
+        return [line.strip() for line in self.checklist_box.toPlainText().splitlines() if line.strip()]  # fmt: skip
+
+    def show_checklist(
+        self, points: tuple[str, ...], digest: str, why_not: str = "", error: str = ""
+    ) -> None:
+        """Show the project's review checklist: the box is filled again only when the saved list
+        changed since it was last shown (an undo, Save, another project), so what a person typed
+        and did not save stays; `error` is why a Save was refused, shown under the box."""
+        if points != self._checklist_saved:
+            self._checklist_saved = points
+            self.checklist_box.blockSignals(True)
+            self.checklist_box.setPlainText("\n".join(points))
+            self.checklist_box.blockSignals(False)
+        if not points:
+            line = strings.SETTINGS_CHECKLIST_NONE
+        elif len(points) == 1:
+            line = strings.SETTINGS_CHECKLIST_NOW_ONE.format(digest)
+        else:
+            line = strings.SETTINGS_CHECKLIST_NOW.format(len(points), digest)
+        self._checklist_line = line
+        self._checklist_why_not = why_not
+        self.checklist_error.setText(error)
+        self.checklist_error.setVisible(bool(error))
+        for w in (self.checklist_box, self.checklist_template, self.checklist_file, self.checklist_save):  # fmt: skip
+            w.setEnabled(not why_not)
+        self._checklist_edited()
+
+    def _checklist_edited(self) -> None:
+        edited = tuple(self.checklist_points()) != (self._checklist_saved or ())
+        parts = [self._checklist_line, strings.SETTINGS_CHECKLIST_EDITED if edited else ""]
+        self.checklist_state.setText(" ".join(t for t in (*parts, self._checklist_why_not) if t))
+
+    def _fill_checklist(self, points: list[str]) -> None:
+        self.checklist_box.setPlainText("\n".join(points))
+        self.checklist_error.setVisible(False)
+
+    def _checklist_template(self, template_points: Callable[[], list[str]]) -> None:
+        found = template_points()
+        if not found:
+            self.checklist_error.setText(strings.SETTINGS_CHECKLIST_NO_TEMPLATE)
+            self.checklist_error.setVisible(True)
+            return
+        self._fill_checklist(found)
+
+    def _checklist_file(self, file_points: Callable[[], list[str] | str | None]) -> None:
+        found = file_points()
+        if found is None:  # (the person closed the chooser)
+            return
+        if isinstance(found, str):
+            self.checklist_error.setText(found)
+            self.checklist_error.setVisible(True)
+            return
+        self._fill_checklist(found)
 
     def show_library_folder(self, folder: str) -> None:
         """Show the library folder the window uses ('' for none)."""

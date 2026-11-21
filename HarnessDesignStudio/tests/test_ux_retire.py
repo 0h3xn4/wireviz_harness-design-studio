@@ -423,7 +423,9 @@ def test_the_tree_context_menu_of_a_harness_has_the_change_control_steps(gen) ->
         "tree-harness-changes",
         "tree-harness-history",
         "tree-harness-delete",
+        "tree-harness-review-page",  # the Review page of the harness (4.3.0, REQ-GUI-31)
     }
+    assert steps["tree-harness-review-page"].isEnabled()
     assert steps["tree-harness-review"].isEnabled() and steps["tree-harness-release"].isEnabled()
     assert not steps["tree-harness-revise"].isEnabled()  # a draft is not revised
     assert not steps["tree-harness-changes"].isEnabled()  # nothing to compare with yet

@@ -393,6 +393,15 @@ ICONS: Final[dict[str, tuple[str, ...]]] = {
         "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
         "m9 14 2 2 4-4",
     ),
+    # clipboard-list (the Review page; the clipboard with a check is the As-built page's)
+    "nav-review": (
+        "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z",
+        "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
+        "M12 11h4",
+        "M12 16h4",
+        "M8 11h.01",
+        "M8 16h.01",
+    ),
     # circle-arrow-right
     "nav-next": (
         "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0",

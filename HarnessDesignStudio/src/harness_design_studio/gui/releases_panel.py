@@ -151,6 +151,7 @@ class ReleasesPanel(QWidget):
     submitReviewRequested = Signal(str)
     releaseRequested = Signal(str)
     reviseRequested = Signal(str)
+    reviewPageRequested = Signal(str)  # the Review page of a harness (4.3.0)
     harnessChanged = Signal(str)  # the harness the actions and the comparison are about ("" none)
     diffChanged = Signal(int)  # number of changed objects now shown
 
@@ -202,6 +203,13 @@ class ReleasesPanel(QWidget):
             b.clicked.connect(lambda _=False, a=action: self._request(a))
             head.addWidget(b)
             self.action_buttons[action] = b
+        # the Review page of the harness chosen here (4.3.0, design section 5.1)
+        self.review_page = QPushButton()
+        self.review_page.setObjectName("releases-review-page")
+        icons.icon_button(self.review_page, "nav-review", theme, strings.REL_REVIEW_PAGE_TIP, text=strings.REL_REVIEW_PAGE)  # fmt: skip
+        self.review_page.setToolTip(strings.REL_REVIEW_PAGE_TIP)
+        self.review_page.clicked.connect(lambda _=False: self._review_page())
+        head.addWidget(self.review_page)
         lay.addLayout(head)
         self.action_note = QLabel()
         self.action_note.setObjectName("releases-note")
@@ -534,6 +542,11 @@ class ReleasesPanel(QWidget):
             "revise": self.reviseRequested,
         }[action].emit(hid)
 
+    def _review_page(self) -> None:
+        hid = self.current_harness()
+        if hid and hid in self.ctl.project.harnesses:
+            self.reviewPageRequested.emit(hid)
+
     def action_enabled(self, action: str) -> bool:
         return self.action_buttons[action].isEnabled()
 
@@ -569,6 +582,12 @@ class ReleasesPanel(QWidget):
                 else:
                     tip = f"{tip}. {strings.REL_WRONG_STATE.format(h.id, h.status.replace('_', ' '), ' or '.join(w.replace('_', ' ') for w in wanted[action]))}"  # fmt: skip
             button.setToolTip(tip)
+        self.review_page.setEnabled(h is not None)
+        self.review_page.setToolTip(
+            strings.REL_REVIEW_PAGE_TIP
+            if h is not None
+            else f"{strings.REL_REVIEW_PAGE_TIP}. {strings.REL_CHOOSE_HARNESS}"
+        )
         note = (
             strings.REL_READ_ONLY
             if self.ctl.read_only

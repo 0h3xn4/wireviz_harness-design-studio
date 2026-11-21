@@ -687,23 +687,9 @@ def _checklist_points(given: str) -> list[str] | None | str:
     list items of the file, or the reason the file cannot be read (a text)."""
     if given.strip().casefold() == "none":
         return None
-    path = Path(given)
-    if not path.is_file():
-        return f"{path} is not a file."
-    if path.stat().st_size > review.MAX_FILE_BYTES:
-        return f"{path} is larger than 64 KiB; a review checklist is a short text file."
-    try:
-        text = path.read_bytes().decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return f"{path} is not a UTF-8 text file."
-    except OSError as exc:
-        return f"{path} cannot be read ({exc.strerror or exc})."
-    found = review.points_from_text(text)
-    if not found:
-        return (
-            f"{path} has no points (no list item and no line of text). To take the checklist "
-            "out, give --review-checklist none."
-        )
+    found = review.read_points(Path(given))
+    if isinstance(found, str) and found.endswith("(no list item and no line of text)."):
+        return f"{found} To take the checklist out, give --review-checklist none."
     return found
 
 

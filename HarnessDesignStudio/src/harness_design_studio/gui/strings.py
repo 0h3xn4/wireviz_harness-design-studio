@@ -2659,7 +2659,7 @@ NEXT_RELEASE_TITLE = "Review and release"
 NEXT_RELEASE_WHY = (
     "Release each harness when it is final. A released harness cannot be changed by accident."
 )
-NEXT_RELEASE_BUTTON = "Go to Releases"
+NEXT_RELEASE_BUTTON = "Open the Review page"
 NEXT_DONE_TITLE = "Everything is released"
 NEXT_DONE_WHY = "Every harness is released and the files are up to date."
 NEXT_DONE_BUTTON = "Open the Outputs"
@@ -2671,7 +2671,7 @@ NEXT_BUTTON_TIPS = {
     "check": "Look for mistakes in the design (F5)",
     "fix": "Open the Checks, which list what failed and what to do",
     "build_sheets": "Write the build workbook and the other files of every harness (Ctrl+E)",
-    "release": "Open the Versions, where a harness is reviewed and released",
+    "release": "Open the Review page of the first harness that is not released: its checklist, findings and sources, and Release…",
     "done": "Open the Outputs: the lists and the exported files",
 }
 # ---- The Systems engineer role (the Simple workspace of 1.7.0, stage S2): fewer things on screen (D-171, D-176) ----
@@ -4294,3 +4294,174 @@ PROBLEMS_ROWS_NOTE_WHY = (
     "nothing."
 )
 PROBLEMS_EDIT_ROWS = "Edit the pin rows of {0}…"
+
+
+# ---- 4.3.0 E3: the Review page, the ticks in the release dialog, Settings > Project (docs/ait/DESIGN_4.3_REVIEW_VIEW.md, parts C, D and F) ----
+AREA_REVIEW = "Review"
+AREA_REVIEW_TIP = (
+    "Review: for one harness, the project's review checklist, every finding, the values still "
+    "open and the sources to look at"
+)
+GO_REVIEW = "Go to Review"
+GO_REVIEW_TIP = "Open the Review page of the harness you are looking at"
+A_REVIEW_PAGE = "Review…"
+A_REVIEW_PAGE_TIP = "Open the Review page of this harness: the checklist, its findings and sources"
+RV_TITLE = "Review"
+RV_INTRO = (
+    "One harness at a time: what the project asks a reviewer to check, what the tool found, what "
+    "is still open and where to look it up. The ticks stay on this computer; Release… records "
+    "them in the release comment. The tool ticks nothing and says of no point that it passed."
+)
+RV_HARNESS = "Harness"
+RV_HARNESS_TIP = "The harness to review (the Versions area shows the same one)"
+RV_STATE_NAME = "State of the harness"
+RV_NO_HARNESS = (
+    "This project has no harness yet. Generate the harnesses or make one by hand, then review "
+    "it here."
+)
+RV_RELEASE = "Release…"
+RV_RELEASE_TIP = (
+    "Release this harness: the release window shows what stops it, and the release comment "
+    "records the points ticked here"
+)
+RV_RELEASE_OFF_RELEASED = "{0} is released; start a new version in the Versions to change it."
+RV_RELEASE_OFF_READ_ONLY = "This project is read-only (saved by a newer tool version)."
+RV_EDIT_CHECKLIST = "Edit the checklist…"
+RV_EDIT_CHECKLIST_TIP = "Open Settings > Project, where the project's review checklist is set"
+RV_RUNNING = "The checks are running; this list is from the last check."
+RV_DROPPED = "The checklist or the design changed after these points were ticked; tick them again."
+RV_RELEASED = "{0} is released: the release entry is above, and there is nothing to tick."
+RV_SUMMARY = "{harness}, version {version}, {status}: {parts}"
+RV_STATUS_WORDS = {"draft": "draft", "in_review": "in review", "released": "released"}
+RV_TICKED = "{0} of {1} points ticked"
+RV_TICKED_ONE = "{0} of 1 point ticked"
+RV_POINTS = "a checklist of {0} points"
+RV_POINTS_ONE = "a checklist of 1 point"
+RV_NO_CHECKLIST = "no checklist"
+RV_STOPS_NONE = "nothing stops the release"
+RV_STOPS_ONE = "1 thing stops the release"
+RV_STOPS = "{0} things stop the release"
+RV_COUNT_WORDS = {
+    "error": ("error", "errors"),
+    "warning": ("warning", "warnings"),
+    "note": ("note", "notes"),
+}
+RV_FINDINGS_OPEN = "{0} open"
+RV_FINDINGS_NONE = "no finding open"
+RV_VALUES_NONE = "nothing still open"
+RV_VALUES_ONE = "1 value still open"
+RV_VALUES = "{0} values still open"
+RV_AND = " and "
+# the blocks: the table's accessible name, and that of the sentence that stands in for an empty one
+RV_TABLE_NAMES = {
+    "checklist": "Review checklist",
+    "findings": "Findings of the harness",
+    "project": "Findings of the whole project",
+    "open": "Values still open",
+    "sources": "Sources to look at",
+}
+RV_EMPTY_TITLES = {
+    "checklist": "No checklist",
+    "findings": "No finding",
+    "project": "No finding",
+    "open": "Nothing is open",
+    "sources": "No source",
+}
+RV_DONE = "Done"
+RV_DONE_TIP = "Tick a point when you have looked at it (kept on this computer only)"
+RV_LIBRARY = "Library"
+RV_LIBRARY_NONE = "Not from a library"
+RV_LIBRARY_WAIT = "Not read yet"
+# the buttons of the blocks (each acts on the row that is chosen in its table)
+RV_TICK_ALL = "Tick all"
+RV_TICK_ALL_TIP = "Tick every point of the checklist (kept on this computer only)"
+RV_CLEAR = "Clear"
+RV_CLEAR_TIP = "Take every tick away"
+RV_SHOW = "Show"
+RV_SHOW_TIP = "Show the object of the chosen row (Enter or a double-click does the same)"
+RV_EXPLAIN = "Explain"
+RV_EXPLAIN_TIP = "How the tool reached the chosen finding: the rule, the inputs and their sources"
+RV_WAIVE = "Waive…"
+RV_WAIVE_TIP = "Waive the chosen finding with a written reason, as the Problems list does"
+RV_DEVIATE = "Accept as deviation…"
+RV_DEVIATE_TIP = (
+    "Accept the chosen error as a recorded deviation, with a written reason, as the Problems "
+    "list does"
+)
+RV_SUPPLY = "Supply value…"
+RV_SUPPLY_TIP = "Open the engineering values at the first value that is not set"
+RV_SHOW_ALL = "Show all"
+RV_SHOW_ALL_TIP = (
+    "Go to the place that lists every item of the chosen row: the Harness tab for wires and pins, "
+    "the engineering values for the configuration, the Lists for the rest"
+)
+RV_COPY_LINK = "Copy link"
+RV_COPY_LINK_TIP = (
+    "Copy the link of the chosen source to the clipboard (the editor opens no browser)"
+)
+RV_SHOW_SOURCE_TIP = (
+    "Show the chosen device connector in the Devices tab, or the part in the Inspector"
+)
+# the release dialog: the note the ticks add to the comment (section 6.1)
+RELEASE_REVIEW_NOTE = "Added to the comment: {0}"
+RELEASE_REVIEW_NOTE_NAME = "The note of the review checklist"
+RELEASE_REVIEW_NOBODY = "the name above"
+RELEASE_OPEN_REVIEW = "Open the Review page"
+RELEASE_OPEN_REVIEW_TIP = (
+    "Close this window and open the Review page of this harness, to tick the points"
+)
+REL_REVIEW_PAGE = "Review page"
+REL_REVIEW_PAGE_TIP = (
+    "Open the Review page of the chosen harness: its checklist, findings and sources"
+)
+# Settings > Project: the review checklist (part A, section 3.2) and the label format (part F)
+SETTINGS_CHECKLIST = "Review checklist"
+SETTINGS_CHECKLIST_TEXT = (
+    "The points a reviewer checks before a harness is released, one per line, in order "
+    "(config/naming.json, review_checklist). The Review page and the Review sheet of the build "
+    "workbook list them; a release records which were ticked. The tool ships no point: take the "
+    "template's points on purpose and leave out what does not apply. Nothing is saved until Save."
+)
+SETTINGS_CHECKLIST_BOX = "The points of the review checklist, one per line"
+SETTINGS_CHECKLIST_BOX_TIP = "One point per line, 1 to 300 characters each, each once, at most 100"
+SETTINGS_CHECKLIST_TEMPLATE = "Use the template's points"
+SETTINGS_CHECKLIST_TEMPLATE_TIP = (
+    "Fill the box with the 26 points of the shipped design-review-checklist.md (the ECSS points "
+    "among them); nothing is saved until Save"
+)
+SETTINGS_CHECKLIST_FILE = "Take the points of a file…"
+SETTINGS_CHECKLIST_FILE_TIP = (
+    "Fill the box with the list items of a text or Markdown file; nothing is saved until Save"
+)
+SETTINGS_CHECKLIST_FILE_TITLE = "Take the points of a file"
+SETTINGS_CHECKLIST_FILE_FILTER = "Text or Markdown (*.md *.txt);;All files (*)"
+SETTINGS_CHECKLIST_SAVE = "Save"
+SETTINGS_CHECKLIST_SAVE_TIP = (
+    "Save the points as the project's review checklist (one undo step); an empty box takes it out"
+)
+SETTINGS_CHECKLIST_NONE = "This project has no review checklist."
+SETTINGS_CHECKLIST_NOW = "Saved: {0} points (list {1})."
+SETTINGS_CHECKLIST_NOW_ONE = "Saved: 1 point (list {0})."
+SETTINGS_CHECKLIST_EDITED = "The box differs from the saved list: press Save to keep it."
+SETTINGS_CHECKLIST_NO_TEMPLATE = (
+    "The template design-review-checklist.md is missing from this installation."
+)
+STEP_SET_CHECKLIST = "Set the review checklist"
+STEP_CLEAR_CHECKLIST = "Take the review checklist out"
+CHECKLIST_SET = "The review checklist has {0} points."
+CHECKLIST_CLEARED = "The project has no review checklist now."
+SETTINGS_LABEL_FORMAT = "Label format"
+SETTINGS_LABEL_FORMAT_TEXT = (
+    "The text printed on the labels of wires and cable connectors (config/model.json, "
+    "label_format). It changes the Labels table and sheet."
+)
+SETTINGS_LABEL_FORMAT_TIP = "Choose the text of the labels (one undo step)"
+SETTINGS_LABEL_FORMAT_NEW = "{0} (a new project's choice)"
+SETTINGS_LABEL_FORMAT_ABOUT = "Labels: {0}."
+SETTINGS_LABEL_FORMAT_CUSTOM = (
+    "Set the two templates with harness-design-studio settings DIR --set "
+    "model.label_wire_template=… and --set model.label_connector_template=…."
+)
+SETTINGS_LABEL_FORMAT_UNKNOWN = "{0}: a format of a newer version of the tool."
+STEP_SET_LABEL_FORMAT = "Label format: {0}"
+LABEL_FORMAT_SET = "The labels are now in the format {0}."

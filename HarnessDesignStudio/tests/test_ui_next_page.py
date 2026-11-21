@@ -358,6 +358,7 @@ def test_each_key_reaches_an_existing_flow_of_the_window(qtbot, tmp_path, monkey
     seen: list[str] = []
     for name in (
         "add_device_flow", "new_harness_flow", "generate_flow", "check_flow", "export_dialog_flow",
+        "review_page_flow",
     ):  # fmt: skip
         monkeypatch.setattr(w, name, lambda n=name: seen.append(n))
     monkeypatch.setattr(w, "go_to", lambda n: seen.append(f"go_to:{n}"))
@@ -377,7 +378,7 @@ def test_each_key_reaches_an_existing_flow_of_the_window(qtbot, tmp_path, monkey
         "generate_flow",
         "check_flow",
         "export_dialog_flow",
-        "go_to:releases",
+        "review_page_flow",  # the Review page of 4.3.0 (REQ-GUI-31), in place of the Releases
         "go_to:lists",
     ]
     seen.clear()
