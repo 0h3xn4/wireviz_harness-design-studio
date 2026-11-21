@@ -912,6 +912,56 @@ def test_the_step_of_4_2_0_changes_the_rule_count_and_hides_no_other_change() ->
     assert f3.rule_count(twice, 43)[rel] == twice[rel]  # not exactly one line: left as it is
 
 
+@pytest.mark.parametrize("name", ["mini3", "mini3-released"])
+def test_the_step_of_4_3_0_adds_the_review_sheet_and_hides_no_other_change(name: str) -> None:
+    """Step 10 (design of 4.3.0, section 9): the build workbook of this tool equals the one of 2.x
+    after the step, which adds the sheet Review as written (on mini3-released W001 its row 3 names
+    the release) and the line Review before About on Start here. A cell of another sheet changed by
+    hand, a Review line out of its place or with other words, and a workbook without the sheet still
+    differ."""
+    import copy
+
+    from tests import format3_support as f3
+
+    rel = "harnesses/W001/W001_build.xlsx"
+    new, raw = f3.dump_now(name)
+    rec = f3.record(name)
+    groups = f3.shield_groups(name)
+
+    def problems(files: f3.Files) -> list[str]:
+        used = [0] * len(f3.word_changes())
+        return f3.compare(rec["files"], files, raw, used, rec["tool_version"], groups)
+
+    assert rel not in "".join(problems(new))
+    assert f3.REVIEW not in rec["files"][rel]["sheets"]  # 2.x has no such sheet
+    review = new[rel]["sheets"][f3.REVIEW]["cells"]
+    released = "Release: version 2.0.0 released on 2026-04-02 by Ada, checked by Bob."
+    if name == "mini3-released":
+        assert review["A3"].startswith(released)
+    else:
+        assert review["A3"] == "Release: not released yet."
+    stepped = f3.review_sheet(rec["files"], new)[rel]["sheets"]
+    assert set(stepped) == {*rec["files"][rel]["sheets"], f3.REVIEW}
+    before = rec["files"][rel]["sheets"]["Start here"]["cells"]
+    after = stepped["Start here"]["cells"]
+    at = next(int(k[1:]) for k, v in after.items() if v == f3.REVIEW)
+    assert after[f"B{at}"] == f3.REVIEW_LINE and after[f"A{at + 1}"] == "About"
+    assert len(after) == len(before) + 2
+    cut = copy.deepcopy(new)
+    cut[rel]["sheets"]["Cut list"]["cells"]["B2"] = "W001-999"
+    assert f"{rel}: differs" in problems(cut)
+    moved = copy.deepcopy(new)
+    cells = moved[rel]["sheets"]["Start here"]["cells"]
+    cells[f"A{at}"], cells[f"A{at + 1}"] = cells[f"A{at + 1}"], cells[f"A{at}"]
+    assert f"{rel}: differs" in problems(moved)
+    worded = copy.deepcopy(new)
+    worded[rel]["sheets"]["Start here"]["cells"][f"B{at}"] = "for the reviewer"
+    assert f"{rel}: differs" in problems(worded)
+    without = copy.deepcopy(new)
+    del without[rel]["sheets"][f3.REVIEW]
+    assert f"{rel}: differs" in problems(without)
+
+
 def test_a_word_change_left_out_of_the_list_fails_the_comparison(monkeypatch) -> None:
     """A mutation: without the entry for the header line of a drawing, one *Revision* stays in the
     2.x file after the list, and the comparison says so."""

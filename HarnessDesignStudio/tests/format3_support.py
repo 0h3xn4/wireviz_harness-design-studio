@@ -39,7 +39,14 @@ same project:
 9. the step of 4.2.0 (design of 4.2.0, section 8, pull request 4): the line `Rules run: 39.` of
    `system/drc_report.md` (the line that starts with `Model hash:`) reads `Rules run: N.` with N
    the number of rules of this tool (`drc.RULES`, 43), and nothing else of the report changes; no
-   recorded project has a finding of the four new rules (`rule_count`).
+   recorded project has a finding of the four new rules (`rule_count`);
+10. the step of 4.3.0 (design of 4.3.0, section 4, pull request 4): `<ID>_build.xlsx` has the new
+   sheet *Review*, taken as the file of 4.3.0 has it (2.x has no such sheet; its own tests and the
+   independent check of the outputs read it), and the members that list the sheets and the styles
+   (`BUILD_SHEET_MEMBERS`) follow; *Start here* has the line *Review* in *How to use this
+   workbook* before *About*, with the text stated here (`REVIEW_LINE`), and every row from *About*
+   on one row lower (`review_sheet`). `mini3-released` has a release entry, so its sheet names the
+   release in row 3; the step takes the sheet as written.
 
 Workbooks are compared cell by cell with their column widths and the hash of each member that
 holds no cell (styles, workbook); drawings by their text items and positions; JSON files by their
@@ -519,6 +526,50 @@ def rule_count(files: Files, rules: int | None = None) -> Files:
     return {**files, DRC_REPORT: {**files[DRC_REPORT], "text": text}}
 
 
+# ---- step 10: the Review sheet, 4.3.0 -----------------------------------------------------------
+
+REVIEW = "Review"
+REVIEW_LINE = (
+    "for the reviewer: the project's checklist with a column to tick, every finding and open value "
+    "of this harness, and the sources to look at"
+)
+ABOUT_LINE = "which version of the tool and which design this was made from"
+
+
+def _review_line(cells: dict[str, str]) -> dict[str, str] | None:
+    """*Start here* with the line *Review* before the line *About* of *How to use this workbook*;
+    None when the sheet has no such line *About* (the step then leaves the file as it is)."""
+    at = [_row(k) for k, v in cells.items() if _col(k) == "A" and v == "About"]
+    if len(at) != 1 or cells.get(f"B{at[0]}") != ABOUT_LINE:
+        return None
+    cells = _insert_rows(cells, at[0], 1)
+    cells[f"A{at[0]}"], cells[f"B{at[0]}"] = REVIEW, REVIEW_LINE
+    return cells
+
+
+def review_sheet(old: Files, new: Files) -> Files:
+    """The files of 3.0 after the step of 4.3.0 for the build workbook (step 10 of the module
+    text)."""
+    out = dict(old)
+    for rel, entry in old.items():
+        if not rel.endswith("_build.xlsx") or rel not in new or "sheets" not in entry:
+            continue
+        if REVIEW not in new[rel].get("sheets", {}) or "Start here" not in entry["sheets"]:
+            continue
+        here = entry["sheets"]["Start here"]
+        cells = _review_line(dict(here["cells"]))
+        if cells is None:
+            continue
+        sheets = {**entry["sheets"], "Start here": {**here, "cells": cells}}
+        sheets[REVIEW] = new[rel]["sheets"][REVIEW]
+        members = dict(entry.get("members", {}))
+        for m in BUILD_SHEET_MEMBERS:
+            if m in members and m in new[rel].get("members", {}):
+                members[m] = new[rel]["members"][m]
+        out[rel] = {**entry, "sheets": sheets, "members": members}
+    return out
+
+
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -565,6 +616,7 @@ def compare(
         old = every_shield_group(old, groups)
     old = production_sheet(old, new)  # 8
     old = rule_count(old)  # 9
+    old = review_sheet(old, new)  # 10
     problems: list[str] = []
     if "manifest.json" in old and "manifest.json" in new:  # 5
         a, b = copy.deepcopy(old["manifest.json"]["json"]), new["manifest.json"]["json"]
