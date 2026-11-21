@@ -123,7 +123,7 @@ def test_validate_check_and_drc_equal_the_api_and_keep_their_exit_codes(
     doc = run(capsys, "drc", str(small), tmp=small.parent)
     keys(doc, "drc")
     assert doc == api.run_checks(small).to_dict()
-    assert doc["rules_run"] == len(api.list_rules()) == 39
+    assert doc["rules_run"] == len(api.list_rules()) == 43
     ids = [f["id"] for f in doc["findings"]]
     assert ids and all(f["rule"] and f["why"] and f["severity"] for f in doc["findings"])
     order = [{"error": 0, "warning": 1, "info": 2}[f["severity"]] for f in doc["findings"]]

@@ -262,7 +262,7 @@ def test_the_checks_panel_shows_an_extension_rule_says_where_it_comes_from_and_e
     panel.show()
     qtbot.waitUntil(lambda: ctl.drc_current, timeout=20000)
     ids = [r.rule_id for r in panel.results()]
-    assert ids[:39] == [r.id for r in drc.RULES]
+    assert ids[:43] == [r.id for r in drc.RULES]
     assert "x-min-gauge-power" in ids and "x-own-ampacity" in ids
     # the plug-in is not trusted: its rule is not in force, and a notice says so
     assert "x-duplicate-signal-wires" not in ids and "x-extension-problem" in ids

@@ -654,14 +654,14 @@ def test_the_registry_lists_built_in_and_extension_items_together(folder: Path) 
     items = manager.listing(project)["items"]
     rules = [i for i in items if i["kind"] == "rule"]
     assert [i["name"] for i in rules][:3] == ["duplicate-id", "wire-dangling", "model-inconsistent"]
-    assert [i["source"] for i in rules].count("built-in") == 39
+    assert [i["source"] for i in rules].count("built-in") == 43
     assert {i["name"]: i["source"] for i in rules if i["source"] != "built-in"} == {
         "x-demo": "plugin",
         "x-gauge": "declarative",
     }
     kinds = {i["kind"] for i in items}
     assert kinds == {"rule", "field", "model", "table", "importer", "lookup"} - {"lookup"}
-    assert len(REGISTRY.items("rule")) == 39  # the tool's registry is not changed by a project
+    assert len(REGISTRY.items("rule")) == 43  # the tool's registry is not changed by a project
     assert REGISTRY.get("rule", "x-demo") is None
     with pytest.raises(Exception, match="already registered"):
         REGISTRY.register(REGISTRY.get("rule", "duplicate-id"))  # type: ignore[arg-type]
@@ -690,7 +690,7 @@ def test_every_registered_rule_is_explained(folder: Path) -> None:
     trust_it(folder)
     project = load_project(folder).project
     rule_items = [i for i in manager.listing(project)["items"] if i["kind"] == "rule"]
-    assert len(rule_items) == 39 + 3
+    assert len(rule_items) == 43 + 3
     for item in rule_items:
         name = item["name"]
         if item["source"] == "built-in":

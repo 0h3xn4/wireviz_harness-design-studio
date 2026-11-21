@@ -35,7 +35,11 @@ same project:
    wide as its heading plus 2, and both sheets end with the four sentences after an empty row
    below their last row. The first, second and fourth sentences are
    stated here; the third names the service loops of the project, so it is taken from the file of
-   4.1.0 when it has the form stated here (`production_sheet`).
+   4.1.0 when it has the form stated here (`production_sheet`);
+9. the step of 4.2.0 (design of 4.2.0, section 8, pull request 4): the line `Rules run: 39.` of
+   `system/drc_report.md` (the line that starts with `Model hash:`) reads `Rules run: N.` with N
+   the number of rules of this tool (`drc.RULES`, 43), and nothing else of the report changes; no
+   recorded project has a finding of the four new rules (`rule_count`).
 
 Workbooks are compared cell by cell with their column widths and the hash of each member that
 holds no cell (styles, workbook); drawings by their text items and positions; JSON files by their
@@ -489,6 +493,32 @@ def production_sheet(old: Files, new: Files) -> Files:
     return out
 
 
+# ---- step 9: the number of rules, 4.2.0 ---------------------------------------------------------
+
+DRC_REPORT = "system/drc_report.md"
+RULES_BEFORE = 39  # the number of design rules of 2.x, which the record holds
+_RULES_LINE = re.compile(r"(?m)^(Model hash: `[0-9a-f]{12}`\. Rules run: )(\d+)(\.)$")
+
+
+def rule_count(files: Files, rules: int | None = None) -> Files:
+    """The files of 3.0 after the step of 4.2.0 (step 9 of the module text): the one line
+    `Model hash: `...`. Rules run: 39.` of the DRC report says `rules` (the number of rules of this
+    tool) in place of 39. A report without exactly one such line, or with another number, is left
+    as it is, so the comparison reports it."""
+    if DRC_REPORT not in files or "text" not in files[DRC_REPORT]:
+        return files
+    if rules is None:
+        from harness_design_studio.core.drc import RULES
+
+        rules = len(RULES)
+    text = files[DRC_REPORT]["text"]
+    found = _RULES_LINE.findall(text)
+    if len(found) != 1 or found[0][1] != str(RULES_BEFORE):
+        return files
+    text = _RULES_LINE.sub(lambda m: f"{m.group(1)}{rules}{m.group(3)}", text)
+    return {**files, DRC_REPORT: {**files[DRC_REPORT], "text": text}}
+
+
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -534,6 +564,7 @@ def compare(
     if groups is not None:  # 7
         old = every_shield_group(old, groups)
     old = production_sheet(old, new)  # 8
+    old = rule_count(old)  # 9
     problems: list[str] = []
     if "manifest.json" in old and "manifest.json" in new:  # 5
         a, b = copy.deepcopy(old["manifest.json"]["json"]), new["manifest.json"]["json"]

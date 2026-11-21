@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The rule `pair-untwisted` (design of 4.2.0, section 3; `core/drc/electrical.py`). The rule is not
-registered yet (pull request 4 of the design), so these tests call the check directly.
+"""REQ-DRC-06. The rule `pair-untwisted` (design of 4.2.0, section 3; `core/drc/electrical.py`). The rule is
+registered since pull request 4 of the design; these tests call the check directly.
 
 Pairs from the interface type of the wires, from the types of the signals at the ends, from the names
 (`+ -`, `P N`, `H L` and a project's own table) and from port names; twisted by a twisted pair, a
@@ -35,9 +35,10 @@ def hits(p: Project) -> list[str]:
     return titles(electrical._pair_untwisted(p))
 
 
-def test_the_rule_is_not_registered_yet() -> None:
-    ids = {r.id for r in RULES}
-    assert len(RULES) == 39 and "pair-untwisted" not in ids and "signal-unshielded" not in ids
+def test_the_rules_are_registered_after_direction_conflict() -> None:
+    ids = [r.id for r in RULES]
+    at = ids.index("direction-conflict")
+    assert len(RULES) == 43 and ids[at + 1 : at + 3] == ["pair-untwisted", "signal-unshielded"]
 
 
 # ---- where a pair comes from --------------------------------------------------------------------

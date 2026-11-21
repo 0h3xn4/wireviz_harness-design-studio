@@ -42,7 +42,7 @@ harness-design-studio drc my-design
 ## What you should see
 
 - `extensions` lists two data files (enabled, applied), one plug-in (enabled, **not trusted**, not loaded), and the items they add: the rules `x-min-gauge-power` and `x-own-ampacity`, the table `power-wires`, the lookup table, and, once you trust it, `x-duplicate-signal-wires`.
-- `drc` reports the thin power wires of the flatsat (AWG 24 and 26 against the example limit of AWG 22) as warnings with the IDs `x-min-gauge-power.W001-001` and so on, a note that the plug-in is enabled and not trusted (`x-extension-problem`) until you trust it, and `Rules run: 41`.
+- `drc` reports the thin power wires of the flatsat (AWG 24 and 26 against the example limit of AWG 22) as warnings with the IDs `x-min-gauge-power.W001-001` and so on, a note that the plug-in is enabled and not trusted (`x-extension-problem`) until you trust it, and `Rules run: 45`.
 - `explain my-design W001-001` is unchanged; the Explain button of the Checks tab, or `harness_design_studio.api.explain_finding`, opens the derivation of `x-min-gauge-power` for `W001-001`: actual 24 AWG, limit 22 AWG, margin -2.
 - `export` writes `system/extensions/power-wires.csv`, and `system/provenance.json` lists the extensions in force with their SHA-256.
 

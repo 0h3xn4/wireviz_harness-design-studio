@@ -119,8 +119,8 @@ def test_a_project_of_4_1_with_the_key_loads_saves_and_keeps_it(tmp_path: Path) 
     p = load_project(folder).project
     assert p.meta.schema_version == SCHEMA_VERSION == 4
     assert configcheck.validate(p) == configcheck.validate(plain)
-    # no registered rule reads the key yet; the outputs are older than a changed config file, as
-    # for any change of a value
+    # the rule that reads the key (pair-untwisted) finds nothing new: flatsat has no harness without
+    # an interface; the outputs are older than a changed config file, as for any change of a value
     changed = [f.id for f in run_drc(p) if not f.id.startswith("verify-mismatch.outputs_outdated")]
     assert changed == findings
     save_project(p, folder)

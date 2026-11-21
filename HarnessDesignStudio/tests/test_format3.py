@@ -790,7 +790,7 @@ def test_the_record_is_what_2x_wrote(name: str) -> None:
 def test_the_written_files_of_3_0_are_those_of_2x_after_the_word_list() -> None:
     """Every file of every recorded project, as this tool writes it, equals the file of 2.x after
     the steps of section 5.6 (`tests/format3_support.py`): the stamp, the file name, the word
-    list, the length rule and the manifest, then the steps of 4.0.0 and 4.1.0. Any other
+    list, the length rule and the manifest, then the steps of 4.0.0, 4.1.0 and 4.2.0. Any other
     difference fails, and so does an entry of
     the list that matches nowhere in the whole set."""
     from tests import format3_support as f3
@@ -864,6 +864,52 @@ def test_the_step_of_4_1_0_for_the_build_workbook_hides_no_other_change() -> Non
     at = next(k for k, v in cells.items() if v == "Production")
     cells[at], cells[f"A{int(at[1:]) + 1}"] = cells[f"A{int(at[1:]) + 1}"], cells[at]
     assert f"{rel}: differs" in problems(here)
+
+
+def test_the_step_of_4_2_0_changes_the_rule_count_and_hides_no_other_change() -> None:
+    """Step 9 on mini3 (design of 4.2.0, section 8): the DRC report of this tool equals the one of
+    2.x after the step, which changes that one line and no other; a finding added by hand, another
+    number of rules and a report with the line twice still differ."""
+    import copy
+
+    from harness_design_studio.core.drc import RULES
+    from tests import format3_support as f3
+
+    rel = f3.DRC_REPORT
+    new, raw = f3.dump_now("mini3")
+    rec = f3.record("mini3")
+    groups = f3.shield_groups("mini3")
+
+    def problems(files: f3.Files) -> list[str]:
+        used = [0] * len(f3.word_changes())
+        return f3.compare(rec["files"], files, raw, used, rec["tool_version"], groups)
+
+    assert len(RULES) == 43 and f3.RULES_BEFORE == 39
+    assert rel not in "".join(problems(new))
+    before = rec["files"][rel]["text"]
+    after = f3.rule_count(rec["files"], len(RULES))[rel]["text"]
+    changed = [
+        (a, b) for a, b in zip(before.splitlines(), after.splitlines(), strict=True) if a != b
+    ]
+    assert len(changed) == 1 and changed[0][0].endswith("Rules run: 39.")
+    assert changed[0][1] == changed[0][0].replace("Rules run: 39.", "Rules run: 43.")
+    assert f3.rule_count({"other.md": {"text": before}}) == {"other.md": {"text": before}}
+    added = copy.deepcopy(new)
+    text = added[rel]["text"]
+    added[rel]["text"] = text.replace(
+        "## Warnings (7)\n",
+        "## Warnings (7)\n\n- `pair-untwisted.W001-001` (by hand): a finding\n",
+        1,
+    )
+    assert added[rel]["text"] != text
+    assert f"{rel}: differs" in problems(added)
+    other = copy.deepcopy(new)
+    other[rel]["text"] = other[rel]["text"].replace("Rules run: 43.", "Rules run: 44.")
+    assert f"{rel}: differs" in problems(other)
+    twice = copy.deepcopy(rec["files"])
+    line = next(x for x in before.splitlines() if x.endswith("Rules run: 39."))
+    twice[rel] = {**twice[rel], "text": f"{before}\n{line}\n"}
+    assert f3.rule_count(twice, 43)[rel] == twice[rel]  # not exactly one line: left as it is
 
 
 def test_a_word_change_left_out_of_the_list_fails_the_comparison(monkeypatch) -> None:

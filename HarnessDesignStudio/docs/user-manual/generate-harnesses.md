@@ -266,7 +266,7 @@ harness-design-studio new obc-demo --template blank
 | Check | When it runs | Where you see it |
 | --- | --- | --- |
 | **Quick checks** (a link without a connector, a device with no link, auto-filled connectors, a link across the chains) | On every edit, at once. | The **Problems** tab and the marks on the diagram. |
-| **Design rules** (all 39, [`RULES.md`](../RULES.md)) | In the editor, by themselves, after every change, once you have paused for **1.2 seconds**, and when a project is opened. They run in a separate helper process, so the editor does not wait. A run that does not end within three minutes is stopped and run again inside the editor. **Check** in the top bar (F5) runs them now. | The status line (*Design rules: checking…*, then the counts), the **Checks** tab and the **Problems** panel ([read and fix problems](read-and-fix-problems.md)). |
+| **Design rules** (all 43, [`RULES.md`](../RULES.md)) | In the editor, by themselves, after every change, once you have paused for **1.2 seconds**, and when a project is opened. They run in a separate helper process, so the editor does not wait. A run that does not end within three minutes is stopped and run again inside the editor. **Check** in the top bar (F5) runs them now. | The status line (*Design rules: checking…*, then the counts), the **Checks** tab and the **Problems** panel ([read and fix problems](read-and-fix-problems.md)). |
 | **Self-check** (a second program path that shares no code with the generator) | In the editor, in the background, when the **Harness** tab is open and the design changed, and again after an export. On the command line at the end of every `generate`. | The chip in the header of the **Harness** tab: *Self-check passed*, *Self-check passed; n design checks failed* or *Self-check found n problem(s)*. |
 | **Output check** | Before `export` writes any file. | If it fails, nothing is written and the reason is shown ([export the outputs](export-the-outputs.md#1-export)). |
 
@@ -276,7 +276,7 @@ On the command line you choose which check runs:
 | --- | --- | --- |
 | `harness-design-studio validate DIR` | That the folder is sound: errors and inconsistencies in its files. No design rules. | an error is found |
 | `harness-design-studio check DIR` | The same as `validate`, plus what a Git merge can leave behind ([use Git and CI](use-git-and-ci.md)). | an error is found |
-| `harness-design-studio drc DIR` | The 39 design rules, with the report. | an error is not waived |
+| `harness-design-studio drc DIR` | The 43 design rules, with the report. | an error is not waived |
 | `harness-design-studio verify DIR` | The self-check of the harnesses against the design; `--outputs` also checks the written files. | an error is found |
 
 With the practice project after `generate`:
@@ -297,7 +297,7 @@ harness-design-studio drc wheel-link
 ```
 # Design rule check: First steps: reaction wheel link
 
-Model hash: `<hash>`. Rules run: 39.
+Model hash: `<hash>`. Rules run: 43.
 Open: 0 error(s), 10 warning(s), 8 note(s). Waived: 0.
 ```
 

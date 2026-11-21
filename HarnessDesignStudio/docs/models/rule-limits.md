@@ -54,6 +54,10 @@ The table is written from the code (`python -m tools.gen_rule_limit_docs`), so a
 | `pin-shared` | number against a limit | the number of wires on a pin with one | `rule-limit` |
 | `mate-mismatch` | yes/no check | a cable connector with the device connector it plugs into: gender, mating part, number of pins and keying | `rule-check` |
 | `direction-conflict` | yes/no check | the directions of the two signals a wire joins: two outputs or two inputs conflict | `rule-check` |
+| `pair-untwisted` | yes/no check | the two wires of each signal pair with the groups of the harness: a twisted pair, a shielded pair or a quad must hold both | `rule-check` |
+| `signal-unshielded` | yes/no check | each wire of a harness Generate did not make with the interface types of its signal: when every one of them shields it, a shielded pair, an overall shield, a coax or a quad must hold it | `rule-check` |
+| `level-conflict` | yes/no check | the levels of the device pins that one net, or one pair of a connection without a harness, joins with the pairs of levels the project keeps apart | `rule-check` |
+| `wire-direction` | yes/no check | the directions of the device pins that a net of wires drawn by hand joins: two outputs, or only inputs, conflict | `rule-check` |
 | `current-over-contact` | number against a limit | the current of an interface with the derated rating of the contacts of the connector at its end | `contact-current` |
 | `current-over-wire` | number against a limit | the current of an interface with the derated ampacity of the wire's gauge | `wire-current-limit` |
 | `voltage-drop` | number against a limit | the voltage drop over a wire at the current of its interface with the largest drop allowed | `wire-voltage-drop` |

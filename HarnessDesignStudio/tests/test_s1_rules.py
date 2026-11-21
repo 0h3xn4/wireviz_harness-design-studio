@@ -77,7 +77,7 @@ def work(tmp_path: Path) -> Project:
 
 
 def test_every_rule_of_the_registry_has_an_explanation() -> None:
-    assert len(RULES) == 39
+    assert len(RULES) == 43
     assert set(INFO) == set(ALL_RULES), "a rule is missing in derive_rules.INFO, or one is stale"
     assert frozenset(ALL_RULES) == EXPLAINABLE_RULES
     for rule_id in ALL_RULES:
@@ -90,7 +90,7 @@ def test_every_rule_of_the_registry_has_an_explanation() -> None:
 
 
 def test_the_registry_of_extensions_lists_the_same_rules_and_explains_extension_rules_too() -> None:
-    """S8: the registry holds the 39 rules of `drc.RULES` as built-in items, so a rule cannot be in one
+    """S8: the registry holds the 43 rules of `drc.RULES` as built-in items, so a rule cannot be in one
     list and not in the other; an extension's rule is explained as the built-in ones are."""
     from harness_design_studio.core.derive import is_explainable
     from harness_design_studio.core.extensions.builtins import install

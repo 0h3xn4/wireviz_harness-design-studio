@@ -144,7 +144,7 @@ def test_extensions_text_and_a_project_without_the_folder(
         and doc["issues"] == []
     )
     assert all(i["source"] == "built-in" for i in doc["items"])
-    assert sum(i["kind"] == "rule" for i in doc["items"]) == 39
+    assert sum(i["kind"] == "rule" for i in doc["items"]) == 43
     write_extensions(folder, {"t.json": ext_file(rules=[gauge_rule()])})
     assert main(["extensions", str(folder)]) == 0
     out = capsys.readouterr().out
@@ -407,4 +407,4 @@ def test_list_extensions_in_the_scripting_interface(folder: Path) -> None:
     assert any(i["name"] == "x-gauge" for i in got["items"])
     assert api.list_extensions(load_project(folder).project) == got
     result = api.run_checks(folder)
-    assert result.rules_run == 40 and any(f.rule == "x-gauge" for f in result.findings)
+    assert result.rules_run == 44 and any(f.rule == "x-gauge" for f in result.findings)

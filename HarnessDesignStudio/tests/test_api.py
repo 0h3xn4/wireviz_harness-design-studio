@@ -127,7 +127,7 @@ def test_a_read_only_project_is_not_changed(work: Path, monkeypatch: pytest.Monk
         with pytest.raises(api.ReadOnlyProjectError, match="read-only"):
             call()
     assert tree(work) == before
-    assert api.run_checks(work).rules_run == 39  # reading still works
+    assert api.run_checks(work).rules_run == 43  # reading still works
 
 
 def test_the_interface_takes_the_lock_of_the_editor(work: Path) -> None:
@@ -369,8 +369,8 @@ def test_a_value_set_through_the_interface_is_the_value_the_command_reports(
 
 def test_list_rules_is_the_registry() -> None:
     rules = api.list_rules()
-    assert [r.id for r in rules] == [r.id for r in RULES] and len(rules) == 39
-    assert len({r.id for r in rules}) == 39
+    assert [r.id for r in rules] == [r.id for r in RULES] and len(rules) == 43
+    assert len({r.id for r in rules}) == 43
     sample = rules[0]
     assert sample.why and sample.how and sample.severity in ("error", "warning", "info")
     text = (Path(__file__).resolve().parents[1] / "docs" / "RULES.md").read_text(encoding="utf-8")

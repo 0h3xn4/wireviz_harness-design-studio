@@ -57,7 +57,7 @@ def test_the_pages_name_the_real_commands_the_real_store_and_the_real_group() ->
 
 def test_the_example_readme_names_the_real_files_and_the_rule_count() -> None:
     readme = (ROOT / "docs" / "examples" / "extensions" / "README.md").read_text(encoding="utf-8")
-    assert "Rules run: 41" in readme  # 39 + two data rules + one plug-in rule
+    assert "Rules run: 45" in readme  # 43 + two data rules (the plug-in is not trusted)
     assert re.search(r"`x-min-gauge-power\.W001-001`", readme)
 
 

@@ -232,7 +232,7 @@ def deviate_op(finding: Finding, reason: str) -> Op:
         raise edit.EditError(
             "This finding cannot be accepted as a deviation: only an error of an electrical rule "
             "(wire current, voltage drop, contact current, bundle current, working voltage, "
-            "temperature margin) can."
+            "temperature margin, signal levels) can."
         )
     return _waiver(finding, reason)
 

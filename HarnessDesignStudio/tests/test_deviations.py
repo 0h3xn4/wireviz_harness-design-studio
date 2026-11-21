@@ -21,7 +21,7 @@ from harness_design_studio.core.wires import plan_override
 
 RULES = {
     "current-over-contact", "current-over-wire", "voltage-drop", "bundle-current",
-    "connector-voltage", "wire-voltage", "temperature-margin",
+    "connector-voltage", "wire-voltage", "temperature-margin", "level-conflict",
 }  # fmt: skip
 
 

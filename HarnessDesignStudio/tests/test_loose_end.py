@@ -517,7 +517,7 @@ def test_the_design_rule_asks_for_a_choice_not_an_approval(loose_root):
     assert "cable end(s) have no connector chosen yet (loose end)" in hits[0].title
     assert "not approved" not in hits[0].title
     assert hits[0].severity == "warning"
-    assert len(drc.RULES) == 39  # no new rule
+    assert len(drc.RULES) == 43  # the loose end adds no rule
 
 
 def test_the_rest_of_the_design_checks_run_over_the_project_without_a_crash(loose_root):

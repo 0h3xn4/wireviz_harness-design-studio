@@ -22,7 +22,7 @@ This page shows how to add a rule, a table or a reader to a project without chan
 - A **data file** (`extensions/NAME.json`) describes rules, tables and lookup tables. Its conditions are written in a small expression language that can read documented values and do arithmetic, and nothing else. It cannot run a program.
 - A **Python plug-in** (`extensions/plugins/NAME.py`, or an installed package) is code. Use it for what a data file cannot say, for example comparing the wires of a harness with each other.
 - `extensions/enabled.json` lists which files and which plug-ins the project uses. **A file that is not listed there does nothing.**
-- The extra rules have the prefix `x-` (the rule `min-gauge-power` of a file is `x-min-gauge-power`), so that you can tell them from the 39 rules of the tool at a glance. A finding of such a rule says where it comes from.
+- The extra rules have the prefix `x-` (the rule `min-gauge-power` of a file is `x-min-gauge-power`), so that you can tell them from the 43 rules of the tool at a glance. A finding of such a rule says where it comes from.
 
 The examples below are in [`docs/examples/extensions/`](../examples/extensions/README.md). Copy that folder into a project as `extensions/` to try them.
 
@@ -152,7 +152,7 @@ harness-design-studio drc my-design
 harness-design-studio explain my-design W001-001
 ```
 
-`drc` lists the findings of the extension rules with the others, and its report says `Rules run: 40` instead of 39 and names every extension in force with its hash. In the editor the Checks tab shows the rule as a row of its own; its details say *This rule is not part of the tool* and name the file, its version and its hash. **Explain** on a finding opens the same derivation as for a rule of the tool: the equation, the inputs with their units and sources (a field of the design, a parameter of the file with its source, a setting of the project, a lookup table), the actual value, the limit and the margin.
+`drc` lists the findings of the extension rules with the others, and its report says `Rules run: 44` instead of 43 and names every extension in force with its hash. In the editor the Checks tab shows the rule as a row of its own; its details say *This rule is not part of the tool* and name the file, its version and its hash. **Explain** on a finding opens the same derivation as for a rule of the tool: the equation, the inputs with their units and sources (a field of the design, a parameter of the file with its source, a setting of the project, a lookup table), the actual value, the limit and the margin.
 
 `harness-design-studio extensions my-design --docs` prints the rules the project enables as a Markdown table in the form of [`RULES.md`](../RULES.md) (why, how to fix, requirement IDs, and the file or plug-in each comes from), and their derivations are in the files `explain --all --out FOLDER` writes.
 
@@ -205,7 +205,7 @@ A plug-in can also add a reader for a file. `harness-design-studio import-plugin
 
 ## What an extension changes, and what it leaves alone
 
-- A project that enables nothing is **unchanged**: the same findings, the same output files, byte for byte, and `Rules run: 39`.
+- A project that enables nothing is **unchanged**: the same findings, the same output files, byte for byte, and `Rules run: 43`.
 - A project that enables extensions says so wherever it matters: in `drc` and its report, in `system/provenance.json` and the manifest of the outputs (name, version and SHA-256 of every enabled file and every loaded plug-in), and in the Checks tab.
 - An extension cannot replace or change a rule, a table or a number of the tool: its names are its own (`x-` for rules) and a name that is already taken is refused. It adds checks and tables; the generation of wires, the sizing and the mass are the tool's.
 - A finding of an extension rule is a statement of the rule you wrote. The tool does not say that the rule is right, and an extension is not a part of the tool that was tested with it. Whether the rule belongs to the design is a decision of the person who writes it.

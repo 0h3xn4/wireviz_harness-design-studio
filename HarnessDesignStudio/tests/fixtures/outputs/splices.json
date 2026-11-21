@@ -54,15 +54,15 @@
  "system/bom.csv": "0d2b4127411600c01165b47a117faa6265007305a31331cc67df552335bde327",
  "system/box_pinouts.csv": "0951343835deb7a4b2fa3cbf7822a05490b5c2873b11330e1e17588aaefa3d36",
  "system/changelog.csv": "7f74f8a9020e7f9d0e2ca4d45c9be2314bea56b53250be91bd30dabb5e1b16ba",
- "system/drc_findings.csv": "527124077b0b136363d65f2e7da99a4b2d39b8705989a2a1c2534680c0f5c835",
- "system/drc_report.md": "71c83fc7878e594405158f0835278e1c311bb3db40413bf9621cb5c9b55f7c3a",
+ "system/drc_findings.csv": "818cce963e1a36e347dbef075ad2ea035d825704c2a7227b8ced40dc5948f01e",
+ "system/drc_report.md": "b2086c644fdee9ab93e646e57a97efbc27a8b85af6104a446914d27231c7d05e",
  "system/export.json": "7877274406cd7c87e983c5571bc22506c3d41bb76bfb7b151a69d8a116fbffdf",
  "system/harness_overview.pdf": "21c0d70108df6c7fe312cd18094e79c53ca5591192a6470f6110785fcff52a1b",
  "system/harness_overview.svg": "925553326fe8780ea7350c779d92d52eb7fb977eefd0ffb6e8c42a5c8e5ec7bd",
  "system/mass_length.csv": "8f906233a7eea8b9c25f5c5d759b46ff4d2cad2bfbd2344c69462954ee115129",
  "system/mating_matrix.csv": "40a1d68ca862019781250b5bb14bd3f1a5e5e2db45abb30ee9091c637e60b5f1",
  "system/provenance.json": "24cf650fe7348a9b32f2292dc6d40d4a844031750971f01c06b21fd3b888756a",
- "system/system.xlsx": "f8766f585b6c7139cc3f7b57e3a681de6ffc05c28a768287aa0d062bcceb9969",
+ "system/system.xlsx": "375a786d9c5e97c4490c6aed95ff79c736a205dc8f516f69305f789527d7c6df",
  "system/traceability.csv": "4db92c1f42b3281bc7e72cb7be2012d0b6ede4efc7bd1c135fae02c8b62d5b01",
  "system/version_report.md": "456e3f330d27ccf8ef231634a5f1c612dcd189c87b9e1002f5fed26bbd50e353"
 }

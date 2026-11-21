@@ -16,9 +16,8 @@ the pairs of a connection) and two settings, `config/naming.json` `pair_suffixes
   wire-direction     a net of wires drawn by hand that joins two outputs, or only inputs
 
 `unchecked` gives the notes of what they could not judge. The rules are `ELECTRICAL_RULES`, with the
-texts of the design. They are not in the registry `rules.RULES` yet (pull request 4 of the design
-registers them), so `check`, `drc` and every written file are as before; the tests call them
-directly.
+texts of the design, spliced into the registry `rules.RULES` after `direction-conflict` (pull request
+4 of the design: 43 rules), and `rules._unchecked` calls `unchecked`.
 """
 
 from __future__ import annotations
@@ -727,15 +726,14 @@ def unchecked(project: Project) -> Iterator[Hit]:
     where the project holds the data that makes the question real (a pin with a level, a net drawn
     by hand to device pins), so that a project without such data keeps its written files (owner
     question C8). The object IDs are the keys of the notes (`levels`, `no-level`, `level-unknown`,
-    `wire-direction-unknown`). Not called by `rules._unchecked` yet (pull request 4)."""
+    `wire-direction-unknown`); `rules._unchecked` calls it."""
     yield from _level_notes(project)
     yield from _direction_notes(project)
 
 
 # ---- the rules (sections 3.2, 4.2, 5.3 and 6.2) ----------------------------------------------------------
 #
-# Not spliced into `rules.RULES` yet: pull request 4 of the design puts them after
-# `direction-conflict`, so the report keeps the signals together.
+# Spliced into `rules.RULES` after `direction-conflict`, so the report keeps the signals together.
 
 ELECTRICAL_RULES: tuple[Rule, ...] = (
     Rule("pair-untwisted", "warning", "Twisted pairs",

@@ -72,7 +72,8 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "deviation",
         help="list the deviations of a project, accept an error of an electrical rule as a recorded deviation, or take one back",
         description="A deviation accepts an error of an electrical rule (wire current, voltage drop, "
-        "contact current, bundle current, working voltage, temperature margin) with a reason, keeps "
+        "contact current, bundle current, working voltage, temperature margin, signal levels) with a "
+        "reason, keeps "
         "it visible everywhere marked as a deviation, and lets a release go on. `deviation DIR` lists "
         "them, with who and when from the journal; `deviation DIR FINDING --reason TEXT` records one "
         "(FINDING is the finding ID of `drc`, for example current-over-wire.W001-001; the reason is "
