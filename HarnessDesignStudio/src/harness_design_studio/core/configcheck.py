@@ -11,7 +11,7 @@ to type JSON by hand. It never supplies a number itself.
 
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from harness_design_studio.core import counterparts, label_format, settings, standard_profiles
@@ -168,6 +168,7 @@ def validate(project: Project) -> list[Issue]:
     out.extend(validate_level_pairs(project))
     out.extend(validate_distinct_roles(project))
     out.extend(validate_asbuilt(project))
+    out.extend(validate_checklist(project))
     out.extend(standard_profiles.validate(project))
     return out
 
@@ -654,6 +655,90 @@ def validate_asbuilt(project: Project) -> list[Issue]:
         where = "config/naming.json"
         out.append(Issue("error", "config_invalid", f"{where}: release_requires_asbuilt must be true or false.", where, "naming.release_requires_asbuilt"))  # fmt: skip
     return out
+
+
+CHECKLIST_FILE, CHECKLIST_KEY = "naming", "review_checklist"
+CHECKLIST_MAX_POINTS = 100
+CHECKLIST_POINT_LENGTH = 300
+CHECKLIST_RANGE = "a list of points, each one line of 1 to 300 characters, each once, at most 100"
+# what makes a text more than one line (str.splitlines breaks at each of these)
+_LINE_BREAKS = frozenset("\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029")
+
+
+def checklist_problem(value: object) -> str | None:
+    """Why a value is not a review checklist (None when it is one): a list of points in the order a
+    reviewer goes through them, each one line of text of 1 to 300 characters (the spaces around
+    it left out), each point once (compared after trimming and folding the case), at most 100
+    points (design of 4.3.0, section 3.1). An empty list is a project without a checklist."""
+    why = f"must be {CHECKLIST_RANGE}"
+    if not isinstance(value, list) or len(value) > CHECKLIST_MAX_POINTS:
+        return why
+    seen: set[str] = set()
+    for point in value:
+        if not isinstance(point, str):
+            return why
+        text = point.strip()
+        if not 1 <= len(text) <= CHECKLIST_POINT_LENGTH or _LINE_BREAKS.intersection(text):
+            return why
+        if text.casefold() in seen:
+            return why
+        seen.add(text.casefold())
+    return None
+
+
+def validate_checklist(project: Project) -> list[Issue]:
+    """`naming.json` `review_checklist` (4.3.0) must be a review checklist (`checklist_problem`).
+    Not set (or null) is not a problem: the project has no checklist. A list that is refused is no
+    checklist for the review view, and `config-invalid` says why."""
+    raw = _cfg(project, CHECKLIST_FILE).get(CHECKLIST_KEY)
+    if raw is None or (why := checklist_problem(raw)) is None:
+        return []
+    where = f"config/{CHECKLIST_FILE}.json"
+    return [
+        Issue(
+            "error",
+            "config_invalid",
+            f"{where}: {CHECKLIST_KEY} {why}.",
+            where,
+            f"{CHECKLIST_FILE}.{CHECKLIST_KEY}",
+        )
+    ]
+
+
+def plan_set_checklist(project: Project, points: Sequence[str] | None) -> ValuePlan:
+    """The ops that set the review checklist (`naming.json` `review_checklist`) to `points`, in
+    their order and with the spaces around each left out, or why not: a list that
+    `checklist_problem` refuses (with the text of the check), a read-only project, a release that
+    froze the file. None or no point takes the key out, so the project has no checklist and its
+    file is as it was before the key existed. One undo step; `value` is the list as stored (None
+    when the key is taken out). Nothing else of the file changes."""
+    from harness_design_studio.core.errors import TransactionError
+    from harness_design_studio.core.vcs.locks import check_locks
+
+    wanted = [p.strip() if isinstance(p, str) else p for p in points] if points else None
+    if wanted is not None and (why := checklist_problem(wanted)) is not None:
+        return _fail(f"config/{CHECKLIST_FILE}.json: {CHECKLIST_KEY} {why}.")
+    if project.read_only:
+        return _fail("This project is read-only (saved by a newer tool version). Use Save as.")
+    old = project.config.get(CHECKLIST_FILE)
+    if (old.values.get(CHECKLIST_KEY) if old is not None else None) == wanted:
+        return ValuePlan([], None, wanted)
+    base = old if old is not None else ConfigFile(name=CHECKLIST_FILE, placeholder=False, values={})
+    values = {k: v for k, v in base.values.items() if k != CHECKLIST_KEY}
+    if wanted is not None:
+        values[CHECKLIST_KEY] = wanted
+    ops: list[Op] = [
+        SetConfig(
+            ConfigFile(
+                name=base.name, placeholder=base.placeholder, values=values, about=base.about
+            )
+        )
+    ]
+    try:
+        check_locks(project, ops)
+    except TransactionError as exc:
+        return _fail(exc.problems[0] if exc.problems else str(exc))
+    return ValuePlan(ops, None, wanted)
 
 
 def plan_set_distinct_roles(project: Project, value: object) -> ValuePlan:
