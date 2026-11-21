@@ -358,7 +358,7 @@ def test_release_hands_the_ticks_to_the_dialog_which_shows_the_note(win, monkeyp
     assert seen["ticked"] == frozenset({1, 3})
     # Open the Review page from the dialog: it closes and the page opens
     win.set_area("model")
-    _script = DialogScript(win, lambda d: d.open_review.click(), accept=False)  # kept alive
+    DialogScript(win, lambda d: d.open_review.click(), accept=False)
     win.change_flow("release", "W003")
     assert win.area() == "review" and win.review_page.harness_id() == "W003"
 
