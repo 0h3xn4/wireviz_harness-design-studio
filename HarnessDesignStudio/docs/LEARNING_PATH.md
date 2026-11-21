@@ -27,7 +27,7 @@ If you have not installed the tool yet, start with [`INSTALL.md`](INSTALL.md).
 | 4. Plan your own design | decide devices and interfaces before you click | 30 min | template `design-worksheet.md` |
 | 5. Enter your design | build it in the app or import it | 1 to 2 h | `blank`, template `interfaces.csv` |
 | 6. Bring in real data | parts, lengths, engineering values | as needed | templates `approved-parts.csv`, `segment-lengths.csv`, [`CONFIG.md`](CONFIG.md) |
-| 7. Check and review | read every problem, decide what is a real issue | 30 min | template `design-review-checklist.md` |
+| 7. Check and review | read every problem, decide what is a real issue | 30 min | template `design-review-checklist.md`, the page **Review** |
 | 8. Release and change | freeze a harness, then change it with a new version | 30 min | [`HOWTO.md`](HOWTO.md) |
 | 9. Automate | the same steps in a script or CI | 20 min | templates `ci/build.sh`, `ci/github-actions.yml` |
 
@@ -104,7 +104,7 @@ Do this when the data exists; the tool works without it and says so.
 
 ## 7. Check and review (30 minutes)
 
-Read every entry of the **Problems** tab, the Problems panel (Ctrl+Shift+M) or `harness-design-studio drc`. For each one, decide: fix it, waive it with a reason, or note that it is outside the tool. Then go through `design-review-checklist.md` with a colleague. Rule texts: [`RULES.md`](RULES.md). If the tool made a wire that does not match what you build, set its gauge, colour or length in the **Edit wire** tab, or draw the wire yourself ([edit a wire](user-manual/edit-a-wire.md)); Generate keeps it.
+Read every entry of the **Problems** tab, the Problems panel (Ctrl+Shift+M) or `harness-design-studio drc`. For each one, decide: fix it, waive it with a reason, or note that it is outside the tool. Then go through `design-review-checklist.md` with a colleague: on paper, or, since 4.3.0, as the project's review checklist (`harness-design-studio config DIR --review-checklist design-review-checklist.md`, after you took out what does not apply), which the page **Review** and the sheet **Review** of each build workbook list beside the findings of the harness, the values still open and the sources to look at ([release a harness](user-manual/release-a-harness.md#optional-a-review-checklist-and-its-ticks)). Rule texts: [`RULES.md`](RULES.md). If the tool made a wire that does not match what you build, set its gauge, colour or length in the **Edit wire** tab, or draw the wire yourself ([edit a wire](user-manual/edit-a-wire.md)); Generate keeps it.
 
 **Done when:** every open problem has a decision.
 

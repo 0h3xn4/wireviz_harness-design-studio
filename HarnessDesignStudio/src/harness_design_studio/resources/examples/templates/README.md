@@ -20,7 +20,7 @@ Files to copy and adapt. Get them with `harness-design-studio templates FOLDER`.
 | `ci/github-actions.yml` | the same steps as `build.sh` (including `harness-design-studio drc`) as a GitHub Actions workflow for a design repository | copy to `.github/workflows/` |
 | `ci/gitattributes` | the `.gitattributes` that `harness-design-studio new` writes into a new project: it makes Git treat `generated/generation.json` as binary, so two people who both pressed Generate get a conflict without markers in it, and `harness-design-studio merge-fix DIR` resolves it. For a project made before 1.9 | copy to `DIR/.gitattributes` (the file is named `gitattributes` here so that it is not hidden) |
 | `design-worksheet.md` | planning a design on paper before using the tool: devices, interfaces, and the data you do not have yet | print it or copy it next to your design and fill it in |
-| `design-review-checklist.md` | a list of things to look at before a harness is released | copy next to your design |
+| `design-review-checklist.md` | a list of things to look at before a harness is released | copy next to your design and tick it by hand; or, since 4.3.0, take out what does not apply and make it the project's review checklist with `harness-design-studio config DIR --review-checklist design-review-checklist.md` (each list item is a point; the Review page and the Review sheet of the build workbook list them, and `release --ticked` records the ticks) |
 
 ## Read this before using the demo values
 

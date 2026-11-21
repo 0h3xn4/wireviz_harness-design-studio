@@ -79,6 +79,8 @@ W001-001-B,wire,W001-001 TX+/RX+ to W001-P1.1,1
 
 This is the label format `standard`. The setting `model.label_format` chooses `compact`, `descriptive`, `harness_device_connector` or a template of your own ([labels and colours](../models/labels-and-colours.md)); `harness-design-studio explain DIR W001-P1` prints how one label was made.
 
+**Choose the format in the app** (since 4.3.0): **Settings > Project**, *Label format*. The list holds the five formats and marks `harness_device_connector` as *(a new project's choice)*; the line under it says what the chosen format prints. A choice is one undo step and changes the Labels table and sheet at the next export. For `custom` the page says to set the two templates on the command line (`harness-design-studio settings DIR --set model.label_wire_template=…` and `--set model.label_connector_template=…`). On the command line the format is set the same way: `harness-design-studio settings DIR --set model.label_format=compact`.
+
 **A project you start with 4.1.0 or later** is in the format `harness_device_connector`: a cable connector's label is the harness, the device and the name the device gives its connector, `W001:OBC1:J01` (a loose end `W001:W001-P2 open end`, a connector that plugs into nothing `W001:W001-P3`), and the wire labels are the text above. The label you give a connector is not printed in this format; for both, choose `custom` with the connector template `{name} {harness}:{device}:{mates_name}`. In the harness plan the `CON_…` sheet then has *Connector Name* in row 4, and the header of a near block reads `[W001:OBC1:J01]`. A project made before 4.1.0, or from one of the other templates, keeps the format it has. A 4.0.x tool refuses a project in this format, so update the whole team at the same time.
 
 ## Before you start
@@ -118,6 +120,8 @@ The shipped file:
 Add `shield`, `branch` or `segment` to the file if you want to change them. The key `box_connector` is in the file, but the program does not read it: connectors on a device are always named like `OBC1-J01`.
 
 The same file can also hold two settings that are not name patterns and are not in the shipped file (both since 1.9.0): `signal_counterparts`, the words that pair a transmit pin with a receive pin, and `release_distinct_roles`, which asks for three different people as author, checker and person who releases. The command `harness-design-studio config DIR --counterparts` and `--distinct-roles` set them; see [`CONFIG.md`](../CONFIG.md#namingjson).
+
+Since 4.3.0 it can also hold the project's **review checklist** (`review_checklist`), the list of points a reviewer goes through before a release; no file has it until you set it, with `harness-design-studio config DIR --review-checklist FILE` or under **Settings > Project** ([release a harness](release-a-harness.md#optional-a-review-checklist-and-its-ticks)). The list is not a name pattern and is not read by Generate.
 
 Example. Set `"harness": "HN-{n:02d}"` and generate:
 

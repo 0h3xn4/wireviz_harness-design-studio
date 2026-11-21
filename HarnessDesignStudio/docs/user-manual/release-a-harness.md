@@ -12,6 +12,8 @@ This page shows how to review and release a harness, which freezes it: it, the l
 - [3. Release](#3-release)
 - [Optional: three different people](#optional-three-different-people)
 - [Optional: as-built records before a release](#optional-as-built-records-before-a-release)
+- [Optional: a cable with a loose end](#optional-a-cable-with-a-loose-end)
+- [Optional: a review checklist and its ticks](#optional-a-review-checklist-and-its-ticks)
 - [4. After the release](#4-after-the-release)
 - [Common mistakes](#common-mistakes)
 
@@ -119,6 +121,44 @@ By default a release does not look at the as-built records. A project that wants
 ## Optional: a cable with a loose end
 
 A cable can have an end that is not on a connector yet (a **loose end**: you drew it from a port and have not decided what goes on its other end, see [build a harness by hand](build-a-harness-by-hand.md#a-cable-with-a-loose-end)). A harness with a loose end **cannot be released**: `release` is blocked with `loose_end_unresolved` and names the ends. Plug the end into a device, or give it a connector part, and the block goes. `--accept-loose-ends REASON` (at least 10 characters) releases anyway; the reason, with the ends that were open, is kept in the change log and the baseline. It is its own reason: `--accept-unapproved-parts` does not cover a loose end. Sending the harness for review is not blocked. In the editor the **Release** window names the loose ends and asks for **Reason for releasing with a loose end (at least 10 characters)**; **Release** stays off until it is written, and the reason is kept as with the command line.
+
+## Optional: a review checklist and its ticks
+
+A project can hold the list of points a reviewer goes through before a release (new in 4.3.0). The tool ships no point and judges none. It shows the list beside the findings of the harness, keeps your ticks, and records in the release comment which points the person releasing says were ticked. A project without a list releases exactly as before.
+
+**Set the list.** The template `design-review-checklist.md` is a start: copy it with `templates`, take out what does not apply to your project (nine of its 26 points are for the ECSS profiles), and give it to `config`:
+
+```
+harness-design-studio templates my-templates
+harness-design-studio config wheel-link --review-checklist my-templates/design-review-checklist.md
+```
+
+```
+Review checklist: 26 points in config/naming.json (list 8b3d7a5b).
+```
+
+The hand-over list of `config` follows, as always, and so does its exit code: 1 while an engineering value is still missing, although the list was saved. Each list item of the file (a line that starts with `- [ ] `, `- `, `* `, `+ ` or a number and a dot) is a point; headings and other lines are skipped. A point is one line of 1 to 300 characters, each point once, at most 100 points. The list hash (`8b3d7a5b`) names this list in the release comment and on the Review sheet. `--review-checklist none` takes the list out. In the app: **Settings > Project**, *Review checklist*: **Use the template's points** or **Take the points of a file…**, edit the box (one point per line), then **Save**. The list is part of the design, so export again before a release.
+
+**Review.** The build workbook of each harness has a sheet **Review**: the list with a column **Done (x)**, every finding about the harness with what it means for the release, the values still open and the sources to look at ([export the outputs](export-the-outputs.md#3-the-build-workbook-sheet-by-sheet)). Tick a printout of it, or a copy saved outside `outputs/`: a file in `outputs/` that you change after the export blocks the release (`outputs_modified`). In the app the page **Review** shows the same for one harness, with a box to tick for each point (on the rail of the Electrical engineer and the AIT engineer; **Open the Review page** on the Next step page, **Review page** in the Releases tab and **Go > Go to Review** in every role). The ticks of the page stay on this computer. They go when the list or the design changes, and the page then says *The checklist or the design changed after these points were ticked; tick them again.*
+
+**Release with the ticks.** On the command line, say which points were ticked with `--ticked`: `all`, `none`, or point numbers and ranges such as `1-20` or `1-5,7`:
+
+```
+harness-design-studio release wheel-link W002 --by "A. Engineer" --comment "First release of the wheel power harness" --accept-placeholders "Practice project: demo values only" --accept-unapproved-parts "Practice project: example parts only" --ticked 1-20
+```
+
+The comment then ends with one note:
+
+```
+[Review checklist (26 points, list 8b3d7a5b), recorded by A. Engineer: ticked 1-20; not ticked 21 (Drawing: connectors, pins and signals match the device do...), 22 (Wire list, pinouts and BOM agree with the drawing.), 23 (Mass and length tables look plausible.), 24 (Test tables list the limits your programme requires.), 25 (The release comment says what this version is for, and th...) and 1 more]
+```
+
+In the app, press **Release…** on the Review page. The **Release** window shows the note under the comment (*Added to the comment: [Review checklist …]*) and has **Open the Review page** to tick more first.
+
+- **No point stops a release.** Points not ticked, or no ticks at all (`[Review checklist (26 points, list 8b3d7a5b): no ticks recorded]`), are written into the comment, and the release goes ahead. The checklist holds what the tool cannot judge, so the tool does not judge a tick either.
+- **A tick is a statement.** The note says *recorded by* the person releasing, never *checked*; the tool cannot know who looked at what.
+- `--ticked` on a project without a list is refused (`blocked: [ticked_no_checklist] This project has no review checklist, so there is nothing to tick (config/naming.json: review_checklist).`), and so is a number that is not a point (`blocked: [ticked_invalid] --ticked must be all, none, or point numbers from 1 to 26 such as 1-5,7 (got '27').`).
+- The note is read wherever a release comment is: `log`, the Releases tab, the baseline, `system/changelog.csv` and `system/version_report.md`; and on the Review sheet, whose third row names the release of the version once the outputs are written again (the command line does it after the release; in the app, press **Export…** again).
 
 ## 4. After the release
 
