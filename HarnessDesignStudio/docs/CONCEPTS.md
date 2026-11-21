@@ -106,7 +106,7 @@ Every choice has a reason. Open the **Harness** tab (the Drawings area), pick a 
 The tool checks your design all the time, in two layers:
 
 - **Quick checks** run instantly on every edit (an interface with no connector, an isolated device, ...).
-- **Design rules** (39 of them, listed in [`RULES.md`](RULES.md)) run in the background a moment after you stop editing: connector look-alikes, unapproved parts, pin reuse, separation, current limits, and more.
+- **Design rules** (43 of them, listed in [`RULES.md`](RULES.md)) run in the background a moment after you stop editing: connector look-alikes, unapproved parts, pin reuse, separation, current limits, and more.
 
 Each finding is an **error** (must be fixed), a **warning** (fix it, or **waive** it with a written reason of at least 10 characters), or a **note** (information). Waived warnings stay in the report with their reason, so a reviewer sees them. A waiver is tied to the finding it was made for: if the finding says something else later (a number or a name in its text changed), the waiver no longer applies, the finding is open again and the report lists it under *Waivers that no longer fit* with the old reason (new in 1.11.0).
 

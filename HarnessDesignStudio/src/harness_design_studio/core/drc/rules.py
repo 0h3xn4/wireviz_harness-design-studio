@@ -37,6 +37,8 @@ from harness_design_studio.core.vcs.consistency import release_integrity
 from harness_design_studio.core.verify import direction_judged, passthrough_signals
 
 from .base import Hit, Rule, cfg, flag, number
+from .electrical import ELECTRICAL_RULES
+from .electrical import unchecked as electrical_unchecked
 from .standard_rules import STANDARD_RULES
 from .standard_rules import unchecked as standard_unchecked
 
@@ -804,6 +806,7 @@ def _unchecked(project: Project) -> Iterator[Hit]:
     yield from _wires_without_interface(project)
     yield from _nothing_to_evaluate(project)
     yield from standard_unchecked(project)
+    yield from electrical_unchecked(project)
 
 
 RULES: tuple[Rule, ...] = (
@@ -835,6 +838,7 @@ RULES: tuple[Rule, ...] = (
     Rule("direction-conflict", "error", "Signal directions",
          "Two drivers fight each other, or nothing drives a receiver.",
          "Swap the wire to the correct pin of the interface.", _direction_conflict),
+    *ELECTRICAL_RULES,
     Rule("current-over-contact", "error", "Contact current",
          "An overloaded contact overheats.", "Use a larger contact or split the load over more pins.",
          _current_over_contact, sources=("ECSS-Q-ST-30-11_0140050",), deviation=True),

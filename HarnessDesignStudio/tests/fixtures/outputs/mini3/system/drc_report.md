@@ -3,7 +3,7 @@
 
 # Design rule check: mini3 (example data)
 
-Model hash: `3e5288f59330`. Rules run: 39.
+Model hash: `3e5288f59330`. Rules run: 43.
 Open: 0 error(s), 7 warning(s), 4 note(s). Waived: 0.
 
 Placeholder configuration in use: derating, emc, generation, segmentation, segregation, titleblock. Results that depend on it are marked as not checked.

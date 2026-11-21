@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The rule `level-conflict` (design of 4.2.0, section 5; `core/drc/electrical.py`). The rule is not
-registered yet (pull request 4 of the design), so these tests call the check and the notes directly;
-the deviation through `drc`, the line of *Start here* and the release follow with the registration.
+"""REQ-DRC-08. The rule `level-conflict` (design of 4.2.0, section 5; `core/drc/electrical.py`). The rule is
+registered since pull request 4 of the design; these tests call the check and the notes directly, and
+`tests/test_electrical_registered.py` has the deviation through `drc`, the line of *Start here* and
+the release.
 
 Silent while the table is not set (the tool ships no level word, D-11), with the note `levels` only
 where a pin has a level; a wire, a net through a splice, a pair of a connection without a harness and
@@ -63,8 +64,8 @@ def with_levels(p: Project) -> Project:
     return p
 
 
-def test_the_rule_is_not_registered_yet_and_has_the_texts_of_the_design() -> None:
-    assert len(RULES) == 39 and "level-conflict" not in {r.id for r in RULES}
+def test_the_rule_is_registered_and_has_the_texts_of_the_design() -> None:
+    assert len(RULES) == 43 and "level-conflict" in {r.id for r in RULES}
     r = rule()
     assert (r.severity, r.topic, r.can_waive, r.can_deviate, r.sources) == ("error", "Signal levels", False, True, ())  # fmt: skip
     assert r.why == "A wire that joins two signal levels the project keeps apart can damage the device on the lower level."  # fmt: skip

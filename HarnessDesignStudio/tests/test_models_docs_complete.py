@@ -5,7 +5,7 @@
 `docs/models/` explains every calculation. This test ties it to the code, so that adding something to
 the code without documenting it fails here:
 
-(a) every registered rule (the 39 of `drc.RULES`, which the extension registry lists as its built-in
+(a) every registered rule (the 43 of `drc.RULES`, which the extension registry lists as its built-in
     items, and the rules of the editor's own checks) has a section in `docs/RULES.md`, an explanation
     (`derive_rules.INFO`) and a page of `docs/models/` that a reader of the explanation is sent to;
 (b) every kind of derivation (`core/derive_kinds.py`) maps to a page that exists, names the kind and
@@ -65,7 +65,7 @@ def _section(text: str, heading: str) -> str:
 def test_a_every_registered_rule_has_a_row_in_the_rule_reference() -> None:
     install()
     registered = [i.name for i in REGISTRY.items("rule")]
-    assert registered == [r.id for r in RULES] and len(registered) == 39
+    assert registered == [r.id for r in RULES] and len(registered) == 43
     for rule_id in ALL_RULES:
         if (
             rule_id == "verify-mismatch"

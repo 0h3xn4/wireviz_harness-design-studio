@@ -78,7 +78,7 @@ with tempfile.TemporaryDirectory() as work:
     folder = Path(work) / "p"
     api.create_project(folder, "first-steps")
     assert api.generate(folder).ok
-    assert api.run_checks(folder).rules_run == 39
+    assert api.run_checks(folder).rules_run == 43
     assert api.explain_all(folder)
     assert api.export(folder).written
     assert api.get_config(folder).total == 17

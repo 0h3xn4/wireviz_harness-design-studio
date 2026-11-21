@@ -366,7 +366,7 @@ harness-design-studio override wheel-link W001-001 --clear gauge_awg
 
 ### harness-design-studio deviation
 
-A deviation accepts an error of an electrical rule (wire current, voltage drop, contact current, bundle current, working voltage, temperature margin) with a reason, keeps it visible everywhere marked as a deviation, and lets a release go on. `deviation DIR` lists them, with who and when from the journal; `deviation DIR FINDING --reason TEXT` records one (FINDING is the finding ID of `drc`, for example current-over-wire.W001-001; the reason is at least 10 characters); `--remove` takes it back. A deviation does not meet the requirement: it records that a person accepted the error.
+A deviation accepts an error of an electrical rule (wire current, voltage drop, contact current, bundle current, working voltage, temperature margin, signal levels) with a reason, keeps it visible everywhere marked as a deviation, and lets a release go on. `deviation DIR` lists them, with who and when from the journal; `deviation DIR FINDING --reason TEXT` records one (FINDING is the finding ID of `drc`, for example current-over-wire.W001-001; the reason is at least 10 characters); `--remove` takes it back. A deviation does not meet the requirement: it records that a person accepted the error.
 
 `harness-design-studio deviation project [finding] [options]`
 

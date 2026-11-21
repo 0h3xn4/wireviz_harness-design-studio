@@ -37,6 +37,7 @@ from harness_design_studio.core.derive import (
     _g,
     text_step,
 )
+from harness_design_studio.core.drc import electrical
 from harness_design_studio.core.drc import run as run_drc
 from harness_design_studio.core.drc.base import cfg, number
 from harness_design_studio.core.drc.by_rule import READS
@@ -61,8 +62,10 @@ from harness_design_studio.core.model import (
     Project,
     RowLayout,
     ShieldGroup,
+    Wire,
 )
 from harness_design_studio.core.model.base import MAX_PIN_COUNT
+from harness_design_studio.core.nets import harness_nets
 from harness_design_studio.core.row_layout import PinRows, layout_of, layout_text
 from harness_design_studio.core.units import AWG_MAX, AWG_MIN, format_awg
 
@@ -771,6 +774,115 @@ def _see_unit(project: Project, oid: str) -> list[Input]:
     ]
 
 
+# ---- what the electrical rules of 4.2.0 saw (design of 4.2.0, section 7.4) -----------------------
+
+
+def _wire_harness(project: Project, oid: str) -> tuple[Harness, Wire] | None:
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        w = next((x for x in h.wires if x.id == oid), None)
+        if w is not None:
+            return h, w
+    return None
+
+
+def _groups_of(h: Harness, wire_ids: tuple[str, ...]) -> str | None:
+    found = [f"{g.id} ({g.kind})" for g in h.shields if any(w in g.wire_ids for w in wire_ids)]
+    return _names(found) if found else "none"
+
+
+def _see_pair(project: Project, oid: str) -> list[Input]:
+    """The pair of `pair-untwisted` at its first wire: its two wires and signals, where the pair
+    came from (the interface type, the types of the signals or the names) and the groups."""
+    found = _wire_harness(project, oid)
+    if found is None:
+        return []
+    h, _w = found
+    out: list[Input] = []
+    for p in electrical.signal_pairs(project, h):
+        if oid not in (p.a.id, p.b.id):
+            continue
+        if p.source == "names":
+            basis = "their names differ only by the endings of a row of the table"
+            where = "config/naming.json: pair_suffixes"
+        else:
+            word = "type" if len(p.basis.types) == 1 else "types"
+            basis = f"pair {', '.join(p.basis.names)} of the interface {word} {', '.join(p.basis.types)}"
+            where = "the interface " + (
+                "of the wires"
+                if p.source == "interface"
+                else "types of the signals at the device pins"
+            )
+        out += [
+            Input("Signal pair", f"{p.a.id} ({p.signals[0]}) and {p.b.id} ({p.signals[1]})", "", f"harness {h.id}"),
+            Input("Why they are a pair", basis, "", where),
+            Input("Groups that hold them", _groups_of(h, (p.a.id, p.b.id)), "", f"harness {h.id}"),
+        ]  # fmt: skip
+    return out
+
+
+def _see_shield_ask(project: Project, oid: str) -> list[Input]:
+    """What `signal-unshielded` read for a wire: the interface types of its signal, the way each
+    asks for a shield (or that it does not), and the groups that hold the wire."""
+    found = _wire_harness(project, oid)
+    if found is None:
+        return []
+    h, w = found
+    ask = electrical.shield_asked(project, h, w)
+    types = [f"{t}: {way or 'no shield'}" for t, way in ask.types]
+    return [
+        Input("Signal", ask.signal or None, "", f"the device pins at the ends of wire {w.id}"),
+        Input("Interface types of the signal", _names(types) if types else None, "", "the interface types of the project"),
+        Input("Made by Generate", "yes" if h.generated else "no", "", f"harness {h.id}"),
+        Input("Groups that hold the wire", _groups_of(h, (w.id,)), "", f"harness {h.id}"),
+    ]  # fmt: skip
+
+
+def _level_of(d: electrical.DeviceEnd) -> str:
+    return f"{d.text()}: {(d.pin.level or '').strip() or 'no level'}"
+
+
+def _see_levels(project: Project, oid: str) -> list[Input]:
+    """The levels at the device ends of the net that starts with the wire (or at the pins of the
+    pairs of a connection) that `level-conflict` compares with the table."""
+    link = project.links.get(oid)
+    if link is not None:
+        rows = [
+            f"{_level_of(a)} with {_level_of(b)}" for a, b in electrical._link_pins(project, link)
+        ]
+        return [Input("Levels of the pairs", _names(rows) if rows else None, "", f"link {link.id}")]
+    found = _wire_harness(project, oid)
+    if found is None:
+        return []
+    h, _w = found
+    for net in harness_nets(h):
+        if oid in net.wires:
+            ends = [e for e in electrical.device_ends(project, h, net).values() if e is not None]
+            return [
+                Input("Wires of the net", _names(list(net.wires)), "", f"harness {h.id}"),
+                Input("Levels at the device ends", _names([_level_of(e) for e in ends]) if ends else None, "", "the pins of the devices (Level)"),
+            ]  # fmt: skip
+    return []
+
+
+def _see_directions(project: Project, oid: str) -> list[Input]:
+    """The direction of each device end of the net of drawn wires that starts with the wire, and
+    where `wire-direction` read it: the pin, the interface types, or not known."""
+    for n in electrical.drawn_nets(project):
+        if oid not in n.net.wires:
+            continue
+        rows = []
+        for e, d in n.ends:
+            source = "the pin" if e.pin.direction else ("the interface types" if d else "not known")
+            rows.append(
+                f"{e.text()} ({e.pin.signal or 'no signal'}): {d or 'not known'}, from {source}"
+            )
+        return [
+            Input("Wires of the net", _names(list(n.net.wires)), "", f"harness {n.harness.id}"),
+            Input("Directions at the device ends", _names(rows), "", "the pins of the devices (Direction), else the interface types"),
+        ]  # fmt: skip
+    return []
+
+
 # ---- the table: every rule ---------------------------------------------------------------------
 
 YES_NO = "yes-no"
@@ -786,6 +898,10 @@ INFO: dict[str, RuleInfo] = {
     "pin-shared": RuleInfo(LIMIT, "the number of wires on a pin with one", build=_pin_shared),
     "mate-mismatch": RuleInfo(YES_NO, "a cable connector with the device connector it plugs into: gender, mating part, number of pins and keying", observe=_see_mate),
     "direction-conflict": RuleInfo(YES_NO, "the directions of the two signals a wire joins: two outputs or two inputs conflict", observe=_see_wire),
+    "pair-untwisted": RuleInfo(YES_NO, "the two wires of each signal pair with the groups of the harness: a twisted pair, a shielded pair or a quad must hold both", ("A-PAIR-NAMES",), observe=_see_pair),
+    "signal-unshielded": RuleInfo(YES_NO, "each wire of a harness Generate did not make with the interface types of its signal: when every one of them shields it, a shielded pair, an overall shield, a coax or a quad must hold it", ("A-SHIELD-BY-TYPE",), observe=_see_shield_ask),
+    "level-conflict": RuleInfo(YES_NO, "the levels of the device pins that one net, or one pair of a connection without a harness, joins with the pairs of levels the project keeps apart", ("A-LEVEL-WORDS",), observe=_see_levels),
+    "wire-direction": RuleInfo(YES_NO, "the directions of the device pins that a net of wires drawn by hand joins: two outputs, or only inputs, conflict", ("A-DIRECTION-AT-DEVICE",), observe=_see_directions),
     "current-over-contact": RuleInfo(LIMIT, "the current of an interface with the derated rating of the contacts of the connector at its end", ("A-CONTACT-SHARED",)),
     "current-over-wire": RuleInfo(LIMIT, "the current of an interface with the derated ampacity of the wire's gauge", ("A-AMPACITY-AWG", "A-BUNDLE-ALL", "A-TEMP-FACTOR")),
     "voltage-drop": RuleInfo(LIMIT, "the voltage drop over a wire at the current of its interface with the largest drop allowed", ("A-DC-SOLID", "A-ROUND-TRIP")),

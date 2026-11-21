@@ -72,7 +72,7 @@ Only a project that has an override shows any of this; a project without one is 
 
 ## 5. Accept an error as a deviation
 
-An error of an electrical rule (wire current, voltage drop, contact current, bundle current, working voltage of a wire or connector, temperature margin) cannot be waived like a warning. It can be **accepted as a deviation**: the finding is not removed, it stays on every list and output marked **DEVIATION**, with the reason, and it no longer blocks a release.
+An error of an electrical rule (wire current, voltage drop, contact current, bundle current, working voltage of a wire or connector, temperature margin, signal levels) cannot be waived like a warning. It can be **accepted as a deviation**: the finding is not removed, it stays on every list and output marked **DEVIATION**, with the reason, and it no longer blocks a release.
 
 In the editor: on the error card in the Problems list press **Accept as deviation…** and write the reason (at least 10 characters). On the command line:
 

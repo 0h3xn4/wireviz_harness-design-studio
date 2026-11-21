@@ -142,7 +142,7 @@ def test_hand_made_wires_get_the_note_even_while_values_are_placeholders() -> No
 
 def test_wires_with_interfaces_raise_no_such_note() -> None:
     assert not [f for f in drc.run(ready(base())) if "have no interface" in f.title]
-    assert len(drc.RULES) == 39
+    assert len(drc.RULES) == 43
 
 
 # ---- B-16: a harness with a connector and no wires can be exported with its drawings ------------

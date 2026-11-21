@@ -30,7 +30,7 @@ The hooks in the rest of the tool are small and additive: `drc.run` adds the fin
 
 | Kind | What it is | Built-in items | Extensions can add |
 | --- | --- | --- | --- |
-| `rule` | a design rule | the 39 of `drc.RULES` | data files and plug-ins |
+| `rule` | a design rule | the 43 of `drc.RULES` | data files and plug-ins |
 | `field` | a value an expression can read | the fields below | plug-ins |
 | `model` | a calculation model offered as a setting (`model.bundle_basis` ...) | the choices of `config/model.json` | nothing (listed for completeness) |
 | `table` | an output table written by `export` | the tables `export` writes | data files and plug-ins |
@@ -52,7 +52,7 @@ One file is one JSON document. The format is described once, in `core/extensions
 
 A file is read by `declarative.read_file`: the shape first (every problem with its path), then every expression with the parser, against the fields that exist for the `applies_to` of the rule or table. Every problem is an `ExtIssue` with the file, the line (the line of the key, from `jsonpos.py`, which reads standard JSON and remembers where each key and item is), the path (`rules[0].condition`) and the message. A file with a problem is not applied, and the others are. Problems are reported by `validate` (as warnings), `extensions`, the page Help > Extensions and the finding `x-extension-problem`, which the check adds when something *enabled* is not applied.
 
-`x-extension-problem` is not a rule of the tool and is not part of the 39: it is made by the extension code, only for a project that has an `extensions/` folder with something enabled that is not applied, and it has an explanation like the others.
+`x-extension-problem` is not a rule of the tool and is not part of the 43: it is made by the extension code, only for a project that has an `extensions/` folder with something enabled that is not applied, and it has an explanation like the others.
 
 ## The expression language
 

@@ -74,6 +74,13 @@ _RULE_KINDS = {
     "current-over-contact": "contact-current",
 }
 
+# the yes/no rules whose page is not the page of the limits: the rules of pairs and shields of 4.2.0
+# are explained with the groups Generate makes (design of 4.2.0, section 7.4)
+_RULE_PAGES = {
+    "pair-untwisted": "shields.md",
+    "signal-unshielded": "shields.md",
+}
+
 
 def page_of_rule(rule_id: str) -> str:
     """The page of `docs/models/` that explains the derivation `explain_finding` gives for a rule,
@@ -83,4 +90,6 @@ def page_of_rule(rule_id: str) -> str:
 
     if rule_id not in EXPLAINABLE_RULES:
         raise KeyError(rule_id)
+    if rule_id in _RULE_PAGES:
+        return _RULE_PAGES[rule_id]
     return page_of(_RULE_KINDS.get(rule_id, "rule-limit"))
