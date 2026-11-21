@@ -1,5 +1,5 @@
-# harness-design-studio 4.1.0 model df711fb5da29
-# harness-design-studio 4.1.0. Provided as is, without warranty. Verify before use.
+# harness-design-studio 4.2.0 model 61c773abb2a6
+# harness-design-studio 4.2.0. Provided as is, without warranty. Verify before use.
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare,Pin row
 W002-P1,cable,OBC-J01,EX-MICROD-25-M,1,TX+/RX+,IF-TM-RW1,W002-001,no,
 W002-P1,cable,OBC-J01,EX-MICROD-25-M,2,TX-/RX-,IF-TM-RW1,W002-003,no,
