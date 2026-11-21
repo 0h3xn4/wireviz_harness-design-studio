@@ -159,12 +159,12 @@ def test_a_cancelled_check_is_called_out_of_date_in_problems(flat) -> None:
 def test_one_row_per_rule_with_a_state_chip_for_each_result(host) -> None:
     ctl, _theme, panel = host
     s = by_rule.summary(ctl.drc_rule_results())
-    assert panel.model.rowCount() == s.total == 39
-    states = [panel.model.data(panel.model.index(r, 3), STATE_ROLE) for r in range(39)]
+    assert panel.model.rowCount() == s.total == 43
+    states = [panel.model.data(panel.model.index(r, 3), STATE_ROLE) for r in range(43)]
     assert states.count("pass") == s.passed and states.count("fail") == s.failed
     assert states.count("pending") == s.pending and states.count("not-checked") == s.not_checked
     assert {"pass", "fail", "pending"} <= set(states)
-    ids = [panel.model.index(r, 0).data() for r in range(39)]
+    ids = [panel.model.index(r, 0).data() for r in range(43)]
     assert ids[:2] == ["duplicate-id", "wire-dangling"]
 
 
@@ -173,7 +173,7 @@ def test_the_summary_strip_counts_every_result_in_words_and_icons(host) -> None:
     s = by_rule.summary(ctl.drc_rule_results())
     values = len(configcheck.missing(ctl.project))
     assert panel.summary_text() == (
-        f"39 rules: {s.passed} passed · {s.failed} failed · {s.not_checked + s.pending} not checked"
+        f"43 rules: {s.passed} passed · {s.failed} failed · {s.not_checked + s.pending} not checked"
         f" · {values} pending values"
     )
     for key, word in (
@@ -244,12 +244,12 @@ def test_filter_by_result_text_and_both_together(host) -> None:
     panel.set_result_filter("pass")
     assert len(panel.visible_rule_ids()) == s.passed
     panel.set_result_filter("all")
-    assert len(panel.visible_rule_ids()) == 39
+    assert len(panel.visible_rule_ids()) == 43
     panel.set_text_filter("ECSS-Q-ST-30-11_0140217")  # a requirement ID, not part of any cell
     assert set(panel.visible_rule_ids()) == {"current-over-wire", "bundle-current"}
     panel.set_result_filter("pending")
     assert panel.visible_rule_ids() == ["bundle-current"]
-    assert panel.count_label.text() == strings.CHECKS_SHOWING.format(1, 39)
+    assert panel.count_label.text() == strings.CHECKS_SHOWING.format(1, 43)
     panel.set_text_filter("")
     panel.set_result_filter("all")
     assert [k for k, _t, _s in FILTERS][0] == "all"
@@ -389,7 +389,7 @@ def test_while_the_helper_runs_the_strip_says_checking_and_offers_cancel(host) -
     assert ctl.drc_busy() and not ctl.drc_current
     assert panel.status.text() == strings.CHECKS_CHECKING
     assert panel.cancel_btn.isVisibleTo(panel) and not panel.again_btn.isVisibleTo(panel)
-    assert panel.table.isVisibleTo(panel) and panel.model.rowCount() == 39  # last results stay
+    assert panel.table.isVisibleTo(panel) and panel.model.rowCount() == 43  # last results stay
     panel.cancel_btn.click()
     assert not ctl.drc_busy() and not ctl._drc_timer.isActive()
     assert panel.status.text() == strings.CHECKS_CANCELLED
@@ -436,7 +436,7 @@ def test_a_failed_check_leaves_a_banner_until_the_next_success(
     assert retry is not None
     retry.click()
     qtbot.waitUntil(lambda: ctl.drc_current, timeout=20000)
-    assert not panel.banner.isVisibleTo(panel) and panel.model.rowCount() == 39
+    assert not panel.banner.isVisibleTo(panel) and panel.model.rowCount() == 43
     ctl.wait_drc()
 
 
@@ -727,10 +727,11 @@ def test_the_link_counts_rules_not_checked_and_values_missing(host) -> None:
     ctl, theme, panel = host
     unchecked, values = pending_summary(ctl)
     s = by_rule.summary(ctl.drc_rule_results())
-    assert unchecked == s.not_checked + s.pending == 12
+    # 13 since 4.2.0: level-conflict is pending while no pairs of levels are kept apart
+    assert unchecked == s.not_checked + s.pending == 13
     assert values == len(configcheck.missing(ctl.project)) == 4
     link = PendingValuesLink(ctl, theme)
-    assert link.text() == strings.PENDING_LINK.format(values=4, rules=12)
+    assert link.text() == strings.PENDING_LINK.format(values=4, rules=13)
     assert link.accessibleName().startswith(strings.PENDING_LINK_NAME)
     got: list[str] = []
     link.filterRequested.connect(got.append)
@@ -778,7 +779,9 @@ def test_everything_can_be_done_from_the_keyboard(host, qtbot) -> None:
     assert panel.current_rule_id() == "duplicate-id"
     QTest.keyClick(table, Qt.Key.Key_Down)
     assert panel.current_rule_id() == "wire-dangling"
-    for _ in range(11):  # one more than before 1.4.0: pin-shared sits before it
+    # one more than before 1.4.0 (pin-shared sits before it), four more since 4.2.0 (the
+    # electrical rules after direction-conflict)
+    for _ in range(15):
         QTest.keyClick(table, Qt.Key.Key_Down)
     assert panel.current_rule_id() == "spare-pins-low"
     # Enter in the table moves into the details: the Supply value button of the missing value
@@ -993,7 +996,7 @@ def test_the_explain_button_opens_an_explanation_for_every_rule_that_has_a_findi
 
     ctl, panel = tight
     results = panel.results()
-    assert len(results) >= 39
+    assert len(results) >= 43
     assert {r.rule_id for r in results} <= EXPLAINABLE_RULES  # (the whole table, none left out)
     opened = 0
     for r in results:

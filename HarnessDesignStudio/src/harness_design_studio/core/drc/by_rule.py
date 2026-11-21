@@ -28,6 +28,7 @@ from harness_design_studio.core.model import Project
 
 from . import run as _drc_run
 from .base import cfg, number
+from .electrical import level_pairs
 from .rules import RULES, _category_pairs, _emc_pairs
 
 Status = Literal["pass", "fail", "not_checked", "pending"]
@@ -111,6 +112,8 @@ READS: dict[str, tuple[tuple[str, str], ...]] = {
         ("derating", "ampacity_a_by_awg"), ("derating", "bundle_factor_by_count"),
         ("derating", "temperature_derating"),
     ),
+    "pair-untwisted": (("naming", "pair_suffixes"),),
+    "level-conflict": (("segregation", "level_pairs_to_separate"),),
 }  # fmt: skip
 
 
@@ -198,6 +201,8 @@ GATES: dict[str, Callable[[Project], list[tuple[str, str]]]] = {
     "bundle-current": lambda p: _unset(
         p, ("derating", "ampacity_a_by_awg"), ("derating", "bundle_factor_by_count")
     ),
+    # pending while no pairs of levels are kept apart (4.2.0, design section 7.4; screen only)
+    "level-conflict": lambda p: [] if level_pairs(p) is not None else [("segregation", "level_pairs_to_separate")],
 }  # fmt: skip
 
 # Which rules an `unchecked-config` note belongs to (the note's object ID is the key), and how it
@@ -239,10 +244,18 @@ NOTES: dict[str, Note] = {
     "no-emc-class": (("emc-mixed",), "data", None),
     "no-emc-class-split": (("emc-class-split",), "data", None),
     "power-return-rings": (("power-return-adjacent",), "data", None),  # one note per connector (4.0.0)
+    # the electrical rules of 4.2.0 (design section 7.4): `levels` is the note of the gate
+    "levels": (("level-conflict",), "config", None),
+    "no-level": (("level-conflict",), "data", None),
+    "level-unknown": (("level-conflict",), "data", None),
+    "wire-direction-unknown": (("wire-direction",), "data", None),
 }  # fmt: skip
 _GATE_NOTES = frozenset(
-    {"derating", "voltage-drop", "grounding", "separation", "emc", "spare-pins", "temperature"}
-)
+    {
+        "derating", "voltage-drop", "grounding", "separation", "emc", "spare-pins", "temperature",
+        "levels",
+    }
+)  # fmt: skip
 
 
 def _run(project: Project) -> list[Finding]:

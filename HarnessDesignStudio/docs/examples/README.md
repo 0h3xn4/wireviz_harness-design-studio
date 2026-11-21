@@ -83,7 +83,7 @@ harness-design-studio drc my-blank
 0 interfaces and 0 wires checked: 0 error(s)
 # Design rule check: My project
 
-Model hash: `<hash>`. Rules run: 39.
+Model hash: `<hash>`. Rules run: 43.
 Open: 0 error(s), 0 warning(s), 0 note(s). Waived: 0.
 ```
 
@@ -115,7 +115,7 @@ INFO    placeholder_config: Placeholder rule configuration still in use: deratin
 2 interfaces and 6 wires checked: 0 error(s)
 # Design rule check: First steps: reaction wheel link
 
-Model hash: `<hash>`. Rules run: 39.
+Model hash: `<hash>`. Rules run: 43.
 Open: 0 error(s), 10 warning(s), 8 note(s). Waived: 0.
 ```
 
@@ -152,7 +152,7 @@ harness-design-studio drc my-minimal-satellite
 11 interfaces and 24 wires checked: 0 error(s)
 # Design rule check: Minimal satellite
 
-Model hash: `<hash>`. Rules run: 39.
+Model hash: `<hash>`. Rules run: 43.
 Open: 0 error(s), 15 warning(s), 17 note(s). Waived: 0.
 ```
 
@@ -181,7 +181,7 @@ harness-design-studio drc my-small-satellite
 24 interfaces and 54 wires checked: 0 error(s)
 # Design rule check: Small satellite (reference)
 
-Model hash: `<hash>`. Rules run: 39.
+Model hash: `<hash>`. Rules run: 43.
 Open: 0 error(s), 20 warning(s), 28 note(s). Waived: 0.
 ```
 
@@ -213,7 +213,7 @@ INFO    placeholder_config: Placeholder rule configuration still in use: deratin
 44 interfaces and 103 wires checked: 0 error(s)
 # Design rule check: Flatsat (EXAMPLE numbers, not engineering data)
 
-Model hash: `<hash>`. Rules run: 39.
+Model hash: `<hash>`. Rules run: 43.
 Open: 0 error(s), 28 warning(s), 47 note(s). Waived: 0.
 ```
 

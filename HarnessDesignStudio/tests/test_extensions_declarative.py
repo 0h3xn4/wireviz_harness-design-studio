@@ -641,7 +641,7 @@ def test_a_project_without_extensions_is_byte_identical(tmp_path: Path) -> None:
     assert [(r.rule_id, r.status) for r in by_rule.run_by_rule(other)] == [
         (r.rule_id, r.status) for r in ref_report
     ]
-    assert len(drc.all_rules(other)) == len(drc.RULES) == 39
+    assert len(drc.all_rules(other)) == len(drc.RULES) == 43
     assert find(other) == find(load_project(folder).project)
 
 
@@ -673,7 +673,7 @@ def test_the_report_and_the_findings_table_say_what_is_in_force(
     from harness_design_studio.core.drc.report import render_markdown
 
     text = render_markdown(project)
-    assert "Rules run: 40." in text and "Extension in force: declarative t 1.0.0, sha256" in text
+    assert "Rules run: 44." in text and "Extension in force: declarative t 1.0.0, sha256" in text
     outputs = build_outputs(project, drawings=False)
     manifest = json.loads(outputs.manifest(project))
     assert [e["name"] for e in manifest["extensions"]] == ["t"]

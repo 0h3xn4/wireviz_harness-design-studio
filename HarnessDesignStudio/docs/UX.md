@@ -430,7 +430,7 @@ Milestone M2 of the workshop feedback (decision D-173, plan and status in [`ait/
 | Model area, diagram | A connection is a dash-dotted line (an interface is solid) between the two devices, or between the two connectors in Expert mode, with the two connector names and, under them, what the pairs carry (derived, never stored). Click selects it. |
 | Project tree | The group **Connections** (L1 - OBC-J01 - RW1-J02 ...) with the actions *Edit the pairs…*, *Rename…*, *Create harness*, *Delete connection*; double-click edits the pairs; the tooltip names the pairs, the harness and the checks. |
 | Edit menu | **Link connectors…**, **Connect** (C), **Connect with an interface type…** (the older, interface-first way, also the arrow beside the Connect button) and **Selected connection**. |
-| Design menu, Problems panel | **Check my connections** opens the Problems panel on the new filter **Connections** and says how many things there are to look at; it changes nothing. Four design rules (39 in all). |
+| Design menu, Problems panel | **Check my connections** opens the Problems panel on the new filter **Connections** and says how many things there are to look at; it changes nothing. Four design rules (43 in all). |
 | Create harness | A window that says *This adds the harness … with N cable connectors and M wires, one wire for each pair of …* and makes it only on **Create harness**; one undo step; the Harness tab then opens on it. The tool never creates a harness on its own. |
 | Next step page | A connection counts as *Connect* done; with connections and no harness and no interface the card is *Make the harness of your connection* with the button **Create harness**. |
 

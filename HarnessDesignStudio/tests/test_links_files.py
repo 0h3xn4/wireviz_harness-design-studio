@@ -116,7 +116,7 @@ def test_validate_and_check_accept_a_project_with_links(
     out = capsys.readouterr().out
     assert "Traceback" not in out
     assert main(["drc", str(root)]) in (0, 1)
-    assert "Rules run: 39." in capsys.readouterr().out
+    assert "Rules run: 43." in capsys.readouterr().out
 
 
 def test_the_json_export_has_a_links_key_only_when_there_are_links() -> None:

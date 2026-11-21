@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The rule `signal-unshielded` (design of 4.2.0, section 4; `core/drc/electrical.py`). The rule is
-not registered yet (pull request 4 of the design), so these tests call the check directly.
+"""REQ-DRC-07. The rule `signal-unshielded` (design of 4.2.0, section 4; `core/drc/electrical.py`). The rule is
+registered since pull request 4 of the design; these tests call the check directly.
 
 Interface types that agree and that disagree, the narrowing by a connector's `carries`, a type that
 shields per pair with a signal of no pair, a coax; a twisted pair is no shield, a shielded pair, an

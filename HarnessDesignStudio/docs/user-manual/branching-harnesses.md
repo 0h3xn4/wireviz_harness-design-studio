@@ -261,7 +261,7 @@ Three integrity warnings look at the tree. They are warnings, not errors: the pr
 | `branch_point_unused` | A branch point has fewer than two segments. | Join it to the tree, or delete it. |
 | `shield_across_branch` | A shield group's wires end on different connectors. | Split the group, one per far connector. |
 
-`box_connector_mated_twice` and `box_pin_wired_twice` stay as they were: they go quiet when the plugs are joined. No design rule is new; there are still 39.
+`box_connector_mated_twice` and `box_pin_wired_twice` stay as they were: they go quiet when the plugs are joined. No design rule is new for splices.
 
 ## What the written files show
 

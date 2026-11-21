@@ -488,7 +488,43 @@ def pos_link_power_return() -> Project:
     return _linked("PCDU-J02", "OBC-J02", [("1", "1")])  # PWR and no RTN
 
 
+# REQ-DRC-06 to REQ-DRC-09: the electrical rules of 4.2.0 (design `docs/ait/DESIGN_4.2_ELECTRICAL_CHECKS.md`)
+def pos_pair_untwisted() -> Project:
+    from tests.electrical_support import linked
+
+    return linked()[0]  # the harness made from a connection: four wires, no group
+
+
+def pos_signal_unshielded() -> Project:
+    from tests.electrical_support import linked
+
+    return linked()[0]  # rs422 shields TX and RX per pair; the wires are in no shield
+
+
+def pos_level_conflict() -> Project:
+    from tests.electrical_support import set_pin
+
+    p = _linked("OBC-J01", "RW1-J02", [("1", "4")])  # a connection without a harness
+    set_pin(p, "OBC-J01", "1", level="18V")
+    set_pin(p, "RW1-J02", "4", level="RS422-3V3")
+    set_cfg(p, "segregation", level_pairs_to_separate=[["18V", "RS422-3V3"]])
+    return p
+
+
+def pos_wire_direction() -> Project:
+    from tests.electrical_support import hand_made, set_pin
+
+    p, _hid = hand_made(["TX+"], ["TX+"], [("1", "1")])  # a wire drawn by hand
+    set_pin(p, "OBC-J03", "1", direction="out")
+    set_pin(p, "RW1-J02", "1", direction="out")
+    return p
+
+
 POSITIVE: dict[str, Callable[[], Project]] = {
+    "pair-untwisted": pos_pair_untwisted,
+    "signal-unshielded": pos_signal_unshielded,
+    "level-conflict": pos_level_conflict,
+    "wire-direction": pos_wire_direction,
     "link-unpaired": pos_link_unpaired,
     "link-direction": pos_link_direction,
     "link-signal-mismatch": pos_link_signal_mismatch,

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-"""The rule `wire-direction` (design of 4.2.0, section 6; `core/drc/electrical.py`). The rule is not
-registered yet (pull request 4 of the design), so these tests call the check and the notes directly.
+"""REQ-DRC-09. The rule `wire-direction` (design of 4.2.0, section 6; `core/drc/electrical.py`). The rule is
+registered since pull request 4 of the design; these tests call the check and the notes directly.
 
 Out to out, in to in, a fan-out through a splice (no finding), two outputs through a splice, a loose
 end (not judged), a pair of a connection (left to `link-direction`), `Pin.direction` over the type, a
@@ -44,8 +44,8 @@ def note(p: Project) -> str | None:
     )
 
 
-def test_the_rule_is_not_registered_yet_and_has_the_texts_of_the_design() -> None:
-    assert len(RULES) == 39 and "wire-direction" not in {r.id for r in RULES}
+def test_the_rule_is_registered_and_has_the_texts_of_the_design() -> None:
+    assert len(RULES) == 43 and "wire-direction" in {r.id for r in RULES}
     r = next(r for r in electrical.ELECTRICAL_RULES if r.id == "wire-direction")
     assert (r.severity, r.topic, r.can_waive, r.can_deviate, r.sources) == ("error", "Directions of drawn wires", False, False, ())  # fmt: skip
     assert r.why == "Two outputs on one wire drive against each other, and two inputs have nothing to drive them."  # fmt: skip
