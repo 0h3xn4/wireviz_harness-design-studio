@@ -10,6 +10,7 @@ This page shows how to find out what the tool takes for granted when it makes a 
 - [3. Change a setting](#3-change-a-setting)
 - [4. Use the data in a spreadsheet or a script](#4-use-the-data-in-a-spreadsheet-or-a-script)
 - [5. Put the same text into the files you edit by hand (optional)](#5-put-the-same-text-into-the-files-you-edit-by-hand-optional)
+- [What the electrical checks assume](#what-the-electrical-checks-assume)
 - [Common mistakes](#common-mistakes)
 
 ## Before you start
@@ -76,6 +77,24 @@ The choices added in 1.15.0, all in `config/model.json` and all as the tool alwa
 | `model.bom_wire_allowance_fraction` | 0 | an allowance on the metres of every wire part in the bill of materials (from 0 to 1) |
 
 The editor shows them in **Help > Assumptions…** (read-only) and has no switch for them: change one with `settings DIR --set` as above, then **Generate** again. The tolerances of the as-built lengths (`asbuilt_cut_tolerance_mm`, `asbuilt_strip_tolerance_mm`, in `config/generation.json`) and the release gate (`release_requires_asbuilt`, in `config/naming.json`) are listed there too; see [record what was built](record-what-was-built.md).
+
+## What the electrical checks assume
+
+The four design rules of 4.2.0 (*Twisted pairs*, *Shielded signals*, *Signal levels*, *Directions of drawn wires*) bring two settings and four assumptions, all listed by `settings DIR` and in **Help > Assumptions…**:
+
+| Setting | Default | What it changes |
+| --- | --- | --- |
+| `segregation.level_pairs_to_separate` | not set | the pairs of level words that a wire, a net or a pair of a connection must not join (`[["28V", "3V3"]]`); while it is not set the rule *Signal levels* checks nothing and says so where a pin has a level. The tool ships no level word: the words are those of your ICDs. In the editor: *Settings > Engineering values*, *Signal levels kept apart* (`28V + 3V3`); a word with `+` or `,` in it is set with `settings DIR --set` |
+| `naming.pair_suffixes` | `+ -`, `P N`, `H L` | the endings that make two signal names a pair where no interface type pairs them (`TX+` and `TX-`, `TXP` and `TXN`, `CANH` and `CANL`); a team that names other things `…H` and `…L` takes that row out, for example `settings DIR --set naming.pair_suffixes='[["+", "-"], ["P", "N"]]'` |
+
+| Assumption | Kind | In short |
+| --- | --- | --- |
+| `A-PAIR-NAMES` | setting | two wires without an interface are a pair when they join the same two connectors and their signals are a pair of an interface type, else differ only by an ending of `naming.pair_suffixes`; a wire part with two conductors does not twist |
+| `A-SHIELD-BY-TYPE` | built in | a wire of a harness Generate did not make asks for a shield when every interface type that has its signal shields it; a signal no type has asks for none |
+| `A-LEVEL-WORDS` | setting | levels meet when one net, or one pair of a connection without a harness, has device pins of both; they are compared as whole words, case and outer spaces ignored, so `3V3` and `3.3V` are two words |
+| `A-DIRECTION-AT-DEVICE` | built in | the directions of a net of drawn wires are those of the device pins it ends on, the pin's own first, else its interface types'; a net with a loose end is not judged |
+
+The long texts are on [shield groups and shield ends](../models/shields.md) (the first two) and [the limit of every design rule](../models/rule-limits.md) (the last two).
 
 ## Common mistakes
 

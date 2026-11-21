@@ -987,10 +987,12 @@ def yes_no_derivation(
     for file, key in READS.get(rule_id, ()):
         s = settings.setting(file, key)
         e = settings.effective(project, file, key)
+        # display_of, so that the endings of pair_suffixes read `+ -`, not `++-`
+        shown = settings.display(e.value) if s is None else settings.display_of(s, e.value)
         inputs.append(
             Input(
                 s.label if s else key,
-                None if e.value is None else settings.display(e.value),
+                None if e.value is None else shown,
                 s.unit if s else "",
                 f"config/{file}.json: {key}"
                 + ("" if e.value is not None else " (not set: the rule is silent until it is)"),

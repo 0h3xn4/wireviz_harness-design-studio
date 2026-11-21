@@ -159,6 +159,14 @@ The connection says which pins go together. It is not yet a harness. When you wa
 2. Press **Create harness**. The harness is made as one undo step and the Harness tab opens on it.
 3. Enter the lengths, gauges and colours in **Edit wire** ([edit a wire](edit-a-wire.md)); the wires have no length, gauge or colour until you do ([enter the build data](enter-the-build-data.md)). The harness is yours: **Generate** leaves it alone, and it is checked, listed, exported and released like any other ([build a harness by hand](build-a-harness-by-hand.md#what-generate-does-with-it)). One limit: the wires carry no interface, so the current, voltage-drop and bundle checks do not run on them, and a gauge you type is not checked against a current; the Checks area says so with a note (*Current, voltage-drop and bundle checks did not run for … wires … they have no interface*).
 
+**What is checked on the harness** (since 4.2.0). The pairing stays the business of *Check my connections* (step 5): `link-direction` judges the directions of each pair, and a wire you add to the harness that the connection does not pair is an error of the verifier. On top of that, three design rules read the wires of the harness through the device pins at their ends, since the wires carry no interface type:
+
+- *Twisted pairs* (`pair-untwisted`, a warning): the harness has one plain wire for each pair of pins, so the two wires of `TX+` and `TX-` are not twisted together until you group them. Select the two wires and use **Group wires** ([edit a wire](edit-a-wire.md#6-twist-or-shield-wires-together)).
+- *Shielded signals* (`signal-unshielded`, a warning): every interface type that has the signal shields it (RS-422 shields per pair), and the wire is in no shield. For an RS-422 pair one **Shielded pair** answers both warnings.
+- *Signal levels* (`level-conflict`, an error that may be accepted as a deviation): a wire joins two device pins whose **Level** (from the pinout, [define a device](define-a-device.md#take-the-pinout-from-a-spreadsheet)) is a pair your project keeps apart in `config/segregation.json` `level_pairs_to_separate`. The list is empty in a new project and the tool ships no level word, so until you fill it in the rule says nothing and a note says that the levels were not checked. A connection that has no harness yet is checked pair by pair the same way.
+
+With the two devices of RS-422 pinouts and no group, a harness of four wires gives two *Twisted pairs* and four *Shielded signals* warnings; `harness-design-studio drc DIR` lists them, and `explain DIR --all --out FOLDER` writes what each rule read.
+
 The button says why it cannot when it cannot: no pairs yet, or the connection has a harness already. To see the harness again later, use **Show the harness** (section 4). A connection whose harness is released is locked with it ([change a released harness](change-a-released-harness.md)).
 
 ## 7. Hand over the connection list
