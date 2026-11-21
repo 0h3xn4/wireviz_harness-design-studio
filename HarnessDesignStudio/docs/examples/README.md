@@ -262,7 +262,7 @@ The files are written for the `first-steps` example, so you can try each one bef
 | 11 | `config-demo-values/segregation.json` | learning only: demo values for `segregation.json` | copy over `config/segregation.json` | yes |
 | 12 | `ci/build.sh` | checks, generates, verifies and exports a project; stops at the first problem | `sh ci/build.sh DIR` | yes |
 | 13 | `ci/github-actions.yml` | the same as a GitHub Actions workflow | copy to `.github/workflows/` | yes |
-| 14 | `design-review-checklist.md` | things to look at before a harness is released | copy next to your design | yes |
+| 14 | `design-review-checklist.md` | things to look at before a harness is released; since 4.3.0 also the start of a project's review checklist (26 points) | copy next to your design, or `harness-design-studio config DIR --review-checklist` | yes |
 | 15 | `design-worksheet.md` | plan devices, interfaces and missing data on paper | print or copy it | **no, new in 1.0.0** |
 | 16 | `strip-lengths.csv` | two example rows: the strip length at each end of a wire (millimetres) | `harness-design-studio import-build-data` | **no, new in 1.7.0** |
 | 17 | `pin-contacts.csv` | two example rows: the contact part and crimp tool of a pin of a harness made by hand | `harness-design-studio import-build-data` | **no, new in 1.7.0** |

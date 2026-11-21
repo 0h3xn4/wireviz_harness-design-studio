@@ -71,6 +71,8 @@ The command prints, for each step, a state and one sentence (*3 engineering valu
 
 Open **Next step**, press **What this step uses and makes** under the steps. It is closed until you open it, so the page stays short. It shows the step you are on (what it uses, what it makes, what you can look at) and one line for each of the nine steps with its state. The top bar's three steps (Generate, Check, Release) and the six steps of the page are named from the same table.
 
+When the next step is *Review and release*, the page's button is **Open the Review page** (since 4.3.0; it was **Go to Releases**). It opens the page **Review** on the first harness, in ID order, that is not released: the project's review checklist with a box to tick for each point, the findings of the harness, the values still open and the sources to look at, and **Release…**, which records your ticks in the release comment ([release a harness](release-a-harness.md#optional-a-review-checklist-and-its-ticks)). The table above names **Versions** as the place of the step; the Releases tab is still there, with a button **Review page** for the harness chosen in it.
+
 ## What the states mean
 
 | State | Meaning |

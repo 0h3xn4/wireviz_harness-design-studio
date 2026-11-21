@@ -8,6 +8,7 @@ This page shows how to read the tool's findings (errors, warnings and notes), fi
 - [1. The three kinds of finding](#1-the-three-kinds-of-finding)
 - [2. In the app](#2-in-the-app)
 - [2a. The Checks tab](#2a-the-checks-tab)
+- [2b. The findings of one harness](#2b-the-findings-of-one-harness)
 - [Turn the problem notices off](#turn-the-problem-notices-off)
 - [3. On the command line](#3-on-the-command-line)
 - [4. Fix one, waive one](#4-fix-one-waive-one)
@@ -57,6 +58,10 @@ The **Checks** tab has one row for each design rule: its ID, name, severity, a *
 - A rule that is *not checked* names the value it waits for and has **Supply value…**. It opens **Engineering values**, where you type the values (see [fill in the engineering values](fill-in-engineering-values.md)); **Apply** sets them as one undo step and the checks run again.
 - **Check** in the top bar (F5) runs the rules now; they also run by themselves a moment after you stop editing. When the design changes, the tab says *Out of date* until the rules have run again (**Check again** runs them now).
 
+## 2b. The findings of one harness
+
+The **Problems** panel and the **Checks** tab list the findings of the whole project. To see only those about one harness, open the page **Review** (new in 4.3.0; on the rail of the Electrical engineer and the AIT engineer, **Open the Review page** on the Next step page, **Go > Go to Review** in every role) and pick the harness. A finding is about a harness when it is on the harness, its connectors, wires or shields, on a device connector it plugs into, on an interface it carries, or on a part it uses. The page lists them with their state (`open`, `waived: …`, `accepted as a deviation: …`) and, in the column **Release**, whether the finding stops the release of this harness (an open error) or needs a written reason (a part that is not approved). **Show**, **Explain**, **Waive…** and **Accept as deviation…** work on the chosen row as they do in the Problems panel. A second table holds the notes of the whole project, such as *EMC class separation was not checked*, which are on the page of every harness. The release gate takes the errors of a harness from the same selection, so what the page marks *stops the release* is what `release` refuses. The sheet **Review** of the build workbook lists the same rows ([export the outputs](export-the-outputs.md#3-the-build-workbook-sheet-by-sheet)).
+
 ## Turn the problem notices off
 
 The tool shows some problem signs without being asked: the **Problems (n)** button and its count in the status bar, the count on the **Problems** tab of the inspector, the status chip of the top bar, the chip in the corner of the diagram, the badges for problems, warnings, values still to enter and *not checked* on the devices and links, the link *n values pending · n rules not checked* and the banner that says the plans or the outputs are *out of date*. They are called **problem notices**. If they bother you, choose **View > Show problem notices** (or tick **Show problem notices** in **Settings > Editing**) to switch them all off at once.
@@ -85,6 +90,14 @@ Placeholder configuration in use: derating, emc, generation, segmentation, segre
 After that line come the lists "Errors" (only if there are any), "Warnings" and "Not checked / note". Each item has a short title, the rule name in brackets, why it matters, and how to fix it. Items that serve a requirement of a standard name it ("Requirement: ESCC3901-4.4").
 
 The exit code is 0 when there are no unwaived errors and 1 when there is at least one. Warnings and notes do not change it.
+
+To see what one finding checked, give its ID to `explain` (new in 4.3.0; `drc --json` prints the IDs, and so does the *Finding* column of the Review sheet):
+
+```
+harness-design-studio explain wheel-link part-unapproved.EX-WIRE-SINGLE
+```
+
+It prints what the editor's **Explain** shows: the limit the rule checked and how it was derived or, for a rule that is a yes/no check, what it compares, the statement of the finding and what the rule saw (here the approval of the part and whether it is example data). An ID that names a wire, a connector or another object keeps its meaning; an ID that is neither an object nor a finding is an error (exit code 2).
 
 To check only that the folder is sound (no rule check):
 

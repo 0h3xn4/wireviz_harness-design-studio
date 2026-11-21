@@ -30,7 +30,7 @@ The workshop of October 2026 said the tool is too crowded, that a user feels ove
 |---|---|---|---|
 | Thinks in | devices, the connections between devices, subsystems, the library, the checks | connectors, pinouts, harnesses, wires, the engineering values and the models | the build data, the build sheets, the outputs, the as-built records, the workflow |
 | A project opens on | the **Next step** page | the diagram (**Model**) | the **Next step** page |
-| Rail | Next step, Model, Checks, Versions, Settings | Next step, Home, Model, Checks, Drawings, Outputs, Versions, Settings | Next step, Home, Checks, Drawings, Outputs, As-built, Versions, Settings |
+| Rail | Next step, Model, Checks, Versions, Settings | Next step, Home, Model, Checks, Drawings, Outputs, Review, Versions, Settings | Next step, Home, Checks, Drawings, Outputs, As-built, Review, Versions, Settings |
 | Side panels (project tree, inspector) | closed until asked for (**Show panels**) | open | open |
 | Minimap, legend, status counts | off | on | on |
 | Tools above the diagram | **Select**, **Connect**, **Add device**, **More** | all of them | all of them |
@@ -80,6 +80,7 @@ A role is a named set of the pages on the rail and the entries of the menus. The
 | Drawings | Ctrl+2, the palette | listed | listed |
 | Outputs | Ctrl+3, the palette, the Next step buttons | listed | listed |
 | As-built | `Go > Go to As-built`, the palette | `Go > Go to As-built` is not listed; the palette reaches it | listed |
+| Review (since 4.3.0) | **Open the Review page** on the Next step page, `Go > Go to Review`, the palette | listed | listed |
 | Versions | listed | listed | listed |
 | Settings | listed | listed | listed |
 
@@ -98,13 +99,13 @@ To show less at once, the Systems engineer role starts with these things closed 
 | Minimap and legend of the diagram | off | on |
 | Status bar | the save state, the running job, *Offline* and the project path | everything, with the counts, the *Problems* button (while the problem notices are on) and the zoom value |
 | Tools above the diagram | **Select**, **Connect**, **Add device** and **More** | all of them |
-| Rail | Next step, Model, Checks, Versions, Settings | the same and Home, Drawings and Outputs |
+| Rail | Next step, Model, Checks, Versions, Settings | the same and Home, Drawings, Outputs and Review |
 
 - **The menus list less (since 1.9).** The Systems engineer's menus leave out the entries for wires, harnesses, zones, aligning devices, the interface-first way (**Connect with an interface type…**, **New interface…**), the drawing options of the diagram, the versions of a harness, the engineering values and the detail views. Every one of them is still in the command palette (Ctrl+K) and on its key; the Electrical engineer's menus list all of them.
 - **After each step you stay where you are (since 1.9).** Adding a device, generating, creating a harness from a connection and adding library devices leave the Systems engineer on the Next step page or the diagram, not in a detail tab.
 - **More** holds the other tools: *Create redundant copy*, *Delete*, *Zoom out*, *Zoom in*, *Fit all*, *Arrange diagram*, and a **Show only** menu (all interfaces, by signal class, by connector, by bundle).
 - **Show panels** (a button in the top bar, and **Show side panels** first in the View menu) opens or closes the project tree and the inspector together. It is only there for the Systems engineer. The project tree has the **Connections** group (see [connect two connectors](connect-two-connectors.md)).
-- **Home, Drawings and Outputs are not listed in the rail**, but they are reachable: **Go > Go to Home** (Ctrl+7); **Go to Harness** (Ctrl+2) and **Go to Lists** (Ctrl+3), which the Systems engineer's **Go** menu does not list since 1.9 but which work on their keys and in the command palette; and the buttons of the Next step page (**Go to Releases**, **Open the Outputs**). The area you are in is always listed, and goes from the rail again when you leave it. The library is **File > Library…** (Ctrl+Shift+O), the **Library…** button of the Next step page and the command palette.
+- **Home, Drawings, Outputs and Review are not listed in the rail**, but they are reachable: **Go > Go to Home** (Ctrl+7); **Go to Harness** (Ctrl+2) and **Go to Lists** (Ctrl+3), which the Systems engineer's **Go** menu does not list since 1.9 but which work on their keys and in the command palette; and the buttons of the Next step page (**Open the Review page**, **Open the Outputs**); the Review page also from **Go > Go to Review**. The area you are in is always listed, and goes from the rail again when you leave it. The library is **File > Library…** (Ctrl+Shift+O), the **Library…** button of the Next step page and the command palette.
 - **Show everything**, under the steps of the Next step page, switches to the Electrical engineer role and opens the Model area.
 - Selecting something with the inspector closed shows a short message once per window with a **Show panels** button. Opening a problem from the Problems panel or a check opens the inspector by itself.
 - **Problem notices are off for the Systems engineer.** Without them the window does not show a problem count, a status chip or badges until you ask: press **Check** (F5), open the **Checks** area (**Show the problems** on the Next step page does it) or the Problems panel (Ctrl+Shift+M). To see them anyway, choose **View > Show problem notices**; each role remembers its own choice, so this does not change the Electrical engineer. What says why something cannot be done (read-only, locked, damaged files, the sample project) is not a problem notice and stays. See [read and fix problems](read-and-fix-problems.md#turn-the-problem-notices-off).
@@ -119,7 +120,7 @@ Quick mode is for the person who only wants to draw the devices of a set-up and 
 
 While it is on, the window shows less:
 
-- **The rail** lists the **Model**, **Home** and **Settings**. Next step, Checks, Drawings, Outputs, Versions and As-built are left out (the area that is open stays listed until you leave it).
+- **The rail** lists the **Model**, **Home** and **Settings**. Next step, Checks, Drawings, Outputs, As-built, Review and Versions are left out (the area that is open stays listed until you leave it).
 - **The top bar** keeps the project name, the save marker, Undo and Redo, the Role button, a **Quick** marker (click it to leave Quick mode), the search and one button, **Export diagram**. Generate, Check, Release, Export, the model hash, the version and the status chip are left out.
 - **Problem notices** are off whatever you chose in *Show problem notices* (your own choice comes back when you leave Quick mode): no Problems count, no badges on the diagram, no *out of date* banner. The banners that say why something cannot be done (read-only, released data) stay.
 - **No first-start question** about the role. A project opens on the diagram, whatever the role.
@@ -167,14 +168,14 @@ The page names the first step that is not done. The rules run in this order.
 | The design was not checked | Check the design | **Check the design** |
 | Checks failed | Fix what is marked | **Show the problems** |
 | The files are not up to date | Get the build sheets | **Export the build sheets** |
-| A harness is not released | Review and release | **Go to Releases** |
+| A harness is not released | Review and release | **Open the Review page** |
 | Everything is released | Everything is released | **Open the Outputs** |
 
 When some checks wait for engineering values, the *Get the build sheets* card says so in one sentence; it never blocks you, because the build workbook marks what is still open.
 
 ## Where the buttons go
 
-Each button opens something that already exists: **Add a device** opens the window **Add device**, which asks for the name first (the same as **Edit > Add device > Device…**, with the picture in [define a device](define-a-device.md#1-add-the-device)), and **New harness…** opens the same window as in the Drawings area; **Connect two devices** opens the diagram with the Connect tool, which opens the window **Link connectors** after two devices ([connect two connectors](connect-two-connectors.md)); **Create harness** shows what the harness will contain and makes it only when you agree, for the first connection that has no harness yet; **Generate the harnesses**, **Check the design** and **Export the build sheets** do what their menu entries do (for a project that has no folder yet, **Export** first asks where to save it: the note on the page says *Export first asks where to save the project.*); **Show the problems** opens the Checks area with the failed rules; **Go to Releases** and **Open the Outputs** open those areas.
+Each button opens something that already exists: **Add a device** opens the window **Add device**, which asks for the name first (the same as **Edit > Add device > Device…**, with the picture in [define a device](define-a-device.md#1-add-the-device)), and **New harness…** opens the same window as in the Drawings area; **Connect two devices** opens the diagram with the Connect tool, which opens the window **Link connectors** after two devices ([connect two connectors](connect-two-connectors.md)); **Create harness** shows what the harness will contain and makes it only when you agree, for the first connection that has no harness yet; **Generate the harnesses**, **Check the design** and **Export the build sheets** do what their menu entries do (for a project that has no folder yet, **Export** first asks where to save it: the note on the page says *Export first asks where to save the project.*); **Show the problems** opens the Checks area with the failed rules; **Open the Review page** opens the page **Review** on the first harness, in ID order, that is not released (since 4.3.0: the project's review checklist with a box for each point, the findings of the harness, the values still open, the sources, and **Release…**; see [release a harness](release-a-harness.md#optional-a-review-checklist-and-its-ticks)); **Open the Outputs** opens the Outputs area.
 
 The window that **Add a device** opens (also the **Add device** tool above the diagram of the Systems engineer), with a name typed and the ID suggested from it (the window also has **Number of these devices** and an optional **First connector**, both in the picture; [define a device](define-a-device.md#1-add-the-device)):
 
