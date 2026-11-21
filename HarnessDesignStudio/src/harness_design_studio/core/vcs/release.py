@@ -80,7 +80,8 @@ class Blocker:
     code: str
     message: str
     object_id: str | None = None
-    about: str | None = None  # the input it is about: "by", "comment", "checker", "reason"
+    # the input it is about: "by", "comment", "checker", "reason", "ticked"
+    about: str | None = None
 
 
 @dataclass
@@ -500,6 +501,107 @@ def asbuilt_note(project: Project, hid: str, by: str, accept_asbuilt: str | None
     )
 
 
+# ---- the ticks of the review checklist (design of 4.3.0, section 6) ------------------------------
+
+Ticked = frozenset[int] | str | None
+"""What the person releasing says was ticked of the project's review checklist: the point numbers
+(the editor's Review page), the text of `--ticked` (`all`, `none`, `1-5,7`; read with
+`review.parse_ticked`), or None when nothing is said (a release goes ahead as before)."""
+
+TICKED_NAMED = 5  # the points not ticked that the note names; the rest are counted
+TICKED_POINT_LENGTH = 60  # each named point is cut to this many characters
+
+
+def _ticked_points(project: Project, ticked: frozenset[int] | str) -> frozenset[int]:
+    """The point numbers of `ticked`, of the project's checklist; `review.TickedError` when one is
+    not a point of it (a number outside 1 to N, or text `parse_ticked` refuses)."""
+    from harness_design_studio.core import review
+
+    n = len(review.points(project))
+    if isinstance(ticked, str):
+        return review.parse_ticked(ticked, n)
+    wrong = sorted(t for t in ticked if not 1 <= t <= n)
+    if wrong:
+        raise review.TickedError(str(wrong[0]), n)
+    return frozenset(ticked)
+
+
+def ticked_blockers(project: Project, ticked: Ticked) -> list[Blocker]:
+    """`--ticked` names a point the checklist does not have (`ticked_invalid`), or the project has
+    no checklist to tick (`ticked_no_checklist`). Nothing said (None) blocks nothing, and no tick,
+    given or not, ever stops a release by what it says (R5: no gate on the checklist)."""
+    from harness_design_studio.core import review
+
+    if ticked is None:
+        return []
+    if not review.points(project):
+        return [
+            Blocker(
+                "ticked_no_checklist",
+                "This project has no review checklist, so there is nothing to tick "
+                "(config/naming.json: review_checklist).",
+                about="ticked",
+            )
+        ]
+    try:
+        _ticked_points(project, ticked)
+    except review.TickedError as exc:
+        return [Blocker("ticked_invalid", str(exc), about="ticked")]
+    return []
+
+
+def number_ranges(numbers: frozenset[int] | set[int]) -> str:
+    """Point numbers as ranges, in order: `1-5, 7, 9-26` (a run of two is `7-8`). `parse_ticked`
+    reads it back once the spaces are left out."""
+    runs: list[list[int]] = []
+    for n in sorted(numbers):
+        if runs and n == runs[-1][1] + 1:
+            runs[-1][1] = n
+        else:
+            runs.append([n, n])
+    return ", ".join(str(a) if a == b else f"{a}-{b}" for a, b in runs)
+
+
+def _named(text: str) -> str:
+    one = " ".join(text.split())
+    if len(one) <= TICKED_POINT_LENGTH:
+        return one
+    return one[: TICKED_POINT_LENGTH - 3] + "..."
+
+
+def review_note(project: Project, by: str, ticked: Ticked) -> str:
+    """The note added last to the comment of a release (design of 4.3.0, section 6.3): which points
+    of the project's review checklist the person releasing says were ticked, with the size and the
+    hash of the list, the ticked ones as ranges and at most five not ticked named (each cut to 60
+    characters, then `and N more`). '' for a project without a checklist (every project of today,
+    whose comment stays as it was) and for ticks that `ticked_blockers` refuses. A tick is a
+    person's statement: the note says *recorded by*, never *checked* or *passed*."""
+    from harness_design_studio.core import review
+
+    listed = review.points(project)
+    if not listed:
+        return ""
+    head = (
+        f" [Review checklist ({len(listed)} point{'' if len(listed) == 1 else 's'}, "
+        f"list {review.list_hash(listed)})"
+    )
+    if ticked is None:
+        return f"{head}: no ticks recorded]"
+    try:
+        done = _ticked_points(project, ticked)
+    except review.TickedError:
+        return ""  # ticked_invalid stops the release; nothing is recorded
+    who = f"{head}, recorded by {by.strip()}: "
+    if len(done) == len(listed):
+        return f"{who}all ticked]"
+    if not done:
+        return f"{who}none ticked]"
+    left = [n for n in range(1, len(listed) + 1) if n not in done]
+    named = ", ".join(f"{n} ({_named(listed[n - 1])})" for n in left[:TICKED_NAMED])
+    more = f" and {len(left) - TICKED_NAMED} more" if len(left) > TICKED_NAMED else ""
+    return f"{who}ticked {number_ranges(done)}; not ticked {named}{more}]"
+
+
 # The rules whose findings are about the whole project, not about one harness: a wrong engineering
 # value and a check that could not run. The review view lists them apart, on every harness, and
 # the release gate counts the errors of config-invalid for every harness.
@@ -549,6 +651,7 @@ def release_blockers(
     check_roles: bool = True,
     accept_asbuilt: str | None = None,
     accept_loose_ends: str | None = None,
+    ticked: Ticked = None,
 ) -> list[Blocker]:
     out = _common(project, hid, by, comment, when)
     h = project.harnesses.get(hid)
@@ -560,12 +663,14 @@ def release_blockers(
     out.extend(part_blockers(project, h, accept_unapproved_parts))
     out.extend(loose_end_blockers(h, accept_loose_ends))
     out.extend(asbuilt_blockers(project, hid, accept_asbuilt))
+    out.extend(ticked_blockers(project, ticked))
     notes = (
         placeholder_note(project, by, accept_placeholders)
         + part_note(project, h, by, accept_unapproved_parts)
         + loose_end_note(h, by, accept_loose_ends)
         + asbuilt_note(project, hid, by, accept_asbuilt)
         + release_note(project, h)
+        + review_note(project, by, ticked)
     )
     out.extend(text_blockers(accept_placeholders, "reason", "The reason for releasing on placeholders", limit=MAX_COMMENT, one_line=False))  # fmt: skip
     out.extend(text_blockers(accept_unapproved_parts, "reason", "The reason for releasing with parts that are not approved", limit=MAX_COMMENT, one_line=False))  # fmt: skip
@@ -727,11 +832,13 @@ def plan_release(
     accept_unapproved_parts: str | None = None,
     accept_asbuilt: str | None = None,
     accept_loose_ends: str | None = None,
+    ticked: Ticked = None,
 ) -> ReleasePlan:
     blockers = release_blockers(
         project, hid, by=by, comment=comment, when=when, outputs_folder=outputs_folder,
         accept_placeholders=accept_placeholders, accept_unapproved_parts=accept_unapproved_parts,
         checker=checker, accept_asbuilt=accept_asbuilt, accept_loose_ends=accept_loose_ends,
+        ticked=ticked,
     )  # fmt: skip
     plan = ReleasePlan(blockers=blockers, label=f"Release {hid}")
     if blockers:
@@ -755,6 +862,7 @@ def plan_release(
         + loose_end_note(h, by, accept_loose_ends)
         + asbuilt_note(project, hid, by, accept_asbuilt)
         + release_note(project, h)
+        + review_note(project, by, ticked)
     )
     entry = _entry(project, released, "release", by.strip(), when, full_comment)
     baseline = Baseline(
@@ -993,6 +1101,8 @@ __all__ = [
     "pinout_note",
     "release_blockers",
     "release_integrity",
+    "review_note",
     "role_blockers",
+    "ticked_blockers",
     "unapproved_parts",
 ]
