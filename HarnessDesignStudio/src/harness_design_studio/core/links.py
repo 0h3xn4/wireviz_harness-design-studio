@@ -111,7 +111,8 @@ def _pair_side(a: Pin, b: Pin, table: Counterparts) -> str:
     return same_side(a.signal, b.signal, table)
 
 
-def _signal_index(project: Project) -> dict[str, list[InterfaceType]]:
+def signal_index(project: Project) -> dict[str, list[InterfaceType]]:
+    """The interface types of the project that have each signal name, for `pin_direction`."""
     out: dict[str, list[InterfaceType]] = defaultdict(list)
     for t in project.interface_types.values():
         for s in t.signals:
@@ -119,20 +120,24 @@ def _signal_index(project: Project) -> dict[str, list[InterfaceType]]:
     return out
 
 
-def _direction(
+def pin_direction(
     project: Project,
     connector: Connector,
     pin: Pin,
-    index: dict[str, list[InterfaceType]],
+    index: dict[str, list[InterfaceType]] | None = None,
 ) -> str:
     """out, in, bidir or passive from the pin, else from the interface types, or "" when it is not
     known. The direction a person set on the pin (`Pin.direction`) wins over everything else: it is
     never guessed from a name and never exempted. Otherwise it is "" where the design rule
     `direction-conflict` does not judge the directions: a signal of a one-directional type (analog
     SIG+/SIG-, discrete SIG, LVDS D+/D-, pyro FIRE+/FIRE-, I2C SCL list `out` at both ends) and a
-    directional signal with no partner in its type (it runs straight through to the same name)."""
+    directional signal with no partner in its type (it runs straight through to the same name).
+    The design rule `wire-direction` reads a pin's direction here too (design of 4.2.0, section 6);
+    `index` is `signal_index(project)`, made once by a caller that asks for many pins."""
     if pin.direction:
         return pin.direction
+    if index is None:
+        index = signal_index(project)
     direction, _category, _note, types = derive_meaning_types(project, connector, pin, index)
     if direction not in ("out", "in"):
         return direction
@@ -143,7 +148,7 @@ def _direction(
     return ""
 
 
-def _conflict(da: str, db: str) -> str:
+def direction_conflict(da: str, db: str) -> str:
     """Why two known directions do not fit ("" when they do): output against output, or input
     against input."""
     if da == db == "out":
@@ -151,6 +156,12 @@ def _conflict(da: str, db: str) -> str:
     if da == db == "in":
         return "both are inputs"
     return ""
+
+
+# the names these had before the design of 4.2.0 made them public (section 7.5), kept
+_signal_index = signal_index
+_direction = pin_direction
+_conflict = direction_conflict
 
 
 def effective_role(

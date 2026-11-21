@@ -99,6 +99,7 @@ harness-design-studio new my-design --annotate-config      # start a new project
 | `max_ambient_temperature_c` | a temperature in degC above -273.15 |
 | `shield_end_a`, `shield_end_b` | `backshell_360`, `pigtail` or `floating` (not for a coax: its outer conductor is always bonded at both ends, `backshell_360`, since 1.10) |
 | `category_pairs_to_separate`, `conflicting_class_pairs` | a list of pairs of two different names, each pair once (`["A","B"]` and `["B","A"]` are the same pair) |
+| `level_pairs_to_separate` | a list of pairs of two different words, each pair once, each word at most 200 characters, compared without case and outer spaces (`["3V3","3v3"]` is one word twice); not set, `null` or `[]`: the rule `level-conflict` is silent |
 | `forbid_nominal_with_redundant`, `forbid_pyro_with_other` | `true` or `false` |
 | `classes` (emc) | a list of non-empty class names |
 | `contact_rating_key` | the name of a part rating |
@@ -121,6 +122,13 @@ Numbers are written as numbers, not as text (`"0.5"` is not accepted). The limit
 | `forbid_nominal_with_redundant` | nominal and redundant chains never share a harness or connector (default true) |
 | `forbid_pyro_with_other` | pyro lines never share a harness or connector (default true) |
 | `category_pairs_to_separate` | list of category pairs that must not share a harness, for example `[["power", "analog"]]` |
+| `level_pairs_to_separate` | optional, absent by default (since 4.2.0): list of pairs of signal level words that a wire, a net or a pair of a connection must not join, for example `[["28V", "3V3"], ["VBUS", "RS422-3V3"]]`; see below |
+
+### Signal levels kept apart (since 4.2.0)
+
+The design rule `level-conflict` (design of 4.2.0, section 5) reads the *Level* of the device pins (`Pin.level`, as the device's ICD writes it: the Devices tab, or the *Level* column of `import-pinout`) and this table. Two levels **meet** when one net of a harness (one wire, or the wires joined by a splice or on one pin) has device pins of both at its ends, or when one pair of a connection that has no harness joins a pin of each; neighbouring pins, one connector and one bundle are not looked at. The words are compared whole, with the case and the spaces around them left out (`RS422-3V3` is `rs422-3v3`), and **no number is read out of a word**: `3V3` and `3.3V` are two words, and `RS422-3V3` is not `3V3`, so write the words your ICDs use (assumption A-LEVEL-WORDS, [rule limits](models/rule-limits.md#the-assumptions-it-rests-on)).
+
+The tool ships no level word (D-11): the key is in no file of the examples, the templates or a new project, and while it is not set (or `null`, or an empty list) the rule is silent and *Checks not run* says *Signal levels were not checked: 9 pin(s) have a level (18V, RS422-3V3), but no pairs of levels to keep apart are set* wherever a pin has a level. A pair is two different words, each pair once (`["3V3", "3v3"]` is one word twice, and `["A", "B"]` and `["B", "A"]` are the same pair), each word at most 200 characters; a value that is not valid is an error of the check (`config/segregation.json: level_pairs_to_separate ...`, rule `config-invalid`) and the rule stays silent until it is corrected. *Settings > Engineering values* has the field *Signal levels kept apart* (`28V + 3V3, VBUS + RS422-3V3`); a word that holds `+` or `,` cannot be typed there, and `harness-design-studio settings DIR --set 'segregation.level_pairs_to_separate=[["+5V", "3V3"]]'` takes any word. A finding is an error that can be accepted as a deviation, for a level shifter in the device or a pin that tolerates the level. A 4.1 tool reads a project with the key, keeps it on save and says nothing about it.
 
 ## `derating.json`
 | Key | Meaning |

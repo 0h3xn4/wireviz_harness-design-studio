@@ -69,6 +69,7 @@ OPTIONAL_NEEDS: tuple[Need, ...] = (
     Need("generation", "power_return_gap_pins", "unassigned contacts between power and return pins", "power and return pin check"),
     Need("emc", "shield_bonding", "how shields are bonded: both_ends_backshell", "shield bonding check, shield parts check"),
     Need("emc", "same_class_one_bundle", "true if wires of one EMC class must share one bundle", "EMC class split check"),
+    Need("segregation", "level_pairs_to_separate", "pairs of signal level words that must not be joined, for example [[\"28V\", \"3V3\"]]", "signal level check"),
 )  # fmt: skip
 
 
@@ -164,6 +165,7 @@ def validate(project: Project) -> list[Issue]:
     out.extend(validate_harness_plan(project))
     out.extend(validate_counterparts(project))
     out.extend(validate_pair_suffixes(project))
+    out.extend(validate_level_pairs(project))
     out.extend(validate_distinct_roles(project))
     out.extend(validate_asbuilt(project))
     out.extend(standard_profiles.validate(project))
@@ -559,6 +561,62 @@ def validate_pair_suffixes(project: Project) -> list[Issue]:
     ]
 
 
+LEVEL_PAIRS_FILE, LEVEL_PAIRS_KEY = "segregation", "level_pairs_to_separate"
+LEVEL_WORD_LENGTH = 200  # the longest level a pin holds (the Name type of the model)
+
+
+def level_word(text: str) -> str:
+    """A level word as the rule `level-conflict` compares it: the spaces around it and the case
+    left out (`RS422-3V3` is ` rs422-3v3 `); no number is read out of it (design of 4.2.0, 5.2)."""
+    return text.strip().casefold()
+
+
+def level_pairs_problem(value: object) -> str | None:
+    """Why a value is not a table of level pairs (None when it is one): a list of pairs of two
+    different words, each pair once, each word at most 200 characters, the words compared as
+    `level_word` compares them, so `["3V3", "3v3"]` is one word twice."""
+    if not (
+        isinstance(value, list)
+        and all(
+            isinstance(p, list)
+            and len(p) == 2
+            and all(isinstance(x, str) and level_word(x) for x in p)
+            for p in value
+        )
+    ):
+        return 'must be a list of pairs of two different names, each pair once, for example [["28V", "3V3"]]'
+    if any(len(x) > LEVEL_WORD_LENGTH for p in value for x in p):
+        return f"has a word longer than {LEVEL_WORD_LENGTH} characters"
+    pairs = [frozenset(level_word(x) for x in p) for p in value]
+    for p, words in zip(value, pairs, strict=True):
+        if len(words) != 2:
+            return f"has the pair '{p[0]}' and '{p[1]}', which is one word twice (case and outer spaces do not count)"
+    for n, words in enumerate(pairs):
+        if words in pairs[:n]:
+            p = value[n]
+            return f"has the pair '{p[0]}' and '{p[1]}' twice"
+    return None
+
+
+def validate_level_pairs(project: Project) -> list[Issue]:
+    """`segregation.json` `level_pairs_to_separate` (4.2.0) must be a table of level pairs
+    (`level_pairs_problem`). Not set (or null) is not a problem: the rule `level-conflict` is
+    silent. A table that is refused keeps the rule silent too, and `config-invalid` says why."""
+    raw = _cfg(project, LEVEL_PAIRS_FILE).get(LEVEL_PAIRS_KEY)
+    if raw is None or (why := level_pairs_problem(raw)) is None:
+        return []
+    where = f"config/{LEVEL_PAIRS_FILE}.json"
+    return [
+        Issue(
+            "error",
+            "config_invalid",
+            f"{where}: {LEVEL_PAIRS_KEY} {why}.",
+            where,
+            f"{LEVEL_PAIRS_FILE}.{LEVEL_PAIRS_KEY}",
+        )
+    ]
+
+
 def validate_distinct_roles(project: Project) -> list[Issue]:
     """`naming.json` `release_distinct_roles` (1.9.0) must be true or false. Not set (or null) is
     not a problem: it is the same as false, today's behaviour."""
@@ -745,6 +803,7 @@ FIELD_INFO: dict[tuple[str, str], FieldInfo] = {
     ("generation", "power_return_gap_pins"): FieldInfo("Pins between power and return", "pins", whole=True),
     ("emc", "shield_bonding"): FieldInfo("Shield bonding", kind="choice", choices=("both_ends_backshell",)),
     ("emc", "same_class_one_bundle"): FieldInfo("One bundle per EMC class", kind="flag"),
+    ("segregation", "level_pairs_to_separate"): FieldInfo("Signal levels kept apart", kind="pairs", hint="Write pairs joined by +, separated by commas, like 28V + 3V3"),
 }  # fmt: skip
 
 

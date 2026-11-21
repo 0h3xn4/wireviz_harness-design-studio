@@ -327,6 +327,35 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "core/drc/electrical.py (shield_asked)",
         ),
         Assumption(
+            "A-LEVEL-WORDS",
+            "Two signal levels meet when one net or one pair of a connection joins them, compared as words",
+            "Two levels meet when one net of a harness (one wire, or wires joined by a splice or on "
+            "one pin) has device pins of both at its ends, or when one pair of a connection that has "
+            "no harness joins a pin of each; a connection with a harness is judged through its "
+            "harness. A loose end, a cable connector that plugs into no device and a splice node are "
+            "no device pins. The levels are the Level of the device pins, compared as whole words "
+            "with the case and the spaces around them left out (RS422-3V3 is rs422-3v3); no number "
+            "is read out of a word, so 3V3 and 3.3V are two words and RS422-3V3 is not 3V3. Which "
+            "pairs must not meet is segregation.level_pairs_to_separate; the tool ships none. "
+            "Neighbouring pins, one connector and one bundle are not looked at.",
+            "setting",
+            "config/segregation.json: level_pairs_to_separate; core/drc/electrical.py (device_ends)",
+        ),
+        Assumption(
+            "A-DIRECTION-AT-DEVICE",
+            "The directions of a net of drawn wires are those of the device pins it ends on",
+            "A net of a harness whose wires have no interface (made from a connection or drawn by "
+            "hand) has the directions of the device pins at its ends, read as the review of "
+            "connections reads them: the direction set on the pin, else that of the interface types "
+            "of its signal, else not known. It is judged when every end is a device pin and it has "
+            "two or more: two outputs, or only inputs, are a fault; one output with inputs, a "
+            "bidirectional or a passive end is not. A net with an end that plugs into no device is "
+            "not judged, a net of two ends that a connection pairs is left to the review of the "
+            "connection, and a wire with an interface to the rule of its interface type.",
+            "built in",
+            "core/drc/electrical.py (_wire_direction), core/links.py (pin_direction)",
+        ),
+        Assumption(
             "A-CONNECTOR-CHOICE",
             "A connector is the first free one that carries the type; the cable end is the mating part",
             "When the tool chooses the connector of an interface at a device, it takes the first free "
