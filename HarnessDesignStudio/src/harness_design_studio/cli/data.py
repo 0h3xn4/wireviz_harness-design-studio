@@ -11,7 +11,7 @@ from typing import Any
 
 from harness_design_studio.cli import blocked_text
 from harness_design_studio.cli.jsonout import Report, add_json_flag
-from harness_design_studio.core import configcheck, edit, records, standard_profiles
+from harness_design_studio.core import configcheck, edit, records, review, standard_profiles
 from harness_design_studio.core.build_data_import import plan_build_data_import
 from harness_design_studio.core.commands import History, Op, SetConfig
 from harness_design_studio.core.errors import HarnessError, TransactionError
@@ -90,6 +90,16 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "different people, a date that is not earlier than the project's change log and not "
         "more than a day ahead; every name is typed (sets "
         "naming.release_distinct_roles); off: the setting is taken out again (the default)",
+    )
+    c.add_argument(
+        "--review-checklist",
+        default=None,
+        metavar="FILE",
+        help="set the project's review checklist from the list items of a text or Markdown file "
+        "(UTF-8, at most 64 KiB; the file design-review-checklist.md of `templates` is one): each "
+        "list item is a point, or, in a file without list items, each line that is not empty and "
+        "is not a heading; sets naming.review_checklist (at most 100 points of 1 to 300 "
+        "characters, each once); 'none' takes the checklist out",
     )
     c.add_argument(
         "--apply-profile",
@@ -505,6 +515,7 @@ def _changes_project(args: argparse.Namespace) -> bool:
             or args.apply_profile is not None
             or args.counterparts is not None
             or args.distinct_roles is not None
+            or args.review_checklist is not None
         )
     if args.command == "library":
         return any(
@@ -611,6 +622,27 @@ def _config(project, args: argparse.Namespace, rep: Report) -> int:  # type: ign
             if roles_plan.value
             else "Different people in a release: off (the setting is taken out of config/naming.json)."
         )
+    if args.review_checklist is not None:
+        given = _checklist_points(args.review_checklist)
+        if isinstance(given, str):
+            print(f"error: {given}", file=sys.stderr)
+            print("Nothing was changed.", file=sys.stderr)
+            return 1
+        checklist = configcheck.plan_set_checklist(project, given)
+        if not checklist.ok:
+            print(f"error: {checklist.error}", file=sys.stderr)
+            print("Nothing was changed.", file=sys.stderr)
+            return 1
+        if checklist.ops:
+            History(project).execute("Set the review checklist", checklist.ops)
+            save_project(project, args.project)
+        listed = review.points(project)
+        note(
+            "Review checklist: none (the key is taken out of config/naming.json)."
+            if not listed
+            else f"Review checklist: {len(listed)} point{'s' if len(listed) != 1 else ''} in "
+            f"config/naming.json (list {review.list_hash(listed)})."
+        )
     if args.apply_profile is not None:
         try:
             plan = standard_profiles.plan_profile(project, args.apply_profile)
@@ -648,6 +680,31 @@ def _config(project, args: argparse.Namespace, rep: Report) -> int:  # type: ign
     if rep.as_json:
         rep.put(**records.config_report(project).to_dict(), changes=changes)
     return 0 if ok else 1
+
+
+def _checklist_points(given: str) -> list[str] | None | str:
+    """The points of `config --review-checklist`: None for `none` (the checklist is taken out), the
+    list items of the file, or the reason the file cannot be read (a text)."""
+    if given.strip().casefold() == "none":
+        return None
+    path = Path(given)
+    if not path.is_file():
+        return f"{path} is not a file."
+    if path.stat().st_size > review.MAX_FILE_BYTES:
+        return f"{path} is larger than 64 KiB; a review checklist is a short text file."
+    try:
+        text = path.read_bytes().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return f"{path} is not a UTF-8 text file."
+    except OSError as exc:
+        return f"{path} cannot be read ({exc.strerror or exc})."
+    found = review.points_from_text(text)
+    if not found:
+        return (
+            f"{path} has no points (no list item and no line of text). To take the checklist "
+            "out, give --review-checklist none."
+        )
+    return found
 
 
 def read_table_raw(path: Path) -> list[list[str]]:

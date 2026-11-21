@@ -17,11 +17,13 @@ version (major, minor or patch), which keeps the old baseline.
 import os
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
 from harness_design_studio.core import drc
+from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.deviations import release_note
 from harness_design_studio.core.errors import HarnessError
@@ -498,6 +500,41 @@ def asbuilt_note(project: Project, hid: str, by: str, accept_asbuilt: str | None
     )
 
 
+# The rules whose findings are about the whole project, not about one harness: a wrong engineering
+# value and a check that could not run. The review view lists them apart, on every harness, and
+# the release gate counts the errors of config-invalid for every harness.
+PROJECT_RULES = ("config-invalid", "unchecked-config")
+
+
+def harness_findings(project: Project, h: Harness, findings: Sequence[Finding]) -> list[Finding]:
+    """The findings of `findings` (those of `checks.find` and `drc.run`, waived ones included) that
+    are about harness `h`, in their order: the finding's object is one of `related_ids` (the
+    harness, its connectors, wires and shields, the interfaces it carries and the device connectors
+    it plugs into), or `drc.locate` places it in the harness or on an interface it carries, or
+    `drc.locate` places it nowhere and its object is a part the harness uses (`part-unapproved`,
+    whose object is a part ID). The findings of `PROJECT_RULES` are about the whole project and
+    are not listed. This is the one selection of the findings of a harness: the release gate takes
+    its open errors (design of 4.3.0, section 4.3), the review view every severity."""
+    related = related_ids(project, h)
+    carried = carried_interfaces(h)
+    used = {c.part_id for c in h.connectors} | {w.part_id for w in h.wires if w.part_id}
+    out: list[Finding] = []
+    for f in findings:
+        if f.rule in PROJECT_RULES:
+            continue
+        if f.object_id in related:
+            out.append(f)
+            continue
+        where = drc.locate(project, f.object_id)
+        if (
+            where == ("harness", h.id)
+            or (where is not None and where[0] == "interface" and where[1] in carried)
+            or (where is None and f.object_id in used)
+        ):
+            out.append(f)
+    return out
+
+
 def release_blockers(
     project: Project,
     hid: str,
@@ -568,18 +605,11 @@ def release_blockers(
     for issue in verify_project(project).errors:
         if issue.object_id is None or issue.object_id in related:
             out.append(Blocker("verify_error", f"Verifier: {issue.message}", issue.object_id))
-    carried = carried_interfaces(h)
-    for f in drc.run(project):
-        if f.severity != "error" or f.waiver is not None:
-            continue
-        where = drc.locate(project, f.object_id)
-        mine = (
-            f.object_id in related
-            or where == ("harness", hid)
-            or (where is not None and where[0] == "interface" and where[1] in carried)
-            or f.rule == "config-invalid"  # a wrong engineering value affects every harness
-        )
-        if mine:
+    errors = [f for f in drc.run(project) if f.severity == "error" and f.waiver is None]
+    mine = {id(f) for f in harness_findings(project, h, errors)}
+    for f in errors:
+        # a wrong engineering value (config-invalid) affects every harness
+        if id(f) in mine or f.rule == "config-invalid":
             out.append(Blocker("rule_error", f.title, f.object_id))
     undecided = [w.id for w in h.wires if w.gauge_awg is None]
     if undecided:

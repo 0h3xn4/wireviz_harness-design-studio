@@ -14,10 +14,11 @@ from .vcs.roles import CONFIG_FILE as ROLES_FILE
 from .vcs.roles import CONFIG_KEY as ROLES_KEY
 
 # Keys that generation does not read (who may release, what a release asks of the as-built records,
-# what the as-built report tolerates): switching one on, off or to another value does not make the
-# harness plans out of date, and without any of them the dump is what it always was.
+# the points of the review checklist (4.3.0), what the as-built report tolerates): switching one
+# on, off or to another value does not make the harness plans out of date, and without any of them
+# the dump is what it always was.
 NOT_READ_BY_GENERATION: dict[str, tuple[str, ...]] = {
-    ROLES_FILE: (ROLES_KEY, "release_requires_asbuilt"),
+    ROLES_FILE: (ROLES_KEY, "release_requires_asbuilt", "review_checklist"),
     "generation": ("asbuilt_cut_tolerance_mm", "asbuilt_strip_tolerance_mm"),
 }
 

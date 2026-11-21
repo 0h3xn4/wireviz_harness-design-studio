@@ -12,7 +12,7 @@ Rules live in `config/*.json` inside the project, not in code. There are seven f
 - [`derating.json`](#deratingjson)
 - [`generation.json`](#generationjson)
 - [`emc.json`](#emcjson)
-- [`naming.json`](#namingjson), with [`signal_counterparts`](#the-words-for-the-two-ends-of-a-line-since-190), [`pair_suffixes`](#the-endings-of-a-signal-pair-since-420), [`release_distinct_roles`](#different-people-in-a-release-since-190) and [`release_requires_asbuilt`](#release-needs-as-built-records-optional)
+- [`naming.json`](#namingjson), with [`signal_counterparts`](#the-words-for-the-two-ends-of-a-line-since-190), [`pair_suffixes`](#the-endings-of-a-signal-pair-since-420), [`release_distinct_roles`](#different-people-in-a-release-since-190), [`release_requires_asbuilt`](#release-needs-as-built-records-optional) and [`review_checklist`](#the-review-checklist-since-430)
 - [`titleblock.json`](#titleblockjson)
 - [`model.json`](#modeljson)
 - [Optional values from the supplied standards (D-131)](#optional-values-from-the-supplied-standards-d-131)
@@ -108,6 +108,7 @@ harness-design-studio new my-design --annotate-config      # start a new project
 | `pair_suffixes` (naming) | a list of pairs of two different endings of 1 to 3 characters (letters, digits, `+` and `-`), compared exactly, no ending in two pairs; an empty list is allowed (see below) |
 | `release_distinct_roles` (naming) | `true` or `false` (see below) |
 | `release_requires_asbuilt` (naming) | `true` or `false` (see below) |
+| `review_checklist` (naming) | a list of points, each one line of 1 to 300 characters (the spaces around it left out), each point once (compared after trimming and folding the case), at most 100 points; an empty list is allowed (see below) |
 
 Numbers are written as numbers, not as text (`"0.5"` is not accepted). The limits of the project data itself (a wire gauge 0 to 40, a length 0 to 10000 m, a pin count 1 to 1000, ...) are in [`FILE_FORMAT.md`](FILE_FORMAT.md#number-ranges). While a harness is released, most of these files are frozen: see [`FILE_FORMAT.md`](FILE_FORMAT.md#what-a-release-freezes).
 
@@ -220,6 +221,18 @@ Off unless a project switches it on, and then a release works exactly as it did.
 | `release_requires_asbuilt` | not set (the same as `false`) | `true`: a harness is released only when its as-built records are complete and no recorded length is out of tolerance, or the person releasing gives a written reason |
 
 While it is `true`, `release` is blocked with `asbuilt_incomplete` while the harness has no as-built records or the values the sheet asks of it are not all recorded (the *needed values* of [as-built results](models/asbuilt.md): serial number, who built and inspected it, the lot of each part, every cut length, the crimp tool of every crimped pin, the result and the measured value of every test), and with `asbuilt_length_out` while a recorded cut or strip length is out of the tolerance the project sets (`asbuilt_cut_tolerance_mm`, `asbuilt_strip_tolerance_mm`, above; without a tolerance no length is ever out). A test value out of its limit is shown by the as-built report but is not part of this gate. `release DIR HARNESS --accept-asbuilt REASON` releases anyway: the reason (at least 10 characters) is added to the comment of the release in the change log and the baseline, with what was open at that time, like `--accept-placeholders`. A release does not freeze the as-built records in this step: they can be recorded and changed after it, and the gate looks at the records as they are when you release. The editor shows the blocker in its release window but has no field for the reason yet. A value that is not `true` or `false` is an error of the check (`config/naming.json: release_requires_asbuilt must be true or false.`, rule `config-invalid`) and the gate stays off. Setting it does not make the harness plans out of date; `naming.json` is not frozen by a release.
+
+### The review checklist (since 4.3.0)
+
+What a reviewer of the project checks before a harness is released, in the order they go through it (design of 4.3.0, `docs/ait/DESIGN_4.3_REVIEW_VIEW.md`, part A). The tool invents no review content (D-11): the key is not set in a new project, an example or a template, and the tool ships no point.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `review_checklist` | not set: the project has no checklist | a list of points; a point is one line of text; its number is its place in the list (1 to N) |
+
+Example: `"review_checklist": ["harness-design-studio check DIR prints no error.", "Wire list, pinouts and BOM agree with the drawing."]`. A point is 1 to 300 characters long (the spaces around it do not count) and has no line break; the same point is there once (`Wire list` and ` wire list ` are the same point); a list has at most 100 points. Not set, `null` or `[]`: the project has no checklist. A value that is not valid is an error of the check (`config/naming.json: review_checklist must be a list of points, each one line of 1 to 300 characters, each once, at most 100.`, rule `config-invalid`, which, as any refused value, stops every release), and the project has no checklist until it is corrected. The list is the start of the review view of 4.3.0: the points of the Review page and the Review sheet, and which were ticked at a release; in this version no screen and no written file shows them yet.
+
+`harness-design-studio config DIR --review-checklist FILE` sets it from a text or Markdown file (UTF-8, at most 64 KiB): when the file has list items (lines that start with `- [ ] `, `- [x] `, `- `, `* `, `+ ` or a number and `. `), each list item is a point and every other line is skipped (headings, a line such as *Project: ____*); else each line that is not empty and does not start with `#` is a point. The list mark, `**` and backticks are taken away; nothing else of the text changes. The template `design-review-checklist.md` that `harness-design-studio templates FOLDER` copies is such a file: it gives 26 points, the 9 of *If you use the ECSS profiles* among them; take out what does not apply to your project. The command prints the number of points and the list hash (`list 1a2b3c4d`: the first 8 hexadecimal characters of the SHA-256 of the list as canonical JSON, which names the list, because `naming.json` is not frozen by a release), and refuses a file whose points the check refuses, with the same text, or a file that has no point. `--review-checklist none` takes the key out, so the file is as it was before. `harness-design-studio settings DIR --set 'naming.review_checklist=["One point.", "Another point."]'` writes it as JSON. It is not on the hand-over list, so `config DIR` and its exit code do not change. Changing it does not make the harness plans out of date (generation does not read it), but it is part of the design, so the outputs are out of date until the next export. The key is new in `config/naming.json` only: the project format stays 4, and a 4.2 tool reads a project that has it, keeps it on save and says nothing about it.
 
 ## `titleblock.json`
 | Key | Meaning |
