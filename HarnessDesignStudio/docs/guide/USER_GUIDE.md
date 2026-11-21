@@ -290,6 +290,13 @@ Zoomed far out, a device shows its ID and each kind of link its own dash pattern
 
 The quick checks run on every edit. The design rules (43 of them, four of which review the connections between connectors: **Design > Check my connections** shows only those) run in the background a moment after you stop editing, or when you press **Check** (F5); the top bar says *Checking…* while they run, and the status bar shows the job with **Cancel**. The **Problems** cards say when they are checking, and a header such as *43 rules: 20 passed, 2 failed, 12 not checked* says how it went.
 
+**The electrical checks of wires you drew** (since 4.2.0). Four of the rules read the device pins at the ends of the wires of a harness you drew or made from a connection, since such wires have no interface type:
+
+- *Twisted pairs* (a warning): two wires of a signal pair, such as `TX+` and `TX-`, that no twisted pair, shielded pair or quad holds together.
+- *Shielded signals* (a warning): a wire whose signal its interface types shield, in no shield. Select the two wires of a pair and **Group** them as a shielded pair to answer both warnings at once.
+- *Signal levels* (an error that may be accepted as a deviation): a wire that joins two pin **Levels** your project keeps apart. The list of levels to keep apart is yours, empty in a new project: *Settings > Engineering values*, *Signal levels kept apart* (`28V + 3V3`). Until you fill it in the rule says nothing, and a note says that the levels were not checked.
+- *Directions of drawn wires* (an error): two outputs, or only inputs, on one wire.
+
 The **Checks** tab (Ctrl+4) has one row for each rule:
 
 - A strip on top counts the rules *passed*, *failed*, *not checked* and the *pending values*; each count is a button that filters the table. The status-bar link *n values pending · n rules not checked* opens the same tab. When the design changes, the tab says *Out of date* until the rules have run again; **Check again** runs them now.
@@ -624,6 +631,8 @@ The **Show** list at the right end of the Model tab bar (**More > Show only** fo
 - **Auto-filled**: a connector the tool chose; unconfirmed until a person looks at it.
 - **Pending**: a value nobody has entered yet, for example a wire gauge that waits for a derating value. Shown with a dotted chip, never as a number.
 - **Not checked**: a design rule that could not run because a value it needs is missing. It is not a pass.
+- **Signal pair**: the two wires of one differential signal (`TX+` and `TX-`); the rule *Twisted pairs* asks for them to be twisted together.
+- **Level**: the signal level of a device pin as its ICD writes it (`RS422-3V3`, `18V`), from the **Level** column of the pinout; the tool compares the words and reads no number out of them.
 - **Out of date**: the harness plans or the exported files no longer match the design; generate or export again.
 - **Baseline**: a frozen snapshot made when a harness is released.
 - **Waiver**: a recorded decision to accept a warning, with a reason.
