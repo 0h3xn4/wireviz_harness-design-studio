@@ -143,3 +143,9 @@ The minor release `4.1.0` (D-257; the production sheet; no format change) was pu
 The note on version 3.0.0, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 3.0.0 too, and the first item still names 3.0.0 in the list of releases.
 
 **Version `3.0.0` is published** (D-249; 2026-11-19, the latest full release until 3.0.1; major; no release candidate; tag `v3.0.0` on `711f204`, made by the tag workflow, run 44444461651, its tenth use): format 3 with versions MAJOR.MINOR.PATCH and the word *Version* (#274, #280; D-242), the harness plan (#277, #278, #279, #281, #284, #283), splices (#282, D-243 section 6), the end-to-end test and documents (#285); format 3 is frozen since the tag `v3.0.0`; a 2.x tool opens it read-only; the editor opens no browser.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 4.3.0 (2026-11-21)
+
+The note on the publication of the patch release 3.0.1, moved word for word from the fourth item of the Status section (the one that starts with *Not built*) to keep `CLAUDE.md` under its size limit when 4.3.0 was prepared, as the note on 3.0.0 was moved with the publication record of 4.2.0; the sentence there that names the notes moved out of it now names 3.0.1 too, and the first item still names 3.0.1 in the list of releases.
+
+**Version `3.0.1` is published** (D-252; 2026-11-19, the latest full release until 3.1.0; no release candidate; tag `v3.0.1` on `1c79beb`, made by the tag workflow, run 44545687219): a patch release with the fix of D-250 (#291): F1 shows the guide in a window of the program (`gui/guide_window.py`), *Open* of an exported file is *Copy path*, *Reveal in folder* hands only a folder to the file manager (`gui/folders.py`, the only user of `QDesktopServices`); no format change.
