@@ -237,6 +237,16 @@ def test_config_review_checklist_reads_the_template_and_none_takes_it_out(
         (b"# Only a heading\n\n", "has no points"),
         (b"- " + b"x" * (64 * 1024), "is larger than 64 KiB"),
     ],
+    # short IDs: pytest puts the test ID in an environment variable, which Windows limits to
+    # 32,767 characters, so the file contents cannot be the ID
+    ids=[
+        "same-point-twice",
+        "point-too-long",
+        "101-points",
+        "not-utf8",
+        "no-points",
+        "over-64-kib",
+    ],
 )
 def test_config_review_checklist_refuses_a_file_and_changes_nothing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], content: bytes, why: str
