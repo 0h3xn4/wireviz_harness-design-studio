@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """`explain`: how a number of the design was made (D-191); `routing`: the tree of a harness.
 
-`explain` is step 1 of the transparency work (D-191); `routing` is 2.3.0 (D-243, section 5.9)."""
+`explain` is step 1 of the transparency work (D-191); `routing` is 2.3.0 (D-243, section 5.9).
+Since 4.3.0 `explain DIR FINDING` explains a finding by its ID (design of 4.3.0, section 7)."""
 
 import argparse
 import json
@@ -12,8 +13,18 @@ from pathlib import Path
 from harness_design_studio.api import write_derivations
 from harness_design_studio.cli.jsonout import Report, add_json_flag
 from harness_design_studio.cli.library import explain_device
-from harness_design_studio.core.derive import explain_object, render
+from harness_design_studio.core.checks import Finding
+from harness_design_studio.core.checks import find as logical_findings
+from harness_design_studio.core.derive import (
+    NotAnObjectError,
+    explain_finding,
+    explain_object,
+    not_an_object,
+    render,
+)
 from harness_design_studio.core.derive_routing import routing_tree
+from harness_design_studio.core.drc import run as run_rules
+from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import Project
 
@@ -23,7 +34,7 @@ COMMANDS = ("explain", "routing")
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser(
         "explain",
-        help="explain how the numbers and decisions of a wire, harness, interface, connector, pin or part were made: equation, inputs with units and sources, steps",
+        help="explain how the numbers and decisions of a wire, harness, interface, connector, pin or part were made, or what a finding checked: equation, inputs with units and sources, steps",
         description="Show how the numbers and decisions of one object were made. For a wire: its length, "
         "the choice of its gauge (the gauges tried, the limit of each after derating, its drop, the first that passes; "
         "not part of --all), the current its gauge may carry after derating, the voltage drop over it and its share of "
@@ -31,7 +42,10 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "whether it is ready to build and each check behind that, its test limits, why its interfaces share it, its shield groups and its connectors; "
         "HARNESS.T001 explains the limits of one test. For an interface: which harness carries it and why, its connectors, the contact current and its pins. "
         "For a connector: why it is the connector (or the mating part), its pin rows with where they come from (its own, its part's or those of the device connector it plugs into; only while it has rows) and its label; for CONNECTOR.PIN: why the signal is on that pin; for a shield group (W001-S1): why it exists and its ends. For a segment of the routing (W001-L3): its two nodes, its length and where the length came from (entered or imported; kept by Generate on a harness Generate made) and the wires through it; for a branch point (W001-B2): the segments that meet it and the connectors beyond each; for a splice (W001-X1): its part and, for each node, the ends of the net it joins. "
-        "For a part: why the bill of materials has its quantity. For INTERFACE.CONNECTOR (the object of a current-over-contact finding): the limit of the contacts. For each: the equation, the inputs with "
+        "For a part: why the bill of materials has its quantity. For INTERFACE.CONNECTOR (the object of a current-over-contact finding): the limit of the contacts. "
+        "For a finding, by the ID `drc --json` gives it (current-over-wire.W001-001, part-unapproved.EX-WIRE-SINGLE, a note of the checks not run such as unchecked-config.emc): "
+        "what the editor's Explain shows, the limit the rule checked and how it was derived, or, for a rule that is a yes/no check, what it compares, the statement of the finding, "
+        "the configuration the rule reads and what it saw; an ID is looked up among the findings only when it names no object, so an object keeps its meaning. For each: the equation, the inputs with "
         "their units and where each comes from (a key of config/*.json, a field of the design or "
         "the program), the intermediate results, what the result is checked against, and the "
         "assumptions built into the program that it rests on. The numbers are the ones `generate` "
@@ -46,7 +60,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "object",
         nargs="?",
         metavar="OBJECT",
-        help="a wire (W001-001), a harness (W001), a test (W001.T001), an interface (IF-001), a connector (GPSU1-J01), a pin (MTQ1-J01.1), a shield group (W001-S1), a segment (W001-L3), a branch point (W001-B2), a part (EX-WIRE-SINGLE) or INTERFACE.CONNECTOR (IF-001.GPSU1-J01)",
+        help="a wire (W001-001), a harness (W001), a test (W001.T001), an interface (IF-001), a connector (GPSU1-J01), a pin (MTQ1-J01.1), a shield group (W001-S1), a segment (W001-L3), a branch point (W001-B2), a part (EX-WIRE-SINGLE), INTERFACE.CONNECTOR (IF-001.GPSU1-J01) or a finding (unconfirmed.IF-001, as drc --json gives its ID)",
     )
     p.add_argument("--json", action="store_true", help="print the derivations as JSON")
     p.add_argument(
@@ -119,6 +133,14 @@ def _history(project: Project, object_id: str) -> None:
         print(f"\nHistory of {object_id} (from the change journal):\n" + journal.render(entries))
 
 
+def _finding(project: Project, finding_id: str) -> Finding | None:
+    """The finding of this ID among those `drc` prints (the logical checks and the design rules,
+    waived ones included), or None."""
+    return next(
+        (f for f in [*logical_findings(project), *run_rules(project)] if f.id == finding_id), None
+    )
+
+
 def run(args: argparse.Namespace) -> int:
     if args.command == "routing":
         return _routing(args)
@@ -141,12 +163,26 @@ def run(args: argparse.Namespace) -> int:
         if not args.json:
             _history(project, args.object)
         return code
-    found = explain_object(project, args.object)
+    finding: Finding | None = None
+    try:
+        found = explain_object(project, args.object)
+    except NotAnObjectError:  # no object by this ID: a finding of the project, else the error
+        finding = _finding(project, args.object)
+        if finding is None:
+            raise EditError(not_an_object(args.object, finding=True)) from None
+        found = explain_finding(project, finding.rule, finding.object_id)
+    if finding is not None and not found and not args.json:  # (an extension that says nothing)
+        print(
+            f"Finding {finding.id} (rule {finding.rule}, object {finding.object_id}): "
+            f"{finding.title}\nThe rule gives no calculation or comparison to show for it."
+        )
+        return 0
     if args.json:
         print(json.dumps([d.to_explain_dict() for d in found], indent=2, ensure_ascii=False))
         return 0
     print("\n\n".join(render(d) for d in found))
-    _history(project, args.object)
+    if finding is None:  # a finding has no history of its own in the journal
+        _history(project, args.object)
     pages = list(dict.fromkeys(d.model_page for d in found if d.model_page))
     if pages:  # the last lines: where the model behind each kind of number above is explained
         print()
