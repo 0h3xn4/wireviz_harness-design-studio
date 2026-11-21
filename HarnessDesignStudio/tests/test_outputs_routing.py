@@ -91,7 +91,7 @@ def test_the_build_workbook_has_the_routing_sheet_after_the_cut_list(project: Pr
     names = buildsheet.sheet_names(project, project.harnesses[H])
     assert list(sheets) == names == [
         "Start here", "Cut list", "Routing", "Production", "Connectors", "Parts", "Accessories",
-        "Labels", "Tests", "About",
+        "Labels", "Tests", "Review", "About",
     ]  # fmt: skip
     routing = [[v for v in row if v is not None] for row in sheets["Routing"]]
     assert routing == [
