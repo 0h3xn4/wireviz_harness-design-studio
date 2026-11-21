@@ -203,7 +203,7 @@ def test_a_pin_without_a_wire_gets_no_contact_line(project: Project) -> None:
 
 
 def test_the_workbook_has_the_accessories_sheet_between_parts_and_labels(project: Project, plain: Project) -> None:  # fmt: skip
-    assert SHEETS[4:7] == ("Parts", "Accessories", "Labels") and len(SHEETS) == 9
+    assert SHEETS[4:7] == ("Parts", "Accessories", "Labels") and len(SHEETS) == 10
     for p, hid in ((project, H), (plain, H)):
         data = build_workbook(p, p.harnesses[hid], stamp_of(p))
         assert list(_sheets(data)) == list(SHEETS)

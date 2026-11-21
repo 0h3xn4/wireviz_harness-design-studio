@@ -351,6 +351,8 @@ def _open_block(project: Project, h: Harness) -> Block:
     for check in readiness(project, h):
         if check.label == _PARTS_CHECK or not check.items:
             continue
+        # in natural ID order, so that the sheet does not depend on the order of the wires
+        items = sorted(check.items, key=lambda x: (natural_key(x), x))
         where = (
             _END_SHEETS
             if check.label == LOOSE_CHECK[0]
@@ -362,12 +364,12 @@ def _open_block(project: Project, h: Harness) -> Block:
             Row(
                 (
                     check.label,
-                    len(check.items),
-                    _first(check.items),
+                    len(items),
+                    _first(items),
                     where,
                     _STOPPING_CHECKS.get(check.label, ""),
                 ),
-                check.items[0],
+                items[0],
             )  # fmt: skip
         )
     types = sorted(

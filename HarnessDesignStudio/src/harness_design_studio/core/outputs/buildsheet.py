@@ -16,8 +16,9 @@ import functools
 import io
 import weakref
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from harness_design_studio.core import asbuilt, settings
 from harness_design_studio.core.deviations import (
@@ -38,13 +39,16 @@ from .production import colour_text, production_blocks
 from .stamp import Stamp, Table
 from .xlsx_env import ILLEGAL_CHARACTERS_RE, Cell, Workbook, WriteOnlyCell
 
+if TYPE_CHECKING:
+    from harness_design_studio.core.checks import Finding
+
 FILE_SUFFIX = "_build.xlsx"
 
 SHEETS = (
     "Start here", "Cut list", "Production", "Connectors", "Parts", "Accessories", "Labels", "Tests",
-    "About",
+    "Review", "About",
 )  # fmt: skip
-ASBUILT_SHEET = "As-built"  # between Tests and About, only for a harness that has as-built records
+ASBUILT_SHEET = "As-built"  # after Tests, only for a harness that has as-built records
 ROUTING_SHEET = "Routing"  # after Cut list, only for a harness with a branch point (D-243 B7)
 ROUTING_TEXT = "the segments of the bundle with their lengths and wires, and the branch points"
 # The Production sheet (4.1.0, design of 4.1.0 part A): one block per connector, both ends of every
@@ -56,17 +60,28 @@ PRODUCTION_TEXT = (
 )
 PRODUCTION_HEADER = [*PRODUCTION_COLUMNS, "Done (x)"]
 LENGTHS_ROW = "Lengths"  # the row of *Start here* (From the design) with the length reference
+# The Review sheet (4.3.0, design of 4.3.0 part B): the review view of `core.review.review_view`,
+# before *About* (after *Tests* and *As-built*), for the person who reviews the harness.
+REVIEW_SHEET = "Review"
+REVIEW_TEXT = (
+    "for the reviewer: the project's checklist with a column to tick, every finding and open value "
+    "of this harness, and the sources to look at"
+)
+REVIEW_PAGE_ROWS = 42  # the rows of a printed page, as the breaks of Connectors count them
+REVIEW_KEEP_ROWS = 5  # a block that would start in the last five rows of a page starts a new page
+REVIEW_WIDE = {("checklist", 2): 80.0, ("findings", 5): 80.0}  # Point and Finding text wrap at 80
 
 
 def sheet_names(project: Project, h: Harness) -> list[str]:
     """The sheets of the workbook of `h`: `SHEETS`, with *Routing* after *Cut list* when the harness
-    has a branch point (2.3.0) and *As-built* before *About* when the project holds as-built records
-    of this harness (S9); every other harness has the sheets it always had."""
+    has a branch point (2.3.0) and *As-built* after *Tests* (before *Review* and *About*) when the
+    project holds as-built records of this harness (S9); every other harness has the sheets it
+    always had. *Review* (4.3.0) is in every workbook, before *About*."""
     names = list(SHEETS)
     if tables.has_branches(h):
         names.insert(names.index("Cut list") + 1, ROUTING_SHEET)
     if has_asbuilt(project, h):
-        names.insert(names.index("About"), ASBUILT_SHEET)
+        names.insert(names.index(REVIEW_SHEET), ASBUILT_SHEET)
     return names
 
 
@@ -502,6 +517,7 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         ("Accessories", "sleeving, heat shrink, labels and backshells to fit; tick each when done"),
         ("Labels", "the labels to print and fit"),
         ("Tests", "continuity and insulation tests; write down the result"),
+        (REVIEW_SHEET, REVIEW_TEXT),
         ("About", "which version of the tool and which design this was made from"),
     ):  # fmt: skip
         body.append(
@@ -969,6 +985,83 @@ def _asbuilt_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     _finish(ws, lay, stamp, body, tab="7F8C8D", freeze="A2")
 
 
+# the fill of the column Release of the Review sheet, by its words (`review.STOPS`, `review.REASON`)
+_RELEASE_FILLS = {"stops the release": _RED, "needs a written reason": _AMBER}
+
+
+def _review_cell(ws: Any, value: object, column: str) -> Any:
+    """One cell of a row of the Review sheet: the column Release in red for what stops the release
+    and in amber for what needs a written reason (the words say it too, never the colour alone),
+    the number and tick columns centred, the IDs of findings and sources in bold."""
+    if column == "Release":
+        return _cell(ws, value, fill=_RELEASE_FILLS.get(str(value)))
+    if column in ("No.", "Open", "Done (x)"):
+        return _cell(ws, value, centre=True)
+    return _cell(ws, value, bold=column in ("Finding", "ID"))
+
+
+def _review_sheet(
+    wb: Any, project: Project, h: Harness, stamp: Stamp, findings: Sequence[Finding]
+) -> None:
+    """The Review sheet (4.3.0, design of 4.3.0 part B, sections 4.2 and 4.5): the head and the six
+    blocks of `review.review_view`, which gathers them; nothing here works a value out again. Each
+    block has its heading row and, when it has rows, a column row; an empty block has its one
+    sentence in place of both. The checklist's *Done (x)* takes ticks like every other sheet.
+    Printed like every sheet (A4 landscape, one page wide), with no repeated header row (the blocks
+    have their own) and a manual page break before a block that would start in the last five rows
+    of a page (`REVIEW_PAGE_ROWS`, `REVIEW_KEEP_ROWS`)."""
+    from openpyxl.worksheet.pagebreak import Break
+
+    from harness_design_studio.core.review import RELEASE_HINT, TICK_HINT, review_view
+
+    view = review_view(project, h, findings)
+    ws = wb.create_sheet(REVIEW_SHEET)
+    lay = _Layout({})
+    body: list[list[Any]] = [
+        [_cell(ws, view.title, bold=True, size=16, box=False, wrap=False)],
+        [_cell(ws, f"Version {view.version}   ·   status {view.status}   ·   {stamp.line}   ·   {stamp.notice}",
+               box=False, wrap=False, colour=_GREY_TEXT)],
+        [_cell(ws, view.release, box=False, wrap=False)],
+        [_cell(ws, RELEASE_HINT, box=False, wrap=False)],
+        [_cell(ws, TICK_HINT, italic=True, box=False, wrap=False)],
+    ]  # fmt: skip
+    since = 0  # the last row before the last manual break
+    ticks: tuple[int, int] | None = None
+    widths: dict[int, float] = {}  # the widest text of each column, capped by its own column
+    for block in view.blocks:
+        body.append([])
+        place = (len(body) - since) % REVIEW_PAGE_ROWS  # the place of the heading on its page
+        if place >= REVIEW_PAGE_ROWS - REVIEW_KEEP_ROWS:
+            ws.row_breaks.append(Break(id=len(body)))
+            since = len(body)
+        body.append([_cell(ws, block.heading, bold=True, size=11, box=False, wrap=False)])
+        if not block.columns:  # sentences, a row each
+            body.extend([_cell(ws, row.cells[0], box=False, wrap=False)] for row in block.rows)
+            continue
+        if not block.rows:
+            body.append([_cell(ws, block.empty, box=False, wrap=False, colour=_GREY_TEXT)])
+            continue
+        body.append(_header(ws, lay, list(block.columns)))
+        first = len(body) + 1
+        for row in block.rows:
+            body.append([
+                _review_cell(ws, value, column)
+                for value, column in zip(row.cells, block.columns, strict=True)
+            ])  # fmt: skip
+            for n, value in enumerate(row.cells, start=1):
+                seen = _Layout({})
+                seen.see(n, str(value), cap=REVIEW_WIDE.get((block.key, n), 46.0))
+                widths[n] = max(widths.get(n, 0.0), seen.widths[n])
+        if block.key == "checklist":
+            ticks = (first, len(body))
+    if ticks is not None:
+        _tick_rules(ws, f"C{ticks[0]}:C{ticks[1]}")
+    for n, width in widths.items():  # a block's own cap holds against the narrower caps of others
+        lay.widths[n] = max(lay.widths.get(n, 0.0), width)
+    lay.widths[1] = max(lay.widths.get(1, 0.0), 10.0)
+    _finish(ws, lay, stamp, body, tab="B7950B", header_row=None)
+
+
 def _about_sheet(wb: Any, stamp: Stamp) -> None:
     """The same two rows as the other workbooks, so the verifier reads the stamp the same way."""
     ws = wb.create_sheet("About")
@@ -977,8 +1070,16 @@ def _about_sheet(wb: Any, stamp: Stamp) -> None:
     ws.append(["Notice", stamp.notice])
 
 
-def build_workbook(project: Project, h: Harness, stamp: Stamp) -> bytes:
-    """The build workbook of harness `h` (see the module text)."""
+def build_workbook(
+    project: Project, h: Harness, stamp: Stamp, findings: Sequence[Finding] | None = None
+) -> bytes:
+    """The build workbook of harness `h` (see the module text). `findings` are those of
+    `checks.find` and `drc.run` for the Review sheet, which `build_outputs` runs once for every
+    harness and `system/drc_findings.csv`; without them they are run here."""
+    if findings is None:
+        from harness_design_studio.core import checks, drc
+
+        findings = [*checks.find(project), *drc.run(project)]
     wb = Workbook(write_only=True)
     wb.properties.creator = "harness-design-studio"
     wb.properties.title = f"{stamp.line} {h.id}"
@@ -996,6 +1097,7 @@ def build_workbook(project: Project, h: Harness, stamp: Stamp) -> bytes:
     _tests_sheet(wb, project, h, stamp)
     if has_asbuilt(project, h):
         _asbuilt_sheet(wb, project, h, stamp)
+    _review_sheet(wb, project, h, stamp, findings)
     _about_sheet(wb, stamp)
     raw = io.BytesIO()
     wb.save(raw)
@@ -1022,6 +1124,7 @@ def cut_rows(project: Project, h: Harness) -> Table:
 
 __all__ = [
     "ASBUILT_SHEET", "CUT_HEADER", "FILE_SUFFIX", "LENGTHS_ROW", "PRODUCTION_HEADER",
-    "PRODUCTION_SHEET", "ROUTING_HEADER", "ROUTING_SHEET", "SHEETS", "Check", "build_workbook",
+    "PRODUCTION_SHEET", "REVIEW_SHEET", "REVIEW_TEXT", "ROUTING_HEADER", "ROUTING_SHEET", "SHEETS",
+    "Check", "build_workbook",
     "cut_rows", "has_asbuilt", "readiness", "ready_text", "routing_rows", "sheet_names",
 ]  # fmt: skip
