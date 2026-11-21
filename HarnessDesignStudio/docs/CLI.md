@@ -540,6 +540,7 @@ Hand-over checklist for the engineering values (derating, grounding, test limits
 | `--ampacity-csv AMPACITY_CSV` | CSV with a gauge column and an amperes column; sets derating.ampacity_a_by_awg |
 | `--counterparts WORDS` | the words that are the two ends of one line, for the link review and the pairing, for example 'TX=RX, MOSI=MISO' (sets naming.signal_counterparts); 'default' goes back to the table the tool ships with, 'none' pairs equal names only |
 | `--distinct-roles DISTINCT_ROLES` | on: a release needs an author, a checker and a person who releases that are three different people, a date that is not earlier than the project's change log and not more than a day ahead; every name is typed (sets naming.release_distinct_roles); off: the setting is taken out again (the default) (one of off, on) |
+| `--review-checklist FILE` | set the project's review checklist from the list items of a text or Markdown file (UTF-8, at most 64 KiB; the file design-review-checklist.md of `templates` is one): each list item is a point, or, in a file without list items, each line that is not empty and is not a heading; sets naming.review_checklist (at most 100 points of 1 to 300 characters, each once); 'none' takes the checklist out |
 | `--apply-profile NAME` | fill the unset values from a standard profile (ecss-q-st-30-11c, ecss-e-st-20-07c); values you already set are kept; the files stay placeholders until you review them |
 | `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
 
