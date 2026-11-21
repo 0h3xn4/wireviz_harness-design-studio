@@ -30,7 +30,13 @@ the only outputs that carry the texts.
 
 The Production sheet of the build workbook (4.1.0) is worded a second time by
 `verify_production.production_rows`, the verifier's own copy of its rows, and every sheet with
-lengths ends with the sentences of `verify_production._length_lines`, a row each."""
+lengths ends with the sentences of `verify_production._length_lines`, a row each.
+
+The Review sheet of the build workbook (4.3.0) is worded a second time by
+`verify_review.review_rows`, the verifier's own copy of the review view, from the findings that
+`verify_outputs` runs once (`checks.find` and `drc.run`, as for `system/drc_findings.csv`); the
+open items of the checks of *Start here* are `verify_review.expected_items`, which both sheets
+use."""
 
 import csv
 import hashlib
@@ -47,6 +53,7 @@ from typing import Any
 
 from harness_design_studio import __version__
 from harness_design_studio.core import checks, configcheck, drc, settings
+from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.deviations import (
     override_text,
     tests_band,
@@ -56,7 +63,7 @@ from harness_design_studio.core.deviations import (
 )
 from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.model import Connector, Harness, Link, Pin, Project, Wire
-from harness_design_studio.core.model.physical import LOOSE_ROLE, TBD_PART_ID
+from harness_design_studio.core.model.physical import LOOSE_ROLE
 from harness_design_studio.core.verify import VerifyReport, link_issues
 
 from .export_units import missing_units
@@ -71,6 +78,10 @@ from .verify_labels import (
 from .verify_plan import face_rows, plan_stamp, row_numbers, verify_plans
 from .verify_production import HEADER as _PRODUCTION_HEADER
 from .verify_production import _length_lines, production_rows
+from .verify_review import LOOSE_CHECK as _LOOSE_CHECK
+from .verify_review import SHEET as _REVIEW
+from .verify_review import START_LINE as _REVIEW_LINE
+from .verify_review import Review, block_rows, expected_items, head_rows, review_rows
 
 # A loose cable end, worded independently of tables.py, drawing.py and buildsheet.py (D-201).
 _OPEN_PART_TAG = " (loose end)"
@@ -245,9 +256,10 @@ def verify_outputs(project: Project, files: dict[str, bytes]) -> VerifyReport:
     for rel in sorted(files):
         if rel != MANIFEST:
             _guard(r, rel, lambda rel=rel: _stamp(r, rel, files[rel], short))  # type: ignore[misc]
+    found = [*checks.find(project), *drc.run(project)]  # once: the Review sheets and the DRC table
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
-        _guard(r, f"harnesses/{h.id}", lambda h=h: _harness(r, project, h, files))  # type: ignore[misc]
-    _guard(r, "system", lambda: _system(r, project, files))
+        _guard(r, f"harnesses/{h.id}", lambda h=h: _harness(r, project, h, files, found))  # type: ignore[misc]
+    _guard(r, "system", lambda: _system(r, project, files, found))
     # the harness plans (3.0.0, D-242): each plan the manifest lists, worked out on its own
     verify_plans(r, project, files, lambda what, fn: _guard(r, what, fn))
     # a harness made from a link must still carry the link's pairs: outputs of a harness that
@@ -339,7 +351,13 @@ def _xlsx_rows(data: bytes, sheet: str) -> list[list[str]]:
     return _xlsx_sheets(data).get(sheet, [])
 
 
-def _harness(r: VerifyReport, project: Project, h: Harness, files: dict[str, bytes]) -> None:
+def _harness(
+    r: VerifyReport,
+    project: Project,
+    h: Harness,
+    files: dict[str, bytes],
+    found: list[Finding] | None = None,
+) -> None:
     base = f"harnesses/{h.id}"
     for name in HARNESS_FILES:
         if f"{base}/{name}" not in files:
@@ -447,7 +465,7 @@ def _harness(r: VerifyReport, project: Project, h: Harness, files: dict[str, byt
             )
     _harness_cells(r, project, h, files)
     _harness_tables(r, project, h, files)
-    _build_workbook(r, project, h, files)
+    _build_workbook(r, project, h, files, found)
     _routing(r, h, files)
     if _has_drawings(files):  # D-169: the drawings are optional, but all or none of the harnesses
         _drawings(r, project, h, files)
@@ -1002,7 +1020,9 @@ def _values_hash(values: dict[str, object]) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
-def _system(r: VerifyReport, project: Project, files: dict[str, bytes]) -> None:
+def _system(
+    r: VerifyReport, project: Project, files: dict[str, bytes], found: list[Finding] | None = None
+) -> None:
     for name in SYSTEM_FILES:
         if f"system/{name}" not in files:
             r.error("out_missing", f"system/{name} was not generated.", name)
@@ -1152,7 +1172,8 @@ def _system(r: VerifyReport, project: Project, files: dict[str, bytes]) -> None:
                     r.error("out_diagram", f"The block diagram does not show connection {unseen[0]}.", name)  # fmt: skip
     fd = _table(files, "system/drc_findings.csv")
     if fd:
-        found = [*checks.find(project), *drc.run(project)]
+        if found is None:
+            found = [*checks.find(project), *drc.run(project)]
         want_rows = [
             [f.id, f.rule, f.severity, f.object_id or "", f.title, f.waived_mark,
              f.waiver.justification if f.waiver else "", " ".join(f.sources)]
@@ -1842,7 +1863,7 @@ def _has_drawings(files: dict[str, bytes]) -> bool:
 _PRODUCTION = "Production"
 _BUILD_SHEETS = [
     "Start here", "Cut list", _PRODUCTION, "Connectors", "Parts", "Accessories", "Labels", "Tests",
-    "About",
+    _REVIEW, "About",
 ]  # fmt: skip
 _BUILD_CUT_HEADER = [
     "Cut (x)", "Wire", "Colour", "AWG", "Part", "Length (m), rear to rear", "Strip A (mm)",
@@ -1893,47 +1914,18 @@ def _cut_key(h: Harness, w: Wire) -> tuple[int, int, str, int, float, str]:
 
 
 def _build_expected_checks(project: Project, h: Harness) -> dict[str, int]:
-    """The open counts of the *Start here* sheet, worked out from the model alone."""
-    used: set[tuple[str, str]] = set()
-    for w in h.wires:
-        used.add((w.from_connector, w.from_pin))
-        used.add((w.to_connector, w.to_pin))
-    parts = {c.part_id for c in h.connectors} | {w.part_id for w in h.wires if w.part_id}
-    parts.discard(TBD_PART_ID)  # a loose end is judged by "Ends not decided", not as a part
-    loose = sum(1 for c in h.connectors if c.role == LOOSE_ROLE)
-    return {
-        "Wires without a length": sum(1 for w in h.wires if _length_of(h, w) is None),
-        "Wires without a gauge": sum(1 for w in h.wires if w.gauge_awg is None),
-        "Wires without a colour": sum(1 for w in h.wires if not w.colour),
-        "Wires without a part": sum(1 for w in h.wires if not w.part_id),
-        "Pins in use without a termination": sum(
-            1
-            for c in h.connectors
-            for p in c.pins
-            if (c.id, p.id) in used and p.termination == "unspecified"
-        ),
-        "Wires without strip lengths": sum(
-            1 for w in h.wires if w.strip_a_mm is None or w.strip_b_mm is None
-        ),
-        "Pins in use without a contact part": sum(
-            1
-            for c in h.connectors
-            for p in c.pins
-            if (c.id, p.id) in used and not p.contact_part and not _splice(c)
-        ),
-        "Parts that are not approved": sum(
-            1
-            for pid in parts
-            if pid not in project.parts or project.parts[pid].approval != "approved"
-        ),
-        **({_LOOSE_CHECK: loose} if loose else {}),  # the ninth check: only for a harness with one
-    }
+    """The open counts of the *Start here* sheet, worked out from the model alone: the number of
+    the open items of each check (`verify_review.expected_items`, which the Review sheet names)."""
+    return {label: len(items) for label, items in expected_items(project, h).items()}
 
 
-_LOOSE_CHECK = "Ends not decided"  # always blocks, whatever `model.readiness_blocking` says
-
-
-def _build_workbook(r: VerifyReport, project: Project, h: Harness, files: dict[str, bytes]) -> None:
+def _build_workbook(
+    r: VerifyReport,
+    project: Project,
+    h: Harness,
+    files: dict[str, bytes],
+    found: list[Finding] | None = None,
+) -> None:
     """The build workbook of one harness against the design: the sheets, the cut list (every wire
     once, in cut order, with its values), the pins of every connector, the parts, labels and tests
     (the same rows as the CSV tables, plus empty columns to fill in) and the counts of *Start here*."""
@@ -1949,12 +1941,15 @@ def _build_workbook(r: VerifyReport, project: Project, h: Harness, files: dict[s
     if branching:  # 2.3.0: only a harness with a branch point has the routing
         wanted.insert(wanted.index("Cut list") + 1, _ROUTING)
     if any(rec.harness_id == h.id for rec in project.asbuilt.values()):
-        wanted.insert(wanted.index("About"), "As-built")  # S9: only for a harness with records
+        wanted.insert(wanted.index(_REVIEW), "As-built")  # S9: only for a harness with records
     if (_ROUTING in sheets) != branching:
         if branching:
             r.error("out_routing", f"{what} has no {_ROUTING} sheet, but {h.id} has a branch point.", h.id)  # fmt: skip
         else:
             r.error("out_routing", f"{what} has a {_ROUTING} sheet, but {h.id} has no branch point.", h.id)  # fmt: skip
+        return
+    if list(sheets)[-2:] != [_REVIEW, "About"]:  # 4.3.0: the reviewer's sheet, before About
+        r.error("out_build", f"{what} has no {_REVIEW} sheet before About.", h.id)
         return
     if list(sheets) != wanted:
         r.error("out_build", f"{what} does not have the sheets {', '.join(wanted)}.", h.id)
@@ -1984,6 +1979,9 @@ def _build_workbook(r: VerifyReport, project: Project, h: Harness, files: dict[s
         r.error("out_build", f"{what} (Labels) has the wrong column headings.", h.id)
     _build_tests(r, project, h, what, sheets["Tests"])
     _build_start(r, project, h, what, sheets["Start here"], lines)
+    if found is None:
+        found = [*checks.find(project), *drc.run(project)]
+    _build_review(r, project, h, what, sheets[_REVIEW], sheets["About"], found)
 
 
 def _trimmed(row: list[str]) -> list[str]:
@@ -2275,6 +2273,9 @@ def _build_start(
     named = [row[0] for row in rows if row[:1] in ([_PRODUCTION], ["Connectors"])]
     if named != [_PRODUCTION, "Connectors"]:
         r.error("out_build", f"{what} (Start here) does not list the {_PRODUCTION} sheet before Connectors.", h.id)  # fmt: skip
+    review = [_trimmed(row)[:2] for row in rows if row[:1] in ([_REVIEW], ["About"])]
+    if [line[0] for line in review] != [_REVIEW, "About"] or review[0] != [_REVIEW, _REVIEW_LINE]:
+        r.error("out_build", f"{what} (Start here) does not list the {_REVIEW} sheet before About.", h.id)  # fmt: skip
     table = {row[0]: row for row in rows if len(row) >= 3 and row[2] in ("OK", "TO FIX", "NOTE")}
     want = _build_expected_checks(project, h)
     if _LOOSE_CHECK in table and _LOOSE_CHECK not in want:
@@ -2297,6 +2298,203 @@ def _build_start(
             r.error("out_build", f"{what} (Start here) does not list the placeholder files.", h.id)
     if ready != want_ready:
         r.error("out_build", f"{what} (Start here) shows the wrong 'Ready to build' answer.", h.id)
+
+
+# ---- the Review sheet of the build workbook (4.3.0, design of 4.3.0 section 4.6) ---------------
+
+
+def _review_text(value: str) -> str:
+    """A text as a workbook cell can hold it (the characters a sheet cannot store left out)."""
+    from .xlsx_env import ILLEGAL_CHARACTERS_RE
+
+    return str(ILLEGAL_CHARACTERS_RE.sub("", value))
+
+
+def _review_blocks(rows: list[list[str]]) -> list[list[list[str]]]:
+    """The rows after the head, cut into blocks at the empty rows, each row without the empty
+    cells at its end."""
+    blocks: list[list[list[str]]] = []
+    for row in rows:
+        cells = _trimmed(row)
+        if not cells:
+            blocks.append([])
+        elif blocks:
+            blocks[-1].append(cells)
+        else:
+            blocks.append([cells])
+    return [b for b in blocks if b]
+
+
+def _build_review(
+    r: VerifyReport,
+    project: Project,
+    h: Harness,
+    what: str,
+    rows: list[list[str]],
+    about: list[list[str]],
+    found: list[Finding],
+) -> None:
+    """The Review sheet against the verifier's own wording of it (`verify_review.review_rows`): the
+    five rows of the head (the stamp and notice as the About sheet of the workbook has them), then
+    the six blocks after an empty row each, every heading, column name, row and sentence. A
+    difference is reported in the words of the design (section 4.6), the object the harness."""
+    what = f"{what} ({_REVIEW})"
+    want = review_rows(project, h, found)
+    stamp = {row[0]: row[1] for row in about if len(row) > 1}
+    head = [_review_text(t) for t in head_rows(want, stamp.get("Generated by", ""), stamp.get("Notice", ""))]  # fmt: skip
+    got_head = [_trimmed(row) for row in rows[: len(head)]]
+    for n, text in enumerate(head):
+        if got_head[n : n + 1] != [[text]]:
+            if n == 2:
+                r.error("out_review", f"{what} names the release of version {h.version} wrongly.", h.id)  # fmt: skip
+            else:
+                r.error("out_review", f"{what} does not have row {n + 1} of the design: '{text[:80]}'.", h.id)  # fmt: skip
+    got = _review_blocks(rows[len(head) :])
+    if len(got) != len(want.blocks):
+        r.error("out_review", f"{what} does not have the {len(want.blocks)} blocks of the design.", h.id)  # fmt: skip
+        return
+    for block, have in zip(want.blocks, got, strict=True):
+        _review_block(r, h, what, want, block, have)
+
+
+def _review_block(
+    r: VerifyReport, h: Harness, what: str, want: Review, block: Any, have: list[list[str]]
+) -> None:
+    """One block of the Review sheet: its heading, its column names and its rows."""
+    expected = [[_review_text(c) for c in row] for row in block_rows(block)]
+    if have[0] != expected[0]:
+        r.error("out_review", f"{what} does not have the heading '{expected[0][0][:80]}'.", h.id)
+    if not block.columns:
+        if have[1:] != expected[1:]:
+            r.error("out_review", f"{what} does not have the sentences of '{block.heading}'.", h.id)  # fmt: skip
+        return
+    body, heading = have[1:], expected[0][0][:80]
+    if body == [[block.empty]]:  # no rows (right when the design has none)
+        body = []
+    elif body[:1] == [list(block.columns)]:
+        body = body[1:]
+    elif not block.rows:
+        r.error("out_review", f"{what} does not say '{block.empty[:80]}'.", h.id)
+        return
+    else:
+        r.error("out_review", f"{what} has the wrong column headings in '{heading}'.", h.id)
+        return
+    if any(len(row) > len(block.columns) for row in body):
+        r.error("out_review", f"{what} has cells right of the columns of '{heading}'.", h.id)
+        return
+    wanted = expected[2:] if block.rows else []
+    {
+        "checklist": _review_checklist,
+        "findings": _review_findings,
+        "project": _review_findings,
+        "open": _review_open,
+        "sources": _review_sources,
+    }[block.key](r, h, what, want, block, body, wanted)
+
+
+def _cell_at(row: list[str], n: int) -> str:
+    return row[n] if n < len(row) else ""
+
+
+def _review_checklist(
+    r: VerifyReport,
+    h: Harness,
+    what: str,
+    want: Review,
+    block: Any,
+    body: list[list[str]],
+    wanted: list[list[str]],
+) -> None:
+    if any(_cell_at(row, 2) for row in body):
+        r.error("out_review", f"{what} has ticks before anyone reviewed it.", h.id)
+        return
+    if len(body) != len(wanted):
+        listed = f"{len(want.points)} (list {want.list_hash})" if want.points else "none"
+        r.error("out_review", f"{what} lists {len(body)} points, but config/naming.json has {listed}.", h.id)  # fmt: skip
+        return
+    for n, (row, line) in enumerate(zip(body, wanted, strict=True), start=1):
+        if row != line:
+            r.error("out_review", f"{what} gives point {n} as '{_cell_at(row, 1)}', but the project's checklist says '{_cell_at(line, 1)}'.", h.id)  # fmt: skip
+            return
+
+
+def _review_findings(
+    r: VerifyReport,
+    h: Harness,
+    what: str,
+    want: Review,
+    block: Any,
+    body: list[list[str]],
+    wanted: list[list[str]],
+) -> None:
+    """Block 2 or 3: every finding once, by its ID (the column Finding), in the order of the
+    design, each cell as the design has it."""
+    key = block.columns.index("Finding")
+    whose = h.id if block.key == "findings" else "the whole project"
+    have = {_cell_at(row, key): row for row in body}
+    expected = {row[key]: row for row in wanted}
+    for fid in expected:
+        if fid not in have:
+            r.error("out_review", f"{what} does not list the finding {fid}.", h.id)
+    for fid in have:
+        if fid not in expected:
+            r.error("out_review", f"{what} lists the finding {fid}, which is not about {whose}.", h.id)  # fmt: skip
+    if set(have) != set(expected) or len(have) != len(body):
+        return
+    for fid, line in expected.items():
+        row = have[fid]
+        for n, column in enumerate(block.columns):
+            mine, theirs = _cell_at(row, n), _cell_at(line, n)
+            if mine == theirs:
+                continue
+            if column == "State":
+                r.error("out_review", f"{what} gives the finding {fid} as '{mine}', but it is {theirs.rstrip('.')}.", h.id)  # fmt: skip
+            else:
+                r.error("out_review", f"{what} gives the finding {fid} with the {column} '{mine}', but the design has '{theirs}'.", h.id)  # fmt: skip
+            break
+    if [_cell_at(row, key) for row in body] != list(expected):
+        r.error("out_review", f"{what} does not list the findings in the order of the design.", h.id)  # fmt: skip
+
+
+def _review_open(
+    r: VerifyReport,
+    h: Harness,
+    what: str,
+    want: Review,
+    block: Any,
+    body: list[list[str]],
+    wanted: list[list[str]],
+) -> None:
+    """Block 4: one row for each value still open, by what it is."""
+    have = {_cell_at(row, 0): row for row in body}
+    expected = {row[0]: row for row in wanted}
+    for label in [*expected, *(x for x in have if x not in expected)]:
+        row, line = have.get(label), expected.get(label)
+        if row is None or line is None or _cell_at(row, 1) != _cell_at(line, 1):
+            r.error("out_review", f"{what} shows a wrong count for '{label}'.", h.id)
+        elif row != line:
+            r.error("out_review", f"{what} does not give '{label}' as the design has it.", h.id)
+    if set(have) == set(expected) and [_cell_at(row, 0) for row in body] != list(expected):
+        r.error("out_review", f"{what} does not list the open values in the order of the design.", h.id)  # fmt: skip
+
+
+def _review_sources(
+    r: VerifyReport,
+    h: Harness,
+    what: str,
+    want: Review,
+    block: Any,
+    body: list[list[str]],
+    wanted: list[list[str]],
+) -> None:
+    """Block 5: each device connector and each part once, by its kind and ID, in their order."""
+    have = {(_cell_at(row, 0), _cell_at(row, 1)): row for row in body}
+    expected = {(row[0], row[1]): row for row in wanted}
+    for ref in [*expected, *(x for x in have if x not in expected)]:
+        if have.get(ref) != expected.get(ref):
+            r.error("out_review", f"{what} does not name the source of {ref[1]} as the design has it.", h.id)  # fmt: skip
+    if set(have) == set(expected) and [(_cell_at(row, 0), _cell_at(row, 1)) for row in body] != list(expected):  # fmt: skip
+        r.error("out_review", f"{what} does not list the sources in the order of the design.", h.id)  # fmt: skip
 
 
 # ---- the routing of a harness that branches (2.3.0, D-243 B7) -----------------------------------

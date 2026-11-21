@@ -5,11 +5,12 @@ bytes. `outputs_status` compares a folder with the current model (stale detectio
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from harness_design_studio.core import asbuilt, checks, drc
+from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.drc.report import render_markdown
 from harness_design_studio.core.errors import HarnessError, SaveError
 from harness_design_studio.core.io.fs import atomic_write_bytes, escapes_root
@@ -88,9 +89,11 @@ def _sheet_files(sheet: Sheet, base: str, stamp: Stamp, out: dict[str, bytes]) -
     out[f"{base}.pdf"] = to_pdf([sheet], sheet.title, stamp.meta)
 
 
-def findings_table(project: Project) -> Table:
+def findings_table(project: Project, found: Sequence[Finding] | None = None) -> Table:
+    """`system/drc_findings.csv`: every finding of the logical checks and the design rules (`found`
+    when the caller has run them already, as `build_outputs` has)."""
     found = sorted(
-        [*checks.find(project), *drc.run(project)],
+        [*checks.find(project), *drc.run(project)] if found is None else found,
         key=lambda f: ({"error": 0, "warning": 1, "info": 2}[f.severity], f.id),
     )
     rows = [
@@ -146,6 +149,8 @@ def build_outputs(
         project.harnesses[i]
         for i in sorted(harness_ids if harness_ids is not None else project.harnesses)
     ]
+    # the findings, run once: the Review sheet of every build workbook and drc_findings.csv
+    found = [*checks.find(project), *drc.run(project)]
     for n, h in enumerate(chosen):
         if cancel is not None and cancel():
             raise OutputsCancelled("Export was cancelled. Nothing was written.")
@@ -179,7 +184,9 @@ def build_outputs(
             sheets["Segments"] = sg
         out[f"{base}/wireviz.yaml"] = exports.wireviz_yaml(project, h, stamp)
         out[f"{base}/{h.id}.xlsx"] = exports.xlsx_bytes(sheets, stamp)
-        out[f"{base}/{h.id}{buildsheet.FILE_SUFFIX}"] = buildsheet.build_workbook(project, h, stamp)
+        out[f"{base}/{h.id}{buildsheet.FILE_SUFFIX}"] = buildsheet.build_workbook(
+            project, h, stamp, found
+        )
         if drawings:
             _drawing_files(project, h, stamp, out, sizes)
         if harness_plan:
@@ -201,7 +208,7 @@ def build_outputs(
     if project.links:  # the connection list (ICD style): only a project with connections has it
         out[connections.CONNECTIONS_CSV] = csv_bytes(connections.connection_rows(project), stamp)
         out[connections.CONNECTIONS_XLSX] = connections.connections_workbook(project, stamp)
-    findings = findings_table(project)
+    findings = findings_table(project, found)
     out["system/drc_findings.csv"] = csv_bytes(findings, stamp)
     out["system/drc_report.md"] = with_notice(
         f"<!-- {stamp.line} -->\n" + render_markdown(project), stamp

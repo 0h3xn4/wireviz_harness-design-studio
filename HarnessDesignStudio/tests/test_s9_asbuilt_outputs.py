@@ -126,7 +126,7 @@ def test_the_csv_has_one_row_for_each_value_with_the_margin(sets, with_records) 
 
 def test_the_build_workbook_of_a_harness_with_records_has_an_asbuilt_sheet_before_about(sets, with_records) -> None:  # fmt: skip
     wb = load_workbook(io.BytesIO(sets[1].files["harnesses/W001/W001_build.xlsx"]), data_only=True)
-    assert wb.sheetnames == [*SHEETS[:2], ROUTING_SHEET, *SHEETS[2:-1], ASBUILT_SHEET, "About"]
+    assert wb.sheetnames == [*SHEETS[:2], ROUTING_SHEET, *SHEETS[2:-2], ASBUILT_SHEET, "Review", "About"]  # fmt: skip
     rows = [[("" if v is None else str(v)) for v in r] for r in wb[ASBUILT_SHEET].iter_rows(values_only=True)]  # fmt: skip
     assert rows == asbuilt.report_rows(with_records, "W001")
     other = load_workbook(

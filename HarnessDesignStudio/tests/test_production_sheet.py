@@ -502,7 +502,7 @@ def test_the_sheet_comes_after_the_cut_list_and_the_routing_before_connectors(
 ) -> None:
     assert bs.SHEETS == (
         "Start here", "Cut list", "Production", "Connectors", "Parts", "Accessories", "Labels",
-        "Tests", "About",
+        "Tests", "Review", "About",
     )  # fmt: skip
     straight, branching = flatsat.harnesses["W003"], flatsat.harnesses["W001"]
     assert not tables.has_branches(straight) and tables.has_branches(branching)
@@ -515,8 +515,8 @@ def test_the_sheet_comes_after_the_cut_list_and_the_routing_before_connectors(
     with_records.asbuilt["R1"] = AsBuiltRecord(
         id="R1", kind="harness", harness_id="W003", subject="W003"
     )
-    assert bs.sheet_names(with_records, with_records.harnesses["W003"])[-3:] == [
-        "Tests", bs.ASBUILT_SHEET, "About",
+    assert bs.sheet_names(with_records, with_records.harnesses["W003"])[-4:] == [
+        "Tests", bs.ASBUILT_SHEET, "Review", "About",
     ]  # fmt: skip
 
 
