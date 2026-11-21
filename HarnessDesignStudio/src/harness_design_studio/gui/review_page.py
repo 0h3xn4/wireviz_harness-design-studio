@@ -365,7 +365,7 @@ class ReviewPage(QScrollArea):
         self.headings["how"] = how
         body.addWidget(how)
         self.how_lines: list[WrapLabel] = []
-        for _line in review.HOW_LINES:  # (the view's own sentences, set by show_input)
+        for _ in review.HOW_LINES:  # (the view's own sentences, set by show_input)
             w = WrapLabel("")
             w.setObjectName("review-how")
             w.setProperty("muted", True)
