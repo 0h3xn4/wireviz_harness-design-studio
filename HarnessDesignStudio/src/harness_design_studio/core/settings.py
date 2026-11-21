@@ -119,6 +119,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting("naming", "branch", "Name of a branch point", "", "text", "{harness}-B{n}", "The pattern of the branch point IDs.", "generated IDs", _PROJECT, "a pattern"),
     Setting("naming", "segment", "Name of a routing segment", "", "text", "{harness}-L{n}", "The pattern of the segment IDs.", "generated IDs", _PROJECT, "a pattern"),
     Setting("naming", "signal_counterparts", "Words for the two ends of a line", "", "pairs", None, "A transmit word and its receive word, for the review of connections and the pairing.", "link review, pairing", _PROJECT, "pairs of two different words made of letters"),
+    Setting("naming", "pair_suffixes", "Endings that make two signals a pair", "", "pairs", (("+", "-"), ("P", "N"), ("H", "L")), "Two signals whose names differ only by these two endings (TX+ and TX-, TXP and TXN, CANH and CANL) are the two wires of a pair, where no interface type pairs them.", "rule pair-untwisted", "the tool's own words (4.2.0, D-258)", "pairs of two different endings of 1 to 3 characters", assumption="A-PAIR-NAMES"),
     Setting("naming", "release_distinct_roles", "Different people in a release", "", "flag", False, "The author, the checker and the person who releases are three different people.", "release", _PROJECT, "true or false"),
     Setting("naming", "release_requires_asbuilt", "Release needs complete as-built records", "", "flag", False, "A harness is released only when its as-built records are complete and no recorded length is out of tolerance, or the person releasing gives a written reason. The records are not frozen by the release.", "release", _PROJECT, "true or false"),
     Setting("titleblock", "fields", "Title block fields", "", "names", None, "Which fields appear, in order.", "title blocks", _PROJECT, "known field names, each at most once"),
@@ -320,7 +321,8 @@ def display(value: object) -> str:
 
 def display_of(s: Setting, value: object) -> str:
     """The value of a setting as text for a person. The table by wire gauge names each gauge with
-    its cross-section (`AWG 24 (0.205 mm²): 2`, D2); every other value is shown as `display`
+    its cross-section (`AWG 24 (0.205 mm²): 2`, D2), and the endings of `naming.pair_suffixes` are
+    shown with a space in each pair (`+ -, P N, H L`); every other value is shown as `display`
     shows it. The value itself, as `to_dict` and the files carry it, is not changed."""
     if s.id == "derating.ampacity_a_by_awg" and isinstance(value, dict):
         parts: list[str] = []
@@ -330,6 +332,11 @@ def display_of(s: Setting, value: object) -> str:
             except TypeError, ValueError:
                 parts.append(f"{k}: {v}")
         return ", ".join(parts)
+    if s.id == "naming.pair_suffixes" and isinstance(value, list | tuple):
+        # the endings are + and - themselves: joined by + they would read ++-
+        return ", ".join(
+            " ".join(map(str, v)) if isinstance(v, list | tuple) else str(v) for v in value
+        )
     return display(value)
 
 

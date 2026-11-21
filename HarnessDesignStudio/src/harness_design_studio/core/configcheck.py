@@ -163,6 +163,7 @@ def validate(project: Project) -> list[Issue]:
     out.extend(validate_titleblock(project))
     out.extend(validate_harness_plan(project))
     out.extend(validate_counterparts(project))
+    out.extend(validate_pair_suffixes(project))
     out.extend(validate_distinct_roles(project))
     out.extend(validate_asbuilt(project))
     out.extend(standard_profiles.validate(project))
@@ -503,6 +504,57 @@ def validate_counterparts(project: Project) -> list[Issue]:
             f"{where}: {counterparts.CONFIG_KEY} {why}.",
             where,
             f"{counterparts.CONFIG_FILE}.{counterparts.CONFIG_KEY}",
+        )
+    ]
+
+
+PAIR_SUFFIXES_FILE, PAIR_SUFFIXES_KEY = "naming", "pair_suffixes"
+_ENDING = re.compile(r"[A-Za-z0-9+-]{1,3}")
+
+
+def pair_suffixes_problem(value: object) -> str | None:
+    """Why a value is not a table of pair endings (None when it is one): a list of pairs of two
+    different endings of 1 to 3 characters (letters, digits, `+` and `-`), compared exactly, and no
+    ending in two pairs, so a pair is there once (design of 4.2.0, section 7.2). An empty list is a
+    table with no pairs: no two signals are a pair by their names."""
+    if not isinstance(value, list):
+        return 'must be a list of pairs of endings, for example [["+", "-"], ["P", "N"]]'
+    seen: set[str] = set()
+    for pair in value:
+        if not (
+            isinstance(pair, list)
+            and len(pair) == 2
+            and all(isinstance(e, str) and _ENDING.fullmatch(e) for e in pair)
+        ):
+            return (
+                "must be a list of pairs of two endings of 1 to 3 characters (letters, digits, "
+                '+ and -), for example ["P", "N"]'
+            )
+        if pair[0] == pair[1]:
+            return f"has the pair '{pair[0]}' and '{pair[1]}', which is one ending twice"
+        for e in pair:
+            if e in seen:
+                return f"uses the ending '{e}' in two pairs; an ending meets one other ending"
+            seen.add(e)
+    return None
+
+
+def validate_pair_suffixes(project: Project) -> list[Issue]:
+    """`naming.json` `pair_suffixes` (4.2.0) must be a table of pair endings (`pair_suffixes_problem`).
+    Not set (or null) is not a problem: the endings of the registry are used (`+ -`, `P N`, `H L`).
+    A table that is refused is not used: no two signals are a pair by their names until it is
+    corrected."""
+    raw = _cfg(project, PAIR_SUFFIXES_FILE).get(PAIR_SUFFIXES_KEY)
+    if raw is None or (why := pair_suffixes_problem(raw)) is None:
+        return []
+    where = f"config/{PAIR_SUFFIXES_FILE}.json"
+    return [
+        Issue(
+            "error",
+            "config_invalid",
+            f"{where}: {PAIR_SUFFIXES_KEY} {why}.",
+            where,
+            f"{PAIR_SUFFIXES_FILE}.{PAIR_SUFFIXES_KEY}",
         )
     ]
 

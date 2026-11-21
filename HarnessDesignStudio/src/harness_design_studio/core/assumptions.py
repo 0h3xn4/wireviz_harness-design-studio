@@ -299,6 +299,34 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "config/generation.json: shield_end_a, shield_end_b; config/emc.json: shield_bonding",
         ),
         Assumption(
+            "A-PAIR-NAMES",
+            "Two wires no interface type pairs are a pair when their names differ only by an ending",
+            "Two wires without an interface (made from a connection or drawn by hand) are the two "
+            "wires of a signal pair when they join the same two connectors and, at each of the two "
+            "where both have a signal, every interface type that has both signals gives them one "
+            "pair (TX+ and TX- of rs422), or, when no type has both, their names differ only by the "
+            "two endings of a row of naming.pair_suffixes (+ -, P N and H L by default: 1PPS+ and "
+            "1PPS-, TXP and TXN, CANH and CANL), compared exactly, with something left in front. A "
+            "name shared by three wires makes no pair. The wires of a generated harness are paired "
+            "by the pair of their interface type. A pair is twisted when one twisted pair, shielded "
+            "pair or quad holds both wires; a wire part with two conductors does not count.",
+            "setting",
+            "config/naming.json: pair_suffixes; core/drc/electrical.py (signal_pairs)",
+        ),
+        Assumption(
+            "A-SHIELD-BY-TYPE",
+            "A wire not made by Generate asks for a shield when every interface type of its signal shields it",
+            "A wire of a harness Generate did not make asks for a shield when the interface types "
+            "that have the signal at its ends (the device pin's signal, else the cable pin's; the "
+            "interface of the pin when it has one; narrowed by the connector's carries) all shield "
+            "it: shielding overall, shielding per pair for a signal of a pair, or a coax. A signal no "
+            "type has asks for none, and neither does a signal of types that disagree. The wire is "
+            "shielded when a shielded pair, an overall shield, a coax or a quad holds it; a twisted "
+            "pair is no shield. The shields of a generated harness are judged by the verifier.",
+            "built in",
+            "core/drc/electrical.py (shield_asked)",
+        ),
+        Assumption(
             "A-CONNECTOR-CHOICE",
             "A connector is the first free one that carries the type; the cable end is the mating part",
             "When the tool chooses the connector of an interface at a device, it takes the first free "
