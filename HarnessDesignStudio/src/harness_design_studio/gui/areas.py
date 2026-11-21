@@ -33,6 +33,7 @@ AREAS: Final[tuple[Area, ...]] = (
     Area("drawings", strings.AREA_DRAWINGS, "nav-drawings", ("harness",), strings.AREA_DRAWINGS_TIP),
     Area("outputs", strings.AREA_OUTPUTS, "nav-outputs", ("lists",), strings.AREA_OUTPUTS_TIP),
     Area("asbuilt", strings.AREA_ASBUILT, "nav-asbuilt", (), strings.AREA_ASBUILT_TIP),
+    Area("review", strings.AREA_REVIEW, "nav-review", (), strings.AREA_REVIEW_TIP),
     Area("revisions", strings.AREA_REVISIONS, "nav-revisions", ("releases",), strings.AREA_REVISIONS_TIP),
     Area("settings", strings.AREA_SETTINGS, "nav-settings", (), strings.AREA_SETTINGS_TIP),
 )  # fmt: skip
@@ -42,10 +43,11 @@ DEFAULT: Final[str] = "model"
 # What the rail lists for each role (S9). A role is a view, never a permission: the area stays in
 # the View and Go menus, the command palette and the buttons of the Next step page, and the rail lists
 # the one that is open. The Systems engineer role has Next step instead of Home and leaves out the
-# detail areas (the drawings, the outputs and the as-built records); the Electrical engineer role
-# lists every area but the as-built records; the AIT role leaves out the Model (the diagram and the
-# devices), which is where the design is edited.
-SYSTEMS_HIDDEN: Final[tuple[str, ...]] = ("home", "drawings", "outputs", "asbuilt")
+# detail areas (the drawings, the outputs, the as-built records and the Review page of one harness,
+# which its Next step page, the Go menu and the command palette reach; R7 of the design of 4.3.0);
+# the Electrical engineer role lists every area but the as-built records; the AIT role leaves out
+# the Model (the diagram and the devices), which is where the design is edited.
+SYSTEMS_HIDDEN: Final[tuple[str, ...]] = ("home", "drawings", "outputs", "asbuilt", "review")
 HIDDEN_AREAS: Final[dict[str, tuple[str, ...]]] = {
     SYSTEMS: SYSTEMS_HIDDEN,
     ELECTRICAL: ("asbuilt",),

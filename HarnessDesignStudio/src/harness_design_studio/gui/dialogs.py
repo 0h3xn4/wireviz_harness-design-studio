@@ -652,6 +652,8 @@ class ChangeDialog(Dialog):
         kinds: tuple[str, str] | None = None,
         note: str = "",
         explain_kind: Callable[[str], str] | None = None,
+        review_note: Callable[[str], str] | None = None,
+        open_review: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
@@ -752,6 +754,28 @@ class ChangeDialog(Dialog):
         if ask_comment:
             lay.addWidget(QLabel(strings.COMMENT))
             lay.addWidget(self.comment)
+        # the ticks of the Review page (4.3.0, design section 6.1): the note the release adds to the
+        # comment, worded with the name typed above, and the way to the page to tick the points
+        self._review_note = review_note
+        self.review_note = QLabel()
+        self.review_note.setObjectName("change-review-note")
+        self.review_note.setWordWrap(True)
+        self.review_note.setTextFormat(Qt.TextFormat.PlainText)
+        self.review_note.setAccessibleName(strings.RELEASE_REVIEW_NOTE_NAME)
+        self.review_note.setVisible(review_note is not None)
+        lay.addWidget(self.review_note)
+        self.open_review = QPushButton(strings.RELEASE_OPEN_REVIEW)
+        self.open_review.setObjectName("change-open-review")
+        self.open_review.setToolTip(strings.RELEASE_OPEN_REVIEW_TIP)
+        self.open_review.setVisible(open_review is not None)
+        if open_review is not None:
+
+            def to_the_page() -> None:
+                self.reject()
+                open_review()
+
+            self.open_review.clicked.connect(lambda _c=False: to_the_page())
+        lay.addWidget(self.open_review, 0, Qt.AlignmentFlag.AlignLeft)
         self.placeholder_reason = QLineEdit()
         self.placeholder_reason.setObjectName("change-placeholder-reason")
         self.placeholder_reason.setAccessibleName(strings.PLACEHOLDER_REASON)
@@ -822,10 +846,15 @@ class ChangeDialog(Dialog):
         roles_check: Callable[[str, str], list[str]] | None = None,
         loose_ends: list[str] | None = None,
         note: str = "",
+        review_note: Callable[[str], str] | None = None,
+        open_review: Callable[[], None] | None = None,
     ) -> ChangeDialog:
         """The release dialog: asks the questions and lists everything the release will lock.
         `roles_check(by, checker)` is given when the project requires different people: it returns
-        the sentences that still stop the release (checked again at every key stroke)."""
+        the sentences that still stop the release (checked again at every key stroke).
+        `review_note(by)` is given when the project has a review checklist: the note of the ticks
+        that the release adds to the comment (`vcs.release.review_note`), shown under the comment
+        field; `open_review` closes the dialog and opens the Review page (4.3.0)."""
         return cls(
             parent,
             title,
@@ -840,6 +869,8 @@ class ChangeDialog(Dialog):
             rule_note=strings.ROLES_RELEASE_NOTE if roles_check is not None else "",
             roles_check=roles_check,
             note=note,
+            review_note=review_note,
+            open_review=open_review,
         )
 
     @classmethod
@@ -971,6 +1002,11 @@ class ChangeDialog(Dialog):
             self._validate()
 
     def _validate(self) -> None:
+        if self._review_note is not None:
+            by = self.by.text().strip() or strings.RELEASE_REVIEW_NOBODY
+            note = self._review_note(by).strip()
+            self.review_note.setText(strings.RELEASE_REVIEW_NOTE.format(note) if note else "")
+            self.review_note.setVisible(bool(note))
         todo = self.missing()
         self.ok.setEnabled(not todo)
         text = strings.HINT_HEAD.format(self._ok_text, "; ".join(todo)) if todo else strings.HINT_OK  # fmt: skip

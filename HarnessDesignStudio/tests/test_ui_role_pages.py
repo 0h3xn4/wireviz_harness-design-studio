@@ -63,8 +63,8 @@ def table(qtbot, tmp_path: Path):
 def test_the_rail_of_each_role_is_the_table_of_the_areas(table) -> None:
     _win, rows = table
     assert rows[SYSTEMS]["rail"] == {"next", "model", "checks", "revisions", "settings"}
-    assert rows[ELECTRICAL]["rail"] == {"next", "home", "model", "checks", "drawings", "outputs", "revisions", "settings"}  # fmt: skip
-    assert rows[AIT]["rail"] == {"next", "home", "checks", "drawings", "outputs", "asbuilt", "revisions", "settings"}  # fmt: skip
+    assert rows[ELECTRICAL]["rail"] == {"next", "home", "model", "checks", "drawings", "outputs", "review", "revisions", "settings"}  # fmt: skip
+    assert rows[AIT]["rail"] == {"next", "home", "checks", "drawings", "outputs", "asbuilt", "review", "revisions", "settings"}  # fmt: skip
     for role in ROLES:  # the window agrees with the pure table
         assert rows[role]["rail"] == set(areas.listed_areas(role))
 
@@ -95,6 +95,8 @@ def test_each_role_lists_what_it_works_with(table) -> None:
     assert {"act-go-asbuilt", "act-import-asbuilt", "act-export-asbuilt"} <= rows[AIT]["menus"]
     for role in (SYSTEMS, ELECTRICAL):
         assert not ({"act-go-asbuilt", "act-import-asbuilt", "act-export-asbuilt"} & rows[role]["menus"])  # fmt: skip
+    for role in ROLES:  # the Review page is in every role's Go menu (REQ-GUI-31)
+        assert "act-go-review" in rows[role]["menus"], role
     # the Electrical engineer lists everything the old role listed; the AIT engineer leaves out the diagram edits
     gone = (
         rows[ELECTRICAL]["menus"] - rows[AIT]["menus"]
@@ -117,6 +119,7 @@ def test_what_a_role_leaves_out_is_still_in_the_command_palette(table) -> None:
             if act.isEnabled():  # (an action that needs a selection waits for one)
                 assert act.text().replace("&", "") in labels, (role, name)
         assert strings.GO_ASBUILT in labels and strings.A_IMPORT_ASBUILT in labels  # every role
+        assert strings.GO_REVIEW in labels  # the Review page (4.3.0, REQ-GUI-31), every role
 
 
 def test_every_page_opens_in_every_role(table) -> None:

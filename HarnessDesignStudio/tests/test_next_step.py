@@ -121,7 +121,7 @@ def test_build_sheets_do_not_wait_for_values_that_are_missing() -> None:
 
 def test_release_and_done_buttons() -> None:
     n = next_step(RELEASABLE)
-    assert (n.title, n.button) == ("Review and release", "Go to Releases")
+    assert (n.title, n.button) == ("Review and release", "Open the Review page")  # 4.3.0
     n = next_step(replace(RELEASABLE, released=2))
     assert (n.title, n.button) == ("Everything is released", "Open the Outputs")
     # a harness that is still in review is not released
