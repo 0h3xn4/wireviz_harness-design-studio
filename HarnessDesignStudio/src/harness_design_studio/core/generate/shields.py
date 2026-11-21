@@ -6,9 +6,11 @@ The generator and the explanation (`core.derive_build`) call the same two functi
 an explanation names is the group generation made. A group follows the construction and the
 shielding of the interface type: a coax wire has its own group, a quad is one group, a pair of a
 type is a twisted pair, or a shielded pair when the type shields per pair, and the whole interface
-is one more group when the type shields overall. The ends of a group are the grounding concept of
-`config/generation.json` (`shield_end_a`, `shield_end_b`); a coax shield has the fixed end of the
-format (bonded at both ends).
+is one more group when the type shields overall. A type of construction `single` twists no pair,
+but its interface gets the overall shield too when the type shields overall (before 4.2.0 it got
+none, and the verifier then reported `shield_missing`; design of 4.2.0, section 16.1). The ends
+of a group are the grounding concept of `config/generation.json` (`shield_end_a`,
+`shield_end_b`); a coax shield has the fixed end of the format (bonded at both ends).
 """
 
 from dataclasses import dataclass
@@ -55,8 +57,6 @@ def plan(project: Project, ifaces: list[InterfaceInstance], wires: list[Wire]) -
     for i in ifaces:
         t = project.interface_types[i.type_id]
         mine = [w for w in wires if w.interface_id == i.id]
-        if t.construction in ("single",):
-            continue
         if t.construction == "coax":
             out += [
                 Planned("coax", [w], i.id, f"the type {t.id} is a coax: each wire is one shield")
@@ -68,7 +68,7 @@ def plan(project: Project, ifaces: list[InterfaceInstance], wires: list[Wire]) -
             continue
         pair_of = pair_names(project, i)
         groups: dict[str, list[Wire]] = {}
-        for w in mine:
+        for w in mine if t.construction != "single" else []:  # single wires: no pair is twisted
             src = w.signal.split("/")[0] if w.signal else ""
             name = pair_of.get(src)
             if name is not None:
@@ -91,7 +91,12 @@ def plan(project: Project, ifaces: list[InterfaceInstance], wires: list[Wire]) -
                     "overall_shield",
                     mine,
                     i.id,
-                    f"the type {t.id} shields overall: one shield over all the wires of {i.id}",
+                    f"the type {t.id} shields overall: one shield over all the wires of {i.id}"
+                    + (
+                        " (construction single: no pair is twisted)"
+                        if t.construction == "single"
+                        else ""
+                    ),
                 )
             )
     return out
