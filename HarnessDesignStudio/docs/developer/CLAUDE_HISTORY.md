@@ -133,3 +133,9 @@ The patch release `4.0.1` (D-255; every label format passes the export's self-ch
 The note on the publication of the minor release 2.4.0, moved word for word from the Status section to keep `CLAUDE.md` under its size limit when 4.2.0 was prepared, as the note on 2.3.1 was moved with the preparation of 4.1.0; the Status section still names 2.4.0 in the list of releases and says where this note is.
 
 **Version `2.4.0` is published** (D-248; 2026-11-18, the latest full release until 3.0.0; no release candidate; tag `v2.4.0` on `85df2a9`, made by the tag workflow, run 44314858198, its ninth use): a minor release: a new project starts in `per_connector_group` (#271, D-247; the registry default stays `per_connector_pair`; the editor's notice once) and one order of revisions (#272, `core/vcs/versions.py`, R1 of 3.0.0, D-242); no format change.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 4.3.0 (2026-11-21)
+
+The note on the publication of the patch release 3.0.1, moved word for word from the fourth item of the Status section (the one that starts with *Not built*) to keep `CLAUDE.md` under its size limit when 4.3.0 was prepared, as the note on 3.0.0 was moved with the publication record of 4.2.0; the sentence there that names the notes moved out of it now names 3.0.1 too, and the first item still names 3.0.1 in the list of releases.
+
+**Version `3.0.1` is published** (D-252; 2026-11-19, the latest full release until 3.1.0; no release candidate; tag `v3.0.1` on `1c79beb`, made by the tag workflow, run 44545687219): a patch release with the fix of D-250 (#291): F1 shows the guide in a window of the program (`gui/guide_window.py`), *Open* of an exported file is *Copy path*, *Reveal in folder* hands only a folder to the file manager (`gui/folders.py`, the only user of `QDesktopServices`); no format change.
