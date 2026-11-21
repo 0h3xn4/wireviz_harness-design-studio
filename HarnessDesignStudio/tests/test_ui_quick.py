@@ -64,7 +64,7 @@ def test_quick_lists_the_model_home_and_settings_for_every_role() -> None:
     for role in roles.ROLES:
         assert set(areas.KEYS) - set(areas.hidden_in(role, True)) == {"home", "model", "settings"}
         assert areas.hidden_in(role) == areas.hidden_in(role, False)  # (off: the role as before)
-    assert areas.hidden_in("systems") == ("home", "drawings", "outputs", "asbuilt")
+    assert areas.hidden_in("systems") == ("home", "drawings", "outputs", "asbuilt", "review")
     assert {"checks", "revisions", "drawings", "outputs", "next"} <= set(
         areas.hidden_in("electrical", True)
     )

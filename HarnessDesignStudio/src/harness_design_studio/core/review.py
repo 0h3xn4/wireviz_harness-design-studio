@@ -20,6 +20,7 @@ import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from harness_design_studio.core import configcheck
 from harness_design_studio.core.checks import Finding
@@ -30,10 +31,12 @@ from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.outputs.buildsheet import LOOSE_CHECK, readiness
 from harness_design_studio.core.vcs import release
 from harness_design_studio.core.vcs.snapshot import carried_interfaces
+from harness_design_studio.resources import examples_path
 
 CHECKLIST_FILE = configcheck.CHECKLIST_FILE
 CHECKLIST_KEY = configcheck.CHECKLIST_KEY
 MAX_FILE_BYTES = 64 * 1024  # the largest file `config --review-checklist` reads
+TEMPLATE_FILE = "design-review-checklist.md"  # the shipped template (`templates FOLDER` copies it)
 FIRST_ITEMS = 5  # the items of an open check that are named; the count says how many there are
 
 # ---- the checklist -------------------------------------------------------------------------
@@ -77,6 +80,35 @@ def points_from_text(text: str) -> list[str]:
     items = [m.group(1) for line in lines if (m := _ITEM.fullmatch(line))]
     found = items or [line for line in lines if line and not line.startswith("#")]
     return [p for p in (_plain(x) for x in found) if p]
+
+
+def read_points(path: Path) -> list[str] | str:
+    """The points of a text or Markdown file (`points_from_text`), or why the file cannot give any,
+    as a sentence: not a file, larger than 64 KiB, not UTF-8, unreadable, or no point in it. The
+    command line (`config --review-checklist FILE`) and the editor (*Settings > Project*, *Take the
+    points of a file…*) read a file with this one function. The list is not checked here."""
+    if not path.is_file():
+        return f"{path} is not a file."
+    if path.stat().st_size > MAX_FILE_BYTES:
+        return f"{path} is larger than 64 KiB; a review checklist is a short text file."
+    try:
+        text = path.read_bytes().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return f"{path} is not a UTF-8 text file."
+    except OSError as exc:
+        return f"{path} cannot be read ({exc.strerror or exc})."
+    found = points_from_text(text)
+    if not found:
+        return f"{path} has no points (no list item and no line of text)."
+    return found
+
+
+def template_points() -> list[str]:
+    """The points of the shipped template `design-review-checklist.md` (26 of them), the start a
+    person takes on purpose (design of 4.3.0, section 3.3); empty when the installation lacks it."""
+    root = examples_path()
+    found = read_points(root / "templates" / TEMPLATE_FILE) if root is not None else []
+    return found if isinstance(found, list) else []
 
 
 class TickedError(ValueError):

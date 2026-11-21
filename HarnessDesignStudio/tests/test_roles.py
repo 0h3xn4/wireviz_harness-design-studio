@@ -90,12 +90,13 @@ def test_the_layout_keys_keep_what_the_workspaces_had() -> None:
 
 def test_the_rail_of_each_role() -> None:
     assert areas.hidden_in(ELECTRICAL) == ("asbuilt",)  # every area but the as-built records
-    assert areas.hidden_in(SYSTEMS) == ("home", "drawings", "outputs", "asbuilt")
+    assert areas.hidden_in(SYSTEMS) == ("home", "drawings", "outputs", "asbuilt", "review")
     assert areas.hidden_in(AIT) == ("model",)
     shown = [k for k in areas.KEYS if k not in areas.hidden_in(SYSTEMS)]
     assert shown == ["next", "model", "checks", "revisions", "settings"]
     assert areas.listed_areas(AIT) == (
-        "next", "home", "checks", "drawings", "outputs", "asbuilt", "revisions", "settings",
+        "next", "home", "checks", "drawings", "outputs", "asbuilt", "review", "revisions",
+        "settings",
     )  # fmt: skip
     assert areas.unlisted_everywhere() == ()  # every page is on the rail of at least one role
     # the areas still exist: menus, keys, the Next step buttons and the palette reach them

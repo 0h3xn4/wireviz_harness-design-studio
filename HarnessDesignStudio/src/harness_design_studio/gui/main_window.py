@@ -5,6 +5,7 @@
 import contextlib
 import hashlib
 import html
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -76,7 +77,9 @@ from harness_design_studio.core import (
     manual_harness,
     part_approval,
     plan_config,
+    review,
 )
+from harness_design_studio.core import label_format as core_label_format
 from harness_design_studio.core import links as core_links
 from harness_design_studio.core import workflow as core_workflow
 from harness_design_studio.core.commands import Op, Put
@@ -92,6 +95,7 @@ from harness_design_studio.core.import_record import CHANGED, CachedHasher, chec
 from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.io.migrate import current_version
 from harness_design_studio.core.io.upgrade import UpgradeError, format_of
+from harness_design_studio.core.links import natural_key
 from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.model.physical import LOOSE_ROLE, TBD_PART_ID
 from harness_design_studio.core.open_data import data_files
@@ -105,6 +109,7 @@ from harness_design_studio.core.outputs.build import (
 )
 from harness_design_studio.core.outputs.verify import verify_outputs
 from harness_design_studio.core.validation import plan_notes
+from harness_design_studio.core.vcs.hashing import content_hash
 from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.core.vcs.release import (
     kind_again,
@@ -115,6 +120,7 @@ from harness_design_studio.core.vcs.release import (
     plan_release,
     plan_submit_review,
     release_blockers,
+    review_note,
     role_blockers,
     unapproved_parts,
 )
@@ -202,7 +208,8 @@ from harness_design_studio.gui.problems_panel import ProblemsList, finding_why
 from harness_design_studio.gui.project_tree import ProjectTree
 from harness_design_studio.gui.rail import NavRail
 from harness_design_studio.gui.release_text import plain_blocker
-from harness_design_studio.gui.releases_panel import ReleasesPanel
+from harness_design_studio.gui.releases_panel import ReleasesPanel, harness_state
+from harness_design_studio.gui.review_page import CONFIG_ROWS, ReviewInput, ReviewPage
 from harness_design_studio.gui.roles import (
     AIT,
     ELECTRICAL,
@@ -647,6 +654,7 @@ class MainWindow(QMainWindow):
         self.unit_table.newUnitRequested.connect(lambda: self.menu_add.exec(QCursor.pos()))
         self.checks_panel.showRequested.connect(self.show_object)
         self.releases_panel.changeRequested.connect(self.change_flow)
+        self.releases_panel.reviewPageRequested.connect(self.review_page_flow)
         self.pending_link.filterRequested.connect(self.show_unchecked)
         self.topbar.generateClicked.connect(self.act_generate.trigger)
         self.topbar.checkClicked.connect(self.act_check.trigger)
@@ -847,7 +855,7 @@ class MainWindow(QMainWindow):
                 "problem_waive": lambda: self._next_problem_waive(),
                 "problem_approve": lambda: self._next_problem_approve(),
                 "build_sheets": lambda: self.export_dialog_flow(),
-                "release": lambda: self._next_go("releases"),
+                "release": lambda: self.review_page_flow(),
                 "done": lambda: self._next_go("lists"),
                 "show_everything": lambda: self.show_everything(),
                 "library": lambda: self.open_library_flow(),
@@ -856,6 +864,7 @@ class MainWindow(QMainWindow):
             },
         )
         self.next_page.set_workflow_provider(self._workflow_report)
+        self._build_review_page()
         self.asbuilt_page = AsBuiltPage(
             self.theme,
             actions={
@@ -882,6 +891,10 @@ class MainWindow(QMainWindow):
             add_project_library=lambda: self.add_project_library_flow(),
             remove_project_library=lambda path: self.remove_project_library(path),
             set_segmentation=lambda mode: self.set_segmentation(mode),
+            set_label_format=lambda value: self.set_label_format(value),
+            set_checklist=lambda points: self.set_checklist(points),
+            template_points=review.template_points,
+            file_points=self._checklist_file_points,
             set_document_fields=self.set_document_fields,
             set_document_contact=self.set_document_contact,
             set_plan=self.set_plan_settings,
@@ -895,6 +908,7 @@ class MainWindow(QMainWindow):
         shrinkable(self.next_page)
         shrinkable(self.settings_page)
         shrinkable(self.asbuilt_page)
+        shrinkable(self.review_page)
         self.area_stack = QStackedWidget()
         self.area_stack.setObjectName("area-stack")
         self.area_stack.addWidget(self.main_tabs)
@@ -902,6 +916,7 @@ class MainWindow(QMainWindow):
         self.area_stack.addWidget(self.next_page)
         self.area_stack.addWidget(self.settings_page)
         self.area_stack.addWidget(self.asbuilt_page)
+        self.area_stack.addWidget(self.review_page)
         outer.addWidget(self.area_stack, 1)
         self.main_tabs.currentChanged.connect(lambda _i: self._tab_changed())
         self.setCentralWidget(shell)
@@ -1301,6 +1316,11 @@ class MainWindow(QMainWindow):
             act.setEnabled(enabled)
             act.triggered.connect(lambda _c=False, a=action: self.change_flow(a, ident))
             out.append(act)
+        page = QAction(strings.A_REVIEW_PAGE, self)  # the Review page of this harness (4.3.0)
+        page.setObjectName("tree-harness-review-page")
+        page.setToolTip(strings.A_REVIEW_PAGE_TIP)
+        page.triggered.connect(lambda _c=False: self.review_page_flow(ident))
+        out.insert(2, page)
         return out
 
     def _tree_delete(self, kind: str, ident: str) -> None:
@@ -1937,6 +1957,7 @@ class MainWindow(QMainWindow):
         """The states arrived: the chips, the notice and the Settings list follow."""
         self.inspector.refresh_library()
         self.devices_view.refresh_library()
+        self._review_changed()  # (the column Library of the Review page)
         self._show_project_libraries()
         if self.alerts.is_showing("library"):
             info = self.library_links.info
@@ -2430,6 +2451,9 @@ class MainWindow(QMainWindow):
         self.act_import_asbuilt.setToolTip(strings.A_IMPORT_ASBUILT_TIP)
         self.act_export_asbuilt = a(strings.A_EXPORT_ASBUILT, self.asbuilt_export_flow, name="act-export-asbuilt")  # fmt: skip
         self.act_export_asbuilt.setToolTip(strings.A_EXPORT_ASBUILT_TIP)
+        # the Review page of one harness (4.3.0; in no role's hidden list, so every menu lists it)
+        self.act_go_review = a(strings.GO_REVIEW, lambda: self.review_page_flow(self.current_harness()), name="act-go-review")  # fmt: skip
+        self.act_go_review.setToolTip(strings.GO_REVIEW_TIP)
         for k, (name, label) in enumerate(
             zip(
                 MAIN_TABS,
@@ -2737,6 +2761,7 @@ class MainWindow(QMainWindow):
         for act in self.go_actions.values():
             g.addAction(act)
         g.addAction(self.act_go_asbuilt)
+        g.addAction(self.act_go_review)
         g.addAction(self.act_go_settings)
         g.addAction(self.act_go_interfaces)
         g.addAction(self.act_go_units)
@@ -4048,13 +4073,16 @@ class MainWindow(QMainWindow):
                 note=pinout_note(project, hid),
             )
         elif action == "release":
+            ticked = self.review_ticked(hid)  # the ticks of the Review page (4.3.0)
             # the dialog asks for the reason itself, so a stand-in keeps that blocker out of the list
             blockers = release_blockers(
                 project, hid, by="x", comment="x" * 10, when=today, outputs_folder=folder,
                 accept_placeholders="x" * 10, accept_unapproved_parts="x" * 10,
                 accept_loose_ends="x" * 10,
                 check_roles=False,  # the names are asked for in the dialog, which checks them
+                ticked=ticked,
             )  # fmt: skip
+            listed = bool(review.points(project))
             harness = project.harnesses[hid]
             dlg = ChangeDialog.for_release(
                 self,
@@ -4076,6 +4104,8 @@ class MainWindow(QMainWindow):
                     else None
                 ),
                 note=pinout_note(project, hid),
+                review_note=(lambda by: review_note(project, by, ticked)) if listed else None,
+                open_review=(lambda: self.review_page_flow(hid)) if listed else None,
             )
         elif again:
             base = last_baseline(project, hid)
@@ -4109,6 +4139,7 @@ class MainWindow(QMainWindow):
                 accept_placeholders=dlg.accepted_placeholders(),
                 accept_unapproved_parts=dlg.accepted_unapproved_parts(),
                 accept_loose_ends=dlg.accepted_loose_ends(),
+                ticked=ticked,
             )
             msg = strings.RELEASE_DONE.format(hid)
         else:
@@ -4132,10 +4163,12 @@ class MainWindow(QMainWindow):
 
     # ---- change control on "the" harness (menu, shortcut, Ctrl+K) ----------------------------------
     def current_harness(self) -> str | None:
-        """The harness the person is looking at: the Harness view's, the Releases tab's, or the
-        tree's; None when none is chosen."""
+        """The harness the person is looking at: the Review page's, the Harness view's, the
+        Releases tab's, or the tree's; None when none is chosen."""
         project = self.ctl.project
         candidates: list[object] = []
+        if self._area == "review":  # (the top bar's Release on the Review page: its harness)
+            candidates.append(self.review_page.harness_id())
         if self.view_installed("harness"):
             view = self.view_widget("harness")
             candidates.append(
@@ -4227,6 +4260,8 @@ class MainWindow(QMainWindow):
             else field_lock_reason(p, "config", "segmentation", "mode") or ""
         )
         self.settings_page.show_segmentation(mode, why)
+        self._show_label_format()
+        self._show_checklist()
 
     def segmentation_flow(self) -> None:
         """Open Settings at the choice of how interfaces are grouped into harnesses (the fix
@@ -4729,6 +4764,280 @@ class MainWindow(QMainWindow):
         """Show the report of the open project on the As-built page."""
         self.asbuilt_page.show_report(asbuilt.asbuilt_report(self.ctl.project))
 
+    # ---- the Review page (4.3.0, milestone E3; docs/ait/DESIGN_4.3_REVIEW_VIEW.md, part C) ----------
+    def _build_review_page(self) -> None:
+        """The page and what its signals do; it follows the project, the checks and the libraries
+        while it is the open area (`_review_changed`)."""
+        page = ReviewPage(self.theme)
+        self.review_page = page
+        self._review_harness: str | None = None
+        self._review_memory: dict[str, str] = {}  # the ticks of a project without a folder
+        self._review_dropped: set[str] = set()  # harnesses whose ticks were dropped (R8)
+        self._review_hash: tuple[tuple[int, ...], str] | None = None
+        self._review_timer = QTimer(self)
+        self._review_timer.setSingleShot(True)
+        self._review_timer.setInterval(150)
+        self._review_timer.timeout.connect(self._update_review)
+        page.harnessPicked.connect(self._review_picked)
+        page.releaseRequested.connect(lambda hid: self.change_flow("release", hid))
+        page.checklistRequested.connect(self.checklist_flow)
+        page.ticksChanged.connect(self.set_review_ticks)
+        page.showRequested.connect(self.show_object)
+        page.explainRequested.connect(lambda rule, oid: self.checks_panel.explain(rule, oid))
+        page.waiveRequested.connect(lambda fid: self._review_finding(fid, self.waive_flow))
+        page.deviateRequested.connect(lambda fid: self._review_finding(fid, self.deviate_flow))
+        page.openShowRequested.connect(self._review_open_show)
+        page.valueRequested.connect(self._review_value)
+        page.showAllRequested.connect(self._review_show_all)
+        page.copyRequested.connect(self._copy_link)
+        page.sourceRequested.connect(self.show_connector)
+        for signal in (self.ctl.changed, self.ctl.drcChanged, self.ctl.drcStateChanged):
+            signal.connect(lambda *_a: self._review_changed())
+
+    def _review_changed(self) -> None:
+        if self._area == "review":
+            self._review_timer.start()
+
+    def _review_first(self) -> str | None:
+        """The first harness in ID order that is not released, else the first."""
+        p = self.ctl.project
+        ids = sorted(p.harnesses, key=lambda x: (natural_key(x), x))
+        return next(
+            (i for i in ids if p.harnesses[i].status != "released"), ids[0] if ids else None
+        )
+
+    def review_page_flow(self, hid: str | None = None) -> None:
+        """Open the Review page of `hid`; without one (the Next step page's button) of the first
+        harness in ID order that is not released (design of 4.3.0, section 5.1)."""
+        p = self.ctl.project
+        self._review_harness = hid if hid in p.harnesses else self._review_first()
+        self.set_area("review")
+
+    def _review_picked(self, hid: str) -> None:
+        self._review_harness = hid
+        if self.releases_panel.current_harness() != hid:
+            self.releases_panel.select_harness(hid)  # (the Versions show the same harness)
+        self._update_review()
+
+    def review_harness(self) -> str | None:
+        """The harness the Review page shows (None for a project without a harness)."""
+        return self.review_page.harness_id()
+
+    def _update_review(self) -> None:
+        """Show the Review page of the harness chosen: `review.review_view` over the findings the
+        window already has (`ctl.findings()`), the ticks kept on this computer, the state of each
+        device in the device library."""
+        c, p = self.ctl, self.ctl.project
+        ids = sorted(p.harnesses, key=lambda x: (natural_key(x), x))
+        hid = self._review_harness
+        if hid not in p.harnesses:
+            hid = self.current_harness() or self._review_first()
+        self._review_harness = hid
+        texts = tuple(
+            (i, f"{i}  {p.harnesses[i].label or p.harnesses[i].name}".strip()) for i in ids
+        )
+        if hid is None:
+            self.review_page.show_input(ReviewInput(harnesses=texts, read_only=c.read_only))
+            return
+        found = c.findings()
+        view = review.review_view(p, p.harnesses[hid], found)
+        ticked = self._review_ticks(hid, view.points)
+        library: dict[str, str] = {}
+        info = self.library_links.info
+        for row in view.block("sources").rows:
+            box = p.connectors.get(row.ref)
+            if row.cells[0] != "Device connector" or box is None:
+                continue
+            state = info.state(box.unit_id or "") if info is not None else None
+            library[row.ref] = (
+                strings.RV_LIBRARY_WAIT
+                if info is None
+                else strings.LINK_STATE_WORDS.get(state.state, state.state)
+                if state is not None
+                else strings.RV_LIBRARY_NONE
+            )
+        self.review_page.show_input(
+            ReviewInput(
+                harnesses=texts,
+                view=view,
+                state=harness_state(p, hid),
+                ticked=ticked or frozenset(),
+                dropped=hid in self._review_dropped,
+                running=c.drc_busy(),
+                read_only=c.read_only,
+                findings={f.id: f for f in found},
+                library=library,
+            )
+        )
+
+    # the ticks: QSettings `layout/<hash>/review/<harness>` (in memory for a project without a
+    # folder), with the list hash and the first 12 characters of content_hash they were made for;
+    # never in the project, the model hash or a written file (design of 4.3.0, section 5.3)
+    def _review_key(self, hid: str) -> str | None:
+        group = self._layout_group()
+        return None if group is None else f"{group}/review/{hid}"
+
+    def _review_design(self) -> str:
+        key = self.ctl.findings_key()[:3]  # (changes with every edit, undo and project)
+        if self._review_hash is None or self._review_hash[0] != key:
+            self._review_hash = (key, content_hash(self.ctl.project)[:12])
+        return self._review_hash[1]
+
+    def _review_ticks(self, hid: str, points: tuple[str, ...]) -> frozenset[int] | None:
+        """The points ticked for `hid` on this computer, or None when none are kept. Ticks made
+        for another list or another design are dropped, and the page says so (R8)."""
+        if not points:
+            return None
+        key = self._review_key(hid)
+        raw = str(self.settings.value(key, "") or "") if key else self._review_memory.get(hid, "")
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw)
+            stamp = (str(data["list"]), str(data["design"]))
+            numbers = frozenset(int(n) for n in data["ticked"])
+        except ValueError, KeyError, TypeError:
+            stamp, numbers = ("", ""), frozenset()
+        if stamp != (review.list_hash(points), self._review_design()):
+            self._forget_review_ticks(hid)
+            self._review_dropped.add(hid)
+            return None
+        return frozenset(n for n in numbers if 1 <= n <= len(points))
+
+    def _forget_review_ticks(self, hid: str) -> None:
+        key = self._review_key(hid)
+        if key:
+            self.settings.remove(key)
+        self._review_memory.pop(hid, None)
+
+    def set_review_ticks(self, hid: str, ticked: object) -> None:
+        """Keep the ticks of the Review page for `hid` (the page calls this at every tick)."""
+        points = review.points(self.ctl.project)
+        if not points or not isinstance(ticked, frozenset):
+            return
+        value = json.dumps(
+            {
+                "list": review.list_hash(points),
+                "design": self._review_design(),
+                "ticked": sorted(n for n in ticked if isinstance(n, int)),
+            }
+        )
+        key = self._review_key(hid)
+        if key:
+            self.settings.setValue(key, value)
+        else:
+            self._review_memory[hid] = value
+        self._review_dropped.discard(hid)
+
+    def review_ticked(self, hid: str) -> frozenset[int] | None:
+        """What the release of `hid` records as ticked: the page's ticks, or None (no checklist,
+        nothing ticked here, or ticks dropped after a change)."""
+        return self._review_ticks(hid, review.points(self.ctl.project))
+
+    def _review_finding(self, fid: str, flow: Callable[[object], None]) -> None:
+        f = next((x for x in self.ctl.findings() if x.id == fid), None)
+        if f is not None and not self.ctl.read_only:
+            flow(f)
+
+    def _review_value(self, ref: str) -> None:
+        """*Supply value…* of an engineering value that is not set: the window of the values."""
+        file, _dot, key = ref.partition(".")
+        self.checks_panel.open_config(file or None, key or None)
+
+    def _review_open_show(self, what: str, ref: str) -> None:
+        """*Show* of a row of *Values still open*: its first item."""
+        if what == CONFIG_ROWS[0]:
+            self.values_flow()
+        elif what == CONFIG_ROWS[1]:
+            self._review_value(ref)
+        elif ref in self.ctl.project.interface_types:
+            self.inspector.show_object("interface_type", ref)
+            self._need_inspector()
+        elif ref in self.ctl.project.harnesses:
+            self._review_show_all(what, ref)
+        else:
+            self.show_object(ref)
+
+    def _review_show_all(self, what: str, ref: str) -> None:
+        """*Show all* of a row of *Values still open*: where every item of it is listed."""
+        hid = self._review_harness
+        if what in CONFIG_ROWS:
+            self.values_flow()
+        elif ref in self.ctl.project.interface_types:
+            self.go_to("lists")
+        elif what == "As-built records":
+            self.set_area("asbuilt")
+        elif hid is not None:
+            self._go_to_harness(hid)
+
+    def checklist_flow(self) -> None:
+        """*Edit the checklist…*: Settings > Project, at the review checklist."""
+        self.set_area("settings")
+        self.settings_page.show_section("project")
+        self._show_segmentation()
+        self.settings_page.pages["project"].ensureWidgetVisible(self.settings_page.checklist_box)
+        self.settings_page.checklist_box.setFocus()
+
+    # ---- Settings > Project: the review checklist and the label format (4.3.0, parts A and F) ----
+    def _project_why_not(self, file: str, key: str) -> str:
+        if self.ctl.read_only:
+            return strings.WHY_READ_ONLY
+        return field_lock_reason(self.ctl.project, "config", file, key) or ""
+
+    def _show_label_format(self) -> None:
+        self.settings_page.show_label_format(
+            core_label_format.format_of(self.ctl.project),
+            self._project_why_not("model", "label_format"),
+        )
+
+    def set_label_format(self, value: str) -> None:
+        """Settings > Project: the text of the labels (`model.label_format`, one undo step)."""
+        if value != core_label_format.format_of(self.ctl.project):
+            plan = configcheck.plan_set_choice(self.ctl.project, "model", "label_format", value)
+            if not plan.ok:
+                self.ctl.message.emit(plan.error or "", False)
+            elif plan.ops:
+                self.ctl.run(
+                    strings.STEP_SET_LABEL_FORMAT.format(value),
+                    plan.ops,
+                    message=strings.LABEL_FORMAT_SET.format(value),
+                )
+        self._show_label_format()
+
+    def _show_checklist(self, error: str = "") -> None:
+        points = review.points(self.ctl.project)
+        self.settings_page.show_checklist(
+            points,
+            review.list_hash(points) if points else "",
+            self._project_why_not(review.CHECKLIST_FILE, review.CHECKLIST_KEY),
+            error,
+        )
+
+    def set_checklist(self, points: list[str]) -> None:
+        """Settings > Project, *Save*: the points of the box as the project's review checklist
+        (`configcheck.plan_set_checklist`, one undo step); an empty box takes it out. A refused
+        list says why under the box."""
+        plan = configcheck.plan_set_checklist(self.ctl.project, points)
+        if not plan.ok:
+            self._show_checklist(plan.error or "")
+            return
+        if plan.ops:
+            label, message = (
+                (strings.STEP_SET_CHECKLIST, strings.CHECKLIST_SET.format(len(points)))
+                if points
+                else (strings.STEP_CLEAR_CHECKLIST, strings.CHECKLIST_CLEARED)
+            )
+            self.ctl.run(label, plan.ops, message=message)
+        self._show_checklist()
+
+    def _checklist_file_points(self) -> list[str] | str | None:
+        """*Take the points of a file…*: the list items of a text or Markdown file (None when the
+        person closed the chooser, a sentence when the file gives no points)."""
+        path = self.ask_open_path(
+            strings.SETTINGS_CHECKLIST_FILE_TITLE, strings.SETTINGS_CHECKLIST_FILE_FILTER
+        )
+        return review.read_points(Path(path)) if path else None
+
     def asbuilt_import_flow(self) -> None:
         """Read a filled-in as-built sheet and keep its records (one undo step); a row the design
         cannot take is named and nothing is changed."""
@@ -4837,6 +5146,7 @@ class MainWindow(QMainWindow):
                 "home": self.home_page,
                 "next": self.next_page,
                 "asbuilt": self.asbuilt_page,
+                "review": self.review_page,
             }
             self.area_stack.setCurrentWidget(pages.get(key, self.settings_page))
             if key == "settings":
@@ -4844,6 +5154,8 @@ class MainWindow(QMainWindow):
                 self._show_plan_settings()
             if key == "asbuilt":
                 self._update_asbuilt()
+            if key == "review":
+                self._update_review()
         else:
             tabs = self.main_tabs
             tabs.set_filter(None)  # (every tab shows while one is chosen)

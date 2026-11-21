@@ -80,7 +80,7 @@ def test_the_settings_keys_of_a_role() -> None:
 
 
 def test_the_systems_rail_leaves_out_home_and_the_detail_areas() -> None:
-    assert areas.hidden_in("systems") == ("home", "drawings", "outputs", "asbuilt")
+    assert areas.hidden_in("systems") == ("home", "drawings", "outputs", "asbuilt", "review")
     assert areas.hidden_in("electrical") == ("asbuilt",)  # (the AIT engineer's page, S9)
     assert "home" in areas.KEYS  # the area still exists: menus, keys and the palette reach it
 
