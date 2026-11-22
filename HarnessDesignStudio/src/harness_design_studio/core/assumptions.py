@@ -385,6 +385,20 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "core/edit.py (connector_room, choose_connector); core/ports.py (ports_of); core/generate/pins.py (allocate)",
         ),
         Assumption(
+            "A-FAR-DEVICE",
+            "A pin name that names a device belongs to that device's interface or connection",
+            "With naming.far_device_names on, a name that starts with a device ID and a separator "
+            "(_ . -), or ends with a separator and a device ID, names that device; the longest ID "
+            "wins, and a name that names two devices names neither. Generate gives an interface the "
+            "port named after the device at its other end first and never a port named after "
+            "another device; the pairing of a connection reads the other device's name off and "
+            "leaves out the pins that name a third device. Off (the default): names are read as in "
+            "4.3.0.",
+            "setting",
+            "core/device_names.py, core/generate/pins.py (_allocate_fixed), core/links.py "
+            "(propose_pairs_between, check_links)",
+        ),
+        Assumption(
             "A-SPARE-PINS",
             "A pin is spare when it has no interface and no signal",
             "The spare-pin check counts, for each device connector that carries at least one interface, "
