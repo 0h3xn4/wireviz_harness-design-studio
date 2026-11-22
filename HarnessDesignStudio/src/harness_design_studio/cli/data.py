@@ -183,7 +183,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     nn = sub.add_parser(
         "import-netlist",
         help="read device connector pinouts from a KiCad netlist",
-        description="Create or update the box connectors of one device from a KiCad netlist (the .net file the schematic editor exports, or kicad-cli sch export netlist; S-expression and XML both work). Pins get fixed signals; generation connects interfaces to the pin of the same name. The import record keeps the design source of the netlist (the name of the schematic file) and the KiCad pin type of every pin, and says which parts of the components it did not import. The user guide has a chapter on it.",
+        description="Create or update the box connectors of one device from a KiCad netlist (the .net file the schematic editor exports, or kicad-cli sch export netlist; S-expression and XML both work). Pins get fixed signals; generation connects interfaces to the pin of the same name. The import record keeps the design source of the netlist (the name of the schematic file) and the KiCad pin type of every pin, and says which parts of the components it did not import. A name that --signal-map does not hold is read against the project's signal map (config --signal-map; none by default), also inside a port (TTC1_TXP becomes TTC1_TX+); each rename is listed and kept in the import record. The user guide has a chapter on it.",
     )
     nn.add_argument("project", type=Path)
     nn.add_argument("netlist", type=Path)
@@ -223,7 +223,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         action="append",
         default=[],
         metavar="NAME=SIGNAL|FILE",
-        help="translate a KiCad net name to an interface signal name (repeatable), or a CSV (net name, signal) or JSON object file of such pairs",
+        help="translate a KiCad net name to an interface signal name (repeatable), or a CSV (net name, signal) or JSON object file of such pairs; whole names only, and a name given here wins over the project's signal map",
     )
     nn.add_argument(
         "--pin-function",
@@ -241,7 +241,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     pn = sub.add_parser(
         "import-pinout",
         help="import a device's pinout from a spreadsheet (CSV or XLSX)",
-        description="Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Function, Direction, Level, Part, Gender, Port, Source, Source version, Source link, Pin row); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as remarks or a voltage, are named in a warning and left out. The sheets of the harness plan are read in their own words: a Function column without a Signal column is the signal and Description is the function; the Direction words PWR, PWR-RET, GND, SGND, SHIELD and SPARE set the role of the pin, IN, OUT and IN/OUT its direction, and any other word (TEST) sets neither and is listed in the import record; a Pinout column is read as the pin with --column pin=Pinout. Source (also ICD), Source version and Source link say where the pinout of a connector comes from; its rows give one value. A Pin row column (also Row or Contact row) gives the row of each pin on the face of its connector, a whole number from 1, the pins of a row in the order of the lines (an empty cell: in no row); when the rows differ from the ones the connector has, they become its own rows (pin-rows shows them, and pin-rows --to-part gives them to its part), and a sheet without the column changes no rows. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.",
+        description="Create or update the box connectors of one device from a table: one row per pin with the connector, the pin, the signal, whether the device fixes it, a contact size and a termination. Columns are matched by their headings (Connector, Pin, Signal, Mode or Fixed, Contact size, Termination, Function, Direction, Level, Part, Gender, Port, Source, Source version, Source link, Pin row); a Port column writes the port into the signal name (RS422_2 and TX+ give RS422_2_TX+), and the preview lists the ports of each connector; columns the project cannot store, such as remarks or a voltage, are named in a warning and left out. The sheets of the harness plan are read in their own words: a Function column without a Signal column is the signal and Description is the function; the Direction words PWR, PWR-RET, GND, SGND, SHIELD and SPARE set the role of the pin, IN, OUT and IN/OUT its direction, and any other word (TEST) sets neither and is listed in the import record; a Pinout column is read as the pin with --column pin=Pinout. Source (also ICD), Source version and Source link say where the pinout of a connector comes from; its rows give one value. A Pin row column (also Row or Contact row) gives the row of each pin on the face of its connector, a whole number from 1, the pins of a row in the order of the lines (an empty cell: in no row); when the rows differ from the ones the connector has, they become its own rows (pin-rows shows them, and pin-rows --to-part gives them to its part), and a sheet without the column changes no rows. The project's signal map (config --signal-map; none by default) renames a team's name in the Signal or Function cell before the port is written into it, also inside a port (TTC1_TXP becomes TTC1_TX+); each rename is listed and kept in the import record. A row with a problem stops the whole import; nothing is changed then. A new connector needs a library part (a Part column, --part J1=PART or --default-part). The user guide has a chapter on it.",
     )
     pn.add_argument("project", type=Path)
     pn.add_argument("file", type=Path)
@@ -1093,7 +1093,7 @@ def _netlist(project, args: argparse.Namespace, rep: Report) -> int:  # type: ig
     report = netlist_report(
         args.netlist, args.project, netlist, plan, use_pin_type_direction=args.pin_direction
     )
-    _echo(report, rep)
+    _echo(report, rep, listed_apart=(signal_map.UNIT,))
     for r in plan.rows:
         rep.say(
             f"{r.ref or '-'}: "
@@ -1103,6 +1103,8 @@ def _netlist(project, args: argparse.Namespace, rep: Report) -> int:  # type: ig
                 else f"ERROR {r.message}"
             )
         )
+    for line in signal_map.renamed_lines(plan.renamed):  # none without the project's map
+        rep.say(line)
     for w in plan.warnings:
         rep.say(f"warning: {w}")
     if plan.unmatched_signals:
@@ -1129,6 +1131,7 @@ def _netlist(project, args: argparse.Namespace, rep: Report) -> int:  # type: ig
         unmatched_signals={
             n: list(plan.unmatched_signals[n]) for n in sorted(plan.unmatched_signals)
         },
+        renamed_signals=[r.as_dict() for r in plan.renamed],
     )
     bad = [r for r in plan.rows if not r.ok]
     if (
@@ -1194,7 +1197,12 @@ def _pinout(
         gender=args.gender, connector=args.connector, replace=args.replace,
     )  # fmt: skip
     report = pinout_report(args.file, args.project, table, mapping, plan, sheet=sheet)
-    _echo(report, rep, already_warned=unstored_columns(table[0] if table else [], mapping))
+    _echo(
+        report,
+        rep,
+        already_warned=unstored_columns(table[0] if table else [], mapping),
+        listed_apart=(signal_map.UNIT,),
+    )
     for r in plan.rows:
         if not r.ok:
             rep.say(f"row {r.row_number}: ERROR {r.message}")
@@ -1204,6 +1212,8 @@ def _pinout(
         n = sum(1 for r in plan.rows if r.ok and r.connector == cid)
         rep.say(f"{cid}: OK {verb} ({n} pin(s))")
         listed.append({"connector": cid, "action": verb, "pins": n})
+    for line in signal_map.renamed_lines(plan.renamed):  # none without the project's map
+        rep.say(line)
     for line in plan.port_lines:
         rep.say(line)
     for w in plan.warnings:
@@ -1235,6 +1245,7 @@ def _pinout(
         },
         ports=[r.as_dict() for r in plan.ports],
         row_layouts=list(plan.row_layouts),
+        renamed_signals=[r.as_dict() for r in plan.renamed],
     )
     if plan.bad_count:
         rep.say("Nothing was changed.")

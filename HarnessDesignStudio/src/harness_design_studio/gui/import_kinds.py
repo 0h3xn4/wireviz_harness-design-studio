@@ -66,6 +66,7 @@ from harness_design_studio.core.pinout_import import (
     plan_pinout_import,
     read_pinout_table,
 )
+from harness_design_studio.core.signal_map import renamed_lines
 from harness_design_studio.core.units import with_area
 from harness_design_studio.gui import strings
 
@@ -586,6 +587,7 @@ def _plan_netlist(
         view.rows.append(PlanRow("", strings.IMP_WARNING, "warning", strings.IMP_WARNING, plain(w)))
     for name, where in sorted(plan.unmatched_signals.items()):
         view.pending.append((name, strings.IMP_P_SIGNAL.format(", ".join(where[:3]))))
+    view.notes.extend(renamed_lines(plan.renamed))  # the project's signal map (4.4.0)
     if not plan.ops and not view.problem and not any(r.state == "fail" for r in view.rows):
         view.problem = strings.IMP_EMPTY
     return view
@@ -643,6 +645,7 @@ def _plan_pinout(
         view.rows.append(PlanRow("", strings.IMP_WARNING, "warning", strings.IMP_WARNING, w))
     for name, where in sorted(plan.unmatched_signals.items()):
         view.pending.append((name, strings.IMP_P_PIN_SIGNAL.format(", ".join(where[:3]))))
+    view.notes.extend(renamed_lines(plan.renamed))  # the project's signal map (4.4.0)
     view.notes.extend(plan.port_lines)  # the ports found on each connector
     if not plan.ops and not view.problem and not any(r.state == "fail" for r in view.rows):
         view.problem = strings.IMP_EMPTY

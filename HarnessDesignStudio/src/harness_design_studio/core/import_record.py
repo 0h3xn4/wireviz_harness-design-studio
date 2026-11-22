@@ -183,10 +183,17 @@ class ImportReport:
             pin_types={clean(k): clean(v) for k, v in sorted(self.pin_types.items())},
         )
 
-    def lines(self, *, converted: bool = True, already_warned: Iterable[str] = ()) -> list[str]:
+    def lines(
+        self,
+        *,
+        converted: bool = True,
+        already_warned: Iterable[str] = (),
+        listed_apart: Iterable[str] = (),
+    ) -> list[str]:
         """The echo, one line each: what was read, the unit, the values converted (all of them
-        unless `converted` is False) and a warning for every column that was left out (except the
-        ones in `already_warned`, which the importer has named itself)."""
+        unless `converted` is False, but the ones of a unit in `listed_apart`, which the importer
+        lists itself, as the renames of the signal map) and a warning for every column that was
+        left out (except the ones in `already_warned`, which the importer has named itself)."""
         what = KIND_WORDS.get(self.kind, self.kind)
         noun = ROW_NOUNS.get(self.kind, "row")
         sheet = f", sheet '{self.sheet}'" if self.sheet else ""
@@ -209,9 +216,11 @@ class ImportReport:
             )
             out.append(f"Unit: {self.unit_what} in {self.unit} ({how}).")
         if converted:
+            apart = set(listed_apart)
             out += [
                 f"Converted, row {c.row}" + (f" ({c.item})" if c.item else "") + f": {c.text()}"
                 for c in self.converted
+                if c.unit not in apart
             ]
         out += [f"note: {n}" for n in self.notes]
         return out

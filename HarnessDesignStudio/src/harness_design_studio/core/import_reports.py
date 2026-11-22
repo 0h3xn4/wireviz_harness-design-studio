@@ -25,6 +25,9 @@ from harness_design_studio.core.kicad import Netlist, NetlistPlan
 from harness_design_studio.core.library_import import PartsPlan, rating_columns
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.pinout_import import DIRECTION_UNIT, NOT_SET, PinoutPlan
+from harness_design_studio.core.signal_map import FIELD as RENAMED_FIELD
+from harness_design_studio.core.signal_map import UNIT as RENAMED_UNIT
+from harness_design_studio.core.signal_map import Renamed
 
 Table = Sequence[Sequence[str]]
 Root = Path | str | None
@@ -157,10 +160,22 @@ def pinout_report(
             row=w.row, field="direction", read=w.word, unit=DIRECTION_UNIT, stored=NOT_SET,
             item=f"{w.connector} pin {w.pin}",
         )  # fmt: skip
+    _renamed(report, plan.renamed)
     if plan.row_layouts:  # the Pin row column gave connectors rows of their own (4.0.0)
         report.notes.append(f"Row layouts set: {', '.join(plan.row_layouts)}.")
     report.notes += plan.row_notes
     return report
+
+
+def _renamed(report: ImportReport, renamed: Sequence[Renamed]) -> None:
+    """Each pin the project's signal map renamed (4.4.0, design section 5.3) as a converted value:
+    field `signal`, the name read, the unit `signal map`, the name stored, the connector and pin.
+    None without a map, so the record of an import without one is the record of 4.3.0."""
+    for r in renamed:
+        report.convert(
+            row=r.row, field=RENAMED_FIELD, read=r.read, unit=RENAMED_UNIT, stored=r.stored,
+            item=r.where,
+        )  # fmt: skip
 
 
 def interfaces_report(
@@ -204,6 +219,7 @@ def netlist_report(
             "had none."
         )
     report.pin_types = dict(plan.pin_types)
+    _renamed(report, plan.renamed)
     for n, r in enumerate(plan.rows, start=1):
         if not r.ok:
             report.drop(n, f"{r.ref or '-'}: {r.message}")
