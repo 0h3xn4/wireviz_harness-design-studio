@@ -16,6 +16,7 @@ quotes the reasons generation recorded (the Why tab: `core.why`). The derivation
 
 from harness_design_studio.core import connector_choice, edit, settings, why
 from harness_design_studio.core.derive import Derivation, Input, Step, origin_text, text_step
+from harness_design_studio.core.device_names import far_device, named_device, unit_ids
 from harness_design_studio.core.edit import carries, unit_connectors
 from harness_design_studio.core.generate import pins as pinmod
 from harness_design_studio.core.generate import segmentation
@@ -154,6 +155,16 @@ def pin_allocation_derivation(project: Project, connector_id: str, pin_id: str) 
             + ("" if gap_return_raw is not None else " (not set: 0 used)"),
         ),
     ]
+    far_on = pinmod.far_devices(project)
+    if far_on:  # 4.4.0: only while the setting is on, so the explanation of 4.3.0 stays as it was
+        inputs.append(
+            Input(
+                "Signal names name the far device",
+                "yes",
+                "",
+                "config/naming.json: far_device_names",
+            )
+        )
     fit = pinmod.strategy(project)
     if fit != pinmod.DEFAULT_STRATEGY:  # the default keeps its text: only another model is named
         inputs.append(
@@ -189,11 +200,18 @@ def pin_allocation_derivation(project: Project, connector_id: str, pin_id: str) 
             )
         )
         if len(read) == 1 and read[0].port:
+            far = far_device(project, i, box.id) if far_on else ""
+            named = named_device(read[0].port, unit_ids(project), port=True) if far else None
+            port_order = (
+                f"the port named after {far}, the device at the other end of {i.id}, comes first"
+                f" ({pinmod.FAR_DEVICE_SETTING}), then {pinmod.PORT_ORDER_TEXT}"
+                if named is not None and named.unit == far
+                else f"the pins of one port go to one interface ({pinmod.PORT_ORDER_TEXT})"
+            )
             steps.append(
                 text_step(
                     "Port of the pin",
-                    f"{pin.signal} is the {signal} of port {read[0].port} of {box.id}; the pins of"
-                    f" one port go to one interface ({pinmod.PORT_ORDER_TEXT})",
+                    f"{pin.signal} is the {signal} of port {read[0].port} of {box.id}; {port_order}",
                     f"port {read[0].port}",
                     "",
                 )
@@ -266,7 +284,9 @@ def pin_allocation_derivation(project: Project, connector_id: str, pin_id: str) 
         tuple(inputs),
         tuple(steps),
         None,
-        ("A-PIN-ORDER", "A-PIN-FIRST-FIT"),
+        ("A-PIN-ORDER", "A-PIN-FIRST-FIT", "A-FAR-DEVICE")
+        if far_on
+        else ("A-PIN-ORDER", "A-PIN-FIRST-FIT"),
         "The order and the gaps are the settings generation reads (core/generate/pins.py: allocate); "
         "the lines recorded when it ran are the ones of the Why tab. A pin allocated before a setting "
         "was changed keeps its place until the harnesses are generated again.",

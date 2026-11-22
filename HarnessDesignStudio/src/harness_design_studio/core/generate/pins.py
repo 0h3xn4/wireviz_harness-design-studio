@@ -8,17 +8,23 @@
 4. A previous generated allocation is kept when it is still valid (small changes, small diffs).
 5. On a fixed pinout an interface takes one port: the free pins of the exact names when they hold
    every signal (as at 2.0.1), else one complete named port such as `RS422_2_TX+` (D-237).
+6. With `naming.far_device_names` on (4.4.0, A-FAR-DEVICE), an interface takes the port named after
+   the device at its other end first (`TTC2_TX+` for the interface to TTC2), and never a port named
+   after another device. Off (the default), the allocation is the one of 4.3.0.
 """
 
 from dataclasses import dataclass, field
 
 from harness_design_studio.core import settings
+from harness_design_studio.core.device_names import named_device
 from harness_design_studio.core.model import Connector, InterfaceType, Project
 from harness_design_studio.core.ports import ConnectorPorts, Port, natural_key, ports_of
 
 DEFAULT_ORDER = ("power", "ground")  # the interface categories allocated first, in this order
 # How a fixed pinout gives ports to interfaces (D-237): the words of the explanation of a pin.
 PORT_ORDER_TEXT = "ports in name order, interfaces in ID order"
+# The setting that gives an interface the port named after its far device (4.4.0, A-FAR-DEVICE).
+FAR_DEVICE_SETTING = "naming.far_device_names"
 
 # The model that picks the run of pins for a group of signals (`model.pin_fit_strategy`, S3b).
 # `first_fit` is what the tool always did and is the default.
@@ -40,12 +46,21 @@ class PinRules:
     categories: tuple[str, ...]  # model.pin_allocation_categories
     fit: str  # model.pin_fit_strategy in force
     earlier: str  # the fit the harnesses were last generated with
+    far_devices: bool = False  # naming.far_device_names is true (4.4.0)
+    units: tuple[str, ...] = ()  # the device IDs a port name is read against (only when on)
 
 
 def strategy(project: Project) -> str:
     """The pin fit strategy in force: the one function generation and the explanation call."""
     value = settings.effective(project, "model", "pin_fit_strategy").value
     return str(value) if value in STRATEGIES else DEFAULT_STRATEGY
+
+
+def far_devices(project: Project) -> bool:
+    """`naming.far_device_names` is on (4.4.0, A-FAR-DEVICE): only the value `true` turns it on;
+    not set, `false` or a refused value (`config_invalid`) is the behaviour of 4.3.0. The one
+    function generation, the editor's dry run and the explanation call."""
+    return settings.effective(project, "naming", "far_device_names").value is True
 
 
 def earlier_strategy(project: Project) -> str:
@@ -68,6 +83,7 @@ def _rank(categories: tuple[str, ...], category: str) -> int:
 class Request:
     interface_id: str
     itype: InterfaceType
+    far: str = ""  # the device at the other end of the interface ("" for none or not known)
 
 
 @dataclass
@@ -88,6 +104,8 @@ def _allocate_fixed(
     held: dict[tuple[str, str], str],
     categories: tuple[str, ...] = DEFAULT_ORDER,
     fit: str = DEFAULT_STRATEGY,
+    far_devices: bool = False,
+    units: tuple[str, ...] = (),
 ) -> Allocation:
     """The pinout is fixed by the unit's design: every signal goes to the free pin of that name.
     A signal the connector has no pin for is an error; nothing is placed on unnamed pins. A locked
@@ -108,7 +126,21 @@ def _allocate_fixed(
 
     Step 3 runs for every interface before step 4, so a named port never takes a pin that the
     exact-name path gives to another interface. Two or more interfaces of one type on repeated bare
-    names (`TX+` on two pins) are placed as at 2.0.1, with a warning in `port_warnings`."""
+    names (`TX+` on two pins) are placed as at 2.0.1, with a warning in `port_warnings`.
+
+    With `far_devices` (`naming.far_device_names`, 4.4.0; design of 4.4.0 section 3.2) a port whose
+    name names a device of `units` (`TTC2`, `TTC2_TM`; `core/device_names.py`) is that device's port,
+    and the far device of an interface is `Request.far`:
+
+    0. after step 1, every interface with no locked pin whose far device F has a usable port here
+       takes, in the ranked order, the port of F it held before while it is free, else the first
+       free port of F in natural order;
+    2. the port held before is kept only when it names no device other than F;
+    4. a port that names a device other than F is left out; when nothing is left, the error names
+       the ports so left out.
+
+    An interface with no far device sees every port, as without the setting. Without `far_devices`
+    nothing of this runs: the function is the one of 4.3.0 (`tests/test_ports_compat_430.py`)."""
     result = Allocation()
     by_signal: dict[str, list[str]] = {}
     for p in connector.pins:
@@ -124,6 +156,15 @@ def _allocate_fixed(
             cp = found[req.itype.id] = ports_of(connector, req.itype)
             every = (cp.bare, *cp.named) if cp.bare is not None else cp.named
             port_of[req.itype.id] = {pp.pin_id: port.name for port in every for pp in port.pins}
+    # type ID -> port name -> the device the port is named after (only with `far_devices`)
+    named_after: dict[str, dict[str, str]] = {}
+    if far_devices:
+        for type_id, cp in found.items():
+            named_after[type_id] = {
+                x.name: r.unit
+                for x in cp.named
+                if (r := named_device(x.name, units, port=True)) is not None and r.names
+            }
     owner = {p.id: p.interface_id for p in connector.pins if p.interface_id}  # released pins
     owner.update({pid: iid for (iid, _sig), pid in held.items()})
     placed: dict[int, list[tuple[str, str, str]]] = {}  # place in `ranked` -> (signal, pin, why)
@@ -134,6 +175,37 @@ def _allocate_fixed(
 
     def free(pid: str | None) -> bool:
         return pid is not None and pid in offered and pid not in used
+
+    def far_port(req: Request, name: str) -> bool:
+        """The port `name` is named after the far device of `req` (never without `far_devices`)."""
+        return bool(req.far) and named_after.get(req.itype.id, {}).get(name) == req.far
+
+    def other_device(req: Request, name: str) -> str:
+        """The device other than the far device of `req` that port `name` is named after; "" for
+        none, for an interface with no far device, and always without `far_devices`."""
+        unit = named_after.get(req.itype.id, {}).get(name, "")
+        return unit if req.far and unit and unit != req.far else ""
+
+    def port_why(req: Request, port: Port) -> str:
+        return _far_why(req.far) if far_port(req, port.name) else _port_why(req.itype)
+
+    def port_before(k: int) -> Port | None:
+        """The complete named port interface `k` held before, while it is still free."""
+        req = ranked[k]
+        iid, sigs = req.interface_id, _signals(req.itype)
+        before = [previous.get((iid, sig)) for sig in sigs]
+        held_in = {port_of[req.itype.id].get(pid or "") for pid in before}
+        name = held_in.pop() if len(held_in) == 1 else None
+        port = found[req.itype.id].port(name) if name else None
+        if (
+            port is not None
+            and port.usable
+            and all(
+                port.pin_of(sig) == pid and free(pid) for sig, pid in zip(sigs, before, strict=True)
+            )
+        ):
+            return port
+        return None
 
     def take(k: int, iid: str, port: Port, signals: list[str], why: str) -> None:
         picks = [(sig, port.pin_of(sig) or "") for sig in signals]
@@ -180,22 +252,38 @@ def _allocate_fixed(
             continue
         take(k, iid, port, rest, ", the port its locked pins are in")
 
+    # 0. the port named after the far device (naming.far_device_names): the one held before, then
+    # the first free one in natural order
+    if far_devices:
+        for k in unlocked:
+            req = ranked[k]
+            port = port_before(k) if req.far else None
+            if port is not None and far_port(req, port.name):
+                take(k, req.interface_id, port, _signals(req.itype), _far_why(req.far))
+        for k in unlocked:
+            req = ranked[k]
+            if k in placed or not req.far:
+                continue
+            sigs = _signals(req.itype)
+            port = next(
+                (
+                    x
+                    for x in found[req.itype.id].usable
+                    if far_port(req, x.name) and all(free(x.pin_of(sig)) for sig in sigs)
+                ),
+                None,
+            )
+            if port is not None:
+                take(k, req.interface_id, port, sigs, _far_why(req.far))
+
     # 2. the complete named port an interface held before
     for k in unlocked:
+        if k in placed:  # step 0 gave it the port of its far device
+            continue
         req = ranked[k]
-        iid, sigs = req.interface_id, _signals(req.itype)
-        before = [previous.get((iid, sig)) for sig in sigs]
-        held_in = {port_of[req.itype.id].get(pid or "") for pid in before}
-        name = held_in.pop() if len(held_in) == 1 else None
-        port = found[req.itype.id].port(name) if name else None
-        if (
-            port is not None
-            and port.usable
-            and all(
-                port.pin_of(sig) == pid and free(pid) for sig, pid in zip(sigs, before, strict=True)
-            )
-        ):
-            take(k, iid, port, sigs, _port_why(req.itype))
+        port = port_before(k)
+        if port is not None and not other_device(req, port.name):
+            take(k, req.interface_id, port, _signals(req.itype), port_why(req, port))
 
     # 3. the exact names, as at 2.0.1
     for k, req in enumerate(ranked):
@@ -241,12 +329,26 @@ def _allocate_fixed(
         if k in exact_only or not cp.named:
             errors[k] = text
             continue
-        port = next((x for x in cp.usable if all(free(x.pin_of(sig)) for sig in sigs)), None)
+        port = next(
+            (
+                x
+                for x in cp.usable
+                if not other_device(req, x.name) and all(free(x.pin_of(sig)) for sig in sigs)
+            ),
+            None,
+        )
         if port is None:
-            states = "; ".join(_port_state(x, owner) for x in cp.named)
-            errors[k] = f"{text}, and no free complete {req.itype.name} port ({states})"
+            left_out = any(other_device(req, x.name) for x in cp.named)
+            states = "; ".join(
+                f"port {x.name} is named after unit {unit}"
+                if (unit := other_device(req, x.name))
+                else _port_state(x, owner)
+                for x in cp.named
+            )
+            whom = f" for unit {req.far}" if left_out else ""
+            errors[k] = f"{text}, and no free complete {req.itype.name} port{whom} ({states})"
             continue
-        take(k, iid, port, sigs, _port_why(req.itype))
+        take(k, iid, port, sigs, port_why(req, port))
 
     for k, req in enumerate(ranked):
         if k in errors:
@@ -272,6 +374,13 @@ def _port_why(itype: InterfaceType) -> str:
         f"; an interface keeps the port it used before, else takes the first free {itype.name}"
         f" port ({PORT_ORDER_TEXT})"
     )
+
+
+def _far_why(far: str) -> str:
+    """The reason of a pin of the port named after the far device (step 0, and step 2 when the
+    port names it): the same words on every Generate, so a second plan is empty (REQ-GEN-01). The
+    words reach `generated/generation.json`, so they say *unit*."""
+    return f"; the port named after unit {far} at the other end ({FAR_DEVICE_SETTING})"
 
 
 def _signals(itype: InterfaceType) -> list[str]:
@@ -359,18 +468,25 @@ def allocate(
     return_gap: int = 0,
     categories: tuple[str, ...] = DEFAULT_ORDER,
     strategy: str = DEFAULT_STRATEGY,
+    far_devices: bool = False,
+    units: tuple[str, ...] = (),
 ) -> Allocation:
     """Allocate pins of `connector` for `requests`. Locked pins (and their signals) are untouched.
     `held` maps (interface, signal) to a locked pin that already carries that signal: it is used
     as it is instead of placing the signal on another pin. `return_gap` unassigned pins are left
     between the signals of a power interface (ECSS-Q-ST-30-11C 6.11.3 a). `strategy` is the model
-    that picks the run of pins (`model.pin_fit_strategy`, see STRATEGY_TEXT)."""
+    that picks the run of pins (`model.pin_fit_strategy`, see STRATEGY_TEXT). `far_devices` and
+    `units`: on a fixed pinout, the port named after the far device of a request (`Request.far`)
+    first, and never a port named after another of `units` (`naming.far_device_names`, 4.4.0);
+    a connector without a fixed pinout reads no name."""
     result = Allocation()
     held = held or {}
     if strategy not in STRATEGIES:
         strategy = DEFAULT_STRATEGY
     if any(p.fixed and p.signal for p in connector.pins):  # even when a released harness holds some
-        return _allocate_fixed(connector, requests, previous, held, categories, strategy)
+        return _allocate_fixed(
+            connector, requests, previous, held, categories, strategy, far_devices, units
+        )
     order = [p.id for p in connector.pins]
     index = {pid: k for k, pid in enumerate(order)}
     taken = {p.id for p in connector.pins if p.locked}
