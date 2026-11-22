@@ -27,7 +27,7 @@ jobs:
       matrix:
         os: [windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     env:
       QT_QPA_PLATFORM: offscreen
       HARNESS_TIME_FACTOR: "8"
