@@ -31,6 +31,7 @@ from pydantic import TypeAdapter, ValidationError
 from . import counterparts
 from .commands import Delete, Op, Put, apply_ops
 from .counterparts import Counterparts
+from .device_names import LinkReading, link_reading, unit_ids
 from .devices import derive_meaning, derive_meaning_types, ops_add_connector, ops_set_pin
 from .edit import EditError, clone_with, unit_connectors
 from .first_connector import default_connector_part
@@ -193,6 +194,48 @@ def effective_role(
     return "signal"
 
 
+FAR_DEVICE_FILE, FAR_DEVICE_KEY = "naming", "far_device_names"
+
+
+def far_device_names_on(project: Project) -> bool:
+    """Whether `config/naming.json` `far_device_names` is on (4.4.0, A-FAR-DEVICE): only `true`
+    turns it on; not set, `false` or a value the configuration check refuses keep the reading of
+    4.3.0."""
+    cfg = project.config.get(FAR_DEVICE_FILE)
+    return cfg is not None and cfg.values.get(FAR_DEVICE_KEY) is True
+
+
+def _reader(project: Project, a: Connector, b: Connector) -> tuple[str, ...]:
+    """The device IDs a pin name of the two connectors is read against (design of 4.4.0, section
+    4.1), or () when the names are read as in 4.3.0: the setting is off, or a connector does not
+    belong to a device (a loose cable end, `manual_harness.propose_plug`), or both belong to one."""
+    if not far_device_names_on(project):
+        return ()
+    if not a.unit_id or not b.unit_id or a.unit_id == b.unit_id:
+        return ()
+    return unit_ids(project)
+
+
+def _read(pin: Pin, own: str, other: str, units: tuple[str, ...]) -> LinkReading:
+    """How a pin of device `own` is read in a connection to device `other` (section 4.1): its whole
+    name when `units` is empty (the setting off)."""
+    if not units or not pin.signal:
+        return LinkReading(pin.signal or "")
+    return link_reading(pin.signal, own, other, units)
+
+
+def _as_read(pin: Pin, reading: LinkReading) -> Pin:
+    """The pin with the name the pairing compares (the pin itself when the name is read whole)."""
+    if not reading.compare or reading.compare == (pin.signal or ""):
+        return pin
+    return evolve(pin, signal=reading.compare)
+
+
+def _and(items: Sequence[str]) -> str:
+    """`1`, `1 and 2`, `1, 2 and 3`."""
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
 def _pin_ref(connector_id: str, pin_id: str) -> str:
     return f"{connector_id}.{pin_id}"
 
@@ -347,12 +390,22 @@ def propose_pairs_between(project: Project, a: Connector, b: Connector) -> Propo
     need the two ends to be device connectors, only pins with signal names, so a loose end of a
     cable (a connector of a harness) is paired with a port the same way (`manual_harness.
     propose_plug`). A pin that a link pairs, or that an interface wires, is still not offered
-    (looked up by connector ID)."""
+    (looked up by connector ID).
+
+    With `naming.far_device_names` on (4.4.0, design section 4.1) and two connectors of two
+    devices X and Y, each free pin's name is read against the device IDs first: a pin of X whose
+    name names Y is compared by the rest of its name (`TTC2_TX` is `TX` in a link to TTC2), one
+    that names X itself or no device by its whole name (N10), and one that names a third device is
+    not offered, with a note (N9). Then the pairing runs on the names so read, and pins whose whole
+    names are equal pair last, as they did in 4.3.0 (`TTC2_PPS` on both). The pins keep their
+    names. With the setting off it is the function of 4.3.0."""
     index = _signal_index(project)
     table = counterparts_of(project)
     notes: list[str] = []
     free: dict[str, list[Pin]] = {}
     owners = link_pin_index(project, {a.id, b.id})
+    units = _reader(project, a, b)
+    readings: dict[tuple[str, str], LinkReading] = {}
     for conn in (a, b):
         taken = _taken(owners, conn.id)
         if taken:
@@ -377,20 +430,30 @@ def propose_pairs_between(project: Project, a: Connector, b: Connector) -> Propo
             (p for p in conn.pins if p.id not in taken and not p.interface_id),
             key=lambda p: natural_key(p.id),
         )
+        if units:
+            notes += _read_free(conn, a if conn is b else b, free, units, readings)
     dirs = {
         (conn.id, p.id): _direction(project, conn, p, index) for conn in (a, b) for p in conn.pins
     }
     fa, fb = free[a.id], free[b.id]
-    names_b = _NameIndex(fb, table)
+    # the names the pairing compares: the pins themselves with the setting off
+    ra = [_as_read(p, readings[(a.id, p.id)]) for p in fa] if units else fa
+    rb = [_as_read(p, readings[(b.id, p.id)]) for p in fb] if units else fb
+    names_b = _NameIndex(rb, table)
+    whole_b = _NameIndex(fb, table) if units else names_b
+    rounds = [(ra, names_b, "counterpart"), (ra, names_b, "equal")]  # TX to RX, then the same name
+    if units:
+        rounds.append((fa, whole_b, "equal"))  # whole names that are equal, as in 4.3.0
     used_a: set[int] = set()
     used_b: set[int] = set()
     pairs: list[tuple[int, int]] = []
-    for wanted in ("counterpart", "equal"):  # TX to RX first, then the same name
-        for ka, pa in enumerate(fa):
+    for side_a, look_b, wanted in rounds:
+        side_b = rb if look_b is names_b else fb
+        for ka, pa in enumerate(side_a):
             if ka in used_a or not pa.signal:
                 continue
-            for kb in names_b.related(_name(pa.signal), table, wanted):
-                pb = fb[kb]
+            for kb in look_b.related(_name(pa.signal), table, wanted):
+                pb = side_b[kb]
                 if kb in used_b:
                     continue
                 if _pair_side(pa, pb, table):
@@ -406,10 +469,14 @@ def propose_pairs_between(project: Project, a: Connector, b: Connector) -> Propo
     ):  # names that fit, stopped by what they look like or by the directions
         if ka in used_a or not pa.signal:
             continue
-        name = _name(pa.signal)
-        fits = sorted(
-            {*names_b.related(name, table, "equal"), *names_b.related(name, table, "counterpart")}
-        )
+        name = _name(ra[ka].signal)
+        found = {
+            *names_b.related(name, table, "equal"),
+            *names_b.related(name, table, "counterpart"),
+        }
+        if units:
+            found |= set(whole_b.related(_name(pa.signal), table, "equal"))
+        fits = sorted(found)
         for kb in fits:
             pb = fb[kb]
             if kb in used_b:
@@ -420,7 +487,7 @@ def propose_pairs_between(project: Project, a: Connector, b: Connector) -> Propo
             )
             if why := _conflict(dirs[(a.id, pa.id)], dirs[(b.id, pb.id)]):
                 notes.append(f"{where}{why}.")
-            elif side := _pair_side(pa, pb, table):
+            elif side := (_pair_side(ra[ka], rb[kb], table) or _pair_side(pa, pb, table)):
                 notes.append(
                     f"{where}they look like {side} to {side}. If one device names its pins "
                     "from the other's point of view, pair them yourself."
@@ -435,6 +502,42 @@ def propose_pairs_between(project: Project, a: Connector, b: Connector) -> Propo
         tuple(p.id for k, p in enumerate(fb) if k not in used_b),
         tuple(notes),
     )
+
+
+def _read_free(
+    conn: Connector,
+    far: Connector,
+    free: dict[str, list[Pin]],
+    units: tuple[str, ...],
+    readings: dict[tuple[str, str], LinkReading],
+) -> list[str]:
+    """Read the free pins of `conn` in a connection to `far` (section 4.1): record each reading in
+    `readings`, take the pins that name a third device out of `free`, and return the notes of
+    section 4.3, one per third device (in natural order) and one per name that fits two devices."""
+    own, other = conn.unit_id or "", far.unit_id or ""
+    third: dict[str, list[str]] = defaultdict(list)
+    notes: list[str] = []
+    kept: list[Pin] = []
+    for p in free[conn.id]:
+        r = _read(p, own, other, units)
+        readings[(conn.id, p.id)] = r
+        if not r.offered:
+            third[r.third].append(p.id)
+            continue
+        if r.note:
+            notes.append(f"Pin {p.id} of {conn.id}: {r.note}")
+        kept.append(p)
+    free[conn.id] = kept
+    out = []
+    for unit in sorted(third, key=natural_key):
+        pids = third[unit]
+        many = len(pids) > 1
+        out.append(
+            f"Pin{'s' if many else ''} {_and(pids)} of {conn.id} name{'' if many else 's'} "
+            f"device {unit}, so {'they are' if many else 'it is'} not offered in a link to "
+            f"{other} (Settings > Project: Signal names name the far device)."
+        )
+    return out + notes
 
 
 # ---- the planners ------------------------------------------------------------------------------
@@ -1019,16 +1122,22 @@ def _is_power_loop(
 @dataclass(frozen=True)
 class _Review:
     """What the review of any link needs, worked out once for all of them: the interface types by
-    signal name, the project's table of counterpart words, and the links that pair each pin."""
+    signal name, the project's table of counterpart words, the links that pair each pin, and the
+    device IDs a pin name is read against when `naming.far_device_names` is on (4.4.0, design
+    section 4.2; empty with the setting off, so the names are read as in 4.3.0)."""
 
     types: dict[str, list[InterfaceType]]
     table: Counterparts
     owners: LinkPins
+    units: tuple[str, ...] = ()
 
 
 def _review_of(project: Project, connectors: Collection[str] | None) -> _Review:
     return _Review(
-        _signal_index(project), counterparts_of(project), link_pin_index(project, connectors)
+        _signal_index(project),
+        counterparts_of(project),
+        link_pin_index(project, connectors),
+        unit_ids(project) if far_device_names_on(project) else (),
     )
 
 
@@ -1062,6 +1171,7 @@ def _check_link(project: Project, link: Link, review: _Review) -> list[LinkFindi
     pa = {p.id: p for p in a.pins}
     pb = {p.id: p for p in b.pins}
     index, table = review.types, review.table
+    units = review.units if a.unit_id and b.unit_id and a.unit_id != b.unit_id else ()
     seen_a: set[str] = set()
     seen_b: set[str] = set()
     other_a = _taken(review.owners, a.id, lid)
@@ -1087,15 +1197,30 @@ def _check_link(project: Project, link: Link, review: _Review) -> list[LinkFindi
     for pair in good:
         x, y = pa[pair.a_pin], pb[pair.b_pin]
         where = f"pin {x.id} of {a.id} with pin {y.id} of {b.id}"
+        # the names as the pairing reads them (section 4.2): the pins themselves with the setting off
+        rx, ry = _read(x, a.unit_id or "", b.unit_id or "", units), _read(y, b.unit_id or "", a.unit_id or "", units)  # fmt: skip
+        thirds = [(p, r, far, ref) for p, r, far, ref in ((x, rx, b, _pin_ref(a.id, x.id)), (y, ry, a, _pin_ref(b.id, y.id))) if not r.offered]  # fmt: skip
         if bool(x.signal) != bool(y.signal):
             which = (x, a) if not x.signal else (y, b)
             named = x if x.signal else y
             out.append(LinkFinding("link_signal_mismatch", "warning", f"Link {lid} pairs {where}, but pin {which[0].id} of {which[1].id} has no signal while the other is named {named.signal}. Name the pin, or change the pairing.", lid, _pin_ref(a.id, x.id)))  # fmt: skip
-        elif x.signal and y.signal and not name_relation(x.signal, y.signal, table):
+        elif thirds:
+            for p, r, far, ref in thirds:
+                out.append(LinkFinding("link_signal_mismatch", "warning", f"Link {lid} pairs {where}, but {p.signal} names unit {r.third}, not {far.unit_id}. Pair it in a link to {r.third}, or rename the pin.", lid, ref))  # fmt: skip
+        elif (
+            x.signal
+            and y.signal
+            and not name_relation(x.signal, y.signal, table)
+            and not (units and name_relation(rx.compare, ry.compare, table))
+        ):
             out.append(LinkFinding("link_signal_mismatch", "warning", f"Link {lid} pairs {where}, but their signals differ ({x.signal} and {y.signal}). Check the pairing, or rename a signal.", lid, _pin_ref(a.id, x.id)))  # fmt: skip
         dx, dy = _direction(project, a, x, index), _direction(project, b, y, index)
-        if (side := _pair_side(x, y, table)) and not _conflict(dx, dy):
-            out.append(LinkFinding("link_signal_mismatch", "warning", f"Link {lid} pairs {where}, and both are named {x.signal}, which looks like {side} to {side}. A transmit pin should meet a receive pin. Check the pairing, or the names.", lid, _pin_ref(a.id, x.id)))  # fmt: skip
+        side = _pair_side(x, y, table)
+        if units and not side and not thirds:
+            side = _pair_side(_as_read(x, rx), _as_read(y, ry), table)
+        if side and not _conflict(dx, dy):
+            said = f"both are named {x.signal}" if _name(x.signal) == _name(y.signal) else f"{x.signal} and {y.signal} both read as {rx.compare}"  # fmt: skip
+            out.append(LinkFinding("link_signal_mismatch", "warning", f"Link {lid} pairs {where}, and {said}, which looks like {side} to {side}. A transmit pin should meet a receive pin. Check the pairing, or the names.", lid, _pin_ref(a.id, x.id)))  # fmt: skip
         if why := _conflict(dx, dy):
             fight = (
                 "Two outputs drive against each other."
@@ -1118,6 +1243,9 @@ def _check_link(project: Project, link: Link, review: _Review) -> list[LinkFindi
                 and effective_role(pin, project, conn, index) != "spare"
             ):
                 far = b if conn is a else a
+                if units and (r := _read(pin, conn.unit_id or "", far.unit_id or "", units)).third:
+                    out.append(LinkFinding("link_pin_unpaired", "warning", f"Pin {pid} of {conn.id} is named {pin.signal} (unit {r.third}) but no link pairs it. Link {conn.id} to a connector of {r.third}, or set its role to Spare if it is not used.", lid, _pin_ref(conn.id, pid)))  # fmt: skip
+                    continue
                 out.append(LinkFinding("link_pin_unpaired", "warning", f"Pin {pid} of {conn.id} is named {pin.signal} but is not paired in link {lid}. Pair it with a pin of {far.id}, or set its role to Spare if it is not used.", lid, _pin_ref(conn.id, pid)))  # fmt: skip
     roles = [
         {
@@ -1158,6 +1286,7 @@ __all__ = [
     "counterparts_of",
     "derived_interfaces",
     "effective_role",
+    "far_device_names_on",
     "link_caption",
     "link_ends",
     "link_pin_index",
