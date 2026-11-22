@@ -4,17 +4,18 @@
 section 3.1, sections 10 and 11, owner questions N2, N4, N9 and N10): `device_names.named_device`
 on the prefix and the suffix form, the three separators, the case, a port name equal to an ID,
 the longest ID (`OBC1` and `OBC1-R`), two devices, an empty rest; `far_device`; `link_reading`;
-and, by Hypothesis, `named_device` against the rules of section 3.1 as written. The verifier's
-copy of the reading, and its comparison with this one, come with pull request 3."""
+and, by Hypothesis, `named_device` against the rules of section 3.1 as written and against the
+verifier's own copy of the reading (`core/verify.py` `device_naming`, section 3.4; pull request 3),
+which does not import this module."""
 
 import re
 from pathlib import Path
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from harness_design_studio.core import device_names, templates
+from harness_design_studio.core import device_names, templates, verify
 from harness_design_studio.core.device_names import DeviceReading, LinkReading, named_device
 from harness_design_studio.core.model import Project
 from harness_design_studio.core.ports import natural_key
@@ -156,6 +157,39 @@ def test_named_device_follows_the_rules_as_written(ids: set[str], name: str, por
     assert named_device(name, ids, port=port) == _oracle(name, ids, port)
 
 
+@settings(max_examples=400, deadline=None)
+@given(st.sets(_ID, max_size=5), _NAME, st.booleans())
+def test_the_verifiers_copy_reads_every_name_as_the_core_does(
+    ids: set[str], name: str, port: bool
+) -> None:
+    """Section 3.4: the two copies of the reading agree (device, rest, form, separator; the device
+    is "" for a name of two devices)."""
+    core = named_device(name, ids, port=port)
+    mine = verify.device_naming(name, ids, port=port)
+    assert mine == (
+        None if core is None else (core.unit, core.rest, core.form or "", core.separator)
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["OBC1-R_TX", "TTC1_TX_TTC2", "TX+.TTC1", "TTC1", "TTC1_"],
+    ids=["long", "two", "suf", "id", "nil"],
+)
+def test_the_verifiers_copy_on_the_cases_of_section_10(name: str) -> None:
+    core = named_device(name, IDS, port=True)
+    mine = verify.device_naming(name, IDS, port=True)
+    assert mine == (
+        None if core is None else (core.unit, core.rest, core.form or "", core.separator)
+    )
+
+
+def test_the_verifier_does_not_import_the_reading_of_the_core() -> None:
+    text = Path(verify.__file__ or "").read_text(encoding="utf-8")
+    assert "device_names import" not in text and "core.device_names" not in text
+    assert "from .device_names" not in text and "import device_names" not in text
+
+
 @settings(max_examples=300, deadline=None)
 @given(
     _ID,
@@ -164,7 +198,9 @@ def test_named_device_follows_the_rules_as_written(ids: set[str], name: str, por
     st.booleans(),
 )
 def test_a_composed_name_reads_back(unit: str, sep: str, rest: str, suffix: bool) -> None:
-    """A device ID and a rest without a separator, joined either way, read back as both."""
+    """A device ID and a rest without a separator, joined either way, read back as both. A rest
+    equal to the ID (`A_A`) is one device at both ends, read as a prefix (a test of its own)."""
+    assume(rest != unit)
     name = f"{rest}{sep}{unit}" if suffix else f"{unit}{sep}{rest}"
     r = named_device(name, {unit})
     assert r is not None and (r.unit, r.rest) == (unit, rest)

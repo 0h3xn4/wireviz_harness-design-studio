@@ -11,6 +11,7 @@ This page explains why a signal is on a pin of a device connector, and why a con
 - [The assumptions it rests on](#the-assumptions-it-rests-on)
 - [A worked example](#a-worked-example)
 - [A worked example with ports](#a-worked-example-with-ports)
+- [Ports named after the far device](#ports-named-after-the-far-device)
 - [The choice of a connector](#the-choice-of-a-connector)
 - [What happens when a value is missing](#what-happens-when-a-value-is-missing)
 - [What the model does not do](#what-the-model-does-not-do)
@@ -51,6 +52,8 @@ When two or more interfaces of one type need signal names that repeat on a conne
 
 The design rules `signal-unassigned` and `direction-conflict` read the signal of a port pin, and so does the independent verifier. The verifier reports `port_mixed` when one interface uses the pins of two ports of one connector.
 
+With the setting `naming.far_device_names` on (4.4.0, off by default), a port whose name names a device gives that device's interface its pins first; see [ports named after the far device](#ports-named-after-the-far-device).
+
 Ports and harnesses are separate decisions. The ports decide the pins on the device connector; the segmentation decides how many harnesses plug into it. With the default `per_connector_pair`, interfaces from one connector to different far connectors get a harness each, so the connector gets one plug per harness and Generate warns `box_connector_shared` (the design rule `model-inconsistent` reports it too). `per_zone_pair` with the far devices in one zone puts them into one harness with one plug on the connector ([segmentation](segmentation.md)). Since 2.3.0 (D-243) `segmentation.mode` = `per_connector_group` makes one harness that branches from one plug to the several far connectors ([segmentation](segmentation.md#one-harness-that-branches)).
 
 ## The inputs and where they come from
@@ -65,13 +68,14 @@ Ports and harnesses are separate decisions. The ports decide the pins on the dev
 | Contacts between power and return | `config/generation.json: power_return_gap_pins` (ECSS-Q-ST-30-11C requirement 0140052 is cited by ID). |
 | Locked, fixed | The pin. |
 | The port of a fixed pin | The pin's signal name (`RS422_2_TX+`), read by `core/ports.py`; the interface type's signal names. No field holds it. |
+| Signal names name the far device | `config/naming.json: far_device_names` (not set: off, the order of 4.3.0); the device a port name names is read against the device IDs (`core/device_names.py`). Shown by `explain` only while it is on. |
 | The lines recorded when it was generated | The Why tab (`core/why.py`): the derivation quotes them and does not repeat them. |
 
 ## The assumptions it rests on
 
 - **A-PIN-ORDER.** The order of the categories and the gaps are settings; the pins are taken in the order of the list of pins, also on a connector with a row layout.
 - **A-PIN-FIRST-FIT.** First fit in the order of the pin list (the default of the setting `model.pin_fit_strategy`; `last_fit` and `spread` are the alternatives, see [selectable models](selectable-models.md#pin-fit-strategy)); an earlier choice is kept while it was made by the same strategy; locks and fixed pinouts win. On a fixed pinout the ports are taken in name order. Neighbours are neighbours in the list of pins, not a measured position; Generate reads no row layout (4.0.0), so on a connector with one it may place power and return pins that the rule `power-return-adjacent` finds next to each other on the face ([rule limits](rule-limits.md)).
-- **A-FAR-DEVICE** (a setting, 4.4.0, off by default). With `naming.far_device_names` on, a pin or port name that starts with a device ID and a separator (`_`, `.`, `-`), or ends with a separator and a device ID, names that device (`TTC2_TX+` names `TTC2`; a port named `TTC1` names `TTC1`); the ID is compared exactly, with case, the longest ID wins (`OBC1-R_TX` names `OBC1-R`, not `OBC1`), and a name that names two devices (`TTC1_TX_TTC2`) names neither. An interface then gets the port named after the device at its other end first and never a port named after another device, and the pairing of a connection reads the other device's name off a pin name. The reading is in the program (`core/device_names.py`) from 4.4.0 on; the allocation and the pairing use it in the next steps of 4.4.0, and until then, and whenever the setting is off, names are read as in 4.3.0.
+- **A-FAR-DEVICE** (a setting, 4.4.0, off by default). With `naming.far_device_names` on, a pin or port name that starts with a device ID and a separator (`_`, `.`, `-`), or ends with a separator and a device ID, names that device (`TTC2_TX+` names `TTC2`; a port named `TTC1` names `TTC1`); the ID is compared exactly, with case, the longest ID wins (`OBC1-R_TX` names `OBC1-R`, not `OBC1`), and a name that names two devices (`TTC1_TX_TTC2`) names neither. An interface then gets the port named after the device at its other end first and never a port named after another device, and the pairing of a connection reads the other device's name off a pin name. The reading is in the program (`core/device_names.py`); Generate, the editor's dry run, `explain` and the independent verifier use it from 4.4.0 on ([ports named after the far device](#ports-named-after-the-far-device)), and the pairing of a connection in a later step of 4.4.0. Whenever the setting is off, names are read as in 4.3.0.
 
 ## A worked example
 
@@ -80,6 +84,22 @@ Ports and harnesses are separate decisions. The ports decide the pins on the dev
 ## A worked example with ports
 
 An on-board computer OBC1 has one connector OBC1-J01 with twelve fixed pins `RS422_1_TX+` ... `RS422_3_RX-`, imported with a Port column. Three RS-422 interfaces IF-001 to IF-003 go from OBC1 to three star trackers. The tool chose OBC1-J01 for IF-001 because it was free, and for IF-002 and IF-003 because it had a free complete port (the second tier of the choice below). Nothing is locked, and no earlier Generate exists. Step 3 places no interface (the bare names `TX+` ... are not on the connector), so step 4 gives each interface the first free complete port: IF-001 RS422_1, IF-002 RS422_2, IF-003 RS422_3. `explain DIR OBC1-J01.5` prints **RS422_2_TX+ of IF-002 on pin 5** and the step *Port of the pin: RS422_2_TX+ is the TX+ of port RS422_2 of OBC1-J01; the pins of one port go to one interface (ports in name order, interfaces in ID order) = port RS422_2*. A second Generate gives every interface the port it had (step 2) and changes nothing. With IF-003 locked to RS422_1 beforehand, IF-003 keeps RS422_1 (step 1), and IF-001 and IF-002 take RS422_2 and RS422_3. The user manual follows the same case on screen: [three RS-422 links on one connector](../user-manual/generate-harnesses.md#worked-example-three-rs-422-links-on-one-connector-since-210).
+
+## Ports named after the far device
+
+Since 4.4.0 (D-262, owner questions N3 and N4) a team can say that its port names name the device at the other end: an on-board computer OBC1 with one connector OBC1-J01 whose fixed pins are `TTC1_TX+` ... `TTC1_RX-` (pins 1 to 4) and `TTC2_TX+` ... `TTC2_RX-` (pins 5 to 8), and the RS-422 interfaces IF-001 (OBC1 to TTC2) and IF-002 (OBC1 to TTC1). With the default order above, IF-001 comes first by ID and takes the first free port in name order, TTC1: the interface to TTC2 gets the pins named for TTC1, and nothing reports it. With `naming.far_device_names` on (`config DIR --far-device-names on`), a port belongs to the device its name names: port `TTC1` (the name is the device ID) or `TTC1_TM` and `TTC1_TC` (the ID, a separator `_`, `.` or `-`, and more) are ports of TTC1; the ID is compared exactly, with case, the longest ID wins, and a name of two devices names neither (A-FAR-DEVICE). A port such as `RS422_2` names no device. The steps of the order then become:
+
+0. After step 1, every interface with no locked pin whose far device has a usable port here takes, in the order of the categories and IDs, the port of that device it used at the last Generate while it is free, else the first free port of that device in name order (`TTC1_TC` before `TTC1_TM`).
+1. Locked pins: unchanged; a person's lock wins over every name.
+2. The port used before is kept only when it names no device other than the far device. An interface with both ends on one device has no far device and keeps it as before.
+3. The exact names: unchanged (a bare name names no device).
+4. The first free complete port in name order, leaving out every port named after another device. When nothing is left, Generate stops with an error that names them: *IF-003: OBC1-J01 has a fixed pinout and no free pin named TX+, TX-, RX+, RX-, and no free complete RS-422 port for unit TTC3 (port TTC1 is named after unit TTC1; port TTC2 is named after unit TTC2).* An interface with no far device sees every port.
+
+In the example IF-001 gets pins 5 to 8 and IF-002 pins 1 to 4, in whatever order the IDs are. The reason of a pin says so: *TX+ of IF-001 uses pin 5, the TX+ of port TTC2 of OBC1-J01; the port named after unit TTC2 at the other end (naming.far_device_names)*, and `explain DIR OBC1-J01.5` gives the step *Port of the pin: TTC2_TX+ is the TX+ of port TTC2 of OBC1-J01; the port named after TTC2, the device at the other end of IF-001, comes first (naming.far_device_names), then ports in name order, interfaces in ID order*, with the input *Signal names name the far device = yes*. The generation record holds the note `naming:far_device_names` while the setting is on. Turning the setting on moves the ports at the next Generate; turning it off again leaves them where they are (step 2). A connector without a fixed pinout reads no name.
+
+The editor's dry run (the room of a connector, the Guided choice) runs the same steps with the far device of the interface being placed, so a connector whose free ports are all named after other devices has no room: *OBC1-J01 cannot take another RS-422: its free RS-422 ports TTC1 and TTC2 are named after other devices*, and in Guided mode the tool goes on to the next connector. *Choose port…* still locks any complete port.
+
+The independent verifier reads the device a port names with its own copy of the rule and, while the setting is on, reports `port_far_device`: an error when an interface uses a port named after another device and nobody locked its pins (*Interface IF-001 goes to unit TTC2 but uses port TTC1 of OBC1-J01, which is named after unit TTC1 (naming.far_device_names). Regenerate, or choose the port of TTC2.*; it reaches the DRC as `verify-mismatch`), and a warning when a person locked the pins or a released harness holds them (*It is kept because a person locked the pins.*, *It is kept because harness W001 is released; a new version takes the port of TTC2.*). With the setting off, nothing of this section runs: Generate gives what 4.3.0 gave (`tests/test_ports_compat_430.py`).
 
 ## The choice of a connector
 
@@ -102,6 +122,7 @@ The gaps and the order always have a value (a default or a placeholder, named in
 - It does not choose the connector part of a device: that is the device design or the library.
 - It does not know the position of a pin on the connector face.
 - It does not read a port from a free pin, from a pin name that reads in two ways, or across two connectors: a port is the fixed pins of one connector whose names name it.
+- It does not read a device from the name of a device (`Transceiver 1`), from a renamed ID, or from a name that names two devices: only a device ID, exactly, names a device (A-FAR-DEVICE).
 - It does not check that a connector carrying a noisy and a sensitive interface keeps them apart: the EMC rules look at a harness, not at the pins of one connector.
 
 Next: [segmentation](segmentation.md), [the models](README.md), [what the tool assumes](../user-manual/see-what-the-tool-assumes.md)

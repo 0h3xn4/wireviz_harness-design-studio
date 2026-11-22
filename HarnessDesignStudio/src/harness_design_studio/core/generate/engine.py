@@ -20,6 +20,7 @@ from harness_design_studio.core import configcheck, settings
 from harness_design_studio.core.clone import clone_with
 from harness_design_studio.core.commands import Delete, Op, Put, SetGeneration
 from harness_design_studio.core.describe import part_gender
+from harness_design_studio.core.device_names import far_device, unit_ids
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.generation_status import generation_status as generation_status
 from harness_design_studio.core.generation_status import input_hash as input_hash
@@ -47,12 +48,14 @@ from .lengths import generated_length, path_length, path_trail
 from .naming import Namer, namer_for
 from .pins import (
     DEFAULT_STRATEGY,
+    FAR_DEVICE_SETTING,
     STRATEGY_TEXT,
     Allocation,
     PinRules,
     Request,
     allocate,
     earlier_strategy,
+    far_devices,
 )
 from .pins import strategy as pin_strategy
 from .segmentation import GROUP_MODE, Group, join_text, mode_of, orient, segment
@@ -476,13 +479,23 @@ def pin_rules(project: Project, gen: dict[str, object] | None = None) -> PinRule
     own; without them they are checked here, and what is wrong counts as unset, as in Generate)."""
     if gen is None:
         gen = _checked_config(project, RegenReport())[0]
+    far = far_devices(project)
     return PinRules(
         int(_num(gen.get("power_signal_gap_pins")) or 0),
         int(_num(gen.get("power_return_gap_pins")) or 0),
         settings.names(project, "model", "pin_allocation_categories"),
         pin_strategy(project),
         earlier_strategy(project),
+        far,
+        unit_ids(project) if far else (),
     )
+
+
+def request(project: Project, rules: PinRules, i: InterfaceInstance, connector_id: str) -> Request:
+    """The pin request of interface `i` at the device connector `connector_id`: its far device
+    is filled only while `naming.far_device_names` is on (`rules.far_devices`)."""
+    far = far_device(project, i, connector_id) if rules.far_devices else ""
+    return Request(i.id, project.interface_types[i.type_id], far)
 
 
 def allocate_box(
@@ -536,6 +549,8 @@ def allocate_box(
         rules.return_gap,
         rules.categories,
         rules.fit,
+        rules.far_devices,
+        rules.units,
     )
 
 
@@ -543,6 +558,7 @@ def _allocate_pins(
     ctx: _Ctx, groups: list[Group], frozen_ifaces: set[str], tick: Callable[[float, str], None]
 ) -> None:
     p = ctx.project
+    rules = pin_rules(p, ctx.gen)
     requests: dict[str, list[Request]] = {}
     for g in groups:
         for iid in g.interface_ids:
@@ -550,16 +566,18 @@ def _allocate_pins(
             for e in i.endpoints:
                 if e.connector_id is None:  # filtered out by segmentation already
                     continue
-                requests.setdefault(e.connector_id, []).append(
-                    Request(iid, p.interface_types[i.type_id])
-                )
+                requests.setdefault(e.connector_id, []).append(request(p, rules, i, e.connector_id))
     if ctx.gen.get("power_signal_gap_pins") is None:
         ctx.note("rules", "pin-allocation: power-to-signal pin gap is a placeholder (0 used)")
-    rules = pin_rules(p, ctx.gen)
     # An earlier allocation is kept while it is valid, but only if it was made by the same fit:
     # the strategy of a non-default model is recorded below, so a change of model re-places the pins.
     if rules.fit != DEFAULT_STRATEGY:
         ctx.note("model:pin_fit_strategy", f"{rules.fit}: {STRATEGY_TEXT[rules.fit]}")
+    if rules.far_devices:  # the record says so while it is on, as a non-default fit (4.4.0)
+        ctx.note(
+            FAR_DEVICE_SETTING.replace(".", ":"),
+            "on: a port named after the unit at the other end first",
+        )
     for k, cid in enumerate(sorted(requests)):
         tick(0.05 + 0.15 * k / max(1, len(requests)), f"Allocating pins of {cid}")
         res = allocate_box(p, p.connectors[cid], requests[cid], frozen_ifaces, rules)
