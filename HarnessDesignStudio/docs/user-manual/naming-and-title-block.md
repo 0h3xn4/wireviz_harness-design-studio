@@ -123,6 +123,8 @@ The same file can also hold two settings that are not name patterns and are not 
 
 Since 4.3.0 it can also hold the project's **review checklist** (`review_checklist`), the list of points a reviewer goes through before a release; no file has it until you set it, with `harness-design-studio config DIR --review-checklist FILE` or under **Settings > Project** ([release a harness](release-a-harness.md#optional-a-review-checklist-and-its-ticks)). The list is not a name pattern and is not read by Generate.
 
+Since 4.4.0 it can also hold two settings of names, both missing until you set them: **`far_device_names`**, which says that a pin or port name such as `TTC1_TX+` names the device at the other end, so Generate gives an interface the port named after its far device and the pairing of a connection reads the device's name off (`harness-design-studio config DIR --far-device-names on`; [generate harnesses](generate-harnesses.md#ports-named-after-the-far-device-since-440)); and **`signal_map`**, a table of your team's signal names and the names of the interface types, which `import-pinout` and `import-netlist` apply (`harness-design-studio config DIR --signal-map FILE`; [import data](import-data.md#your-teams-signal-names-since-440)). **Settings > Project** has the check box *Signal names name the far device* and the section *Signal map*. Neither is a name pattern.
+
 Example. Set `"harness": "HN-{n:02d}"` and generate:
 
 ```
