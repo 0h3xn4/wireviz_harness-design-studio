@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 
 from harness_design_studio.core import copies, devices, edit
 from harness_design_studio.core.device_library import DevicePlan, device_names, plan_device_import
+from harness_design_studio.core.device_names import far_device
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.model import Project
@@ -737,13 +738,26 @@ class PortDialog(_PlannerDialog):
         self.none_text = strings.PORT_NONE.format(connector=c.name, type=type_name)
         at = devices.end_port(project, interface_id, connector_id)
         first = -1
+        # while naming.far_device_names is on, the far device's ports come first and a port named
+        # after another device says so (4.4.0, design section 3.5)
+        far = far_device(project, i, connector_id)
         for ch in devices.port_choices(project, connector_id, interface_id):
-            self.port_box.addItem(
-                strings.PORT_ROW.format(port=ch.port, pins=devices.pin_span(ch.pins)), ch.port
-            )
+            span = devices.pin_span(ch.pins)
+            if ch.far:
+                text = strings.PORT_ROW_FAR.format(port=ch.port, pins=span, device=ch.device)
+            elif ch.other_device:
+                text = strings.PORT_ROW_OTHER.format(port=ch.port, pins=span, device=ch.device)
+            else:
+                text = strings.PORT_ROW.format(port=ch.port, pins=span)
+            self.port_box.addItem(text, ch.port)
             k = self.port_box.count() - 1
-            if ch.why_not:
-                self.port_box.setItemData(k, ch.why_not, Qt.ItemDataRole.ToolTipRole)
+            tip = ch.why_not or (
+                strings.PORT_ROW_OTHER_TIP.format(device=ch.device, far=far, interface=interface_id)
+                if ch.other_device and far
+                else ""
+            )
+            if tip:
+                self.port_box.setItemData(k, tip, Qt.ItemDataRole.ToolTipRole)
             if (at is not None and ch.port == at.port) or (first < 0 and not ch.why_not):
                 first = k
         self.port_box.setCurrentIndex(max(first, 0) if self.port_box.count() else -1)

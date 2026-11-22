@@ -4465,3 +4465,70 @@ SETTINGS_LABEL_FORMAT_CUSTOM = (
 SETTINGS_LABEL_FORMAT_UNKNOWN = "{0}: a format of a newer version of the tool."
 STEP_SET_LABEL_FORMAT = "Label format: {0}"
 LABEL_FORMAT_SET = "The labels are now in the format {0}."
+
+# ---- 4.4.0 E4: names and ports in the editor: Settings > Project, Choose port… and the Inspector (docs/ait/DESIGN_4.4_NAMES_PORTS.md, sections 3.5, 5.4 and 8) ----
+SETTINGS_FAR_DEVICE = "Pins named after devices"
+SETTINGS_FAR_DEVICE_TEXT = (
+    "A port or a signal name that names a device of the project (TTC1_TX+, TTC1_PPS) belongs to "
+    "the interface or the connection to that device: Generate gives an interface the port named "
+    "after the device at its other end, and the proposal of a connection reads the other device's "
+    "name off a pin name (config/naming.json, far_device_names). Off, names are read as before."
+)
+SETTINGS_FAR_DEVICE_BOX = "Signal names name the far device"
+SETTINGS_FAR_DEVICE_TIP = (
+    "Read device IDs in pin and port names (one undo step); the ports follow at the next Generate"
+)
+SETTINGS_FAR_DEVICE_ON = "On: a port named after the device at the other end comes first."
+SETTINGS_FAR_DEVICE_OFF = "Off: names are read without device IDs."
+STEP_FAR_DEVICE_ON = "Signal names name the far device: on"
+STEP_FAR_DEVICE_OFF = "Signal names name the far device: off"
+FAR_DEVICE_SET_ON = "Signal names name the far device. The ports follow at the next Generate."
+FAR_DEVICE_SET_OFF = "Signal names no longer name the far device. The ports stay where they are."
+SETTINGS_SIGNAL_MAP = "Signal map"
+SETTINGS_SIGNAL_MAP_TEXT = (
+    "Your team's own signal names and the signal name of an interface type each one stands for. "
+    "import-pinout and import-netlist write the type's name, also inside a port (TTC1_TXP becomes "
+    "TTC1_TX+); nothing else reads the map (config/naming.json, signal_map)."
+)
+SETTINGS_SIGNAL_MAP_BOX = "Signal map: one TEAM NAME = SIGNAL per line"
+SETTINGS_SIGNAL_MAP_BOX_TIP = (
+    "One TEAM NAME = SIGNAL per line (TXP = TX+); nothing is saved until Save"
+)
+SETTINGS_SIGNAL_MAP_HINT = "TXP = TX+"
+SETTINGS_SIGNAL_MAP_PAIR = "Signal map line"
+SETTINGS_SIGNAL_MAP_FILE = "Take the names of a file…"
+SETTINGS_SIGNAL_MAP_FILE_TIP = (
+    "Fill the box with the pairs of a CSV, spreadsheet or JSON file, read as import-netlist "
+    "--signal-map reads it; nothing is saved until Save"
+)
+SETTINGS_SIGNAL_MAP_FILE_TITLE = "Take the names of a file"
+SETTINGS_SIGNAL_MAP_FILE_FILTER = "Signal map (*.csv *.tsv *.xlsx *.json);;All files (*)"
+SETTINGS_SIGNAL_MAP_SAVE = "Save"
+SETTINGS_SIGNAL_MAP_SAVE_NAME = "Save the signal map"
+SETTINGS_SIGNAL_MAP_SAVE_TIP = (
+    "Save the pairs as the project's signal map (one undo step); an empty box takes it out"
+)
+SETTINGS_SIGNAL_MAP_NONE = "This project has no signal map."
+SETTINGS_SIGNAL_MAP_NOW = "Saved: {0} names."
+SETTINGS_SIGNAL_MAP_NOW_ONE = "Saved: 1 name."
+SETTINGS_SIGNAL_MAP_EDITED = "The box differs from the saved map: press Save to keep it."
+SETTINGS_SIGNAL_MAP_EMPTY_FILE = "{0} holds no pair of names."
+STEP_SET_SIGNAL_MAP = "Set the signal map"
+STEP_CLEAR_SIGNAL_MAP = "Take the signal map out"
+SIGNAL_MAP_SET = "The signal map has {0} names."
+SIGNAL_MAP_CLEARED = "The project has no signal map now."
+PORT_ROW_FAR = "{port} (pins {pins}), named after {device} at the other end"
+PORT_ROW_OTHER = "{port} (pins {pins}), named after {device}"
+PORT_ROW_OTHER_TIP = (
+    "Named after device {device}, not {far} at the other end of {interface}: Generate would not "
+    "give it. Choosing it locks it, and the Inspector says so under the end."
+)
+END_PORT_FAR = (
+    "{interface} goes to device {far} but uses port {port} of {connector}, which is named after "
+    "device {device} (Settings > Project: Signal names name the far device)."
+)
+END_PORT_FAR_LOCKED = "It is kept because a person locked the pins."
+END_PORT_FAR_RELEASED = (
+    "It is kept because harness {harness} is released; a new version takes the port of {far}."
+)
+END_PORT_FAR_REGENERATE = "Regenerate, or choose the port of {far}."

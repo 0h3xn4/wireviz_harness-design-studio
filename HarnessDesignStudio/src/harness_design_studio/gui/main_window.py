@@ -81,6 +81,7 @@ from harness_design_studio.core import (
 )
 from harness_design_studio.core import label_format as core_label_format
 from harness_design_studio.core import links as core_links
+from harness_design_studio.core import signal_map as core_signal_map
 from harness_design_studio.core import workflow as core_workflow
 from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.drc import by_rule
@@ -95,7 +96,7 @@ from harness_design_studio.core.import_record import CHANGED, CachedHasher, chec
 from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.io.migrate import current_version
 from harness_design_studio.core.io.upgrade import UpgradeError, format_of
-from harness_design_studio.core.links import natural_key
+from harness_design_studio.core.links import far_device_names_on, natural_key
 from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.model.physical import LOOSE_ROLE, TBD_PART_ID
 from harness_design_studio.core.open_data import data_files
@@ -175,7 +176,7 @@ from harness_design_studio.gui.extensions_dialog import ExtensionsDialog, ask_to
 from harness_design_studio.gui.guide_window import GuideWindow
 from harness_design_studio.gui.harness_view import HarnessView
 from harness_design_studio.gui.icons import icon, icon_button, style_dock_buttons, tooltip_text
-from harness_design_studio.gui.import_kinds import KINDS
+from harness_design_studio.gui.import_kinds import KINDS, parse_pairs
 from harness_design_studio.gui.import_wizard import ImportWizard
 from harness_design_studio.gui.inspector import Inspector
 from harness_design_studio.gui.interface_table import InterfaceTable
@@ -895,6 +896,9 @@ class MainWindow(QMainWindow):
             set_checklist=lambda points: self.set_checklist(points),
             template_points=review.template_points,
             file_points=self._checklist_file_points,
+            set_far_device_names=lambda on: self.set_far_device_names(on),
+            set_signal_map=lambda text: self.set_signal_map(text),
+            file_signal_map=self._signal_map_file_pairs,
             set_document_fields=self.set_document_fields,
             set_document_contact=self.set_document_contact,
             set_plan=self.set_plan_settings,
@@ -4262,6 +4266,8 @@ class MainWindow(QMainWindow):
         self.settings_page.show_segmentation(mode, why)
         self._show_label_format()
         self._show_checklist()
+        self._show_far_device_names()
+        self._show_signal_map()
 
     def segmentation_flow(self) -> None:
         """Open Settings at the choice of how interfaces are grouped into harnesses (the fix
@@ -5037,6 +5043,77 @@ class MainWindow(QMainWindow):
             strings.SETTINGS_CHECKLIST_FILE_TITLE, strings.SETTINGS_CHECKLIST_FILE_FILTER
         )
         return review.read_points(Path(path)) if path else None
+
+    # ---- Settings > Project: names and ports (4.4.0, parts A and C, design sections 5.4 and 8) ----
+    def _show_far_device_names(self) -> None:
+        self.settings_page.show_far_device_names(
+            far_device_names_on(self.ctl.project),
+            self._project_why_not(configcheck.FAR_DEVICE_FILE, configcheck.FAR_DEVICE_KEY),
+        )
+
+    def set_far_device_names(self, on: bool) -> None:
+        """Settings > Project, *Signal names name the far device*: `naming.far_device_names` on or
+        off (`configcheck.plan_set_far_device_names`, one undo step; off takes the key out)."""
+        if on != far_device_names_on(self.ctl.project):
+            plan = configcheck.plan_set_far_device_names(self.ctl.project, on)
+            if not plan.ok:
+                self.ctl.message.emit(plan.error or "", False)
+            elif plan.ops:
+                label, message = (
+                    (strings.STEP_FAR_DEVICE_ON, strings.FAR_DEVICE_SET_ON)
+                    if on
+                    else (strings.STEP_FAR_DEVICE_OFF, strings.FAR_DEVICE_SET_OFF)
+                )
+                self.ctl.run(label, plan.ops, message=message)
+        self._show_far_device_names()
+
+    def _show_signal_map(self, error: str = "") -> None:
+        self.settings_page.show_signal_map(
+            core_signal_map.table(self.ctl.project),
+            self._project_why_not(core_signal_map.CONFIG_FILE, core_signal_map.CONFIG_KEY),
+            error,
+        )
+
+    def set_signal_map(self, text: str) -> None:
+        """Settings > Project, *Save* of the signal map: the `TEAM NAME = SIGNAL` lines of the box
+        as the project's map (`configcheck.plan_set_signal_map`, one undo step); an empty box takes
+        it out. A line that is not a pair, or a table the check refuses, says why under the box."""
+        from harness_design_studio.core.imports import ImportError_
+
+        try:
+            table = parse_pairs(text, strings.SETTINGS_SIGNAL_MAP_PAIR)
+        except ImportError_ as exc:
+            self._show_signal_map(str(exc))
+            return
+        plan = configcheck.plan_set_signal_map(self.ctl.project, table or None)
+        if not plan.ok:
+            self._show_signal_map(plan.error or "")
+            return
+        if plan.ops:
+            label, message = (
+                (strings.STEP_SET_SIGNAL_MAP, strings.SIGNAL_MAP_SET.format(len(table)))
+                if table
+                else (strings.STEP_CLEAR_SIGNAL_MAP, strings.SIGNAL_MAP_CLEARED)
+            )
+            self.ctl.run(label, plan.ops, message=message)
+        self._show_signal_map()
+
+    def _signal_map_file_pairs(self) -> dict[str, str] | str | None:
+        """*Take the names of a file…*: the pairs of a signal map file, read as
+        `import-netlist --signal-map FILE` reads it (`core/signal_map.read_file`): None when the
+        person closed the chooser, a sentence when the file gives no pair."""
+        from harness_design_studio.core.imports import ImportError_
+
+        path = self.ask_open_path(
+            strings.SETTINGS_SIGNAL_MAP_FILE_TITLE, strings.SETTINGS_SIGNAL_MAP_FILE_FILTER
+        )
+        if not path:
+            return None
+        try:
+            pairs = core_signal_map.read_file(Path(path))
+        except ImportError_ as exc:
+            return str(exc)
+        return pairs or strings.SETTINGS_SIGNAL_MAP_EMPTY_FILE.format(Path(path).name)
 
     def asbuilt_import_flow(self) -> None:
         """Read a filled-in as-built sheet and keep its records (one undo step); a row the design

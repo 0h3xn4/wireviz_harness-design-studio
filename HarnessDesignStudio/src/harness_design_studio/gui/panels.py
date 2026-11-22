@@ -638,6 +638,9 @@ class PropertiesPanel(QScrollArea):
             port_row = self._port_row(i, k)
             if port_row is not None:
                 self.lay.addWidget(port_row)
+                far_line = self._far_port_line(i, k)
+                if far_line is not None:
+                    self.lay.addWidget(far_line)
         if any(e.auto for e in i.endpoints):
             b = QPushButton(strings.CONFIRM_AUTO)
             b.setObjectName("if-confirm")
@@ -746,6 +749,35 @@ class PropertiesPanel(QScrollArea):
         self._editable(btn)
         lay.addWidget(btn, 0, Qt.AlignmentFlag.AlignRight)
         return box
+
+    def _far_port_line(self, i: InterfaceInstance, k: int) -> QLabel | None:
+        """The warning under an end whose port is named after a device other than the one at its
+        other end (4.4.0, `naming.far_device_names` on; the verifier's `port_far_device`, design
+        section 3.4): kept for locked pins or a released harness, else Generate moves it."""
+        cid = i.endpoints[k].connector_id
+        found = devices.far_port_warning(self.ctl.project, i.id, cid) if cid else None
+        if found is None:
+            return None
+        first = strings.END_PORT_FAR.format(
+            interface=i.id,
+            far=found.far,
+            port=found.port,
+            connector=found.connector_id,
+            device=found.device,
+        )
+        if found.kept == "released":
+            then = strings.END_PORT_FAR_RELEASED.format(harness=found.harness, far=found.far)
+        elif found.kept == "locked":
+            then = strings.END_PORT_FAR_LOCKED
+        else:
+            then = strings.END_PORT_FAR_REGENERATE.format(far=found.far)
+        severity = strings.SEV_WARNING if found.kept else strings.SEV_ERROR
+        line = QLabel(f"{severity} {first} {then}")
+        line.setObjectName(f"end-port-far-{k}")
+        line.setWordWrap(True)
+        line.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+        line.setProperty("error", not found.kept)
+        return line
 
     def _auto_tip(self, connector_id: str | None) -> str:
         """Why the tool chose this connector: the recorded reasons, then what is not confirmed."""
