@@ -149,3 +149,13 @@ The note on version 3.0.0, moved word for word from the fourth item of the same 
 The note on the publication of the patch release 3.0.1, moved word for word from the fourth item of the Status section (the one that starts with *Not built*) to keep `CLAUDE.md` under its size limit when 4.3.0 was prepared, as the note on 3.0.0 was moved with the publication record of 4.2.0; the sentence there that names the notes moved out of it now names 3.0.1 too, and the first item still names 3.0.1 in the list of releases.
 
 **Version `3.0.1` is published** (D-252; 2026-11-19, the latest full release until 3.1.0; no release candidate; tag `v3.0.1` on `1c79beb`, made by the tag workflow, run 44545687219): a patch release with the fix of D-250 (#291): F1 shows the guide in a window of the program (`gui/guide_window.py`), *Open* of an exported file is *Copy path*, *Reveal in folder* hands only a folder to the file manager (`gui/folders.py`, the only user of `QDesktopServices`); no format change.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 4.3.0 (2026-11-22)
+
+The note on the publication of the minor release 4.2.0, moved word for word from the first item of the Status section when the publication record of 4.3.0 was written, as the note on 4.1.0 was moved with the publication record of 4.2.0, so that `CLAUDE.md` stays under its size limit; that item still names 4.2.0 in the list of releases and says where this note is.
+
+The minor release `4.2.0` (D-259; four electrical rules; no format change) was published on 2026-11-21 (annotated tag `v4.2.0` on `6848510`, the merge of #328; made by the tag workflow, run 44895952490, its sixteenth use; release workflow run 44895975583): the latest full release.
+
+The note on version 3.1.0, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 3.1.0 too, and the first item still names 3.1.0 in the list of releases.
+
+**Version `3.1.0` is published** (D-253; 2026-11-19, the latest full release until 4.0.0; no release candidate; tag `v3.1.0` on `3b183e1`, made by the tag workflow, run 44605378969): a minor release with `SEARCH`/`ISNUMBER` in the plan's search boxes (D-250, #290: `I2:I3` and `M2:M3`, in a conditional format only; every `.ods` turns regular expressions and wildcards off); no format change.
