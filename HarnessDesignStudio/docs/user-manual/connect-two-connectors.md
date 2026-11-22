@@ -11,6 +11,7 @@ This page shows how to join a connector of one device to a connector of another,
 - [1. Link the connectors](#1-link-the-connectors)
 - [Pick up a cable and plug it in](#pick-up-a-cable-and-plug-it-in)
 - [2. How the pairs are proposed](#2-how-the-pairs-are-proposed)
+- [Pins named after a device (since 4.4.0)](#pins-named-after-a-device-since-440)
 - [3. Look at the pairs and change them](#3-look-at-the-pairs-and-change-them)
 - [Add a connector, pair by pin number and paste a pairing](#pair-by-pin-number-and-paste-a-pairing)
 - [What a pin is for: power, return and ground](#what-a-pin-is-for-power-return-and-ground)
@@ -89,6 +90,18 @@ The program reads the **signal names** on the pins. It never pairs by position: 
 
 The proposal is the same every time for the same pins. It is a proposal only: nothing is saved until you press **Link connectors**.
 
+### Pins named after a device (since 4.4.0)
+
+A connector can hold the lines to several devices, named after them: an on-board computer OBC1 with `TTC1_TX`, `TTC1_RX`, `TTC1_PPS` for the transceiver TTC1 and `TTC2_TX`, `TTC2_RX`, `TTC2_PPS` for TTC2, and on each transceiver `TX`, `RX`, `PPS`. A prefix may be missing on one side, so `TTC1_TX` already meets `RX`. But the proposal does not know which device a prefix means: a connection from OBC1 to **TTC2** is offered `TTC1_TX=RX` and `TTC1_RX=TX`, the pins of the other transceiver, and `TTC1_PPS` never meets `PPS`. Which pins you get depends on the order in which you connect.
+
+With **Signal names name the far device** ticked under **Settings > Project** (`harness-design-studio config DIR --far-device-names on`; [generate harnesses](generate-harnesses.md#ports-named-after-the-far-device-since-440) says how a name names a device), the proposal reads the other device's name off a pin name before it pairs. In a connection from OBC1 to TTC2, `TTC2_TX` is read as `TX`, a name of OBC1 itself (`OBC1_TX`) or of no device by its whole name, and the pins that name a third device are not offered. The window says so under the table:
+
+```
+Pins 1, 2 and 3 of OBC1-J01 name device TTC1, so they are not offered in a link to TTC2 (Settings > Project: Signal names name the far device).
+```
+
+So OBC1 to TTC1 is proposed `TTC1_TX=RX, TTC1_RX=TX, TTC1_PPS=PPS` and OBC1 to TTC2 `TTC2_TX=RX, TTC2_RX=TX, TTC2_PPS=PPS`, in either order; with `OBC1_RX` and `OBC1_TX` on the transceivers, `TTC2_TX=OBC1_RX` and `TTC2_RX=OBC1_TX`. The one-click connection (Quick mode) starts with the connector that has the other device's pins. The pins keep their names. You can still pair a pin of a third device by hand; the check below then names it.
+
 ## 3. Look at the pairs and change them
 
 - **Change pair:** pick a row, choose another pin on either side under the table, press **Change pair**.
@@ -146,6 +159,8 @@ Four design rules read connections (they are in the list of rules like the other
 | `link-direction` | error | Two outputs on one pair, or two inputs. A direction set on a pin decides before the interface type does, also for analog, discrete, LVDS, pyro and I2C clock signals, which are otherwise left alone. | Pair the pin with one that fits, or correct the signal or the direction. |
 | `link-signal-mismatch` | warning (waivable) | A pair whose signal names differ and are not the two ends of one line, or where one pin has no name. | Check the pairing, or rename a signal. |
 | `link-power-return` | warning (waivable) | A power pair and no return pair on the same connection. | Pair the return pin, or set the role of the return pin to Return. |
+
+With **Signal names name the far device** on (since 4.4.0), the review reads names the same way. `link-signal-mismatch` compares the names so read, so `TTC2_PPS` and `PPS` match in a connection to TTC2, and it names a pair whose pin names a third device: *Link L1 pairs pin 1 of OBC1-J01 with pin 2 of TTC2-J01, but TTC1_TX names unit TTC1, not TTC2. Pair it in a link to TTC1, or rename the pin.* `link-unpaired` sends a pin of a third device that no connection pairs to its device: *Pin 3 of OBC1-J01 is named TTC1_PPS (unit TTC1) but no link pairs it. Link OBC1-J01 to a connector of TTC1, or set its role to Spare if it is not used.* A connection made before the setting was on shows these findings; delete it and connect again to take the new proposal.
 
 *Check my connections* looks at the pairing only. It does not check a current: a harness made from a connection has wires without an interface, and the current checks do not run on those wires (section 6).
 

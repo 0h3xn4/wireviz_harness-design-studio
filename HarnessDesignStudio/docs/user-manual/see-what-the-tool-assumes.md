@@ -11,6 +11,7 @@ This page shows how to find out what the tool takes for granted when it makes a 
 - [4. Use the data in a spreadsheet or a script](#4-use-the-data-in-a-spreadsheet-or-a-script)
 - [5. Put the same text into the files you edit by hand (optional)](#5-put-the-same-text-into-the-files-you-edit-by-hand-optional)
 - [What the electrical checks assume](#what-the-electrical-checks-assume)
+- [What names and ports assume](#what-names-and-ports-assume)
 - [Common mistakes](#common-mistakes)
 
 ## Before you start
@@ -95,6 +96,21 @@ The four design rules of 4.2.0 (*Twisted pairs*, *Shielded signals*, *Signal lev
 | `A-DIRECTION-AT-DEVICE` | built in | the directions of a net of drawn wires are those of the device pins it ends on, the pin's own first, else its interface types'; a net with a loose end is not judged |
 
 The long texts are on [shield groups and shield ends](../models/shields.md) (the first two) and [the limit of every design rule](../models/rule-limits.md) (the last two).
+
+## What names and ports assume
+
+4.4.0 brings two settings and one assumption, all listed by `settings DIR` and in **Help > Assumptions…**:
+
+| Setting | Default | What it changes |
+| --- | --- | --- |
+| `naming.far_device_names` | `false` | `true`: a pin or port name that names a device (`TTC1_TX+`) belongs to the interface or the connection to that device. Generate gives an interface the port named after its far device, the verifier checks it, and the pairing of a connection reads the other device's name off a pin name. In the editor: *Settings > Project*, *Signal names name the far device* |
+| `naming.signal_map` | not set | a table of a team's signal names and the names of the interface types (`TXP` for `TX+`), which `import-pinout` and `import-netlist` apply, also inside a port. The tool ships no name. In the editor: *Settings > Project*, *Signal map* |
+
+| Assumption | Kind | In short |
+| --- | --- | --- |
+| `A-FAR-DEVICE` | setting | with `naming.far_device_names` on, a name that starts with a device ID and `_`, `.` or `-`, or ends with one of them and an ID, names that device; the longest ID wins, and a name of two devices names neither. Off (the default): names are read as in 4.3.0 |
+
+`explain DIR OBC1-J01.5` lists `A-FAR-DEVICE` under *Rests on* while the setting is on. The long text is on [pin allocation](../models/pin-allocation.md#ports-named-after-the-far-device).
 
 ## Common mistakes
 
