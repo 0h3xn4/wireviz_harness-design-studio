@@ -4,6 +4,10 @@ Versions follow semantic versioning. Every project file records the tool version
 
 ## Unreleased
 
+### Fixed
+
+- ***Unassign from interface* keeps the signal name of a fixed pin** (pull request 1 of the design of 4.4.0; `docs/ait/DESIGN_4.4_NAMES_PORTS.md` sections 2.7 and 7, part E, owner question N12 as recommended). `devices.ops_unassign_pins` set the signal of every pin it freed to none. On a fixed pinout the signal is the device's own name, from an ICD, an import or the Devices tab, so the pins lost their port: after *Unassign* of pins 5 to 8 of `OBC1-J01` (`TTC2_TX+` ... `TTC2_RX-`), *Choose port…* said `OBC1-J01 has no RS-422 port TTC2.`, and two ports could not be swapped by hand. Now a fixed pin keeps its signal and loses only its interface and its lock; a pin that is not fixed is freed as before (no signal, no interface, no lock). The command of the Devices tab keeps its words and its undo step. With it, the swap of the design's section 2.7 works: *Unassign* pins 5 to 8, *Choose port…* TTC2 for IF-001, Generate. **Written files:** no example, template or fixture unassigns a pin, so the stored hashes of the written files, the numbers snapshot and the golden outputs are as before. New: `tests/test_unassign_fixed.py`.
+
 ### Changed
 
 - **The Windows test job of CI may run for 150 minutes instead of 90** (`.github/workflows/harness-platforms.yml`). On `master` it also runs the slow tests, and it took between 48 and 88 minutes on the last nine merges; it hit the limit of 90 minutes and was cancelled on `ec68c12` (#334) and on `20bf8f1`, the merge of the preparation of 4.3.0 (#337), before any test failed. The tests and what they check are unchanged; the time limit of each test (`--timeout=300`) stays.
