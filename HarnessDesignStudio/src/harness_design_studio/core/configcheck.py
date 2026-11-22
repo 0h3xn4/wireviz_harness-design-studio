@@ -14,7 +14,13 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from harness_design_studio.core import counterparts, label_format, settings, standard_profiles
+from harness_design_studio.core import (
+    counterparts,
+    label_format,
+    settings,
+    signal_map,
+    standard_profiles,
+)
 from harness_design_studio.core.commands import Op, SetConfig
 from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.model import Project
@@ -169,6 +175,8 @@ def validate(project: Project) -> list[Issue]:
     out.extend(validate_distinct_roles(project))
     out.extend(validate_asbuilt(project))
     out.extend(validate_checklist(project))
+    out.extend(validate_far_device_names(project))
+    out.extend(validate_signal_map(project))
     out.extend(standard_profiles.validate(project))
     return out
 
@@ -739,6 +747,106 @@ def plan_set_checklist(project: Project, points: Sequence[str] | None) -> ValueP
     except TransactionError as exc:
         return _fail(exc.problems[0] if exc.problems else str(exc))
     return ValuePlan(ops, None, wanted)
+
+
+FAR_DEVICE_FILE, FAR_DEVICE_KEY = "naming", "far_device_names"
+
+
+def validate_far_device_names(project: Project) -> list[Issue]:
+    """`naming.json` `far_device_names` (4.4.0) must be true or false. Not set (or null) is not a
+    problem: it is the same as false, the behaviour of 4.3.0."""
+    raw = _cfg(project, FAR_DEVICE_FILE).get(FAR_DEVICE_KEY)
+    if raw is None or isinstance(raw, bool):
+        return []
+    where = f"config/{FAR_DEVICE_FILE}.json"
+    return [
+        Issue(
+            "error",
+            "config_invalid",
+            f"{where}: {FAR_DEVICE_KEY} must be true or false.",
+            where,
+            f"{FAR_DEVICE_FILE}.{FAR_DEVICE_KEY}",
+        )
+    ]
+
+
+def validate_signal_map(project: Project) -> list[Issue]:
+    """`naming.json` `signal_map` (4.4.0) must be a signal map (`signal_map.check`, design of 4.4.0
+    section 5.1). Not set (or null) is not a problem: the project has no map. A table that is
+    refused is no map for the importers, and `config-invalid` says why."""
+    raw = _cfg(project, signal_map.CONFIG_FILE).get(signal_map.CONFIG_KEY)
+    if raw is None or (why := signal_map.check(raw)) is None:
+        return []
+    where = f"config/{signal_map.CONFIG_FILE}.json"
+    return [
+        Issue(
+            "error",
+            "config_invalid",
+            f"{where}: {signal_map.CONFIG_KEY} {why}.",
+            where,
+            f"{signal_map.CONFIG_FILE}.{signal_map.CONFIG_KEY}",
+        )
+    ]
+
+
+def _plan_set_key(project: Project, file: str, key: str, wanted: object) -> ValuePlan:
+    """The ops that set `key` of `config/<file>.json` to `wanted` (None takes the key out, so the
+    file is as it was before the key existed), or why not: a read-only project, a release that
+    froze the file. No op when the file holds the value already. One undo step; nothing else of
+    the file changes."""
+    from harness_design_studio.core.errors import TransactionError
+    from harness_design_studio.core.vcs.locks import check_locks
+
+    if project.read_only:
+        return _fail("This project is read-only (saved by a newer tool version). Use Save as.")
+    old = project.config.get(file)
+    if (old.values.get(key) if old is not None else None) == wanted:
+        return ValuePlan([], None, wanted)
+    base = old if old is not None else ConfigFile(name=file, placeholder=False, values={})
+    values = {k: v for k, v in base.values.items() if k != key}
+    if wanted is not None:
+        values[key] = wanted
+    ops: list[Op] = [
+        SetConfig(
+            ConfigFile(
+                name=base.name, placeholder=base.placeholder, values=values, about=base.about
+            )
+        )
+    ]
+    try:
+        check_locks(project, ops)
+    except TransactionError as exc:
+        return _fail(exc.problems[0] if exc.problems else str(exc))
+    return ValuePlan(ops, None, wanted)
+
+
+def plan_set_far_device_names(project: Project, value: object) -> ValuePlan:
+    """The ops that switch `naming.json` `far_device_names` on or off, or why not (design of 4.4.0
+    section 8.2). `value` is a bool or the text on/yes/true or off/no/false (anything else is
+    refused). On writes `true`; off takes the key out of the file, so a project that tried the
+    setting and went back has the bytes it had. `value` of the plan is True or False."""
+    if isinstance(value, bool):
+        on = value
+    elif isinstance(value, str) and value.strip().casefold() in ("on", "yes", "true"):
+        on = True
+    elif isinstance(value, str) and value.strip().casefold() in ("off", "no", "false"):
+        on = False
+    else:
+        return _fail("Signal names name the far device: say on or off.")
+    plan = _plan_set_key(project, FAR_DEVICE_FILE, FAR_DEVICE_KEY, True if on else None)
+    return ValuePlan(plan.ops, plan.error, on) if plan.ok else plan
+
+
+def plan_set_signal_map(project: Project, value: Mapping[str, str] | None) -> ValuePlan:
+    """The ops that set the project's signal map (`naming.json` `signal_map`) to `value`, or why
+    not: a table that `signal_map.check` refuses (with the text of the check), a read-only
+    project, a release that froze the file. None or an empty table takes the key out, so the
+    project has no map and its file is as it was before the key existed. One undo step; `value`
+    of the plan is the table as stored (None when the key is taken out)."""
+    wanted = dict(value) if value else None
+    if wanted is not None and (why := signal_map.check(wanted)) is not None:
+        return _fail(f"config/{signal_map.CONFIG_FILE}.json: {signal_map.CONFIG_KEY} {why}.")
+    return _plan_set_key(project, signal_map.CONFIG_FILE, signal_map.CONFIG_KEY, wanted)
 
 
 def plan_set_distinct_roles(project: Project, value: object) -> ValuePlan:
