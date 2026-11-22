@@ -193,7 +193,9 @@ def _assign_connectors(project: Project, interface_id: str) -> list[Op]:
     taken: set[str] = set()
     for e in i.endpoints:
         if e.connector_id is None:
-            pick = edit.choose_connector(project, e.unit_id, i.type_id, taken)
+            others = [x.unit_id for x in i.endpoints if x is not e]
+            far_unit = others[0] if len(others) == 1 else ""
+            pick = edit.choose_connector(project, e.unit_id, i.type_id, taken, far_unit)
             if pick is None:
                 raise edit.EditError(f"{e.unit_id} has no free connector for {i.type_id}.")
             taken.add(pick.id)
