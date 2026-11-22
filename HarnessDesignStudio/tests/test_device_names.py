@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from harness_design_studio.core import device_names, templates
@@ -164,7 +164,9 @@ def test_named_device_follows_the_rules_as_written(ids: set[str], name: str, por
     st.booleans(),
 )
 def test_a_composed_name_reads_back(unit: str, sep: str, rest: str, suffix: bool) -> None:
-    """A device ID and a rest without a separator, joined either way, read back as both."""
+    """A device ID and a rest without a separator, joined either way, read back as both. A rest
+    equal to the ID (`A_A`) is one device at both ends, read as a prefix (a test of its own)."""
+    assume(rest != unit)
     name = f"{rest}{sep}{unit}" if suffix else f"{unit}{sep}{rest}"
     r = named_device(name, {unit})
     assert r is not None and (r.unit, r.rest) == (unit, rest)
