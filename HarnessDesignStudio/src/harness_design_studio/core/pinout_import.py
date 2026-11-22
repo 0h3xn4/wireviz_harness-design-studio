@@ -8,7 +8,11 @@ contact part the cable side uses (a part of category contact; the heading `Cable
 `Contact` next to a Pin heading) and a direction (`Direction`: in, out or bidirectional; empty
 leaves it unset, 1.9.0). An optional Port column (2.1.0, D-237) names the port of the pin; the
 import writes it into the signal name (`RS422_2` and `TX+` give `RS422_2_TX+`), because a port is a
-naming convention on the signal, not a field (`core/ports.py`, `docs/IMPORTS.md`).
+naming convention on the signal, not a field (`core/ports.py`, `docs/IMPORTS.md`). The project's
+signal map (`naming.signal_map`, 4.4.0, `core/signal_map.py`) renames a team's name in the Signal
+(or Function) cell before the port is written into it, also inside a port (`TTC1_TXP` becomes
+`TTC1_TX+`; signal `TXP` with port `TTC1` gives `TTC1_TX+`); each rename is listed
+(`PinoutPlan.renamed`) and kept in the import record.
 
 The users' sheets of the harness plan (3.0.0, design section 4.3) are read as well: *Description*
 is the pin's function (a sheet with Function and Description reads Function as the signal), *Level*
@@ -67,6 +71,9 @@ from .ports import (
 )
 from .row_layout import layout_of, layout_text
 from .row_layout_edit import plan_set_row_layout
+from .signal_map import Renamed
+from .signal_map import apply as apply_signal_map
+from .signal_map import table as project_signal_map
 
 Table = list[list[str]]
 
@@ -255,6 +262,7 @@ class PinoutPlan:
     words: list[WordConversion] = field(default_factory=list)  # unknown Direction words
     row_layouts: list[str] = field(default_factory=list)  # connectors given own rows (4.0.0)
     row_notes: list[str] = field(default_factory=list)  # a gap closed up, rows on one connector
+    renamed: list[Renamed] = field(default_factory=list)  # pins the project's signal map renamed
 
     @property
     def port_lines(self) -> list[str]:
@@ -337,6 +345,7 @@ def plan_pinout_import(
     order: list[str] = []
     fixed_column = "mode" in mapping and _norm(header[mapping["mode"]]) == "fixed"
     words: list[tuple[int, str]] = []  # (row, word) of the Direction words that set nothing
+    team_names = project_signal_map(project)  # {} without the setting: the names as in 4.3.0
 
     for n, row in enumerate(table[1:], start=2):
 
@@ -417,7 +426,14 @@ def plan_pinout_import(
         }
         with_port: list[str] = []  # pins whose signal names the port of a Port column
         written_rows: list[tuple[int, dict[str, str]]] = []
+        renamed_here: list[Renamed] = []
         for n, r in rows:
+            read = r.get("signal", "")
+            by_map = apply_signal_map(read, team_names) if read else None
+            if by_map is not None and by_map.ambiguous:
+                plan.warnings.append(by_map.warning(f"{cid} pin {r['pin']}"))
+            if by_map is not None and by_map.renamed:  # before the port is written into it
+                r = {**r, "signal": by_map.stored}
             port = r.get("port", "")
             if port:
                 signal, problem, warning = port_signal(port, r.get("signal", ""), types, cid)
@@ -429,6 +445,8 @@ def plan_pinout_import(
                 elif is_signal_of(signal, types):
                     with_port.append(r["pin"])
                 r = {**r, "signal": signal}
+            if by_map is not None and by_map.renamed:
+                renamed_here.append(Renamed(n, cid, r["pin"], read, r["signal"]))
             written_rows.append((n, r))
         rows = written_rows
         source, clash = _connector_source(rows)
@@ -464,6 +482,7 @@ def plan_pinout_import(
         ops += set_ops
         work = edit.clone_with(work, set_ops)
         plan.ops += ops
+        plan.renamed += renamed_here
         if same:
             plan.unchanged.append(cid)
         else:

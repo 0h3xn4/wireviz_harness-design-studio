@@ -98,6 +98,19 @@ J1,12,RS422_3,RX-,fixed
 
 `export-pinout` writes the composed names (`RS422_2_TX+`) and no Port column, and `import-pinout` reads them back as they are. It writes no Mode column either, so the pins are imported as not fixed, and no ports form until you set them fixed (Mode *fixed*). The list of signals that match no interface type reads port names too: `RS422_2_TX+` is the RS-422 signal TX+ and is not listed. Before 2.1.0 a column headed *Port* was not read; now it is.
 
+**The project's signal map (since 4.4.0, design of 4.4.0 part C).** A team that calls a signal by its own word (`TXP` for the `TX+` of RS-422) keeps a table of its words in the project: `harness-design-studio config DIR --signal-map FILE` takes a CSV of two columns (the team's name, the signal name of an interface type; an optional heading row) or a JSON object, the form `import-netlist --signal-map FILE` reads, and the template `signal-map.csv` is such a file ([`CONFIG.md`](CONFIG.md)). A project has no map until it takes one, and then `import-pinout` and `import-netlist` write the type's name for the team's name: the whole name (`TXP` becomes `TX+`), and a name inside a port, read by the rule of ports (`TTC1_TXP` becomes `TTC1_TX+`, `TXP.TTC2` becomes `TX+.TTC2`; the port and the separator are kept). `import-pinout` maps the *Signal* (or *Function*) cell before it writes the *Port* column in: the signal `RXP` with the port `TTC1` gives `TTC1_RX+`. A name that reads in two ways (`TXP_RXN`) is not renamed, and a warning says so. Each import lists what it renamed after its rows, and keeps each rename in its record (below), so `imports` and the record say later what a pin was called in the file:
+
+```
+Renamed by the project's signal map (config/naming.json signal_map): 4 signal(s)
+  TTC1_TXP -> TTC1_TX+: RW1-J02 pin 1
+  TTC1_TXN -> TTC1_TX-: RW1-J02 pin 2
+  TTC1_RXP -> TTC1_RX+: RW1-J02 pin 3
+  TTC1_RXN -> TTC1_RX-: RW1-J02 pin 4
+warning: TXP_RXN on OBC1-J01 pin 9 can be read as TXP or RXN of the signal map, so it is not renamed.
+```
+
+`--json` of both commands has the same list as `renamed_signals` (`connector`, `pin`, `read`, `stored`; empty without a map). The import wizard's check page shows the same lines, and its preview the names as they are stored. `import-netlist --signal-map` keeps its meaning: whole names only, and a name it holds wins over the project's map. A mapped name longer than a signal name may be refuses its row, as a long net name does. A file `export-pinout` wrote holds the type's names already, so it is read back unchanged. Only these two imports read the map: Generate, the rules, the verifier and the pairing of a connection read the names the import stored, and the library imports (`import-devices`, `import-subsystem`, `add-device`, `update-device`) take a device as its library holds it (map the names when you import the pinout, before you save the device to a library). Without a map every import says and stores what it did in 4.3.0.
+
 KiCad: it is used for the electronics inside each device, so it is where each device connector's pinout comes from. It has no harness segment lengths; those come from a plain table as above. The connector pinouts are read from a KiCad netlist with `harness-design-studio import-netlist` (see `docs/KICAD.md`). The import record keeps what the netlist says that the pins have no field for: the KiCad **pin type** of every imported pin (`OBC1-J01.3` is `power_in`) and the name of the **schematic** the netlist was made from (the file name only; KiCad writes a path, which is not kept). The component value and the footprint are named as not imported. With `--pin-direction` the pin types `input`, `output` and `bidirectional` also fill the direction (`in`, `out`, `bidir`) of a pin that has none; the other types (`passive`, `power_in` ...) say nothing about a direction and set nothing.
 
 ## Build data: strip lengths, contacts, accessories, crimp tools (1.7.0)
@@ -170,7 +183,7 @@ Every import that is applied keeps a record of the file it read in `imports/reco
 | `rows_read` | Data rows of a table (the connectors of a netlist, the devices of a library file) |
 | `columns_read`, `columns_ignored` | The column headings that were read, each with the field it was read as, and the headings that were left out |
 | `dropped_count`, `rows_dropped` | Rows that were not imported, each with its row number (the heading row is row 1) and the reason |
-| `converted_count`, `rows_converted` | Values that were converted: the cell as written, the unit it was read in, the value stored with its unit |
+| `converted_count`, `rows_converted` | Values that were converted: the cell as written, the unit it was read in, the value stored with its unit. A rename of the project's signal map (4.4.0) is one too: field `signal`, the name read, the unit `signal map`, the name stored and the pin (`OBC1-J01 pin 1`) |
 | `unit`, `unit_given` | The unit the values were read in, and whether the person gave it (`true`) or the tool assumed it (left out) |
 | `tool_version` | The version of the tool that imported |
 | `notes`, `pin_types` | Other things read from the source: the schematic a KiCad netlist was made from, the pin type of each imported pin |

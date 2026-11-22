@@ -72,12 +72,15 @@ SHAPES: dict[str, tuple[str, ...]] = {
     "import-parts": ("ok", "dry_run", "changed", "ready", "problems", "rows", "library", "import"),
     "import-lengths": ("ok", "dry_run", "changed", "ready", "problems", "hint", "rows", "import"),
     "import-build-data": ("ok", "dry_run", "changed", "kind", "counts", "rows", "import"),
+    # `renamed_signals` (4.4.0): the pins the project's signal map renamed, each with connector,
+    # pin, the name read and the name stored; empty without a map
     "import-netlist": (
-        "ok", "dry_run", "changed", "rows", "warnings", "unmatched_signals", "import",
+        "ok", "dry_run", "changed", "rows", "warnings", "unmatched_signals", "renamed_signals",
+        "import",
     ),
     "import-pinout": (
         "ok", "dry_run", "changed", "connectors", "pins", "rows", "warnings", "unmatched_signals",
-        "ports", "row_layouts", "import",
+        "ports", "row_layouts", "renamed_signals", "import",
     ),
     "import-devices": ("ok", "dry_run", "changed", "rows", "notes", "import"),
     "import-devices --list": ("ok", "devices"),
