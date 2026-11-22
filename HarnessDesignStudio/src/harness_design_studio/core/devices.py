@@ -2009,8 +2009,10 @@ def pin_span(pins: Sequence[str]) -> str:
 
 
 def ops_unassign_pins(project: Project, connector_id: str, pin_ids: Sequence[str]) -> list[Op]:
-    """Take pins off their interface: the pin goes back to free, with no signal and no interface.
-    A pin with no interface is left as it is."""
+    """Take pins off their interface: the pin loses its interface and its lock. A pin that is not
+    fixed also loses its signal and goes back to free; a fixed pin keeps its signal, which is the
+    device's own name (from an ICD, an import or the Devices tab), so a named port stays whole
+    (part E of `docs/ait/DESIGN_4.4_NAMES_PORTS.md`). A pin with no interface is left as it is."""
     _writable(project)
     c = _box(project, connector_id)
     missing = sorted(set(pin_ids) - {p.id for p in c.pins})
@@ -2022,7 +2024,8 @@ def ops_unassign_pins(project: Project, connector_id: str, pin_ids: Sequence[str
         if p.id in pin_ids and p.interface_id is not None:
             if why := pin_lock_reason(project, connector_id, p.id):
                 raise EditError(f"Pin {p.id} of {connector_id} cannot change. {why}")
-            p = evolve(p, signal=None, interface_id=None, locked=False)
+            signal = p.signal if p.fixed else None
+            p = evolve(p, signal=signal, interface_id=None, locked=False)
             changed = True
         pins.append(p)
     return [Put("connectors", c.model_copy(update={"pins": pins}))] if changed else []
