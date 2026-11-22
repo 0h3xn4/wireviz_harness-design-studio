@@ -7,8 +7,11 @@ the harnesses must contain, and compares. If generation has a bug, this is where
 Checks: every logical signal appears end to end exactly once; both ends of every wire agree with
 the pinout tables (pins, the wire's signal label and the cable connector's own pin table); no pin
 is used twice; an interface uses the pins of one port of a connector (a fixed pin `RS422_2_TX+`
-carries TX+ of port RS422_2, read by a copy of the rule of `core/ports.py`); a shielded type has
-a shield group covering its wires; harness bookkeeping matches its wires; outputs are not stale.
+carries TX+ of port RS422_2, read by a copy of the rule of `core/ports.py`); with
+`naming.far_device_names` on, an interface does not use a port named after a device other than the
+one at its other end (`port_far_device`, 4.4.0; the device a name names is read by a copy of the
+rule of `core/device_names.py`); a shielded type has a shield group covering its wires; harness
+bookkeeping matches its wires; outputs are not stale.
 Wire gauge, colour and part are not checked (they are design choices, see the design rules). It
 never raises.
 """
@@ -155,6 +158,95 @@ def _check_ports(
                 "an interface uses the pins of one port. Regenerate, or lock the pins of one port.",
                 i.id,
             )
+
+
+# Device names (4.4.0, D-262). The verifier reads which device a port name names with its own copy
+# of the rule of `core/device_names.py` (`named_device`), not with an import of it;
+# `tests/test_device_names.py` compares the two.
+_DEVICE_SEPARATORS = frozenset("_.-")
+
+DeviceNaming = tuple[str, str, str, str]  # (device, rest, form, separator); device "" for two
+
+
+def device_naming(name: str, unit_ids: Iterable[str], port: bool = False) -> DeviceNaming | None:
+    """The device a pin or port name names among `unit_ids`, or None. `D<sep>rest` (form prefix)
+    and `rest<sep>D` (form suffix), with D a device ID, sep `_`, `.` or `-` and rest not empty,
+    name D; a port name equal to an ID names it (form whole). The ID is compared exactly, with
+    case; the longest ID at each end wins; a name whose prefix and suffix are two devices names
+    neither, and gives the device "". A pin name that is an ID names nothing."""
+    ids = {u for u in unit_ids if u}
+    if not name:
+        return None
+    if name in ids:
+        return (name, "", "whole", "") if port else None
+    heads = sorted(
+        (len(u), u)
+        for u in ids
+        if len(name) > len(u) + 1 and name.startswith(u) and name[len(u)] in _DEVICE_SEPARATORS
+    )
+    tails = sorted(
+        (len(u), u)
+        for u in ids
+        if len(name) > len(u) + 1 and name.endswith(u) and name[-len(u) - 1] in _DEVICE_SEPARATORS
+    )
+    head = heads[-1][1] if heads else ""
+    tail = tails[-1][1] if tails else ""
+    if head and tail and head != tail:
+        return ("", "", "", "")
+    if head:
+        return (head, name[len(head) + 1 :], "prefix", name[len(head)])
+    if tail:
+        return (tail, name[: -len(tail) - 1], "suffix", name[-len(tail) - 1])
+    return None
+
+
+def _far_device_names(project: Project) -> bool:
+    """`config/naming.json` `far_device_names` is `true` (read as saved; anything else is off)."""
+    cfg = project.config.get("naming")
+    return cfg is not None and cfg.values.get("far_device_names") is True
+
+
+def _check_port_far_device(
+    project: Project,
+    rep: VerifyReport,
+    i: InterfaceInstance,
+    names: list[str],
+    released: dict[str, str],
+) -> None:
+    """An interface does not use a port named after a device other than the one at its other end
+    (`port_far_device`, 4.4.0): an error for pins nobody locked, a warning for locked pins or an
+    interface of a released harness (`released`: interface -> harness), which are kept."""
+    units = list(project.units)
+    for end in i.endpoints:
+        others = [e for e in i.endpoints if e is not end]
+        far = others[0].unit_id if len(others) == 1 else ""
+        box = project.connectors.get(end.connector_id or "")
+        if not far or far == end.unit_id or box is None or box.role != "box":
+            continue
+        mine = [(pin, _carried(pin, names)[1]) for pin in box.pins if pin.interface_id == i.id]
+        for port in sorted({p for _pin, p in mine if p}):
+            found = device_naming(port, units, port=True)
+            if found is None or not found[0] or found[0] == far:
+                continue
+            text = (
+                f"Interface {i.id} goes to unit {far} but uses port {port} of {box.id}, which is"
+                f" named after unit {found[0]} (naming.far_device_names)."
+            )
+            if i.id in released:
+                rep.warning(
+                    "port_far_device",
+                    f"{text} It is kept because harness {released[i.id]} is released; a new"
+                    f" version takes the port of {far}.",
+                    i.id,
+                )
+            elif any(pin.locked for pin, p in mine if p == port):
+                rep.warning(
+                    "port_far_device", f"{text} It is kept because a person locked the pins.", i.id
+                )
+            else:
+                rep.error(
+                    "port_far_device", f"{text} Regenerate, or choose the port of {far}.", i.id
+                )
 
 
 def _cable_index(project: Project) -> dict[str, tuple[Harness, Connector]]:
@@ -522,6 +614,13 @@ def verify_project(project: Project) -> VerifyReport:
             if w.interface_id is not None:
                 by_interface.setdefault(w.interface_id, []).append(w)
 
+    far_on = _far_device_names(project)
+    released = {
+        iid: h.id
+        for h in sorted(project.harnesses.values(), key=lambda x: x.id, reverse=True)
+        if h.status == "released"
+        for iid in h.interfaces
+    }  # the first harness by ID wins
     for i in sorted(project.interfaces.values(), key=lambda x: x.id):
         itype = project.interface_types.get(i.type_id)
         if (
@@ -532,6 +631,8 @@ def verify_project(project: Project) -> VerifyReport:
             continue  # not routable (reported elsewhere)
         rep.interfaces_checked += 1
         _check_ports(project, rep, i, [s.name for s in itype.signals])
+        if far_on:
+            _check_port_far_device(project, rep, i, [s.name for s in itype.signals], released)
         need = expected_connections([(s.name, s.direction) for s in itype.signals])
         wires = by_interface.get(i.id, [])
         found, through, unreadable = _splice_connections(project, rep, cables, i, wires, spliced)

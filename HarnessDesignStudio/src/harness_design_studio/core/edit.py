@@ -18,6 +18,7 @@ from .clone import clone_with as clone_with  # moved to clone.py; kept here for 
 from .commands import Delete, Op, Put, SetConfig, SetZones
 from .describe import part_gender
 from .device_kinds import KIND_IDS
+from .device_names import far_device, named_device
 from .errors import HarnessError
 from .generate.pins import Allocation, PinRules, Request
 from .ids import check_id
@@ -438,7 +439,7 @@ class _RoomCache:
     frozen: set[str] | None = None
     rules: PinRules | None = None
     next_id: str | None = None
-    runs: dict[tuple[str, str, str, str], tuple[Connector, Allocation]] = field(
+    runs: dict[tuple[str, str, str, str, str], tuple[Connector, Allocation]] = field(
         default_factory=dict
     )
     answers: dict[tuple[str | None, ...], tuple[Connector, Compat]] = field(default_factory=dict)
@@ -485,30 +486,46 @@ def _dry_run(
     new_id: str,
     type_id: str,
     leave_out: str,
+    far_unit: str = "",
 ) -> Allocation:
     """The allocation Generate would make on the connector for the interfaces that end on it (not
-    `leave_out`), plus an interface `new_id` of `type_id` when one is given."""
+    `leave_out`), plus an interface `new_id` of `type_id` when one is given, whose far device is
+    `far_unit` (read only while `naming.far_device_names` is on, as Generate reads it)."""
     from .generate import engine
 
     box = project.connectors[connector_id]
-    key = (connector_id, new_id, type_id, leave_out)
+    rules = _rules(cache, project)
+    far = far_unit if rules.far_devices else ""
+    key = (connector_id, new_id, type_id, leave_out, far)
     hit = cache.runs.get(key)
     if hit is not None and hit[0] is box:
         return hit[1]
     if cache.frozen is None:
         cache.frozen = engine.frozen_interfaces(project)
-    if cache.rules is None:
-        cache.rules = engine.pin_rules(project)
     requests = [
-        Request(i.id, project.interface_types[i.type_id])
+        engine.request(project, rules, i, connector_id)
         for i in interfaces_using(project, connector_id)
         if i.id != leave_out and i.id not in cache.frozen and i.type_id in project.interface_types
     ]
     if new_id:
-        requests.append(Request(new_id, project.interface_types[type_id]))
-    result = engine.allocate_box(project, box, requests, cache.frozen, cache.rules)
+        requests.append(Request(new_id, project.interface_types[type_id], far))
+    result = engine.allocate_box(project, box, requests, cache.frozen, rules)
     cache.runs[key] = (box, result)
     return result
+
+
+def _rules(cache: _RoomCache, project: Project) -> PinRules:
+    """The pin allocation settings of the cached project (`engine.pin_rules`)."""
+    from .generate import engine
+
+    if cache.rules is None:
+        cache.rules = engine.pin_rules(project)
+    return cache.rules
+
+
+def _far_devices(project: Project) -> bool:
+    """`naming.far_device_names` is on for the project (4.4.0), as Generate reads it."""
+    return _rules(_room_cache(project), project).far_devices
 
 
 def _new_interface_id(project: Project, cache: _RoomCache) -> str:
@@ -542,21 +559,31 @@ def free_ports(project: Project, connector_id: str, type_id: str) -> tuple[str, 
 
 
 def connector_room(
-    project: Project, connector_id: str, type_id: str, interface_id: str | None = None
+    project: Project,
+    connector_id: str,
+    type_id: str,
+    interface_id: str | None = None,
+    far_unit: str = "",
 ) -> Room:
     """Can the connector take one more interface of `type_id`? A dry run of `generate.pins.allocate`
     (through `engine.allocate_box`, the very function Generate calls) with every interface that
     ends on the connector and the new one: refused when the new interface gets no pins, or when it
     would take the pins of an interface that has them now. `interface_id` is the interface being
     placed (left out of the others); a new one gets the next free interface ID, so it is placed in
-    the order Generate would place it."""
+    the order Generate would place it. `far_unit` is the device at the other end of the interface
+    being placed (for an interface of the project, its own far device when not given): while
+    `naming.far_device_names` is on, the dry run gives it the port named after that device and
+    never a port named after another (4.4.0)."""
     c = project.connectors[connector_id]
     itype = project.interface_types[type_id]
     cache = _room_cache(project)
     new_id = interface_id or _new_interface_id(project, cache)
     leave_out = interface_id or ""
+    placing = project.interfaces.get(interface_id or "")
+    if not far_unit and placing is not None and _rules(cache, project).far_devices:
+        far_unit = far_device(project, placing, connector_id)
     base = _dry_run(cache, project, connector_id, "", "", leave_out)
-    after = _dry_run(cache, project, connector_id, new_id, type_id, leave_out)
+    after = _dry_run(cache, project, connector_id, new_id, type_id, leave_out, far_unit)
     others = [i for i in interfaces_using(project, connector_id) if i.id != leave_out]
     head = (
         f"{c.id} cannot take another {itype.name}"
@@ -565,7 +592,8 @@ def connector_room(
     )
     failed = [msg for iid, msg in after.errors if iid == new_id]
     if failed:
-        return Room(False, f"{head}: {_full_text(c, itype, base, failed[0])}")
+        far_text = _far_full_text(project, cache, c, itype, base, far_unit)
+        return Room(False, f"{head}: {far_text or _full_text(c, itype, base, failed[0])}")
     before = {iid for iid, _msg in base.errors}
     pushed = sorted({iid for iid, _msg in after.errors if iid != new_id and iid not in before})
     if pushed:
@@ -605,6 +633,34 @@ def _full_text(c: Connector, itype: InterfaceType, base: Allocation, msg: str) -
     if msg.startswith(own):
         return "it has " + msg[len(own) :]
     return msg
+
+
+def _far_full_text(
+    project: Project,
+    cache: _RoomCache,
+    c: Connector,
+    itype: InterfaceType,
+    base: Allocation,
+    far_unit: str,
+) -> str:
+    """Why a connector is full while `naming.far_device_names` is on (4.4.0, design section 3.5):
+    every free complete port of the type is named after a device other than `far_unit`, so the
+    dry run gave the new interface none (`its free RS-422 ports TTC1 and TTC2 are named after other
+    devices`). "" when that is not the reason, or the setting is off."""
+    rules = _rules(cache, project)
+    if not rules.far_devices or not far_unit or not fixed_pinout(c):
+        return ""
+    owner = {pid for (_iid, _sig), pid in base.pins.items()}
+    owner.update(p.id for p in c.pins if p.locked)
+    free = [p for p in ports_of(c, itype).usable if not any(pp.pin_id in owner for pp in p.pins)]
+    readings = [named_device(p.name, rules.units, port=True) for p in free]
+    if not free or not all(r is not None and r.names and r.unit != far_unit for r in readings):
+        return ""
+    names = [p.name for p in free]
+    if len(names) == 1:
+        return f"its free {itype.name} port {names[0]} is named after another device"
+    shown = ", ".join(names[:-1]) + f" and {names[-1]}"
+    return f"its free {itype.name} ports {shown} are named after other devices"
 
 
 def _far_key(project: Project, unit_id: str | None, connector_id: str | None) -> str | None:
@@ -677,11 +733,14 @@ def _shared_note(
     return " ".join(notes)
 
 
-def shared_connectors(project: Project, unit_id: str, type_id: str) -> list[Connector]:
+def shared_connectors(
+    project: Project, unit_id: str, type_id: str, far_unit: str = ""
+) -> list[Connector]:
     """Tier 2 of the choice of a connector: the connectors of the device that carry the type, that
     interfaces already end on, that have a fixed pinout, and on which the dry run places the new
     interface on a free complete named port. A connector whose pins the device leaves free is
-    never shared by the tool's choice: only a person shares it (Expert mode)."""
+    never shared by the tool's choice: only a person shares it (Expert mode). `far_unit`: the
+    device at the other end, for the dry run while `naming.far_device_names` is on (4.4.0)."""
     if type_id not in project.interface_types:
         return []
     fixed = [
@@ -690,35 +749,64 @@ def shared_connectors(project: Project, unit_id: str, type_id: str) -> list[Conn
     if not fixed:  # the common case: nothing to share, and the interfaces are not read at all
         return []
     used = _used_connectors(project)
-    return [c for c in fixed if c.id in used and connector_room(project, c.id, type_id).port]
+    return [
+        c
+        for c in fixed
+        if c.id in used and connector_room(project, c.id, type_id, far_unit=far_unit).port
+    ]
 
 
-def _guided_fits(project: Project, type_id: str, connector_id: str) -> bool:
+def _free_tier(project: Project, unit_id: str, type_id: str, far_unit: str = "") -> list[Connector]:
+    """Tier 1 of the choice of a connector (`free_connectors`). While `naming.far_device_names`
+    is on and the far device is known, a free connector with a fixed pinout on which the dry run
+    finds no room is left out (its ports are named after other devices), so the choice goes on to
+    the next connector (4.4.0, design section 3.5). Off, tier 1 is as it always was."""
+    free = free_connectors(project, unit_id, type_id)
+    if not far_unit or not free or not _far_devices(project):
+        return free
+    return [
+        c
+        for c in free
+        if not fixed_pinout(c) or connector_room(project, c.id, type_id, far_unit=far_unit).ok
+    ]
+
+
+def _guided_fits(project: Project, type_id: str, connector_id: str, far_unit: str = "") -> bool:
     """The tool may choose this connector itself: it is free and carries the type (tier 1), or it
-    is one of the shared connectors of tier 2."""
+    is one of the shared connectors of tier 2 (`far_unit`: the device at the other end)."""
     c = project.connectors.get(connector_id)
     if c is None or c.role != "box" or c.unit_id is None or not carries(c, type_id):
         return False
     if connector_id not in _used_connectors(project):
+        if far_unit and fixed_pinout(c) and _far_devices(project):  # tier 1 of `_free_tier`
+            return connector_room(project, c.id, type_id, far_unit=far_unit).ok
         return True
-    return c in shared_connectors(project, c.unit_id, type_id)
+    return c in shared_connectors(project, c.unit_id, type_id, far_unit)
 
 
 def choose_connector(
-    project: Project, unit_id: str, type_id: str, avoid: Collection[str] = ()
+    project: Project,
+    unit_id: str,
+    type_id: str,
+    avoid: Collection[str] = (),
+    far_unit: str = "",
 ) -> Connector | None:
     """The connector the tool chooses for an interface of this type at a device, in two tiers
     (D-237). Tier 1: the free connectors that carry the type, in the order of the model
     `model.connector_choice` (`connector_choice.ranked`), as it always was. Tier 2, only when tier
     1 finds none: the connectors with a fixed pinout that have a free complete port of the type
     (`shared_connectors`), in the same order, counting the pins the other interfaces hold. The
-    connectors in `avoid` are left out of both. None when there is none."""
+    connectors in `avoid` are left out of both. None when there is none. `far_unit` is the device
+    at the other end: while `naming.far_device_names` is on, a connector whose ports are all named
+    after other devices has no room for the interface (4.4.0)."""
     itype = project.interface_types.get(type_id)
     method = connector_choice.method(project)
-    free = [c for c in free_connectors(project, unit_id, type_id) if c.id not in avoid]
+    free = [c for c in _free_tier(project, unit_id, type_id, far_unit) if c.id not in avoid]
     if free:
         return connector_choice.ranked(method, free, itype)[0]
-    shared = [c for c in shared_connectors(project, unit_id, type_id) if c.id not in avoid]
+    shared = [
+        c for c in shared_connectors(project, unit_id, type_id, far_unit) if c.id not in avoid
+    ]
     taken = {c.id: taken_pins(project, c.id) for c in shared}
     ranked = connector_choice.ranked(method, shared, itype, taken)
     return ranked[0] if ranked else None
@@ -742,8 +830,9 @@ def unit_compat(
         return Compat(False, "Unknown device", f"Device '{unit_id}' does not exist.")
     if source_unit == unit_id:
         return Compat(False, "Same device", "A device cannot be connected to itself.")
-    if not free_connectors(project, unit_id, type_id) and not shared_connectors(
-        project, unit_id, type_id
+    far = source_unit or ""
+    if not _free_tier(project, unit_id, type_id, far) and not shared_connectors(
+        project, unit_id, type_id, far
     ):
         name = _type_name(project, type_id)
         return Compat(
@@ -795,7 +884,9 @@ def connector_compat(
     hit = cache.answers.get(key)
     if hit is not None and hit[0] is c:
         return hit[1]
-    room = connector_room(project, connector_id, type_id, interface_id)
+    room = connector_room(
+        project, connector_id, type_id, interface_id, far_unit=far_unit or source_unit or ""
+    )
     if not room.ok:
         answer = Compat(False, "Full", room.why + ".")
     else:
@@ -1073,7 +1164,9 @@ def ops_add_interface(
             )
             if not compat.ok:
                 raise EditError(compat.why)
-            pick = choose_connector(project, unit_id, type_id, avoid_connectors or ())
+            pick = choose_connector(
+                project, unit_id, type_id, avoid_connectors or (), far_unit=far_unit
+            )
             if pick is None:
                 raise EditError(f"{unit_id} has no free {_type_name(project, type_id)} connector.")
             chosen.append((unit_id, pick.id, True))
@@ -1236,8 +1329,10 @@ def ops_complete_chain(project: Project, interface_id: str) -> tuple[list[Op], s
         ops += _twin_unit_ops(project, project.units[end.unit_id])
         scratch = clone_with(project, ops)
     conn = _twin_connector(end, tid)
-    if conn is None or not _guided_fits(scratch, i.type_id, conn):
-        pick = choose_connector(scratch, tid, i.type_id)
+    others = [e.unit_id for e in i.endpoints if e is not end]
+    far_unit = others[0] if len(others) == 1 else ""
+    if conn is None or not _guided_fits(scratch, i.type_id, conn, far_unit):
+        pick = choose_connector(scratch, tid, i.type_id, far_unit=far_unit)
         if pick is None:
             raise EditError(f"{tid} has no free {_type_name(project, i.type_id)} connector.")
         conn = pick.id
