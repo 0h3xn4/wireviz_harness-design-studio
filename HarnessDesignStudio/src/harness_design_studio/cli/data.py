@@ -11,7 +11,14 @@ from typing import Any
 
 from harness_design_studio.cli import blocked_text
 from harness_design_studio.cli.jsonout import Report, add_json_flag
-from harness_design_studio.core import configcheck, edit, records, review, standard_profiles
+from harness_design_studio.core import (
+    configcheck,
+    edit,
+    records,
+    review,
+    signal_map,
+    standard_profiles,
+)
 from harness_design_studio.core.build_data_import import plan_build_data_import
 from harness_design_studio.core.commands import History, Op, SetConfig
 from harness_design_studio.core.errors import HarnessError, TransactionError
@@ -100,6 +107,28 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "list item is a point, or, in a file without list items, each line that is not empty and "
         "is not a heading; sets naming.review_checklist (at most 100 points of 1 to 300 "
         "characters, each once); 'none' takes the checklist out",
+    )
+    c.add_argument(
+        "--far-device-names",
+        choices=("on", "off"),
+        default=None,
+        help="on: a pin or port name that names a device of the project by its ID (TTC1_TX+, "
+        "TTC1_PPS) belongs to the interface or the connection to that device: Generate gives an "
+        "interface the port named after the device at its other end, and the pairing of a "
+        "connection reads the other device's name off a pin name (sets "
+        "naming.far_device_names); off: the setting is taken out again (the default)",
+    )
+    c.add_argument(
+        "--signal-map",
+        default=None,
+        metavar="FILE",
+        help="set the project's signal map from a file of pairs of a team's signal name and the "
+        "signal name of an interface type, read as import-netlist --signal-map FILE reads it (a "
+        "CSV of two columns with an optional heading row, or a JSON object; the file "
+        "signal-map.csv of `templates` is one): import-pinout and import-netlist then write the "
+        "type's name, also inside a port (TTC1_TXP becomes TTC1_TX+); sets naming.signal_map (at "
+        "most 1000 names of 1 to 200 characters, none mapped to itself, no signal name that is "
+        "also a team name); 'none' takes the map out",
     )
     c.add_argument(
         "--apply-profile",
@@ -516,6 +545,8 @@ def _changes_project(args: argparse.Namespace) -> bool:
             or args.counterparts is not None
             or args.distinct_roles is not None
             or args.review_checklist is not None
+            or args.far_device_names is not None
+            or args.signal_map is not None
         )
     if args.command == "library":
         return any(
@@ -643,6 +674,47 @@ def _config(project, args: argparse.Namespace, rep: Report) -> int:  # type: ign
             else f"Review checklist: {len(listed)} point{'s' if len(listed) != 1 else ''} in "
             f"config/naming.json (list {review.list_hash(listed)})."
         )
+    if args.far_device_names is not None:
+        far = configcheck.plan_set_far_device_names(project, args.far_device_names)
+        if not far.ok:
+            print(f"error: {far.error}", file=sys.stderr)
+            print("Nothing was changed.", file=sys.stderr)
+            return 1
+        if far.ops:
+            was_current = generation_status(project) == "current"
+            History(project).execute("Set signal names name the far device", far.ops)
+            save_project(project, args.project)
+            if was_current and generation_status(project) == "stale":
+                note(
+                    "Generate reads this setting, so the harness plans are now out of date. Run "
+                    "`harness-design-studio generate` again, then export again."
+                )
+        note(
+            "Signal names name the far device: on (config/naming.json, far_device_names)."
+            if far.value
+            else "Signal names name the far device: off (the setting is taken out of "
+            "config/naming.json)."
+        )
+    if args.signal_map is not None:
+        pairs = _signal_map_given(args.signal_map)
+        if isinstance(pairs, str):
+            print(f"error: {pairs}", file=sys.stderr)
+            print("Nothing was changed.", file=sys.stderr)
+            return 1
+        names = configcheck.plan_set_signal_map(project, pairs)
+        if not names.ok:
+            print(f"error: {names.error}", file=sys.stderr)
+            print("Nothing was changed.", file=sys.stderr)
+            return 1
+        if names.ops:
+            History(project).execute("Set the signal map", names.ops)
+            save_project(project, args.project)
+        n = len(signal_map.table(project))
+        note(
+            f"Signal map: {n} name(s) in config/naming.json."
+            if n
+            else "Signal map: none (the key is taken out of config/naming.json)."
+        )
     if args.apply_profile is not None:
         try:
             plan = standard_profiles.plan_profile(project, args.apply_profile)
@@ -690,6 +762,27 @@ def _checklist_points(given: str) -> list[str] | None | str:
     found = review.read_points(Path(given))
     if isinstance(found, str) and found.endswith("(no list item and no line of text)."):
         return f"{found} To take the checklist out, give --review-checklist none."
+    return found
+
+
+def _signal_map_given(given: str) -> dict[str, str] | None | str:
+    """The table of `config --signal-map`: None for `none` (the map is taken out), the pairs of the
+    file as `import-netlist --signal-map FILE` reads them, or the reason the file cannot be read
+    (a text)."""
+    if given.strip().casefold() == "none":
+        return None
+    path = Path(given)
+    if not path.is_file():
+        return f"{path} is not a file."
+    try:
+        found = signal_map.read_file(path)
+    except ImportError_ as exc:
+        return str(exc)
+    if not found:
+        return (
+            f"{path} has no pair of a team's signal name and a signal name. To take the signal "
+            "map out, give --signal-map none."
+        )
     return found
 
 
@@ -983,29 +1076,8 @@ def _signal_map(items: list[str]) -> dict[str, str]:
                 raise ImportError_(f"Signal map '{item}' must look like NAME=SIGNAL.")
             out[key.strip()] = value.strip()
         else:
-            out.update(_signal_map_file(Path(item)))
+            out.update(signal_map.read_file(Path(item)))
     return out
-
-
-def _signal_map_file(path: Path) -> dict[str, str]:
-    import json
-
-    try:
-        if path.suffix.lower() == ".json":
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict) or not all(
-                isinstance(k, str) and isinstance(v, str) for k, v in raw.items()
-            ):
-                raise ImportError_("The signal map must be a JSON object of text to text.")
-            return dict(raw)
-        rows = read_table_raw(path)
-    except (OSError, ValueError, RecursionError) as exc:
-        raise ImportError_(f"The signal map could not be read ({exc}).") from exc
-    if rows and rows[0][0].strip().lower() in ("net", "name", "kicad", "from", "net name"):
-        rows = rows[1:]
-    return {
-        r[0].strip(): r[1].strip() for r in rows if len(r) >= 2 and r[0].strip() and r[1].strip()
-    }
 
 
 def _netlist(project, args: argparse.Namespace, rep: Report) -> int:  # type: ignore[no-untyped-def]

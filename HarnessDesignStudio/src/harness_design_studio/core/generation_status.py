@@ -14,11 +14,13 @@ from .vcs.roles import CONFIG_FILE as ROLES_FILE
 from .vcs.roles import CONFIG_KEY as ROLES_KEY
 
 # Keys that generation does not read (who may release, what a release asks of the as-built records,
-# the points of the review checklist (4.3.0), what the as-built report tolerates): switching one
-# on, off or to another value does not make the harness plans out of date, and without any of them
-# the dump is what it always was.
+# the points of the review checklist (4.3.0), the project's signal map, which only the imports
+# apply (4.4.0), what the as-built report tolerates): switching one on, off or to another value
+# does not make the harness plans out of date, and without any of them the dump is what it always
+# was. `naming.far_device_names` (4.4.0) is not here: Generate reads it, so turning it on makes the
+# harness plans out of date until the next Generate.
 NOT_READ_BY_GENERATION: dict[str, tuple[str, ...]] = {
-    ROLES_FILE: (ROLES_KEY, "release_requires_asbuilt", "review_checklist"),
+    ROLES_FILE: (ROLES_KEY, "release_requires_asbuilt", "review_checklist", "signal_map"),
     "generation": ("asbuilt_cut_tolerance_mm", "asbuilt_strip_tolerance_mm"),
 }
 
