@@ -37,6 +37,10 @@ Every generated group except a coax gets the ends `shield_end_a` and `shield_end
 
 **Which connector is end A.** A group names no connector; its ends are placed by its *reference wire*, the wire of the group with the lowest ID in the whole harness: end A is where that wire starts (its `from` connector) and end B where it ends (its `to` connector). It is the rule the drawings have always used, and since 4.1.0 it is one function of the core (`core/shield_ends.py`) that the drawing and the *Production* sheet both take. In `flatsat`, the shielded pair `W002-S12` has the reference wire `W002-013`, which runs from `W002-P10` to `W002-P17`, so its end A (`backshell_360`) is at `W002-P10` and its end B (`floating`) at `W002-P17`. The *Production* sheet of the build workbook and of the harness plan writes each group with its end at the connector of the block and at the far end: in the block of `W002-P10` it reads `W002-S12 shielded pair: here backshell 360, far floating`, in the block of `W002-P17` `here floating, far backshell 360`. A twisted pair has no shield and is written without ends. A group whose wires end on more than two connectors (the warning `shield_across_branch`) has no end at the other connectors, and the sheet says `here not defined (the group ends on more than two connectors)` there.
 
+### Where an end lands
+
+Since 5.0.0 (format 5, part D of `docs/ait/DESIGN_5.0_FORMAT_5.md`) an end may state where it lands (`at_a`, `at_b`; [File format](../FILE_FORMAT.md#where-a-shield-end-lands-part-d)): the connector at that end, the pin of it a pigtail lands on, and the backshell (an accessory of kind `backshell` on that connector) for a 360 degree bond or a pigtail to its lug. A person states it, on a group Generate made too: the grounding concept decides the kind of end, not where it lands. The tool never fills one (owner question F10), not even from the only pin of role `shield` of the device connector, which is a statement about the device and not about this harness; Generate keeps a place while it makes the group again with the same wires, kind and end, and says in the explanation when it drops one. A place names its connector because the ends follow the reference wire and can swap: `check` then says `shield_end_moved`. Its other checks: `shield_pin_missing`, `shield_pin_wired` (a wire ends on that pin as well), `shield_pin_role` (the device pin it mates with has the stored role `power`, `return`, `signal` or `signal_ground`; a role read from the name is not judged) and `shield_backshell_missing`, all warnings; an end `pigtail` with no place is the info `shield_place_not_stated`, and an end `backshell_360` with no place is not reported (F11). [Outputs](../OUTPUTS.md#the-place-of-a-shield-end).
+
 The rules that look at the ends are `shield-unterminated` (both ends floating), `shield-wrong-end` (the ends differ from the grounding concept) and `shield-bonding` (both ends are `backshell_360`, when `config/emc.json: shield_bonding` asks for it); each is explained with the ends it saw.
 
 ## The inputs and where they come from
@@ -67,7 +71,7 @@ If a shield end of the concept is not set, the derivation says that `floating` i
 
 ## What the model does not do
 
-- It does not know where a shield is grounded in the hardware, only the end type typed in the concept.
+- It does not know where a shield is grounded in the hardware, only the end type typed in the concept and, where a person states it, the pin or backshell the end lands on (format 5).
 - It does not check the resistance of a shield bond; the check list names what needs measurements.
 - It does not choose between pigtail and backshell: that is the project's concept.
 

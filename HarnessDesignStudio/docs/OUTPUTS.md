@@ -332,3 +332,18 @@ A pin of a device connector that states a current (format 5, 5.0.0; design `docs
 | `system/drc_findings.csv`, the DRC report | the findings of `current-over-contact` per pin (*Pin 1 of OBC1-J01 carries 2 A but its contacts allow 1.5 A after derating*, object `OBC1-J01.1`) in place of the finding of the interface at a connector whose every pin of it has a current; the wire findings of `current-over-wire`, `bundle-current` and `voltage-drop` with the current from the pins; the warning `current_unbalanced` of `check` as a finding of `model-inconsistent`; the note of the wires without an interface says *they have no interface and no current on their pins to take a current from* |
 
 Not changed: the harness pinouts (`harnesses/<ID>/pinout.csv`: cable pins carry no current), the build workbook, the Production sheet, the labels and the bill of materials. The independent check (`verify --outputs`) compares the column of `box_pinouts.csv`, the `CON_…` sheets and `export.json` with the model: a wrong current is `out_box_pinouts`, `out_plan` or `out_json`.
+
+## The place of a shield end
+
+A shield group whose end states where it lands (format 5, 5.0.0; design `docs/ait/DESIGN_5.0_FORMAT_5.md` section 7.4; [File format](FILE_FORMAT.md#where-a-shield-end-lands-part-d); [shield groups](models/shields.md#where-an-end-lands)) changes the files of its harness only, and only a place that names the connector at its end is shown (`check` names one that does not, `shield_end_moved`). A project without a place keeps every file; an end `pigtail` without a place still reads *pigtail*.
+
+| Output | What a harness with a place holds |
+| --- | --- |
+| the *Production* sheet of the build workbook and of the harness plan, the shield cell | *W001-S1 shielded pair: here pigtail to pin 9, far backshell 360*; *here pigtail to backshell W002-A1*; *here backshell 360 (W001-A1)* (the far end keeps its one word) |
+| the *Production* sheet, the pin a pigtail lands on | a row of its own, after the rows of its wires (a spare pin leaves its run of spares): the *Wire* cell **pigtail**, the shield cell *W001-S1 shielded pair: pigtail lands here; W001-S5 shielded pair: pigtail lands here* |
+| the *Connectors* sheet of the build workbook | *Goes to* of that pin: *pigtail of W001-S1; pigtail of W001-S5* (after the far ends of its wires); a pin without a wire then reads *(no wire)*, not *(spare)* |
+| the drawing (`export --drawings`) | the mark at the end of the sleeve names the pin or the backshell (*pigtail to pin 9*, *pigtail to W002-A1*, *backshell 360 W001-A1*), in smaller type where it would reach the group's name; the line of the group under *Shields:* adds *end A pigtail to pin 9 at W001-P1* |
+| `system/export.json` | `at_a` and `at_b` of a shield group where set |
+| `system/drc_findings.csv`, the DRC report | the warnings `shield_end_moved`, `shield_pin_missing`, `shield_pin_wired`, `shield_pin_role` and `shield_backshell_missing` of `check`, as findings of `model-inconsistent` (the info `shield_place_not_stated` is no finding) |
+
+Not changed: the wire list, the cut list, the pinouts, the tests (no test row for a pigtail, F16), the labels and the bill of materials. The independent check (`verify --outputs`) words the shield cell and the pigtail row again with its own copy (`verify_production._place_here`, `_landings`, `_end_words`) and compares *Goes to* of the *Connectors* sheet and `export.json`: a wrong place is `out_build`, `out_plan` or `out_json`.
