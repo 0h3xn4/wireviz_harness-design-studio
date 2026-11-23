@@ -162,7 +162,7 @@ When the library has a newer version of a device, the program shows the differen
 
 **See the state.** The Inspector and the Devices tab show a line such as *From ACME devices, PCDU00.device.json, up to date*. The library window has a **Status** column, and its preview names the source: the library, the Git commit, the file and *not committed* when the file differs from the last commit. When you open a project, the program reads its libraries in the background; when a device has a newer version, a notice says so (*1 device has a newer version in the library: PCDU00.*). On the command line: `libraries DIR --devices`, and `explain DIR DEVICE` names the library file and the record.
 
-**See the difference.** **Review…** on the notice or on the device's line, or **Review changes…** in the library window, opens the review window; on the command line, `update-device DIR [NAME…]`. Both show one row per field (device, connector, pin, field, in this project, in the library, locked by) and what the change touches: interfaces, wires and links on pins that go, and the harnesses to generate again.
+**See the difference.** **Review…** on the notice or on the device's line, or **Review changes…** in the library window, opens the review window; on the command line, `update-device DIR [NAME…]`. Both show one row per field (device, connector, pin, field, in this project, in the library, locked by) and what the change touches: interfaces, wires and links on pins that go, and the harnesses to generate again. The ICD a connector came from (document, issue, link) and the level of a pin are fields of the library too, so a new issue of a device's ICD shows as a change.
 
 **Take it or keep yours.**
 
