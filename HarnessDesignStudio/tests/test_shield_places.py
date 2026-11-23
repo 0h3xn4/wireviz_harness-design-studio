@@ -617,3 +617,20 @@ def test_import_build_data_on_the_command_line_records_both_tables_of_format_5(
     assert group(loaded, "W001-S3").at_a == ShieldEndPlace(connector="W001-P2", pin="10")
     kinds = sorted(r.kind for r in loaded.import_records.values())
     assert "shield-ends" in kinds and "cable-ends" in kinds
+
+
+def test_the_help_of_import_build_data_names_the_table_of_shield_ends(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fault found by the end-to-end test of 5.0.0 (pull request 8): `import-build-data` reads a
+    table of shield ends since pull request 5, but its help, and so `docs/CLI.md`, named only strip
+    lengths, pin contacts, accessories, crimp tools and cable ends."""
+    from harness_design_studio.cli.main import main
+
+    assert main(["import-build-data", "--help"]) == 0
+    out = " ".join(capsys.readouterr().out.split())
+    assert "shield ends (Shield group, End: A or B, Pin and/or Backshell" in out
+    assert main(["--help"]) == 0
+    assert "cable ends or shield ends" in " ".join(capsys.readouterr().out.split())
+    cli_md = (Path(__file__).resolve().parents[1] / "docs" / "CLI.md").read_text(encoding="utf-8")
+    assert "or shield ends (Shield group, End: A or B, Pin and/or Backshell" in cli_md
