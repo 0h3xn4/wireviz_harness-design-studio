@@ -12,6 +12,7 @@ This page shows how to find out what the tool takes for granted when it makes a 
 - [5. Put the same text into the files you edit by hand (optional)](#5-put-the-same-text-into-the-files-you-edit-by-hand-optional)
 - [What the electrical checks assume](#what-the-electrical-checks-assume)
 - [What names and ports assume](#what-names-and-ports-assume)
+- [What format 5 assumes](#what-format-5-assumes)
 - [Common mistakes](#common-mistakes)
 
 ## Before you start
@@ -111,6 +112,22 @@ The long texts are on [shield groups and shield ends](../models/shields.md) (the
 | `A-FAR-DEVICE` | setting | with `naming.far_device_names` on, a name that starts with a device ID and `_`, `.` or `-`, or ends with one of them and an ID, names that device; the longest ID wins, and a name of two devices names neither. Off (the default): names are read as in 4.3.0 |
 
 `explain DIR OBC1-J01.5` lists `A-FAR-DEVICE` under *Rests on* while the setting is on. The long text is on [pin allocation](../models/pin-allocation.md#ports-named-after-the-far-device).
+
+## What format 5 assumes
+
+5.0.0 brings one setting and three assumptions, and changes the text of a fourth; all are listed by `settings DIR` and in **Help > Assumptions…**:
+
+| Setting | Default | What it changes |
+| --- | --- | --- |
+| `model.length_reference` | `rear` | where the routing segments that end at a cable connector are measured to: `rear` (where the wires leave the connector body or its backshell, the meaning of every length before 5.0.0) or `face` (the mating face). A cable connector may say otherwise for itself (*Lengths measured to* in the Inspector, or a table of cable ends; [lengths to the face](lengths-to-the-face.md)). In the editor: *Settings > Project*, *Segments are measured to* |
+
+| Assumption | Kind | In short |
+| --- | --- | --- |
+| `A-LENGTH-TO` | setting | a segment runs to the rear of a cable connector unless the project or the connector says the face; at a face end the depth of the connector part and of each backshell on it is taken off each wire. A depth is never assumed: without one the wire has no length |
+| `A-ONE-SOURCE` | built in | the pin currents of a net describe one source and its loads: the largest is the sum of the others. A net whose currents do not add up is not worked out (`current_unbalanced`); a net in which an end has no current takes the current of the interface, as before |
+| `A-PARALLEL-SHARE` | built in | wires between the same two pins, of one gauge and one length, share the current equally; parallel wires that differ, or a net whose wires form another loop, are not worked out (`current_not_worked_out`) |
+
+`A-CONTACT-SHARED` keeps its meaning for an interface (its whole current against every contact at its ends) and gains a sentence: *A pin that states its own current (format 5) is judged with it instead, and the interface only for its pins at that connector that state none.* `explain DIR W001-001` lists `A-LENGTH-TO` under *Rests on* for a wire with a length, and names the pin currents its current comes from. The long texts are on [wire length](../models/wire-length.md) (the face end and the depth) and [the current of a wire](../models/wire-current.md) (the net, the sums and the example).
 
 ## Common mistakes
 

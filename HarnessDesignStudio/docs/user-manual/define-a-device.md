@@ -184,6 +184,23 @@ When your pin names name the device at the other end (`TTC1_TX+` … for the tra
 
 If the pinout names the signals in your team's own words (`TTC1_TXP` for the `TX+` of port TTC1), give the project a signal map before you import it: `harness-design-studio config DIR --signal-map signal-map.csv`, or the section **Signal map** under **Settings > Project**. The import then writes `TTC1_TX+` and lists each rename ([import data](import-data.md#your-teams-signal-names-since-440)).
 
+### The current of a pin (since 5.0.0)
+
+A pin of a device connector may state the current through its contact in operation, in amperes, as the device's ICD gives it (format 5; a project of 4.x is upgraded once first, [upgrade a project](upgrade-a-project.md#9-from-format-4-to-format-5-500)). It is the column **Current (A)** of the pin table, shown while a pin of the connector has one (and from the column menu): type `2`, `2 A` or `500 mA`; an empty cell states none. Each change is one undo step. In a pinout sheet the column is *Current* (also *Current (A)*, *Pin current* or *Max current*), or *Current (mA)* in milliamperes; a cell holds a number, or a number followed by `A` or `mA`, above 0 and at most 1000 A. A value read in mA is listed:
+
+```
+Converted, row 2 (RW1-J01 pin 1): 2500 mA = 2.5 A
+```
+
+A cell that is not a current (a decimal comma, a word) stops the import and names the row. What the tool does with the currents ([the current of a wire](../models/wire-current.md)):
+
+- When every end of a net (the pins a wire, or the wires joined at a splice, connect) states a current and they add up, each wire of the net carries the current of its pins: the current rules (`current-over-wire`, `bundle-current`, `voltage-drop`) and `explain DIR WIRE` use it in place of the interface's *Max current*, which a wire of a harness made from a connection does not have. A power line split over two contacts gives each branch its share. `voltage-drop` judges such a wire only when it has an interface type, which says how many conductors carry the way back; a wire of a harness made from a connection is named in the note *Voltage drop was not checked for … wire(s) without an interface type to count the conductors of*.
+- When they do not add up, the wires of the net are not checked for current, and `check` says so: *The pin currents of the net of W001-001 do not add up: 2.5 A at RW1-J01.1; 2 A at PCDU-J01.1. Its wires were not checked for current. Correct the currents of the pins.* (`current_unbalanced`, a warning, so `model-inconsistent` in the design rule check).
+- `current-over-contact` judges each pin with a current on its own (*Pin 1 of PCDU-J02 carries 3 A but its contacts allow 2.5 A after derating*); the interface's current is compared only with its pins at that connector that state none.
+- Generate does not read a pin current: setting one does not make the harnesses out of date, and the gauge Generate chooses still comes from the interface.
+
+`system/box_pinouts.csv`, the Box pinouts sheet and `export-pinout` get a last column *Current (A)* while a pin has one, which `import-pinout` reads back. A tool older than 5.0.0 sets aside a connector with a current on a pin as a damaged file, so the whole team updates together.
+
 ## Check the result and write it out
 
 - Under the pin table the **notes** list what is odd about the connector, each with the pin it is about: a pin name that is the same ignoring case, fewer pins than the part has, a signal on two pins, a signal no interface type has, an interface type that is only half there on a fixed pinout (for example `CANH` without `CANL`), a locked pin whose interface does not end on this connector, a gender that nobody states. They are notes, not design rules: nothing here changes the design rules or what Generate does.
@@ -237,7 +254,7 @@ Where a harness made by hand (not generated) has a wire on a pin, the pin cannot
 
 ## What a pin can hold
 
-A pin has a name or number, a signal, a mode, a contact size, a termination, a **cable contact** (a library part, since 1.7.0), a **function** (free text, since 1.4.0) and, once Generate or **Assign…** has put an interface on it, that interface. The function is your own words for what the pin does ("Battery voltage sense"); the tool carries it to the pinout tables and to the cable end of the pin and decides nothing with it. A pin also has a **role** (since 1.8.0; empty means: taken from the signal name) and an optional **direction** (since 1.9: *in*, *out* or *bidirectional*; empty means not set, and the field is left out of the files while it is empty). There is still **no field** for remarks, a voltage or a current of a pin, and the tool does not pretend there is. Where a pin has no direction of its own, direction and class are shown from the interface type; for the rest keep your interface control document next to the project.
+A pin has a name or number, a signal, a mode, a contact size, a termination, a **cable contact** (a library part, since 1.7.0), a **function** (free text, since 1.4.0) and, once Generate or **Assign…** has put an interface on it, that interface. The function is your own words for what the pin does ("Battery voltage sense"); the tool carries it to the pinout tables and to the cable end of the pin and decides nothing with it. A pin also has a **role** (since 1.8.0; empty means: taken from the signal name) and an optional **direction** (since 1.9: *in*, *out* or *bidirectional*; empty means not set, and the field is left out of the files while it is empty). Since 5.0.0 a pin of a device connector may also state its **current** (in amperes; [the current of a pin](#the-current-of-a-pin-since-500)). There is still **no field** for remarks or a voltage of a pin, and the tool does not pretend there is. Where a pin has no direction of its own, direction and class are shown from the interface type; for the rest keep your interface control document next to the project.
 
 ## Common mistakes
 

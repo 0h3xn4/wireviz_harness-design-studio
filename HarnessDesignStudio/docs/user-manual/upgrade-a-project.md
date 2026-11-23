@@ -5,6 +5,8 @@ Version 2.0.0rc1 is the first version that saves projects in **format 2**. A pro
 > **Since 3.0.0** projects are saved in **format 3**, and a project saved by 2.x is upgraded once more, in the same way: see [7. From format 2 to format 3](#7-from-format-2-to-format-3-300). A project of 1.17.1 or older goes through both steps in one upgrade.
 >
 > **Since 4.0.0** projects are saved in **format 4**, and a project saved by 3.x is upgraded once more: see [8. From format 3 to format 4](#8-from-format-3-to-format-4-400). A project of 2.x or older goes through every step in one upgrade.
+>
+> **Since 5.0.0** projects are saved in **format 5**, and a project saved by 4.x is upgraded once more: see [9. From format 4 to format 5](#9-from-format-4-to-format-5-500). A project of 3.x or older goes through every step in one upgrade.
 
 ## Contents
 
@@ -17,6 +19,7 @@ Version 2.0.0rc1 is the first version that saves projects in **format 2**. A pro
 - [6. Go back](#6-go-back)
 - [7. From format 2 to format 3 (3.0.0)](#7-from-format-2-to-format-3-300)
 - [8. From format 3 to format 4 (4.0.0)](#8-from-format-3-to-format-4-400)
+- [9. From format 4 to format 5 (5.0.0)](#9-from-format-4-to-format-5-500)
 
 ## Before you start
 
@@ -254,5 +257,52 @@ Or **Upgrade** in the editor's question (*This project is in format 3. Upgrade? 
 - **Older versions.** After the upgrade, versions 3.x open the project read-only: `generate` and `export` say `error: this project is read-only (saved by a newer tool version).` with exit code 2, and `validate` says `WARNING newer_version: This project was saved by a newer version of the tool (format 4; this tool understands up to 3). It is opened read-only. [project.json]`. Once a part or a connector has rows, 3.x (3.0.0 to 3.1.0) also sets each of them aside as a damaged file (*row_layout: Extra inputs are not permitted*) and refuses `generate`, `export` and `drc` for it. So the whole team upgrades together.
 - **Git branches.** Upgrade on the main branch first, then bring the other branches up to date before they merge, so that nobody on a format 3 branch edits a project that format 3 cannot hold. The files of a format 3 branch are valid in format 4 (no key was renamed), so a merge needs no rewrite.
 - **Go back** with Git to the commit before the upgrade. Without Git, copy the files of `.migration-backup-v3/` back into the project folder. The project is then in format 3, and 3.x can edit it; rows entered after the upgrade are lost with it.
+
+## 9. From format 4 to format 5 (5.0.0)
+
+Version 5.0.0 saves projects in **format 5**, which can hold the fields of the feedback of an electrical engineer that format 4 cannot: where the lengths of a cable connector are measured to and how deep a connector is ([lengths to the face](lengths-to-the-face.md)), the current through each device pin ([define a device](define-a-device.md#the-current-of-a-pin-since-500)), a junction in a connection and the splice in its harness ([connect two connectors](connect-two-connectors.md#a-junction-one-pin-to-several-since-500)), where a shield end lands ([edit a wire](edit-a-wire.md), [enter the build data](enter-the-build-data.md#3a-cable-ends-and-shield-ends-since-500)) and the checked state of a device ([use the library](use-the-library.md#10-mark-a-device-as-checked)). A project saved by 4.x is in format 4, and a command that saves refuses it as above:
+
+```
+error: This project is in format 4, older than this tool writes (format 5), so nothing was saved. Upgrade it first: `harness-design-studio migrate DIR` (`--dry-run` shows what changes), or open it in the editor and choose Upgrade.
+```
+
+**What changes.** The number in `project.json`, and nothing else: no project has a key of format 5 before format 5, and every new key is left out of the files while it is unset. So this step, like the steps to formats 2 and 4, changes no model hash, no finding and no written file. Look first (the sample `mini3` as 4.x saved it, from the walk of `tests/test_e2e_500.py`):
+
+```
+harness-design-studio migrate mini3 --dry-run
+```
+
+```
+Project format 4; this tool writes format 5.
+Files that would change (1):
+  changed  project.json
+Objects by kind, before and after:
+  ...
+Model hash: <hash> -> <hash> (equal).
+A full export before and after: identical.
+Nothing is lost. Nothing was written.
+```
+
+A project with a change journal also lists `journal.jsonl`, which gets the entry *migrated from format 4*. Then upgrade:
+
+```
+harness-design-studio migrate mini3
+```
+
+```
+Migrated; the original files are kept in a .migration-backup-* folder.
+Format 4 to 5. Record: .migration-backup-v4/MIGRATION.json.
+Checked after the write: same model hash, same findings, baselines untouched, identical export.
+```
+
+Or **Upgrade** in the editor's question (*This project is in format 4. Upgrade? …*); **Open read-only** opens it without a change, and *Settings > Project* and every other edit stay off until you upgrade. A project of format 3 or older goes through every step in one upgrade.
+
+- **The outputs.** A project without data of format 5 writes the files 4.x wrote, apart from the version stamp (the walk of `tests/test_e2e_500.py` exports `mini3` after the upgrade and compares every file with the golden set).
+- **The backup** is the folder `.migration-backup-v4/`, with the record `MIGRATION.json`.
+- **Older versions.** After the upgrade, versions 4.x open the project read-only. `validate` says `WARNING newer_version: This project was saved by a newer version of the tool (format 5; this tool understands up to 4). It is opened read-only. [project.json]`, and `generate` and `export` say `error: this project is read-only (saved by a newer tool version).` with exit code 2. Once the project holds data of format 5, 4.x (run here with 4.4.0) also sets aside each object with a key it does not know as a damaged file: a harness with a face end or a shield place (*connectors.1.length_to: Extra inputs are not permitted*), a part with a depth, a device connector with a pin current, a checked device, and the import records of the kinds `cable-ends` and `shield-ends`; it reads a connection with a junction as the error `link_pin_reused` (*Link 'L1' pairs pin '1' of connector 'PCDU-J02' more than once. A pin belongs to one pair.*). `validate` then lists those files with exit code 1, and `generate`, `export` and `drc` refuse the project with exit code 2 (`drc`: *error: the project has damaged files (first: …); nothing was checked. Run `harness-design-studio validate` to see them.*) So the whole team upgrades together.
+- **The library files.** A device library file that holds a key of format 5 (a depth, a pin current or a check) is written as version 4, and a subsystem file as version 3; a 4.x tool refuses such a file (*version 4; this program reads …*) and still reads the others, so `save-device` from a 5.0.0 project with one of those keys cuts a library off from the team members who have not updated.
+- **Lengths to the face.** The step writes no `length_to`: every length stays a length to the rear, as 4.x meant it. If your segment lengths were already taken to the mating faces, set `model.length_reference` to `face` after the upgrade and give the parts their depths ([lengths to the face](lengths-to-the-face.md)); look at the length note of the build workbook to see which ends are faces.
+- **Git branches.** Upgrade on the main branch first, then bring the other branches up to date before they merge. The files of a format 4 branch are valid in format 5 (no key was renamed), so a merge needs no rewrite.
+- **Go back** with Git to the commit before the upgrade. Without Git, copy the files of `.migration-backup-v4/` back into the project folder. The project is then in format 4, and 4.x can edit it; the data of format 5 entered after the upgrade is lost with it.
 
 Next: [Use Git and CI](use-git-and-ci.md), [Override a value and keep a history](override-and-keep-a-history.md) (the change journal), [`TROUBLESHOOTING.md`](../TROUBLESHOOTING.md#this-project-is-in-format-1-older-than-this-tool-writes-format-2-so-nothing-was-saved)
