@@ -1922,6 +1922,8 @@
     }
    ],
    "role": "box",
+   "source_doc": "ICD-PCDU",
+   "source_version": "Issue 2",
    "unit_id": "PCDU1"
   }
  ],
@@ -5203,7 +5205,7 @@
    ]
   }
  ],
- "model_hash": "5299ad63b5837a72a3583198ecb1cd98e52a6e04227ec9ac77a42a107c79135a",
+ "model_hash": "58a59cd57d0a917c365ca43f3f65d4c67ee88808cc331be8c6f9f4e83758799b",
  "parts": [
   {
    "approval": "pending",
@@ -5759,6 +5761,12 @@
    "zone": "panel-A"
   },
   {
+   "checked": {
+    "by": "A. Example",
+    "icd": "ICD-OBC Issue 1",
+    "on": "2026-11-20",
+    "sha256": "0d0b6ff174ca58493c4d3ea79dccce291e42de32f155d9e05d1632f93b131c8f"
+   },
    "id": "OBC1",
    "mass_relevant": true,
    "name": "OBC1",
@@ -5768,6 +5776,12 @@
    "zone": "panel-A"
   },
   {
+   "checked": {
+    "by": "A. Example",
+    "icd": "ICD-PCDU Issue 2",
+    "on": "2026-11-23",
+    "sha256": "b0ac8abffc18fe7489f2c81aaaa139a7b2c61c6adb545c887675427ee0a27d1b"
+   },
    "id": "PCDU1",
    "mass_relevant": true,
    "name": "PCDU1",

@@ -23,6 +23,7 @@ from harness_design_studio.core import (
     cable_ends,
     checks,
     copies,
+    device_check,
     devices,
     drc,
     edit,
@@ -2298,6 +2299,28 @@ class EditorController(QObject):
             strings.STEP_SHARE_ROWS.format(connector_id, part_id),
             build,
             message=strings.ROWS_SHARED.format(connector_id, part_id),
+        )
+
+    def set_device_checked(self, unit_id: str, by: str, on: str, icd: str | None) -> bool:
+        """*Mark as checked…* (format 5, design of 5.0.0 section 8.2): the device was checked by
+        `by` on `on` against `icd` (None: the ICD its connectors name), with the SHA-256 of what
+        it is now; one undo step (`device_check.plan_set_device_checked`)."""
+        return self.attempt(
+            strings.STEP_DEVICE_CHECKED.format(unit_id),
+            lambda: (
+                device_check.plan_set_device_checked(
+                    self.project, unit_id, by=by, on=on, icd=icd
+                ).ops
+            ),
+            message=strings.DEVICE_CHECKED_DONE.format(unit_id),
+        )
+
+    def clear_device_checked(self, unit_id: str) -> bool:
+        """*Clear the check*: the device is not checked; one undo step."""
+        return self.attempt(
+            strings.STEP_DEVICE_CHECK_CLEARED.format(unit_id),
+            lambda: device_check.plan_clear_device_checked(self.project, unit_id),
+            message=strings.DEVICE_CHECK_CLEARED.format(unit_id),
         )
 
     def layout_notes(self) -> list[Issue]:

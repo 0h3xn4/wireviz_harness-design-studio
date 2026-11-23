@@ -62,7 +62,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import copies, devices, edit
+from harness_design_studio.core import copies, device_check, devices, edit
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.links import effective_role
 from harness_design_studio.core.model import Project
@@ -286,6 +286,8 @@ class DevicesView(QWidget):
     connectorChanged = Signal(str)
     libraryReviewRequested = Signal(str)  # *Review…* of the library chip (D-240)
     rowsRequested = Signal(str)  # *Edit rows…* of a connector's Pin rows (format 4, D-251)
+    checkRequested = Signal(str)  # *Mark as checked…* of a device (format 5, design of 5.0.0 8.2)
+    checkClearRequested = Signal(str)  # *Clear the check*
 
     def __init__(
         self, ctl: EditorController, theme: ThemeManager, settings: QSettings | None = None
@@ -490,7 +492,44 @@ class DevicesView(QWidget):
         self.library_chip.setObjectName("devices-library-chip")
         self.library_chip.reviewRequested.connect(self.libraryReviewRequested)
         box.addWidget(self.library_chip)
+        # the checked state of the device (format 5, design of 5.0.0 sections 8.2 and 8.5)
+        check_row = QHBoxLayout()
+        self.check_label = QLabel()
+        self.check_label.setObjectName("devices-check")
+        self.check_label.setAccessibleName(strings.DV_CHECK_NAME)
+        self.check_label.setProperty("muted", True)
+        self.check_label.setWordWrap(True)
+        self.check_btn = QPushButton(strings.DV_CHECK_MARK)
+        self.check_btn.setObjectName("devices-check-mark")
+        self.check_btn.setAccessibleName(strings.DV_CHECK_MARK.rstrip("…"))
+        self.check_btn.setToolTip(strings.DV_CHECK_MARK_TIP)
+        self.check_btn.clicked.connect(lambda: self._emit_unit(self.checkRequested))
+        self.check_clear_btn = QPushButton(strings.DV_CHECK_CLEAR)
+        self.check_clear_btn.setObjectName("devices-check-clear")
+        self.check_clear_btn.setToolTip(strings.DV_CHECK_CLEAR_TIP)
+        self.check_clear_btn.clicked.connect(lambda: self._emit_unit(self.checkClearRequested))
+        check_row.addWidget(self.check_label, 1)
+        check_row.addWidget(self.check_btn)
+        check_row.addWidget(self.check_clear_btn)
+        box.addLayout(check_row)
         return box
+
+    def _emit_unit(self, signal: Any) -> None:
+        if self._unit:
+            signal.emit(self._unit)
+
+    def _show_check(self, p: Project, uid: str, ro: bool) -> None:
+        """The check line of the device: *Checked by … on … against …*, *…; changed since the
+        check* or *not checked*; the buttons off in a read-only project."""
+        check = p.units[uid].checked
+        state = device_check.check_state(p, uid)
+        self.check_label.setText(device_check.state_text(check, state))
+        self.check_label.setToolTip(
+            strings.DV_CHECK_STALE_TIP if state == device_check.CHANGED else ""
+        )
+        self.check_btn.setEnabled(not ro)
+        self.check_clear_btn.setVisible(check is not None)
+        self.check_clear_btn.setEnabled(not ro)
 
     def _build_banner(self, theme: ThemeManager) -> None:
         """The lock banner (a released device, a read-only project) and the question line."""
@@ -1121,6 +1160,7 @@ class DevicesView(QWidget):
         self.duplicate_btn.setEnabled(not ro)
         self._show_number(p, uid, ro)
         self.refresh_library()
+        self._show_check(p, uid, ro)
         self._banner_for(state)
         self._fill_parts()
         self.part_picker.setEnabled(not ro)

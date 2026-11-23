@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The commands of the device library (design of 2.2.0, `docs/ait/DESIGN_2.2_DEVICE_LIBRARY.md`
 section 3; D-240): `libraries` (the project's libraries, `device-libraries.json`), `add-device`,
-`update-device` and `save-device`. Every change of the project goes through `History` and the
+`update-device` and `save-device`, and `device-checked` (format 5, design of 5.0.0 section 8.2: the
+checked state of a device, which the library carries). Every change of the project goes through `History` and the
 functions of `core/library_link.py`, which the editor uses too; the libraries are the folders of
 `--library` (repeatable; they replace the rest), else those of the project's
 `device-libraries.json`. The command line never reads the person's library folder of the editor.
@@ -16,16 +17,18 @@ import argparse
 import os
 import sys
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from harness_design_studio.cli import blocked_text
 from harness_design_studio.cli.jsonout import Report, add_json_flag
 from harness_design_studio.core import copies
+from harness_design_studio.core import device_check as dc
 from harness_design_studio.core import library_link as ll
 from harness_design_studio.core import library_pointer as lp
 from harness_design_studio.core.commands import History, Op, Put
-from harness_design_studio.core.edit import clone_with
+from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.errors import HarnessError, TransactionError
 from harness_design_studio.core.import_record import RECORDS_FILE
 from harness_design_studio.core.io.loader import load_project
@@ -34,7 +37,7 @@ from harness_design_studio.core.library_folder import LibraryConflict
 from harness_design_studio.core.library_git import library_git
 from harness_design_studio.core.model import ImportRecord, Project
 
-COMMANDS = ("libraries", "add-device", "update-device", "save-device")
+COMMANDS = ("libraries", "add-device", "update-device", "save-device", "device-checked")
 READ_ONLY = "error: this project is read-only (saved by a newer tool version)."
 OUTSIDE_UNDO = (
     "This change is outside undo and the change journal: device-libraries.json is not part of the "
@@ -138,7 +141,7 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
         "links on pins that go, drafts to generate again) and the notes. Without --apply nothing "
         "is changed. With --apply the library's version is taken, all or nothing per device and "
         "its copies, as one undo step each: the library-owned fields change (the connectors and "
-        "pins, kind, mass relevance, notes), the project's own stay (name, subsystem, zone, side, "
+        "pins, kind, mass relevance, notes, the check), the project's own stay (name, subsystem, zone, side, "
         "the place, and on each pin the interface, the lock and an allocated signal), missing "
         "parts and interface types are added, and the import record is replaced. A change that a "
         "released harness locks, a pin that a link pairs, or a part of another category or pin "
@@ -199,6 +202,34 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     )
     add_json_flag(sv)
 
+    ck = sub.add_parser(
+        "device-checked",
+        help="mark a device as checked against its ICD (by whom, on which day), or clear the check",
+        description="Record that a person checked a device against its ICD: who (--by, required: "
+        "no name is taken from Git or the computer), the day (--date, default today), the ICD "
+        "and its version (--icd), and the SHA-256 of what was checked (the device's kind and "
+        "mass relevance, and its box connectors and pins as the library holds them; not the "
+        "notes or labels). Without --icd the ICD its connectors name is taken, while every box "
+        "connector names the same document and version. The check is stored with the device "
+        "(format 5), save-device carries it to the library, and update-device brings the "
+        "library's. When the device changes later, check says device_check_stale; the check "
+        "stays until it is made again or cleared. Anyone may mark a device checked. A release "
+        "does not lock it. One undo step, in the journal. --clear takes the check away.",
+    )
+    ck.add_argument("project", type=Path, help="project folder")
+    ck.add_argument("device", metavar="DEVICE", help="the device, for example TTC1")
+    ck.add_argument("--by", default=None, metavar="NAME", help="who checked it (required)")
+    ck.add_argument(
+        "--icd",
+        default=None,
+        metavar="TEXT",
+        help="the ICD and its version it was checked against (default: the one its connectors "
+        "name)",
+    )
+    ck.add_argument("--date", default=None, metavar="YYYY-MM-DD", help="the day (default: today)")
+    ck.add_argument("--clear", action="store_true", help="take the check away: not checked")
+    add_json_flag(ck)
+
 
 def _library_option(p: argparse.ArgumentParser) -> None:
     p.add_argument(
@@ -215,7 +246,7 @@ def mutates(args: argparse.Namespace) -> bool:
         return not bool(args.dry_run)
     if args.command == "update-device":
         return bool(args.apply)
-    return bool(args.command == "save-device")
+    return bool(args.command in ("save-device", "device-checked"))
 
 
 def run(args: argparse.Namespace) -> int:
@@ -230,6 +261,7 @@ def run(args: argparse.Namespace) -> int:
             "add-device": _add_device,
             "update-device": _update_device,
             "save-device": _save_device,
+            "device-checked": _device_checked,
         }[args.command](project, args, rep)
     except _Usage as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -856,6 +888,59 @@ def _save_device(project: Project, args: argparse.Namespace, rep: Report) -> int
     return 0
 
 
+# ---- device-checked ---------------------------------------------------------------------------
+
+
+def _check_dict(project: Project, uid: str) -> dict[str, Any] | None:
+    check = project.units[uid].checked
+    if check is None:
+        return None
+    return {**check.model_dump(mode="json"), "state": dc.check_state(project, uid)}
+
+
+def _device_checked(project: Project, args: argparse.Namespace, rep: Report) -> int:
+    root: Path = args.project
+    uid = args.device
+    if uid not in project.units:
+        raise _Usage(f"There is no device {uid} in this project.")
+    rep.put(device=uid, changed=False, checked=_check_dict(project, uid), icd_from_connectors=False)
+    if args.clear:
+        if args.by is not None or args.icd is not None or args.date is not None:
+            raise _Usage("--clear takes no --by, --icd or --date.")
+        ops = dc.plan_clear_device_checked(project, uid)
+        if not ops:
+            rep.say(f"{uid} is not checked; nothing was changed.")
+            return 0
+        History(project).execute(f"Clear the check of {uid}", ops)
+        save_project(project, root)
+        rep.put(changed=True, checked=None)
+        rep.say(f"{uid}: the check is cleared; it is not checked.")
+        return 0
+    if args.by is None:
+        raise _Usage("say who checked the device with --by NAME.")
+    if args.icd is None and dc.proposed_icd(project, uid) is None:
+        raise _Refused(
+            f"The connectors of {uid} do not name one ICD and version; name the ICD with --icd."
+        )
+    on = date.today().isoformat() if args.date is None else args.date
+    try:
+        plan = dc.plan_set_device_checked(project, uid, by=args.by, on=on, icd=args.icd)
+    except EditError as exc:
+        raise _Refused(str(exc)) from exc
+    rep.put(icd_from_connectors=plan.proposed)
+    if plan.ops:
+        History(project).execute(f"Mark {uid} as checked", plan.ops)
+        save_project(project, root)
+    rep.put(changed=bool(plan.ops), checked=_check_dict(project, uid))
+    where = ", the ICD its connectors name" if plan.proposed else ""
+    check = plan.check
+    head = f"{uid}: checked by {check.by} on {check.on} against {check.icd}{where}."
+    rep.say(head if plan.ops else f"{head} It was so already; nothing was changed.")
+    if plan.ops:
+        rep.say("Save the device to its library (save-device) to share the check.")
+    return 0
+
+
 # ---- explain DEVICE ---------------------------------------------------------------------------
 
 
@@ -869,6 +954,8 @@ def explain_device(
     st = ll.link_state(project, libs, unit_id)
     rec = project.import_records.get(st.record_id) if st is not None and st.record_id else None
     rep.say(f"Device {unit_id} ({unit.name})")
+    if unit.checked is not None:  # the check of the device (format 5, design of 5.0.0 section 8)
+        rep.say(f"{dc.state_text(unit.checked, dc.check_state(project, unit_id))}.")
     if st is None:
         rep.say(
             f"{unit_id} is not from a device library: no library of this project holds it, and "

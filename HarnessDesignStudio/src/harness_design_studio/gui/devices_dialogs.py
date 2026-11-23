@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import copies, devices, edit
+from harness_design_studio.core import copies, device_check, devices, edit
 from harness_design_studio.core.device_library import DevicePlan, device_names, plan_device_import
 from harness_design_studio.core.device_names import far_device
 from harness_design_studio.core.edit import EditError
@@ -842,4 +842,65 @@ class LibraryDialog(_PlannerDialog):
         bad = next((r for r in plan.rows if not r.ok), None)
         if bad is not None:
             return f"{bad.unit_id}: {bad.message}"
+        return None
+
+
+# ---- the check of a device (format 5, design of 5.0.0 section 8.2) -----------------------------
+
+
+class DeviceCheckDialog(_PlannerDialog):
+    """*Mark as checked…*: who checked the device, on which day (today, proposed) and against
+    which ICD (proposed from its connectors while they name one ICD and version). OK stays off
+    until the planner (`device_check.plan_set_device_checked`) takes the values."""
+
+    quiet_at_open = True
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        theme: ThemeManager,
+        project: Project,
+        unit_id: str,
+        today: str,
+    ) -> None:
+        super().__init__(parent, theme, strings.CK_TITLE.format(unit_id), "device-check-dialog")
+        self.project, self.unit_id = project, unit_id
+        intro = QLabel(strings.CK_INTRO.format(unit_id))
+        intro.setWordWrap(True)
+        self.lay.addWidget(intro)
+        check = project.units[unit_id].checked
+        proposed = device_check.proposed_icd(project, unit_id)
+        self.by = _field(QLineEdit(check.by if check else ""), strings.CK_BY, strings.CK_BY_TIP)
+        self.by.setObjectName("device-check-by")
+        self.on = _field(QLineEdit(today), strings.CK_ON, strings.CK_ON_TIP, "YYYY-MM-DD")
+        self.on.setObjectName("device-check-on")
+        self.icd = _field(
+            QLineEdit(proposed or (check.icd if check else "")), strings.CK_ICD, strings.CK_ICD_TIP
+        )
+        self.icd.setObjectName("device-check-icd")
+        form = QFormLayout()
+        form.addRow(strings.CK_BY, self.by)
+        form.addRow(strings.CK_ON, self.on)
+        form.addRow(strings.CK_ICD, self.icd)
+        self.lay.addLayout(form)
+        hint = QLabel(strings.CK_ICD_PROPOSED.format(proposed) if proposed else strings.CK_ICD_NONE)
+        hint.setObjectName("device-check-icd-hint")
+        hint.setProperty("muted", True)
+        hint.setWordWrap(True)
+        self.lay.addWidget(hint)
+        for edit_box in (self.by, self.on, self.icd):
+            edit_box.textChanged.connect(self.revalidate)
+        self._finish(strings.CK_OK)
+
+    def values(self) -> tuple[str, str, str]:
+        """Who, the day and the ICD, as typed (trimmed)."""
+        return self.by.text().strip(), self.on.text().strip(), self.icd.text().strip()
+
+    def check(self) -> str | None:
+        by, on, icd = self.values()
+        if not by:
+            return strings.CK_NEED_BY
+        if not icd:
+            return strings.CK_NEED_ICD
+        device_check.plan_set_device_checked(self.project, self.unit_id, by=by, on=on, icd=icd)
         return None

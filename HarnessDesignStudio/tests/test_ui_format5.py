@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
-# mypy: disable-error-code="no-untyped-def,no-untyped-call,no-any-return,arg-type,attr-defined,index,union-attr"
+# mypy: disable-error-code="no-untyped-def,no-untyped-call,no-any-return,arg-type,attr-defined,index,union-attr,type-arg,call-overload"
 """The editor's fields of format 5 (design of 5.0.0 `docs/ait/DESIGN_5.0_FORMAT_5.md` section
 4.5; offscreen). Pull request 2, part A: the Inspector of a cable connector has *Lengths measured
 to* (the project's, rear or face; one undo step; also on a harness Generate made, which keeps it;
@@ -14,8 +14,12 @@ splice part of a connection with a junction (and says how to get one when the li
 the *Splices* list shows the pin currents of the net of each node. Pull request 5, part D: *Change
 group* says where each shield end lands (*Lands on pin*, *Backshell* with *Add a backshell…*), also
 for a group Generate made (its kind, wires and ends read-only), in one undo step; the Edit wire tab
-names the places; deleting a backshell says which places it cleared. The later pull requests add
-their fields here."""
+names the places; deleting a backshell says which places it cleared. Pull request 6, part E: the
+Devices tab says whether the device is checked (*Checked by … on … against …*, *…; changed since
+the check*, *not checked*), *Mark as checked…* asks who, the day and the ICD (proposed from the
+connectors) and marks it in one undo step, *Clear the check* takes it away; the Library window has
+the column *Checked* and *Mark as checked…* for the project's device that follows an entry. The
+later pull requests add their fields here."""
 
 from pathlib import Path
 
@@ -362,3 +366,111 @@ def test_deleting_a_backshell_says_which_place_it_cleared(qtbot):
     assert acc.delete_accessory()
     assert _group(ctl, "W001-S2").at_b is None
     assert said[-1] == "W001-A1 is deleted, and the place of W001-S2 end B no longer names it."
+
+
+# ---- part E: the checked state of a device (design of 5.0.0 sections 8.2 and 8.5) -------------
+
+
+def test_mark_as_checked_in_the_devices_tab_in_one_undo_step_and_clear(win):
+    from datetime import date
+
+    from harness_design_studio.core import device_check as dc
+    from harness_design_studio.gui.devices_dialogs import DeviceCheckDialog
+    from tests.gui_helpers import DialogScript
+
+    view = _devices_view(win, "OBC-J01")
+    uid = view.unit_id()
+    assert view.check_label.text() == dc.NOT_CHECKED
+    assert view.check_btn.isEnabled() and not view.check_clear_btn.isVisibleTo(view)
+    seen: list = []
+
+    def fill(dlg):
+        assert isinstance(dlg, DeviceCheckDialog)
+        assert dlg.on.text() == date.today().isoformat() and dlg.icd.text() == ""
+        assert not dlg.ok.isEnabled()  # no name, no ICD
+        dlg.by.setText("A. Example")
+        dlg.on.setText("2026-11-23")
+        dlg.icd.setText("ICD-OBC Issue 1")
+        assert dlg.ok.isEnabled()
+        seen.append(dlg)
+
+    DialogScript(win, fill)
+    n = steps(win)
+    view.check_btn.click()
+    settle()
+    assert seen and steps(win) == n + 1
+    check = win.ctl.project.units[uid].checked
+    assert (check.by, check.on, check.icd) == ("A. Example", "2026-11-23", "ICD-OBC Issue 1")
+    assert win.ctl.history._undo[-1].label == strings.STEP_DEVICE_CHECKED.format(uid)
+    view.refresh()
+    settle()
+    assert view.check_label.text() == "Checked by A. Example on 2026-11-23 against ICD-OBC Issue 1"
+    assert view.check_clear_btn.isVisibleTo(view)
+    view.check_clear_btn.click()
+    settle()
+    assert win.ctl.project.units[uid].checked is None and steps(win) == n + 2
+
+
+def test_a_device_changed_since_the_check_says_so(win):
+    from harness_design_studio.core import device_check as dc
+    from harness_design_studio.core.commands import Put
+
+    p = win.ctl.project
+    uid = p.connectors["OBC-J01"].unit_id
+    assert win.ctl.set_device_checked(uid, "A. Example", "2026-11-23", "ICD-OBC Issue 1")
+    c = p.connectors["OBC-J01"]
+    pins = [evolve(c.pins[0], function="changed"), *c.pins[1:]]
+    assert win.ctl.run("edit", [Put("connectors", evolve(c, pins=pins))])
+    view = _devices_view(win, "OBC-J01")
+    assert view.check_label.text().endswith("; " + dc.CHANGED)
+    assert view.check_label.toolTip() == strings.DV_CHECK_STALE_TIP
+
+
+def test_the_check_dialog_proposes_the_icd_of_the_connectors(win):
+    from harness_design_studio.gui.devices_dialogs import DeviceCheckDialog
+
+    p = win.ctl.project
+    uid = p.connectors["OBC-J01"].unit_id
+    for cid in [c for c in p.connectors if p.connectors[c].unit_id == uid]:
+        p.connectors[cid] = evolve(
+            p.connectors[cid], source_doc="ICD-OBC", source_version="Issue 4"
+        )
+    dlg = DeviceCheckDialog(win, win.theme, p, uid, "2026-11-23")
+    assert dlg.icd.text() == "ICD-OBC Issue 4"
+    dlg.by.setText("A. Example")
+    assert dlg.ok.isEnabled()
+    dlg.on.setText("2026-02-30")
+    assert not dlg.ok.isEnabled() and "date" in dlg.notice.text().lower()
+
+
+def test_the_library_window_has_the_column_checked_and_marks_the_project_s_device(qtbot, tmp_path):
+    from PySide6.QtCore import Qt
+
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core import device_check as dc
+    from harness_design_studio.gui.library_window import LibraryWindow
+
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    assert main(["new", str(tmp_path / "proj"), "--template", "first-steps"]) == 0
+    assert main(["device-checked", str(tmp_path / "proj"), "RW1", "--by", "A. Example", "--icd", "ICD-RW Issue 2", "--date", "2026-11-23"]) == 0  # fmt: skip
+    assert main(["save-device", str(tmp_path / "proj"), "RW1", "--library", str(lib)]) == 0
+    w = make_window(tmp_path)
+    qtbot.addWidget(w)
+    assert w.open_project(tmp_path / "proj")
+    hold_drc(w)
+    win = LibraryWindow(w.ctl, w.theme, w.settings, w)
+    qtbot.addWidget(win)
+    win.set_folder(str(lib))
+    qtbot.waitUntil(lambda: bool(win.list_model.rows()), timeout=5000)
+    horizontal = Qt.Orientation.Horizontal
+    names = [win.list_model.headerData(i, horizontal) for i in range(win.list_model.columnCount())]
+    assert strings.LIB_COLUMN_CHECKED in names
+    (row,) = [r for r in win.list_model.rows() if r["id"] == "RW1"]
+    assert row["checked"] == "Checked by A. Example on 2026-11-23 against ICD-RW Issue 2"
+    assert row["checked"] != dc.NOT_CHECKED
+    asked: list[str] = []
+    win.checkRequested.connect(asked.append)
+    qtbot.waitUntil(lambda: win.check_btn.isEnabled(), timeout=5000)
+    win.check_btn.click()
+    assert asked == ["RW1"]

@@ -10,7 +10,7 @@ import pytest
 from harness_design_studio.core import edit
 from harness_design_studio.core.commands import Delete, Op, Put, SetConfig
 from harness_design_studio.core.errors import TransactionError
-from harness_design_studio.core.model import Project, evolve
+from harness_design_studio.core.model import DeviceCheck, Project, evolve
 from harness_design_studio.core.model.config import ConfigFile
 from harness_design_studio.core.vcs import lockview
 from harness_design_studio.core.vcs.hashing import content_hash
@@ -188,9 +188,12 @@ def test_cosmetic_fields_are_the_ones_check_locks_lets_through(tmp_path: Path) -
         check_locks(p, [Put("interfaces", evolve(p.interfaces[iid], **{field: value}))])
     assert lockview.cosmetic_fields("interface") == {"name", "notes", "requirement_id"}
     # `kind` (the look a person set by hand, REQ-GUI-24) is cosmetic like the name: it joined the set
-    assert lockview.cosmetic_fields("unit") == {"name", "notes", "zone", "kind"}
+    # `checked` (format 5, design of 5.0.0 section 8.3): a release does not lock the check
+    assert lockview.cosmetic_fields("unit") == {"name", "notes", "zone", "kind", "checked"}
     locked_unit = p.interfaces[iid].endpoints[0].unit_id
     check_locks(p, [Put("units", evolve(p.units[locked_unit], kind="battery"))])  # allowed
+    check = DeviceCheck(by="A. Example", on="2026-11-23", icd="ICD-X Issue 1", sha256="0" * 64)
+    check_locks(p, [Put("units", evolve(p.units[locked_unit], checked=check))])  # allowed
     # the rows of a connector part are not frozen by a release (design of 4.0.0 section 3)
     assert lockview.cosmetic_fields("part") == {"notes", "row_layout"}
     assert lockview.cosmetic_fields("interface_type") == {"name", "notes"}

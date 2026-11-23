@@ -417,9 +417,69 @@ def _open_values(project: Project, h: Harness) -> Block:
     return Block("open", "Values still open", OPEN_COLUMNS, tuple(rows), _NOTHING_OPEN)
 
 
+# ---- the checked state of a device (format 5, design of 5.0.0 sections 8.1 and 8.5) ------------
+# stated here a second time from the design, never imported from `core/device_check.py`
+
+_CHECK_UNIT = ("kind", "mass_relevant")
+_CHECK_CONNECTOR = (
+    "name", "part_id", "gender", "keying", "carries", "row_layout", "source_doc", "source_version",
+    "source_link",
+)  # fmt: skip
+_CHECK_PIN = (
+    "signal", "fixed", "function", "contact_size", "termination", "contact_part", "role",
+    "direction", "level", "current_a",
+)  # fmt: skip
+
+
+def _tail(cid: str, uid: str) -> str:
+    """What stays of a connector ID when its device gets another ID (`OBC1-R-J01` of `OBC1-R`
+    and `OBC1-J01` of `OBC1` are both `J01`)."""
+    if cid.startswith(f"{uid}-"):
+        return cid[len(uid) + 1 :]
+    head, _dash, rest = cid.partition("-")
+    return rest or head
+
+
+def _device_sha256(project: Project, uid: str) -> str:
+    """The SHA-256 of what a check of the device covers: its kind and mass relevance, and each box
+    connector by its tail with its pins, a signal given for an interface (not fixed) left out, in
+    natural order, as canonical JSON."""
+    connectors = []
+    for c in (x for x in project.connectors.values() if x.unit_id == uid):
+        d = c.model_dump(mode="json")
+        pins = []
+        for p in d["pins"]:
+            pin = {"id": p["id"], **{k: p.get(k) for k in _CHECK_PIN}}
+            if not p.get("fixed") and p.get("interface_id") is not None:
+                pin["signal"] = None  # an allocation of this project, not the device's
+            pins.append(pin)
+        pins.sort(key=lambda x: _natural(str(x["id"])))
+        connectors.append({"tail": _tail(c.id, uid), **{k: d.get(k) for k in _CHECK_CONNECTOR}, "pins": pins})  # fmt: skip
+    connectors.sort(key=lambda x: _natural(str(x["tail"])))
+    unit = project.units[uid].model_dump(mode="json")
+    doc = {"unit": {k: unit.get(k) for k in _CHECK_UNIT}, "connectors": connectors}
+    text = json.dumps(doc, sort_keys=True, indent=2, ensure_ascii=False, allow_nan=False)
+    return hashlib.sha256((text + "\n").encode("utf-8")).hexdigest()
+
+
+def _check_text(project: Project, uid: str) -> str:
+    check = project.units[uid].checked
+    if check is None:
+        return "not checked"
+    text = f"Checked by {check.by} on {check.on} against {check.icd}"
+    if check.sha256 != _device_sha256(project, uid):
+        text += "; changed since the check"
+    return text
+
+
 def _sources(project: Project, h: Harness) -> Block:
     rows: list[tuple[tuple[Value, ...], str]] = []
-    for cid in sorted({c.mates_with for c in h.connectors if c.mates_with}, key=_natural):
+    boxes = {c.mates_with for c in h.connectors if c.mates_with}
+    if any(u.checked is not None for u in project.units.values()):
+        units = {project.connectors[b].unit_id for b in boxes if b in project.connectors}
+        for uid in sorted((u for u in units if u is not None and u in project.units), key=_natural):
+            rows.append((("Device", uid, _check_text(project, uid), "", "", ""), uid))
+    for cid in sorted(boxes, key=_natural):
         box = project.connectors.get(cid)
         if box is not None:
             rows.append((("Device connector", box.id, f"{box.unit_id}:{box.name}", box.source_doc or "not named", box.source_version or "", box.source_link or ""), box.id))  # fmt: skip

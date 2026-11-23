@@ -229,6 +229,7 @@ def test_every_table_is_there_with_units_in_the_headers(
         "wire_sizing", "segmentation_groups", "segmentation_interfaces", "pin_allocation",
         "rule_results", "readiness", "lengths", "segment_lengths", "parts", "mass", "mass_wires",
         "bom", "bom_contributions", "findings", "test_limits", "settings",
+        "devices",  # the checked state of each device (format 5, design of 5.0.0 section 8.5)
     }  # fmt: skip
     folder = exported["flatsat"]
     assert {p.name for p in folder.iterdir()} == {
@@ -459,7 +460,7 @@ def test_export_data_with_a_run_record(
     assert main(["export-data", str(folders["first-steps"]), "--out", str(out), "--run-record", "--author", "Ada", "--json"]) == 0  # fmt: skip
     doc = json.loads(capsys.readouterr().out)
     assert list(doc) == ["ok", "count", "model_hash", "files", "run_record"]
-    assert doc["run_record"] == "run_record.json" and doc["count"] == len(doc["files"]) == 35
+    assert doc["run_record"] == "run_record.json" and doc["count"] == len(doc["files"]) == 37
     assert (out / "run_record.json").is_file() and "run_record.json" not in doc["files"]
     assert json.loads((out / "run_record.json").read_text(encoding="utf-8"))["operator"] == "Ada"
     # the data files do not change with it
@@ -555,7 +556,7 @@ def test_the_api_result_and_the_command_agree(
     folders: dict[str, Path], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     result = api.export_data(folders["flatsat"], tmp_path / "a")
-    assert result.count == len(result.files) == 35 and result.run_record == ""
+    assert result.count == len(result.files) == 37 and result.run_record == ""
     assert list(result.files) == sorted(result.files)
     assert (
         main(["export-data", str(folders["flatsat"]), "--out", str(tmp_path / "b"), "--json"]) == 0

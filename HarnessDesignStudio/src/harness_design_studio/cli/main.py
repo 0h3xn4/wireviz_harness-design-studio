@@ -582,7 +582,7 @@ NOTHING_DONE = {
     "workflow": "listed", "asbuilt": "reported", "import-asbuilt": "imported",
     "export-asbuilt": "exported",
     "libraries": "listed or changed", "add-device": "added", "update-device": "compared or changed",
-    "save-device": "saved", "document": "shown or changed", "pin-rows": "shown or changed",
+    "save-device": "saved", "device-checked": "changed", "document": "shown or changed", "pin-rows": "shown or changed",
 }  # fmt: skip
 
 MUTATING = {

@@ -166,6 +166,13 @@ def _cases() -> list[Case]:
         return devices_dialogs.PortDialog(None, c.theme, c.project, str(cid), i.id)
 
     add("Port of an interface end", port, "PortDialog")
+    add(
+        "Mark a device as checked",  # format 5, design of 5.0.0 section 8.2
+        lambda c: devices_dialogs.DeviceCheckDialog(
+            None, c.theme, c.project, sorted(c.project.units)[0], "2026-11-23"
+        ),
+        "DeviceCheckDialog",
+    )
 
     def port_by_device(c: Ctx) -> QWidget:
         # 4.4.0: with naming.far_device_names on, the far device's port first, the other marked

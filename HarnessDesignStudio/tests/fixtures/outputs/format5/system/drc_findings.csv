@@ -1,4 +1,4 @@
-# harness-design-studio 4.4.1 model 5299ad63b583
+# harness-design-studio 4.4.1 model 58a59cd57d0a
 # harness-design-studio 4.4.1. Provided as is, without warranty. Verify before use.
 Finding,Rule,Severity,Object,Statement,Waived,Justification,Requirement
 current-over-contact.DEV1-J01.1,current-over-contact,error,DEV1-J01.1,Pin 1 of DEV1-J01 carries 2 A but its contacts allow 1.5 A after derating,,,ECSS-Q-ST-30-11_0140050
@@ -11,6 +11,7 @@ current-over-contact.OBC1-J01.5,current-over-contact,error,OBC1-J01.5,Pin 5 of O
 current-over-contact.OBC1-J01.6,current-over-contact,error,OBC1-J01.6,Pin 6 of OBC1-J01 carries 2 A but its contacts allow 1.5 A after derating,,,ECSS-Q-ST-30-11_0140050
 current-over-contact.PCDU1-J01.1,current-over-contact,error,PCDU1-J01.1,Pin 1 of PCDU1-J01 carries 6 A but its contacts allow 1.5 A after derating,,,ECSS-Q-ST-30-11_0140050
 current-over-contact.PCDU1-J01.2,current-over-contact,error,PCDU1-J01.2,Pin 2 of PCDU1-J01 carries 6 A but its contacts allow 1.5 A after derating,,,ECSS-Q-ST-30-11_0140050
+model-inconsistent.OBC1.device_check_stale.0053fc,model-inconsistent,warning,OBC1,"OBC1 was checked by A. Example on 2026-11-20 against ICD-OBC Issue 1; its connectors or pins changed since. Check it again (device-checked), or see what changed (the journal, update-device).",,,
 model-inconsistent.W001-009.current_unbalanced.6f8677,model-inconsistent,warning,W001-009,The pin currents of the net of W001-009 do not add up: 1 A at DEV1-J01.5; 0.5 A at DEV3-J01.3. Its wires were not checked for current. Correct the currents of the pins.,,,
 model-inconsistent.W002-P2.length_depth_missing.0d21dc,model-inconsistent,warning,W002-P2,"W002-P2 is measured to its face, but its backshell W002-A1 has no part, so the wires there have no length",,,
 model-inconsistent.W002-S1.shield_pin_wired.f472e9,model-inconsistent,warning,W002-S1,"W002-S1: the pigtail of end A lands on pin 3 of W002-P1, where the wire W002-002 ends as well.",,,

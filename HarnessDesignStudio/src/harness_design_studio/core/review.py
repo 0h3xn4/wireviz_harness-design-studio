@@ -22,7 +22,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from harness_design_studio.core import configcheck
+from harness_design_studio.core import configcheck, device_check
 from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.deviations import override_lines
 from harness_design_studio.core.io.canonical import dumps
@@ -478,9 +478,31 @@ def _approval(project: Project, pid: str) -> str:
     return part.approval + (" (example data)" if part.unverified else "")
 
 
+def _device_rows(project: Project, boxes: set[str]) -> list[Row]:
+    """The checked state of each device the harness plugs into (format 5, design of 5.0.0 section
+    8.5), one row each in natural ID order: *Checked by A. Example on 2026-11-23 against ICD-TTC
+    Issue 3* (with *; changed since the check*) or *not checked*; no row while no device of the
+    project has a check, so the sheet of a project of format 4 keeps its rows."""
+    if not device_check.any_checked(project):
+        return []
+    units = {
+        uid
+        for cid in boxes
+        if (box := project.connectors.get(cid)) is not None
+        and (uid := box.unit_id) is not None
+        and uid in project.units
+    }
+    rows = []
+    for uid in sorted(units, key=lambda x: (natural_key(x), x)):
+        check = project.units[uid].checked
+        text = device_check.state_text(check, device_check.check_state(project, uid))
+        rows.append(Row(("Device", uid, text, "", "", ""), uid))
+    return rows
+
+
 def _sources_block(project: Project, h: Harness) -> Block:
-    rows: list[Row] = []
     boxes = {c.mates_with for c in h.connectors if c.mates_with}
+    rows: list[Row] = _device_rows(project, boxes)
     for cid in sorted(boxes, key=lambda x: (natural_key(x), x)):
         box = project.connectors.get(cid)
         if box is None:  # the verifier reports a connector that plugs into nothing (mate_missing)

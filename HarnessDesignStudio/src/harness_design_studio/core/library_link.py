@@ -43,6 +43,7 @@ from harness_design_studio.core import device_file as df
 from harness_design_studio.core import device_library as dl
 from harness_design_studio.core import library_folder as lf
 from harness_design_studio.core.commands import History, Op, Put
+from harness_design_studio.core.device_check import check_words
 from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.errors import HarnessError, TransactionError
 from harness_design_studio.core.ids import ID_RE
@@ -57,6 +58,7 @@ from harness_design_studio.core.library_git import (
 from harness_design_studio.core.library_pointer import PointerError, library_folders, read_pointer
 from harness_design_studio.core.model import (
     Connector,
+    DeviceCheck,
     ImportRecord,
     InterfaceType,
     Part,
@@ -133,7 +135,10 @@ STATES = (
 LINKED_STATES = frozenset({UP_TO_DATE, LIBRARY_CHANGED, CHANGED_HERE})
 
 KIND: Literal["devices"] = "devices"
-UNIT_FIELDS = ("kind", "mass_relevant", "notes")
+# `checked` (format 5, design of 5.0.0 sections 8.4 and 9): the library holds the check of a
+# device, so the diff shows it (*A. Example, 2026-11-23, ICD-TTC Issue 3*) and `--apply` takes the
+# library's, its *not checked* too.
+UNIT_FIELDS = ("kind", "mass_relevant", "notes", "checked")
 # `row_layout` (format 4): a box connector's own rows are library-owned, and a difference shows in
 # the diff like any other field (design of 4.0.0 section 5.5), in the short text form. The ICD a
 # connector came from (`source_doc`, `source_version`, `source_link`) and the level of a pin
@@ -625,6 +630,8 @@ def _text(value: object) -> str:
         return "yes" if value else "no"
     if isinstance(value, RowLayout):
         return layout_text(value)
+    if isinstance(value, DeviceCheck):
+        return check_words(value)
     if isinstance(value, list | tuple):
         return ", ".join(str(v) for v in value)
     return str(value)
@@ -1212,7 +1219,11 @@ def _device_ops(
     lib_unit = source.unit()
     ops: list[Op] = []
     new_unit = evolve(
-        unit, kind=lib_unit.kind, mass_relevant=lib_unit.mass_relevant, notes=lib_unit.notes
+        unit,
+        kind=lib_unit.kind,
+        mass_relevant=lib_unit.mass_relevant,
+        notes=lib_unit.notes,
+        checked=lib_unit.checked,
     )
     if new_unit != unit:
         if unit_design(new_unit) != unit_design(unit) and (why := lock_reason(project, "unit", x)):

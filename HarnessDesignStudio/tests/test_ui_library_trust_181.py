@@ -160,7 +160,8 @@ def test_the_list_has_a_file_column_so_equal_looking_entries_differ(qtbot, tmp_p
     sub.mkdir()
     save_devices(sub, changed_obc(), ["OBC"], new_ids={"OBC": "OBC9"})  # the same name
     win, lib = opened(qtbot, tmp_path, lib_with_obc)
-    assert lib.list_model.columnCount() == 7  # (with the Status and the Library of 2.2.0, D-240)
+    # (with the Status and the Library of 2.2.0, D-240, and Checked of 5.0.0, design of 5.0.0 8.5)
+    assert lib.list_model.columnCount() == 8
     files = [lib.list_model.text_at(r, lib.list_model.column_index("file")) for r in range(2)]
     assert sorted(files) == ["OBC.device.json", "team/OBC9.device.json"]
 

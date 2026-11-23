@@ -64,6 +64,10 @@ from harness_design_studio.core.derive import Derivation, explain_object
 from harness_design_studio.core.derive import explain_finding as _explain_finding
 from harness_design_studio.core.derive_export import explain_all as _explain_all
 from harness_design_studio.core.derive_export import to_csv_bytes, to_json_bytes
+from harness_design_studio.core.device_check import (
+    plan_clear_device_checked,
+    plan_set_device_checked,
+)
 from harness_design_studio.core.drc import run as _run_rules
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.errors import (
@@ -159,6 +163,7 @@ __all__ = [
     "WorkflowReport",
     "accept_deviation",
     "annotate_config",
+    "clear_device_checked",
     "clear_override",
     "clear_row_layout",
     "create_project",
@@ -185,6 +190,7 @@ __all__ = [
     "run_checks",
     "save_project",
     "set_config",
+    "set_device_checked",
     "set_length_reference",
     "set_shield_end",
     "set_override",
@@ -926,3 +932,47 @@ def set_shield_end(
     g = next(s for s in project.harnesses[harness].shields if s.id == group)
     place = g.at_a if shield_end_key(end) == "a" else g.at_b
     return place.model_dump(mode="json") if place is not None else None
+
+
+def set_device_checked(
+    folder: PathLike,
+    device: str,
+    *,
+    by: str,
+    icd: str | None = None,
+    on: str | None = None,
+    author: str | None = None,
+) -> dict[str, str]:
+    """Mark the device `device` as checked (format 5, design of 5.0.0 section 8.2): by `by` (a
+    name, required: none is taken from the computer), on `on` (YYYY-MM-DD; default today), against
+    `icd` (the ICD and its version; default the one every box connector of the device names, else
+    `EditError`), with the SHA-256 of what the device is now. Saves the project through the same
+    plan as `device-checked` and the editor (`device_check.plan_set_device_checked`); a release
+    does not lock it. One undo step, in the journal with `author` when the project keeps one. Takes
+    the project lock. Returns the check as stored (`by`, `on`, `icd`, `sha256`)."""
+    from datetime import date
+
+    path = Path(folder)
+    with _locked(path), _as(author):
+        project = _load(path)
+        _writable(project)
+        day = date.today().isoformat() if on is None else on
+        plan = plan_set_device_checked(project, device, by=by, on=day, icd=icd)
+        if plan.ops:
+            History(project).execute(f"Mark {device} as checked", plan.ops)
+            _save_project(project, path)
+    return plan.check.model_dump(mode="json")
+
+
+def clear_device_checked(folder: PathLike, device: str, *, author: str | None = None) -> bool:
+    """Take the check of the device `device` away (*not checked*), through the plan of
+    `device-checked --clear`. Saves the project; one undo step. Returns whether it had one."""
+    path = Path(folder)
+    with _locked(path), _as(author):
+        project = _load(path)
+        _writable(project)
+        ops = plan_clear_device_checked(project, device)
+        if ops:
+            History(project).execute(f"Clear the check of {device}", ops)
+            _save_project(project, path)
+    return bool(ops)

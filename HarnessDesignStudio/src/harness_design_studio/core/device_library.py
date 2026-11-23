@@ -91,10 +91,9 @@ FORMAT3_PIN_KEYS = frozenset({"level"})
 FORMAT3_PART_KEYS = frozenset({"link"})
 FORMAT4_KEYS = frozenset({"row_layout"})  # of a box connector and of a part
 # The keys of format 5 that a device library file can carry (design of 5.0.0 section 3.7):
-# `depth_mm` of a part (pull request 2) and `current_a` of a pin (pull request 3); `checked` of a
-# device comes with the code that reads it (pull request 6 of that design), so that no file is
-# written as version 4 before then; checked on a device, a box connector, a pin and a part.
-FORMAT5_KEYS: frozenset[str] = frozenset({"depth_mm", "current_a"})
+# `depth_mm` of a part (pull request 2), `current_a` of a pin (pull request 3) and `checked` of a
+# device (pull request 6); checked on a device, a box connector, a pin and a part.
+FORMAT5_KEYS: frozenset[str] = frozenset({"depth_mm", "current_a", "checked"})
 MAX_BYTES = 8 * 1024 * 1024
 MAX_DEVICES = 500
 MAX_CONNECTORS = 64  # per device
@@ -359,11 +358,12 @@ def merge_with_notes(
 def content_version(content: dict[str, Any]) -> int:
     """The version a device library file with this content is written as: 4 when a device, a box
     connector, a pin or a part holds a key of format 5 (`FORMAT5_KEYS`, design of 5.0.0 section
-    3.7: a part's `depth_mm` and a pin's `current_a` so far); else 3 when a box connector or a
-    part has a row layout (`row_layout`, format 4, design of 4.0.0 section 5.5); else 2 when a
-    device or a part uses a field of format 3 (a pin's `level`, the role `signal_ground`, a
-    connector's `source_doc`, `source_version` or `source_link`, a part's `link`; design of 3.0.0
-    section 4.5); else 1. The parts may be given as models or as their JSON."""
+    3.7: a part's `depth_mm`, a pin's `current_a`, a device's `checked`); else 3 when a box
+    connector or a part has a row layout (`row_layout`, format 4, design of 4.0.0 section 5.5);
+    else 2 when a device or a part uses a field of format 3 (a pin's `level`, the role
+    `signal_ground`, a connector's `source_doc`, `source_version` or `source_link`, a part's
+    `link`; design of 3.0.0 section 4.5); else 1. The parts may be given as models or as their
+    JSON."""
 
     def keys(rec: Any) -> set[str]:
         if isinstance(rec, dict):

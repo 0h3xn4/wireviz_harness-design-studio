@@ -6,7 +6,8 @@ from typing import ClassVar, Literal
 
 from harness_design_studio.core.ids import Id, MaybeId, PinId
 
-from .base import Awg, Entity, Label, Name, Positive, SparseEntity, Text
+from .base import Awg, Entity, IsoDate, Label, Name, Positive, SparseEntity, Text
+from .imports import Sha256
 
 Side = Literal["nominal", "redundant", "none"]
 Category = Literal[
@@ -25,8 +26,21 @@ DeviceKind = Literal[
 ]  # fmt: skip
 
 
+class DeviceCheck(Entity):
+    """Who checked a device, on which day, against which ICD, and the SHA-256 of what was checked
+    (format 5, design of 5.0.0 section 8.1): the device's library-owned fields as
+    `core/device_check.checked_sha256` reads them. Set by a person only (`device-checked`, the
+    editor, the scripting interface) and brought by the library; never by an import or Generate.
+    When the device changes, the check stays and is marked stale (`check`: `device_check_stale`)."""
+
+    by: Name  # the person, as typed: no name is taken from Git or the computer
+    on: IsoDate  # the day of the check, YYYY-MM-DD
+    icd: Name  # the ICD and its version as the person names it (ICD-TTC Issue 3)
+    sha256: Sha256  # 64 lower-case hexadecimal characters
+
+
 class Unit(SparseEntity):
-    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"kind"})
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"kind", "checked"})
 
     id: Id
     name: Name
@@ -36,6 +50,8 @@ class Unit(SparseEntity):
     mass_relevant: bool = True
     notes: Text = ""
     kind: DeviceKind | None = None  # the kind of equipment, set by hand; None = read from the name
+    # the checked state of the device (format 5, design of 5.0.0 section 8): None is *not checked*
+    checked: DeviceCheck | None = None
 
 
 class SignalDef(Entity):

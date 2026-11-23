@@ -378,6 +378,7 @@ class LibraryWindow(QWidget):
     folderChangeRequested = Signal()
     added = Signal(list)  # the IDs of the devices that were added to the project
     libraryWritten = Signal()  # a device file of the folder was written (the editor reads it again)
+    checkRequested = Signal(str)  # *Mark as checked…* of the project's device (format 5)
 
     def __init__(
         self,
@@ -501,6 +502,7 @@ class LibraryWindow(QWidget):
                 Column("name", strings.LIB_COLUMNS[2], width=160),
                 Column("status", strings.LIB_COLUMN_STATUS, width=120, tooltip="status_tip"),
                 Column("library", strings.LIB_COLUMN_LIBRARY, width=120, tooltip="library_tip"),
+                Column("checked", strings.LIB_COLUMN_CHECKED, width=160, tooltip="checked_tip"),
                 Column("contents", strings.LIB_COLUMNS[3], width=190),
                 Column("file", strings.LIB_COLUMN_FILE, mono=True),
             ],
@@ -640,11 +642,17 @@ class LibraryWindow(QWidget):
         self.review_btn.setObjectName("library-review")
         self.review_btn.setAccessibleName(strings.LIB_REVIEW.rstrip("…"))
         self.review_btn.setToolTip(strings.LIB_REVIEW_NONE)
+        # the project's device that follows the entry, marked as checked (design of 5.0.0 8.2)
+        self.check_btn = QPushButton(strings.DV_CHECK_MARK)
+        self.check_btn.setObjectName("library-check")
+        self.check_btn.setAccessibleName(strings.DV_CHECK_MARK.rstrip("…"))
+        self.check_btn.setToolTip(strings.LIB_CHECK_NONE)
         self.close_btn = QPushButton(strings.LIB_CLOSE)
         self.close_btn.setObjectName("library-close")
         self.close_btn.setAccessibleName(strings.LIB_CLOSE)
         self.close_btn.setToolTip(strings.LIB_CLOSE_TIP)
         buttons.addWidget(self.review_btn)
+        buttons.addWidget(self.check_btn)
         buttons.addWidget(self.save_btn)
         buttons.addWidget(self.add_btn)
         buttons.addWidget(self.close_btn)
@@ -652,6 +660,7 @@ class LibraryWindow(QWidget):
 
         self.save_btn.clicked.connect(self.save_flow)
         self.review_btn.clicked.connect(self.review_flow)
+        self.check_btn.clicked.connect(self._check_requested)
         self.add_btn.clicked.connect(self.add_flow)
         self.close_btn.clicked.connect(self.close)
         self.search.textChanged.connect(lambda _t: self._fill_list())
@@ -894,6 +903,8 @@ class LibraryWindow(QWidget):
                 "status_tip": self._status(e)[1],
                 "library": self._library_cells(e)[0],
                 "library_tip": self._library_cells(e)[1],
+                "checked": e.checked,
+                "checked_tip": strings.LIB_CHECK_TIP if e.kind == "device" else "",
                 "contents": contents_of(e),
                 "file": e.file,
                 "key": e.key,
@@ -1090,6 +1101,9 @@ class LibraryWindow(QWidget):
             if review
             else strings.LIB_REVIEW_NONE
         )
+        linked = state is not None and state.linked and state.unit_id in self.ctl.project.units
+        self.check_btn.setEnabled(linked and not ro)
+        self.check_btn.setToolTip(strings.DV_CHECK_MARK_TIP if linked else strings.LIB_CHECK_NONE)
         selected = self.ctl.selected_ids("unit")
         usable = bool(self.folder) and self.scan is not None and not self.scan.error
         self.save_btn.setEnabled(bool(selected) and usable)
@@ -1100,6 +1114,12 @@ class LibraryWindow(QWidget):
             if selected
             else strings.LIB_SAVE_NONE
         )
+
+    def _check_requested(self) -> None:
+        """*Mark as checked…*: the project's device that follows the entry (the window runs it)."""
+        state = self.state_of(self.entry)
+        if state is not None and state.linked and state.unit_id in self.ctl.project.units:
+            self.checkRequested.emit(state.unit_id)
 
     # ---- add to the project -----------------------------------------------------------------------
     def host(self) -> Host:
