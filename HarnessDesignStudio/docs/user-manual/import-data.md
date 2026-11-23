@@ -10,6 +10,7 @@ This page shows how to bring data you already have into a project: a list of int
 - [Segment lengths](#segment-lengths)
 - [Build data: strip lengths, contacts, accessories](#build-data-strip-lengths-contacts-accessories)
 - [Other imports](#other-imports)
+- [Your team's signal names (since 4.4.0)](#your-teams-signal-names-since-440)
 - [What an import records](#what-an-import-records)
 - [Where the library data come from](#where-the-library-data-come-from)
 - [Common mistakes](#common-mistakes)
@@ -217,6 +218,37 @@ Dry run: nothing was changed.
 | Strip lengths, contacts, accessories or crimp tools as a table | `harness-design-studio import-build-data DIR FILE` (command line only; [enter the build data](enter-the-build-data.md)) |
 | A device from another project | **Add from library…** in the Devices tab, or `harness-design-studio import-devices` ([define a device](define-a-device.md#use-a-device-in-another-project)) |
 | Values from a standard | `harness-design-studio config DIR --apply-profile NAME` ([fill in the engineering values](fill-in-engineering-values.md#values-from-a-standard-profiles)) |
+
+## Your team's signal names (since 4.4.0)
+
+A team often has its own words for a signal: `TXP` for the `TX+` of RS-422, `CAN_H` for `CANH`. The interface types name the signals their way, so a pin named `TTC1_TXP` matches no type, and nothing can connect to it until it is renamed. Give the project a **signal map**, a table of your words and the type's names, once:
+
+```
+harness-design-studio templates my-templates
+harness-design-studio config DIR --signal-map my-templates/signal-map.csv
+```
+
+```
+Signal map: 6 name(s) in config/naming.json.
+```
+
+The template `signal-map.csv` holds six example pairs (`TXP,TX+`, `TXN,TX-`, `RXP,RX+`, `RXN,RX-`, `CAN_H,CANH`, `CAN_L,CANL`); write your own words into a copy. A CSV of two columns or a JSON object both work. In the app, **Settings > Project** has the section **Signal map**: one `TEAM NAME = SIGNAL` per line, **Take the names of a file…** and **Save**, one undo step. `--signal-map none`, or an empty box, takes the map out. The tool ships no map ([`CONFIG.md`](../CONFIG.md#the-teams-signal-names-since-440)).
+
+From then on, `import-pinout` and `import-netlist` (and the import wizard) write the type's name for your word, the whole name and a name inside a port, and list each rename after their rows:
+
+```
+OBC1-J01: OK added (8 pin(s))
+Renamed by the project's signal map (config/naming.json signal_map): 8 signal(s)
+  TTC1_TXP -> TTC1_TX+: OBC1-J01 pin 1
+  TTC1_TXN -> TTC1_TX-: OBC1-J01 pin 2
+  …
+  TTC2_RXN -> TTC2_RX-: OBC1-J01 pin 8
+OBC1-J01: Ethernet or RS-422 ports: TTC1 (pins 1-4), TTC2 (5-8)
+```
+
+The port (`TTC1`) and its separator stay. A name that reads in two ways (`TXP_RXN`) is not renamed, and a warning says so. `--json` lists the same renames as `renamed_signals`, and the import record keeps each one (field `signal`, unit `signal map`), so `imports DIR` counts them under *Converted* and says later what a pin was called in the file. `import-netlist --signal-map` still works per import, on whole names, and wins for a name it holds ([import KiCad pinouts](import-kicad-pinouts.md)).
+
+The map acts at import only: after it, the project holds the type's names, which Generate, the rules and the connections read as before. Changing or removing the map renames nothing that is already in the project; import the file again to apply a new map. The library imports (`import-devices`, `add-device`, `update-device`, `import-subsystem`) do not read it: map the names when you import a pinout, before you save the device to a library.
 
 ## What an import records
 

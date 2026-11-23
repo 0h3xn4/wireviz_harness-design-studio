@@ -257,9 +257,50 @@ harness-design-studio new obc-demo --template blank
 
 4. **Check.** `harness-design-studio verify obc-demo` says `3 interfaces and 12 wires checked: 0 error(s)`. `harness-design-studio export obc-demo` writes the outputs. Then `obc-demo/outputs/system/box_pinouts.csv` lists each pin with its port name and its interface (`OBC1-J01,box,,EX-MICROD-25-F,5,RS422_2_TX+,IF-002,W002-001,no`). `harness-design-studio explain obc-demo OBC1-J01.5` names the port: *Port of the pin: RS422_2_TX+ is the TX+ of port RS422_2 of OBC1-J01; …*. `harness-design-studio explain obc-demo OBC1-J01` gives the choice of the connector in one step for the three links: *Connectors of OBC1 that carry rs422, for IF-001, IF-002, IF-003: in ID order: OBC1-J01; the tool takes the first one that is free, else the first with a free complete port of the type* (since 2.1.1; 2.1.0 gave the step once per link without naming it). A second Generate changes nothing.
 
-5. **Choose a port yourself** when the wiring must follow another plan, say IF-003 on RS422_1. In the Inspector of IF-003, **Choose port…** on the end at OBC1 lists *RS422_1 (pins 1-4)*, *RS422_2 (pins 5-8)* and *RS422_3 (pins 9-12)*. Once Generate has run, a port that another interface holds says why it cannot be taken (*Pin 1 carries IF-001; unassign it first.*), so choose before you generate, or first free those pins with **Unassign from interface** in the **Devices** tab. Pick RS422_1: its pins become *Locked* to IF-003 in one undo step, and the pins Generate gave IF-003 before are freed in the same step. The next Generate keeps IF-003 on RS422_1 and gives IF-001 and IF-002 the free ports in name order, RS422_2 and RS422_3. **Assign…** with its **Port** list in the **Devices** tab does the same.
+5. **Choose a port yourself** when the wiring must follow another plan, say IF-003 on RS422_1. In the Inspector of IF-003, **Choose port…** on the end at OBC1 lists *RS422_1 (pins 1-4)*, *RS422_2 (pins 5-8)* and *RS422_3 (pins 9-12)*. Once Generate has run, a port that another interface holds says why it cannot be taken (*Pin 1 carries IF-001; unassign it first.*), so choose before you generate, or first free those pins with **Unassign from interface** in the **Devices** tab. On a fixed pinout, **Unassign from interface** keeps the names of the pins since 4.4.0, so the port stays whole and can be chosen next (before 4.4.0 it cleared them, and *Choose port…* then said *OBC1-J01 has no RS-422 port …*). Pick RS422_1: its pins become *Locked* to IF-003 in one undo step, and the pins Generate gave IF-003 before are freed in the same step. The next Generate keeps IF-003 on RS422_1 and gives IF-001 and IF-002 the free ports in name order, RS422_2 and RS422_3. **Assign…** with its **Port** list in the **Devices** tab does the same.
 
 6. **When J1 is full**, a fourth link cannot use it. In Expert mode, connecting to it is refused with the reason (*OBC1-J01 cannot take another RS-422: its RS-422 ports RS422_1, RS422_2, RS422_3 are used by IF-001, IF-002, IF-003.*), and the Inspector's list of connectors shows it as *J1: Full* when the interface has another connector to choose. In Guided mode a fourth RS-422 link to OBC1 is refused with *OBC1 has no free RS-422 connector. Use a device template that has one …*; this message does not name the ports. Add a connector, or add a port to the pinout.
+
+### Ports named after the far device (since 4.4.0)
+
+Some teams name a port after the device at its other end: an on-board computer OBC1 whose connector J1 has the pins `TTC1_TX+`, `TTC1_TX-`, `TTC1_RX+`, `TTC1_RX-` (pins 1 to 4) for the transceiver TTC1 and `TTC2_TX+` … `TTC2_RX-` (pins 5 to 8) for TTC2. The import reads two ports, `TTC1` and `TTC2`:
+
+```
+OBC1-J01: Ethernet or RS-422 ports: TTC1 (pins 1-4), TTC2 (5-8)
+```
+
+Ports are taken in name order and interfaces in ID order (above). So when the link to TTC2 was made first (IF-001, *RS-422 OBC1 to TTC2*) and the link to TTC1 second (IF-002), Generate gives IF-001 the pins named for TTC1. `generate`, `verify` and `drc` find nothing wrong with it; only the wire list and `system/box_pinouts.csv` show `TTC1_TX+` on IF-001. That is what every version before 4.4.0 does, and what 4.4.0 does unless you say that your port names name devices.
+
+**Say it once for the project.** On the command line:
+
+```
+harness-design-studio config DIR --far-device-names on
+```
+
+```
+Generate reads this setting, so the harness plans are now out of date. Run `harness-design-studio generate` again, then export again.
+Signal names name the far device: on (config/naming.json, far_device_names).
+```
+
+(the hand-over list of `config` follows, with its exit code). In the editor, tick **Signal names name the far device** under **Settings > Project**; it is one undo step. It writes `"far_device_names": true` in `config/naming.json`; `--far-device-names off`, or the box cleared, takes the key out again ([`CONFIG.md`](../CONFIG.md#signal-names-name-the-far-device-since-440)).
+
+**What it changes.** A name names a device when it starts with the device's ID and one of `_`, `.` or `-` (`TTC2_TX+`), or ends with one of them and the ID (`TX+.TTC2`); a port named `TTC2` names it too. The ID is compared exactly, with case, and the longest ID wins (`OBC1-R_TX` names `OBC1-R`, not `OBC1`). Then:
+
+- **Generate** gives an interface the port named after the device at its other end first, and never a port named after another device. In the example IF-001 gets pins 5 to 8 and IF-002 pins 1 to 4, in whatever order the links were made. A second Generate changes nothing. When an interface finds no port of its own device and only ports of others, Generate stops with an error that names them: *IF-003: OBC1-J01 has a fixed pinout and no free pin named TX+, TX-, RX+, RX-, and no free complete RS-422 port for unit TTC3 (port TTC1 is named after unit TTC1; port TTC2 is named after unit TTC2).* A port whose name names no device (`RS422_2`) can still be taken by any interface.
+- **The verifier** reports a port named after another device. In a project generated before the setting was on, `verify` says, until you generate again:
+
+  ```
+  error: [port_far_device] Interface IF-001 goes to unit TTC2 but uses port TTC1 of OBC1-J01, which is named after unit TTC1 (naming.far_device_names). Regenerate, or choose the port of TTC2.
+  ```
+
+  The design rules list it as `verify-mismatch`, so it blocks a release. When a person locked the pins with **Choose port…**, or the harness is released, the same sentence ends with *It is kept because a person locked the pins.* or *It is kept because harness W001 is released; a new version takes the port of TTC2.*, as a warning that the design rule report does not list.
+- **`explain DIR OBC1-J01.5`** says *Port of the pin: TTC2_TX+ is the TX+ of port TTC2 of OBC1-J01; the port named after TTC2, the device at the other end of IF-001, comes first (naming.far_device_names), then ports in name order, interfaces in ID order*, with the input *Signal names name the far device = yes*.
+- **The editor.** **Choose port…** lists the far device's ports first (*TTC2 (pins 5-8), named after TTC2 at the other end*) and marks a port named after another device (*TTC1 (pins 1-4), named after TTC1*); you can still choose it, and its pins are locked. The Inspector then shows the verifier's sentence under the end. A connector whose free ports are all named after other devices has no room for the interface, and Guided mode goes on to the next connector.
+- **Connections** read the names too: see [connect two connectors](connect-two-connectors.md#pins-named-after-a-device-since-440).
+
+Turning the setting off again leaves the ports where they are; the next Generate keeps them. A project that never sets it keeps every file as before. The model of the order is [`docs/models/pin-allocation.md`](../models/pin-allocation.md#ports-named-after-the-far-device).
+
+**Swap two ports by hand**, with or without the setting: in the **Devices** tab, select pins 5 to 8 of OBC1-J01 and **Unassign from interface** (they keep their names), then **Choose port…** *TTC2* in the Inspector of IF-001, then Generate. IF-002 takes the port that is left. The report says `4 locked pin(s) kept`.
 
 ### 5: when the checks run
 

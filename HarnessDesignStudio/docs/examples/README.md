@@ -254,7 +254,7 @@ The files are written for the `first-steps` example, so you can try each one bef
 | 3 | `approved-parts.csv` | five example part rows: three `Approved`, one `Review`, one `Rejected` | `harness-design-studio import-parts` | yes |
 | 4 | `segment-lengths.csv` | two example segment lengths (millimetres) | `harness-design-studio import-lengths` | yes |
 | 5 | `wheel-connectors.net` | a KiCad netlist for the connectors of `RW1` | `harness-design-studio import-netlist` | yes |
-| 6 | `signal-map.csv` | renames KiCad net names to signal names | `--signal-map` of `import-netlist` | yes |
+| 6 | `signal-map.csv` | renames KiCad net names to signal names; since 4.4.0 also the start of a project's signal map | `--signal-map` of `import-netlist`, or `harness-design-studio config DIR --signal-map` | yes |
 | 7 | `ampacity-DEMO-ONLY.csv` | learning only: current by wire gauge | `harness-design-studio config --ampacity-csv` | yes |
 | 8 | `config-demo-values/derating.json` | learning only: demo values for `derating.json` | copy over `config/derating.json` of a practice project | yes |
 | 9 | `config-demo-values/emc.json` | learning only: demo values for `emc.json` | copy over `config/emc.json` | yes |
