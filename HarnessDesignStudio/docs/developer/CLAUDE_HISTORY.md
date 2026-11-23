@@ -175,3 +175,15 @@ The minor release `4.3.0` (D-261; the review view; no format change) was publish
 The note on version 4.0.1, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 4.0.1 too, and the first item still names 4.0.1 in the list of releases.
 
 **Version `4.0.1` is published** (D-255; 2026-11-20, the latest full release until 4.1.0; no release candidate; tag `v4.0.1` on `d45da91`, made by the tag workflow, run 44741420907): a patch release with the fix of #306: the self-check of `export` (`core/outputs/verify.py`) words the labels in every label format (`compact`, `descriptive`, `custom` failed it since 1.15.0, D-198); no format change.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 4.4.1 (2026-11-23)
+
+The note on the publication of the minor release 4.4.0, moved word for word from the first item of the Status section when the publication record of 4.4.1 was written, as the note on 4.3.0 was moved with the publication record of 4.4.0, so that `CLAUDE.md` stays under its size limit; that item still names 4.4.0 in the list of releases and says where this note is.
+
+The minor release `4.4.0` (D-263; names and ports; no format change) was published on 2026-11-23 (annotated tag `v4.4.0` on `e6eddc0`, the merge of #348; made by the tag workflow, run 45121731874, its eighteenth use; release workflow run 45121757018): the latest full release until 4.4.1 is tagged.
+
+The notes on versions 4.1.0 and 4.2.0, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 4.1.0 and 4.2.0 too, and the first item still names both in the list of releases.
+
+**Version `4.1.0` is published** (D-257, the design D-256; 2026-11-21, the latest full release until 4.2.0; no release candidate; tag `v4.1.0` on `cb43f31`, made by the tag workflow, run 44845357892): a minor release with the production sheet (milestone E1, `docs/ait/DESIGN_4.1_PRODUCTION_SHEET.md`; #311 to #319): the sheet *Production* in the build workbook and the harness plan (`core/outputs/production.py`, `verify_production.py`), lengths that say *rear to rear*, the plan's harness sheet over several pages at a fixed scale, the label format `harness_device_connector` in which a new project starts (a 4.0.x tool refuses it), every shield group of a wire in the wire list and the cut list; no format change.
+
+**Version `4.2.0` is published** (D-259, the design D-258; 2026-11-21, the latest full release until 4.3.0; no release candidate; tag `v4.2.0` on `6848510`, made by the tag workflow, run 44895952490): a minor release with four electrical rules (milestone E2, `docs/ait/DESIGN_4.2_ELECTRICAL_CHECKS.md`; #323 to #327): `pair-untwisted`, `signal-unshielded`, `level-conflict` and `wire-direction`, the settings `naming.pair_suffixes` and `segregation.level_pairs_to_separate` (empty by default, D-11), and the overall shield of a `single` type that shields overall; no format change.
