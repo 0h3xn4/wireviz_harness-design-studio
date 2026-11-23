@@ -51,7 +51,13 @@ from harness_design_studio.core.deviations import (
     uses_overrides,
     wire_marks,
 )
-from harness_design_studio.core.generate.lengths import clear_length_cache, path_trail, wire_length
+from harness_design_studio.core.generate.lengths import (
+    clear_length_cache,
+    end_depths,
+    path_trail,
+    segment_node_text,
+    wire_length,
+)
 from harness_design_studio.core.generate.mass import harness_mass, pins_in_use
 from harness_design_studio.core.model import Connector, Harness, Link, Pin, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE
@@ -189,6 +195,7 @@ def wire_list(project: Project, h: Harness) -> Table:
     text = uses_wire_text(project)
     strip = uses_strip_lengths(project)
     over = uses_overrides(project)
+    ends = end_depths(project, h)
     via = has_splices(h)
     nets = net_of_wire(h) if via else {}
     rows: Table = [[
@@ -204,7 +211,7 @@ def wire_list(project: Project, h: Harness) -> Table:
         rows.append([
             w.id, w.signal or "", w.interface_id or "", w.from_connector, w.from_pin,
             w.to_connector, w.to_pin, PENDING if w.gauge_awg is None else str(w.gauge_awg),
-            w.part_id or "", w.colour or "", data_num(wire_length(h, w)), shields.get(w.id, ""),
+            w.part_id or "", w.colour or "", data_num(wire_length(h, w, ends)), shields.get(w.id, ""),
             "yes" if w.locked else "", *([emc_class_of(project, w)] if emc else []),
             *([requirement_of(project, w)] if req else []),
             *([w.label or "", w.note] if text else []),
@@ -418,9 +425,10 @@ def bom_contributions(project: Project, harnesses: list[Harness]) -> list[BomCon
                     found.append(
                         BomContribution(part_id, "ea", spares, h.id, "contact spare", part_id)
                     )
+        ends = end_depths(project, h)
         for w in h.wires:
             pid = w.part_id or "(no part)"
-            length = wire_length(h, w)
+            length = wire_length(h, w, ends)
             if length is None:
                 found.append(BomContribution(pid, "m", 0.0, h.id, "wire", w.id, unknown=True))
             else:
@@ -533,14 +541,16 @@ def segment_wires(h: Harness) -> dict[str, list[str]]:
     return {sid: sorted(ids) for sid, ids in through.items()}
 
 
-def segments(h: Harness) -> Table:
+def segments(h: Harness, faces: tuple[str, ...] = ()) -> Table:
     """One row per segment in natural ID order: segment, from, to, length (empty while unknown),
-    the number of wires through it and their IDs."""
+    the number of wires through it and their IDs. A node in `faces` (`lengths.face_ends`) reads
+    `W001-P1 (face)` (design of 5.0.0 section 4.4)."""
     through = segment_wires(h)
     rows: Table = [SEGMENT_HEADER]
     for s in sorted(h.segments, key=lambda x: natural_key(x.id)):
         ids = through[s.id]
-        rows.append([s.id, s.from_node, s.to_node, data_num(s.length_m), str(len(ids)), ";".join(ids)])  # fmt: skip
+        a, b = segment_node_text(s.from_node, faces), segment_node_text(s.to_node, faces)
+        rows.append([s.id, a, b, data_num(s.length_m), str(len(ids)), ";".join(ids)])
     return rows
 
 
@@ -594,7 +604,8 @@ def mass_length(project: Project, harnesses: list[Harness]) -> Table:
     margins: list[float | None] = []
     for h in harnesses:
         r = harness_mass(project, h)
-        lengths = [wire_length(h, w) for w in h.wires]
+        ends = end_depths(project, h)
+        lengths = [wire_length(h, w, ends) for w in h.wires]
         known = sum(x for x in lengths if x is not None)
         unk = sum(1 for x in lengths if x is None)
         connectors = sum(1 for c in h.connectors if not is_splice(c))  # a splice is no connector

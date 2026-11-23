@@ -40,6 +40,12 @@ FIELD_UNITS: dict[str, str] = {
     "harnesses[].accessories[].quantity": "none (count of pieces)",
 }
 
+# Fields of format 5 (design of 5.0.0 sections 4.4 and 11): named in `field_units` only while some
+# object of the project has one, so the export of a project without data of format 5 keeps its bytes.
+SPARSE_FIELD_UNITS: dict[str, str] = {
+    "parts[].depth_mm": "mm",
+}
+
 RATINGS = "parts[].ratings."  # the keys of `Part.ratings` are names a project may choose
 # the ratings the rules read (`library_import.RATING_KEYS`; a test keeps the two lists equal)
 RATING_UNITS: dict[str, str] = {
@@ -73,6 +79,8 @@ def field_units(project: Project) -> dict[str, str]:
     """The object `field_units` of `export.json`: every numeric field of the model, plus the
     ratings of the parts of this project that are not among the ones the tool knows."""
     out = dict(FIELD_UNITS)
+    if any(part.depth_mm is not None for part in project.parts.values()):
+        out["parts[].depth_mm"] = SPARSE_FIELD_UNITS["parts[].depth_mm"]
     for key, unit in RATING_UNITS.items():
         out[RATINGS + key] = unit
     for part in project.parts.values():

@@ -552,7 +552,7 @@ def dump(data: bytes) -> str:
 # ---- the golden projects --------------------------------------------------------------------------
 
 EXAMPLES = ("first-steps", "minimal-satellite", "small-satellite", "flatsat")
-GOLDEN_PROJECTS = (*EXAMPLES, "branching", "splices", "row_layout")
+GOLDEN_PROJECTS = (*EXAMPLES, "branching", "splices", "row_layout", "format5")
 # the projects whose plans are kept as text to read
 READABLE = ("first-steps", "branching", "splices", "row_layout")
 
@@ -563,7 +563,8 @@ def golden_project(name: str) -> Project:
     DEV4 and a straight one), or the splice fixture of `tests/splice_support.py` (`splices`: mini3
     with the Y harness W003 through two splices and W004 with a splice on a branch point's leg),
     or the row layout fixture of `tests/row_layout_support.py` (`row_layout`: mini3 with the rows
-    of a part and the own rows of a box connector, format 4)."""
+    of a part and the own rows of a box connector, format 4), or the fixture of format 5 of
+    `tests/format5_support.py` (`format5`: face ends and depths)."""
     if name == "branching":
         from tests.test_outputs_routing import branching_project
 
@@ -572,6 +573,10 @@ def golden_project(name: str) -> Project:
         from tests.splice_support import branch_leg_project
 
         return branch_leg_project()
+    if name == "format5":
+        from tests.format5_support import format5_project
+
+        return format5_project()
     if name == "row_layout":
         from tests.row_layout_support import row_layout_project
 

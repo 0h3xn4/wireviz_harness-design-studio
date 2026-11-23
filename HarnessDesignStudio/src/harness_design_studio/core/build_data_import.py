@@ -13,7 +13,10 @@ The kind of table is told by its column headings (any case, other columns are ig
   `Harness` and `Tool` (the crimp tool of that contact part);
 - accessories: `Harness`, `Kind`, and optionally `ID`, `Part`, `Target`, `Position`,
   `Length (mm)`, `Quantity`, `Note`; a row without an ID is numbered ACC-001, ACC-002 ...;
-- part tools: `Part`, `Tool`.
+- part tools: `Part`, `Tool`;
+- cable ends (format 5, design of 5.0.0 section 4.2): `Connector` and `Lengths to` (`face`, `rear`,
+  or `project` for the project's setting `model.length_reference`); `Harness` is optional while the
+  connector ID is unique in the project.
 
 Every data row gets a result with its reason; the rows are planned with `build_data` one after the
 other on a scratch copy of the project, so a later row sees an earlier one. An empty cell leaves
@@ -31,6 +34,7 @@ from dataclasses import dataclass, field
 
 from . import build_data
 from .commands import Op, Put, apply_ops
+from .connector_edit import plan_set_length_to
 from .edit import EditError, clone_with
 from .errors import HarnessError
 from .generate.lengths import LENGTH_UNITS_M
@@ -70,12 +74,18 @@ _HEADINGS: dict[str, dict[str, tuple[str, ...]]] = {
         "part": ("part", "partid"),
         "tool": ("tool", "crimptool"),
     },
+    "cable_ends": {
+        "harness": ("harness", "harnessid"),
+        "connector": ("connector", "connectorid"),
+        "length_to": ("lengthsto", "lengthto", "lengthsmeasuredto", "measuredto"),
+    },
 }
 _NEEDS: dict[str, tuple[tuple[str, ...], ...]] = {  # kind -> groups of which one field is needed
     "strips": (("wire",), ("strip_a_mm", "strip_b_mm")),
     "contacts": (("connector",), ("pin",), ("contact",)),
     "accessories": (("harness",), ("kind",)),
     "tools": (("part",), ("tool",)),
+    "cable_ends": (("connector",), ("length_to",)),
 }
 KINDS: tuple[str, ...] = tuple(_NEEDS)  # the order decides when a table fits several
 KIND_LABELS = {
@@ -83,12 +93,14 @@ KIND_LABELS = {
     "contacts": "Import pin contacts",
     "accessories": "Import accessories",
     "tools": "Import part tools",
+    "cable_ends": "Import cable ends",
 }
 EXPECTED = (
     "strip lengths: Wire, Strip A (mm), Strip B (mm) (Harness is optional); "
     "pin contacts: Harness, Connector, Pin, Contact (Tool is optional); "
     "accessories: Harness, Kind, Part, Target, Position, Length (mm), Quantity, Note "
-    "(ID is optional); part tools: Part, Tool"
+    "(ID is optional); part tools: Part, Tool; cable ends: Connector, Lengths to (Harness is "
+    "optional)"
 )
 
 
@@ -400,11 +412,52 @@ def _tools(project: Project) -> Callable[[Project, Cell], Result]:
     return read
 
 
+# the words of a cell of `Lengths to` -> the value stored (`project`: the setting, nothing stored)
+_LENGTH_TO_WORDS: dict[str, str | None] = {"face": "face", "rear": "rear", "project": None}
+
+
+def _cable_ends(project: Project) -> Callable[[Project, Cell], Result]:
+    index: dict[str, list[str]] = {}
+    for h in sorted(project.harnesses.values(), key=lambda h: h.id):
+        for c in h.connectors:
+            index.setdefault(c.id, []).append(h.id)
+
+    def read(work: Project, cell: Cell) -> Result:
+        cid, said = cell("connector"), cell("length_to")
+        if not cid:
+            raise EditError("The connector is empty.")
+        hid = _owner(index, cell("harness"), "Connector", cid)
+        h = work.harnesses.get(hid)
+        before = next((c for c in h.connectors if c.id == cid), None) if h is not None else None
+        if before is None:
+            raise EditError(f"'{cid}' is not a connector of {hid}.")
+        if not said:  # an empty cell leaves the value as it is
+            return (
+                cid,
+                "unchanged",
+                f"lengths to {before.length_to or 'the project'} (as it was)",
+                [],
+            )
+        word = said.casefold()
+        if word not in _LENGTH_TO_WORDS:
+            raise EditError(f"Lengths to '{said}' is not face, rear or project.")
+        to = _LENGTH_TO_WORDS[word]
+        ops = plan_set_length_to(work, hid, cid, to)
+        shown = to or "the project"
+        if not ops:
+            return cid, "unchanged", f"lengths to {shown} (as it was)", []
+        action = "added" if before.length_to is None else "changed"
+        return cid, action, f"lengths to {shown}", ops
+
+    return read
+
+
 _READERS: dict[str, Callable[[Project], Callable[[Project, Cell], Result]]] = {
     "strips": _strips,
     "contacts": _contacts,
     "accessories": _accessories,
     "tools": _tools,
+    "cable_ends": _cable_ends,
 }
 
 __all__ = [

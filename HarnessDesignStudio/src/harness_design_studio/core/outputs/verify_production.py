@@ -80,20 +80,95 @@ def _natural(text: str) -> tuple[tuple[tuple[int, int | str], ...], str]:
     return tuple(parts), text
 
 
+# ---- the face ends of a harness (format 5, design of 5.0.0 section 4) ---------------------------
+# The verifier's own copy of `lengths.end_depths`: a cable connector is measured to its face when it
+# says so (`length_to`) or, saying nothing, when the project's setting `model.length_reference` is
+# `face`; the depth of a face end is the depth of its part plus that of the part of each backshell
+# on it, and a face end without one has the reason instead. `tests/test_lengths_compat_440.py`
+# compares it with the core's by Hypothesis.
+
+Depths = tuple[dict[str, float], dict[str, str]]  # metres by face end; the reason by face end
+_NO_DEPTHS: Depths = ({}, {})
+
+
+def _face_ends(project: Project, h: Harness) -> tuple[str, ...]:
+    """The cable connectors of the harness measured to their face, sorted by ID."""
+    default = _setting(project, "model", "length_reference")
+    return tuple(
+        sorted(
+            c.id for c in h.connectors if c.role == "cable" and (c.length_to or default) == "face"
+        )
+    )
+
+
+def _end_depths(project: Project, h: Harness) -> Depths:
+    """The depth in metres of each face end of the harness and, for one without a depth, why."""
+    faces = _face_ends(project, h)
+    if not faces:
+        return _NO_DEPTHS
+    depths: dict[str, float] = {}
+    missing: dict[str, str] = {}
+    for c in h.connectors:
+        if c.id not in faces:
+            continue
+        part = project.parts.get(c.part_id)
+        if part is None:
+            missing[c.id] = f"part {c.part_id} is not in the library"
+            continue
+        if part.depth_mm is None:
+            missing[c.id] = f"part {part.id} has no depth (library: depth_mm)"
+            continue
+        mm = part.depth_mm
+        for a in sorted(h.accessories, key=lambda x: x.id):
+            if a.kind != "backshell" or a.target != c.id:
+                continue
+            shell = project.parts.get(a.part_id) if a.part_id else None
+            if a.part_id is None:
+                missing[c.id] = f"its backshell {a.id} has no part"
+            elif shell is None:
+                missing[c.id] = f"part {a.part_id} of its backshell {a.id} is not in the library"
+            elif shell.depth_mm is None:
+                missing[c.id] = f"part {shell.id} of its backshell {a.id} has no depth (library: depth_mm)"  # fmt: skip
+            else:
+                mm += shell.depth_mm
+                continue
+            break
+        if c.id not in missing:
+            depths[c.id] = round(mm / 1000.0, 9)
+    return depths, missing
+
+
+def _from_rear(length: float | None, w: Wire, depths: Depths) -> float | None:
+    """A path length less the depth of each face end of the wire: None when a face end has no
+    depth or nothing is left."""
+    known, missing = depths
+    if length is None or not (known or missing):
+        return length
+    ends = (w.from_connector, w.to_connector)
+    if any(cid in missing for cid in ends):
+        return None
+    off = round(sum(known.get(cid, 0.0) for cid in ends), 9)
+    if off == 0:
+        return length
+    left = round(length - off, 9)
+    return left if left > 0 else None
+
+
 # ---- the length of a wire, where it comes from and what it is measured from ---------------------
 
 
-def _length(h: Harness, w: Wire) -> float | None:
+def _length(h: Harness, w: Wire, depths: Depths = _NO_DEPTHS) -> float | None:
     """The wire's own length, else the sum of the segments on the one path between its
-    connectors; None when a segment on it has no length, no path joins them, or a second route
-    exists (the segments form a loop the path could take either way)."""
+    connectors less the depth of each face end (`depths`, `_end_depths`); None when a segment on
+    it has no length, no path joins them, or a second route exists (the segments form a loop the
+    path could take either way), or a face end has no depth."""
     if w.length_m is not None:
         return w.length_m
     if not h.segments:
         return None
     start, goal = w.from_connector, w.to_connector
     if start == goal:
-        return 0.0
+        return _from_rear(0.0, w, depths)
     links: dict[str, list[tuple[str, str]]] = {}
     for s in h.segments:
         links.setdefault(s.from_node, []).append((s.id, s.to_node))
@@ -122,18 +197,18 @@ def _length(h: Harness, w: Wire) -> float | None:
         return None
     lengths = {s.id: s.length_m for s in h.segments}
     values = [lengths[sid] for sid in path]
-    return (
-        None if any(v is None for v in values) else float(sum(v for v in values if v is not None))
-    )
+    if any(v is None for v in values):
+        return None
+    return _from_rear(float(sum(v for v in values if v is not None)), w, depths)
 
 
-def _length_origin(h: Harness, w: Wire) -> str:
+def _length_origin(h: Harness, w: Wire, depths: Depths = _NO_DEPTHS) -> str:
     if w.length_m is not None:
         # Generate keeps the length of a locked wire with no override, or with one of its length;
         # an override of the gauge, part or colour alone leaves the length to the path
         kept = w.locked and (not w.overrides or "length_m" in w.overrides)
         return _FROM_LOCKED if kept else _FROM_WIRE
-    return "" if _length(h, w) is None else _FROM_SEGMENTS
+    return "" if _length(h, w, depths) is None else _FROM_SEGMENTS
 
 
 def _figure(v: float) -> str:
@@ -149,14 +224,34 @@ def _setting(project: Project, file: str, key: str) -> object:
     return e.value
 
 
-def _length_reference(project: Project) -> str:
+def _length_reference(project: Project, h: Harness | None = None) -> str:
     """The sentences of `_length_lines` as one text."""
-    return " ".join(_length_lines(project))
+    return " ".join(_length_lines(project, h))
 
 
-def _length_lines(project: Project) -> tuple[str, str, str, str]:
+def _names(ids: tuple[str, ...]) -> str:
+    if len(ids) == 1:
+        return ids[0]
+    return ", ".join(ids[:-1]) + " and " + ids[-1]
+
+
+def _face_sentence(project: Project, h: Harness) -> str | None:
+    """The sentence of the length note that names the face ends of `h` (format 5)."""
+    faces = _face_ends(project, h)
+    if not faces:
+        return None
+    tail = "the depth of the connector and its backshell is taken off each wire"
+    if _setting(project, "model", "length_reference") != "face":
+        return f"At {_names(faces)} the segments run to the mating face; {tail} there."
+    rear = tuple(sorted(c.id for c in h.connectors if c.role == "cable" and c.length_to == "rear"))
+    but = "" if not rear else f", but at {_names(rear)}"
+    return f"The segments run to the mating face of each connector (model.length_reference){but}; {tail}."
+
+
+def _length_lines(project: Project, h: Harness | None = None) -> tuple[str, ...]:
     """What every length of a document is measured from, worded from the settings in force, as the
-    four short sentences a sheet prints on a row each."""
+    four short sentences a sheet prints on a row each, and a fifth for a harness `h` with a face
+    end."""
     count = _setting(project, "model", "service_loops_per_wire")
     each = _setting(project, "generation", "service_loop_m")
     if isinstance(each, bool) or not isinstance(each, int | float):
@@ -175,13 +270,15 @@ def _length_lines(project: Project) -> tuple[str, str, str, str]:
             f"{loops}, the take-up of twisting ({_figure(float(takeup))}) for a wire of a "
             f"twisted construction, and a cut allowance of {_figure(float(cut))} m"
         )
-    return (
+    four = (
         "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
         "They follow the routing segments through the centre of each branch point to the rear of "
         "the other connector.",
         f"A wire Generate made adds {loops}.",
         '"Locked" is a length a person typed; "segments only" has no service loops.',
     )
+    fifth = _face_sentence(project, h) if h is not None else None
+    return four if fifth is None else (*four, fifth)
 
 
 # ---- the shield ends --------------------------------------------------------------------------
@@ -264,7 +361,7 @@ def _colour(name: str | None) -> str:
     return name if not code or code == name.upper() else f"{name} ({code})"
 
 
-def _rows(project: Project, h: Harness, c: Connector, fmt: str) -> list[tuple[Value, ...]]:
+def _rows(project: Project, h: Harness, c: Connector, fmt: str, depths: Depths) -> list[tuple[Value, ...]]:  # fmt: skip
     out: list[tuple[Value, ...]] = []
     spare: list[str] = []
     empty = ("",) * 8
@@ -281,14 +378,14 @@ def _rows(project: Project, h: Harness, c: Connector, fmt: str) -> list[tuple[Va
             out.append((p.id, p.signal or "", _NO_WIRE, *empty))
         for w, end in sorted(here, key=lambda x: (x[0].id, x[1])):
             far_cid, far_pin = (w.to_connector, w.to_pin) if end == "a" else (w.from_connector, w.from_pin)  # fmt: skip
-            length = _length(h, w)
+            length = _length(h, w, depths)
             label_a, label_b = _wire_label_texts(project, h, w, fmt)
             out.append((
                 p.id, p.signal or w.signal or "", w.id, _far_end(project, h, far_cid, far_pin),
                 w.part_id or _TO_FILL, _colour(w.colour),
                 _TO_FILL if w.gauge_awg is None else w.gauge_awg,
                 _TO_FILL if length is None else round(length, 9) + 0.0,
-                _length_origin(h, w), label_a if end == "a" else label_b,
+                _length_origin(h, w, depths), label_a if end == "a" else label_b,
                 _shield_cell(h, w, c.id),
             ))  # fmt: skip
     if spare:
@@ -301,9 +398,13 @@ def production_rows(project: Project, h: Harness) -> list[Block]:
     in natural ID order, then the splices."""
     fmt = _label_format(project)
     order = sorted(h.connectors, key=lambda c: (c.role == SPLICE_ROLE, _natural(c.id)))
+    depths = _end_depths(project, h)
     return [
         Block(
-            c.id, c.role == SPLICE_ROLE, _head(project, h, c, fmt), tuple(_rows(project, h, c, fmt))
+            c.id,
+            c.role == SPLICE_ROLE,
+            _head(project, h, c, fmt),
+            tuple(_rows(project, h, c, fmt, depths)),
         )  # fmt: skip
         for c in order
     ]

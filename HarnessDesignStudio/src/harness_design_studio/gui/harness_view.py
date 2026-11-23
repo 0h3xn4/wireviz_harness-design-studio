@@ -62,7 +62,7 @@ from harness_design_studio.core.generate.explain import (
     explain_pin,
     explain_wire,
 )
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.model import Harness, Project, Wire
 from harness_design_studio.core.outputs.build import outputs_status
 from harness_design_studio.core.outputs.canvas import Sheet
@@ -183,6 +183,7 @@ def pin_rows(project: Project, h: Harness, locked: Locked | None = None) -> list
     on the same pin. Built from the generated data as it is; nothing is changed or filled in."""
     locked = locked if locked is not None else locked_objects(project)
     shields = shield_of(h)
+    ends = end_depths(project, h)
     attached: dict[tuple[str, str], list[Any]] = defaultdict(list)
     for w in h.wires:
         attached[(w.from_connector, w.from_pin)].append(w)
@@ -211,7 +212,7 @@ def pin_rows(project: Project, h: Harness, locked: Locked | None = None) -> list
                     "ref": ref, "wire_id": "",
                 }  # fmt: skip
                 if w is not None:
-                    length = wire_length(h, w)
+                    length = wire_length(h, w, ends)
                     key, word, tip = _wire_state(h, w.gauge_awg, length, w.locked or w.manual)
                     hand, hand_word = wire_hand_lock(w)
                     w_word, w_tip = _lock(project, "wire", w.id, locked, hand, hand_word)
@@ -233,8 +234,9 @@ def pin_rows(project: Project, h: Harness, locked: Locked | None = None) -> list
 def wire_rows(project: Project, h: Harness, locked: Locked | None = None) -> list[dict[str, Any]]:
     locked = locked if locked is not None else locked_objects(project)
     rows: list[dict[str, Any]] = []
+    ends = end_depths(project, h)
     for w in sorted(h.wires, key=lambda x: natural_key(x.id)):
-        length = wire_length(h, w)
+        length = wire_length(h, w, ends)
         key, word, tip = _wire_state(h, w.gauge_awg, length, w.locked or w.manual)
         hand, hand_word = wire_hand_lock(w)
         l_word, l_tip = _lock(project, "wire", w.id, locked, hand, hand_word)

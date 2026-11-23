@@ -21,7 +21,12 @@ The independent verifier words every row again with its own copy of these rules
 
 from dataclasses import dataclass
 
-from harness_design_studio.core.generate.lengths import length_origin, wire_length
+from harness_design_studio.core.generate.lengths import (
+    EndDepths,
+    end_depths,
+    length_origin,
+    wire_length,
+)
 from harness_design_studio.core.model import Connector, Harness, Project, ShieldGroup, Wire
 from harness_design_studio.core.model.physical import SPLICE_ROLE
 from harness_design_studio.core.shield_ends import end_at
@@ -154,9 +159,9 @@ def _shield_text(h: Harness, s: ShieldGroup, cid: str) -> str:
     return f"{s.id} {kind}: here {END_WORDS.get(here, here)}, far {END_WORDS.get(far, far)}"
 
 
-def _wire_row(project: Project, h: Harness, c: Connector, pin: str, signal: str | None, w: Wire, end: str) -> ProductionRow:  # fmt: skip
+def _wire_row(project: Project, h: Harness, c: Connector, pin: str, signal: str | None, w: Wire, end: str, depths: EndDepths) -> ProductionRow:  # fmt: skip
     far = (w.to_connector, w.to_pin) if end == "a" else (w.from_connector, w.from_pin)
-    length = wire_length(h, w)
+    length = wire_length(h, w, depths)
     text_a, text_b = wire_label_texts(project, w, h)
     groups = sorted((s for s in h.shields if w.id in s.wire_ids), key=lambda s: natural_key(s.id))
     return ProductionRow(
@@ -168,7 +173,7 @@ def _wire_row(project: Project, h: Harness, c: Connector, pin: str, signal: str 
         colour=colour_text(w.colour) or TO_FILL,
         awg=w.gauge_awg if w.gauge_awg is not None else TO_FILL,
         length=round(length, 9) + 0.0 if length is not None else TO_FILL,
-        length_from=length_origin(h, w),
+        length_from=length_origin(h, w, depths),
         label=text_a if end == "a" else text_b,
         shields="; ".join(_shield_text(h, s, c.id) for s in groups),
     )
@@ -178,7 +183,7 @@ def _plain_row(pin: str, signal: str, wire: str) -> ProductionRow:
     return ProductionRow(pin, signal, wire, "", "", "", "", "", "", "", "")
 
 
-def _rows(project: Project, h: Harness, c: Connector) -> list[ProductionRow]:
+def _rows(project: Project, h: Harness, c: Connector, depths: EndDepths) -> list[ProductionRow]:
     ends: dict[str, list[tuple[Wire, str]]] = {}
     for w in h.wires:
         if w.from_connector == c.id:
@@ -204,7 +209,7 @@ def _rows(project: Project, h: Harness, c: Connector) -> list[ProductionRow]:
         if not here:
             rows.append(_plain_row(p.id, p.signal or "", NO_WIRE))
         for w, end in here:
-            rows.append(_wire_row(project, h, c, p.id, p.signal, w, end))
+            rows.append(_wire_row(project, h, c, p.id, p.signal, w, end, depths))
     close_run()
     return rows
 
@@ -215,9 +220,13 @@ def production_blocks(project: Project, h: Harness) -> list[ProductionBlock]:
     ordered = sorted(h.connectors, key=lambda x: natural_key(x.id))
     plain = [c for c in ordered if c.role != SPLICE_ROLE]
     splices = [c for c in ordered if c.role == SPLICE_ROLE]
+    depths = end_depths(project, h)
     return [
         ProductionBlock(
-            c.id, c.role == SPLICE_ROLE, _heading(project, h, c), tuple(_rows(project, h, c))
+            c.id,
+            c.role == SPLICE_ROLE,
+            _heading(project, h, c),
+            tuple(_rows(project, h, c, depths)),
         )
         for c in [*plain, *splices]
     ]

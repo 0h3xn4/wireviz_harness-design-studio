@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.drc.rules import _wire_current_limit
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.generate.mass import harness_mass
 from harness_design_studio.core.generate.sizing import voltage_drop_v
 from harness_design_studio.core.model import Connector, Harness, InterfaceInstance, Project, Wire
@@ -93,7 +93,9 @@ def _wire_mm2(c: Context) -> Value:
 
 
 def _wire_length(c: Context) -> Value:
-    return wire_length(c.harness, c.wire) if c.harness and c.wire else None
+    if not (c.harness and c.wire):
+        return None
+    return wire_length(c.harness, c.wire, end_depths(c.project, c.harness))
 
 
 def _wire_drop(c: Context) -> Value:
@@ -120,7 +122,8 @@ def _harness_length(c: Context) -> Value:
     h = c.harness
     if h is None or not h.wires:
         return None
-    lengths = [wire_length(h, w) for w in h.wires]
+    ends = end_depths(c.project, h)
+    lengths = [wire_length(h, w, ends) for w in h.wires]
     if any(x is None for x in lengths):
         return None
     return float(sum(x for x in lengths if x is not None))

@@ -32,7 +32,7 @@ from harness_design_studio.core.deviations import override_lines
 from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
 
-from .verify_production import _length
+from .verify_production import _end_depths, _length
 
 Value = str | int
 
@@ -209,11 +209,12 @@ def expected_items(project: Project, h: Harness) -> dict[str, tuple[str, ...]]:
         used |= {(w.from_connector, w.from_pin), (w.to_connector, w.to_pin)}
     pins = [(c, p) for c in h.connectors for p in c.pins if (c.id, p.id) in used]
     parts = _used_parts(h) - {TBD_PART_ID}
+    depths = _end_depths(project, h)
     items: dict[str, tuple[str, ...]] = dict(
         zip(
             _CHECK_LABELS,
             (
-                tuple(w.id for w in h.wires if _length(h, w) is None),
+                tuple(w.id for w in h.wires if _length(h, w, depths) is None),
                 tuple(w.id for w in h.wires if w.gauge_awg is None),
                 tuple(w.id for w in h.wires if not w.colour),
                 tuple(w.id for w in h.wires if not w.part_id),

@@ -8,7 +8,17 @@ from pydantic import Field, model_validator
 
 from harness_design_studio.core.ids import Id
 
-from .base import MAX_PIN_COUNT, Entity, IsoDate, Name, NonNegative, SparseEntity, Text, WebLink
+from .base import (
+    MAX_PIN_COUNT,
+    DepthMm,
+    Entity,
+    IsoDate,
+    Name,
+    NonNegative,
+    SparseEntity,
+    Text,
+    WebLink,
+)
 from .physical import RowLayout
 
 PartCategory = Literal["connector", "contact", "backshell", "wire", "sleeving", "label", "splice"]
@@ -19,12 +29,14 @@ PART_CATEGORIES: tuple[PartCategory, ...] = (
 # number of its nodes. Its file `library/splice.json` is written only while the library holds one,
 # so a project without splices keeps its files and its model hash.
 SPARSE_CATEGORIES: frozenset[PartCategory] = frozenset({"splice"})
+# The categories whose parts may have a depth (`Part.depth_mm`, format 5).
+DEPTH_CATEGORIES: frozenset[PartCategory] = frozenset({"connector", "backshell"})
 Approval = Literal["approved", "pending", "not_approved"]
 
 
 class Part(SparseEntity):
     OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
-        {"tool", "conductors", "link", "row_layout"}
+        {"tool", "conductors", "link", "row_layout", "depth_mm"}
     )
 
     id: Id
@@ -50,6 +62,19 @@ class Part(SparseEntity):
     # The row layout of the part's insert (format 4, design of 4.0.0 sections 3 and 4): shared by
     # every connector of the part that has no own layout. Connector parts only.
     row_layout: RowLayout | None = None
+    # The depth of a connector part, from its mating face back to its rear, where the wires leave;
+    # of a backshell part, what it adds behind the rear of the connector (format 5, design of 5.0.0
+    # section 4.1, F3). Read only at a cable connector measured to its face; never assumed.
+    depth_mm: DepthMm | None = None
+
+    @model_validator(mode="after")
+    def _depth_of_a_connector_or_backshell(self) -> Part:
+        if self.depth_mm is not None and self.category not in DEPTH_CATEGORIES:
+            raise ValueError(
+                f"only a connector or backshell part has a depth; {self.id} is a part of category "
+                f"{self.category}"
+            )
+        return self
 
     @model_validator(mode="after")
     def _rows_fit_the_part(self) -> Part:

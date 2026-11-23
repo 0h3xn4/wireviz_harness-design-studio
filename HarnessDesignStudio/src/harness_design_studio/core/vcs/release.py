@@ -27,7 +27,7 @@ from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.deviations import release_note
 from harness_design_studio.core.errors import HarnessError
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.generation_status import generation_status
 from harness_design_studio.core.model import Baseline, ChangeEntry, Harness, Project, evolve
 from harness_design_studio.core.model.physical import TBD_PART_ID
@@ -725,7 +725,8 @@ def release_blockers(
                 undecided[0],
             )
         )
-    no_length = [w.id for w in h.wires if wire_length(h, w) is None]
+    ends = end_depths(project, h)
+    no_length = [w.id for w in h.wires if wire_length(h, w, ends) is None]
     if no_length:
         out.append(
             Blocker(

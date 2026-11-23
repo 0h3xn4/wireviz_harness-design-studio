@@ -37,7 +37,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from harness_design_studio.core.commands import Op, Put
-from harness_design_studio.core.generate.lengths import LENGTH_UNITS_M, wire_length
+from harness_design_studio.core.generate.lengths import LENGTH_UNITS_M, end_depths, wire_length
 from harness_design_studio.core.import_record import (
     ImportReport,
     clean,
@@ -356,7 +356,7 @@ def harness_lines(project: Project, h: Harness) -> list[Line]:
         lines.append(_text_line(hid, "part", pid, "lot", pr.lot if pr else ""))
     for w in sorted(h.wires, key=lambda x: x.id):
         wr = _get(project, "wire", hid, w.id)
-        length = wire_length(h, w)
+        length = wire_length(h, w, end_depths(project, h))
         cut = wr.cut_length_m if wr else None
         strip_a = wr.strip_a_mm if wr else None
         strip_b = wr.strip_b_mm if wr else None
@@ -570,7 +570,7 @@ def template_rows(project: Project, harness_id: str | None = None) -> Table:
         for pid in _parts_of(h):
             rows.append(_row("part", hid, pid, "lot of this part in the harness", ["", "", "", ""], _get(project, "part", hid, pid)))  # fmt: skip
         for w in sorted(h.wires, key=lambda x: x.id):
-            designed = [tables.data_num(wire_length(h, w)), tables.data_num(w.strip_a_mm), tables.data_num(w.strip_b_mm), ""]  # fmt: skip
+            designed = [tables.data_num(wire_length(h, w, end_depths(project, h))), tables.data_num(w.strip_a_mm), tables.data_num(w.strip_b_mm), ""]  # fmt: skip
             rows.append(_row("wire", hid, w.id, f"{w.from_connector}.{w.from_pin} to {w.to_connector}.{w.to_pin}", designed, _get(project, "wire", hid, w.id)))  # fmt: skip
         for c in sorted(h.connectors, key=lambda x: x.id):
             desc = OPEN_END_ROW if tables.is_open_end(c) else c.part_id

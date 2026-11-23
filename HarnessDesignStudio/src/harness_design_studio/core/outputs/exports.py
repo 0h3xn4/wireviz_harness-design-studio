@@ -10,7 +10,7 @@ import zipfile
 from datetime import datetime
 from typing import Any
 
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.model import Harness, Project
 
 from .errors import OutputsError
@@ -49,6 +49,7 @@ def wireviz_yaml(project: Project, h: Harness, stamp: Stamp) -> bytes:
             out.append("    style: simple")
     out.append("cables:")
     wires = sorted(h.wires, key=lambda x: x.id)
+    ends = end_depths(project, h)
     for w in wires:
         out.append(f"  {_q(w.id)}:")
         out.append("    wirecount: 1")
@@ -56,7 +57,7 @@ def wireviz_yaml(project: Project, h: Harness, stamp: Stamp) -> bytes:
             out.append(f"    gauge: {_q(str(w.gauge_awg) + ' AWG')}")
         if w.colour:
             out.append(f"    colors: [{_q(w.colour)}]")
-        length = wire_length(h, w)
+        length = wire_length(h, w, ends)
         if length is not None:
             out.append(f"    length: {data_num(length)}")
     out.append("connections:")

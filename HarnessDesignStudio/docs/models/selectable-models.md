@@ -38,6 +38,7 @@ Every key of the file, its default (the number the tool has always used) and wha
 | --- | --- | --- | --- |
 | `bundle_basis` | `all_wires` | which wires are counted for the bundle factor K | A-BUNDLE-ALL |
 | `length_model` | `path_plus_loops` | how the length of a generated wire is made | A-SERVICE-LOOP |
+| `length_reference` | `rear` | where a segment that ends at a cable connector is measured to: `rear` or `face` (the depth of each face end is taken off each wire) | A-LENGTH-TO |
 | `service_loops_per_wire` | `2` | how many service loops are added to a generated wire (one at each end) | A-SERVICE-LOOP |
 | `cut_allowance_m` | `0` | metres added to every generated wire by the model `path_loops_allowance_twist` | A-SERVICE-LOOP |
 | `twist_takeup_fraction` | `0` | the extra length of a twisted construction, as a fraction, in the model `path_loops_allowance_twist` | A-SERVICE-LOOP |
@@ -80,6 +81,17 @@ A generated harness routes every wire through the trunk, so `busiest_segment` gi
 | `path_loops_allowance_twist` | `(path + loops + cut_allowance_m) × (1 + twist_takeup_fraction)`, the take-up only for wires of a twisted construction |
 
 A length typed on a wire is never changed by the model. `cut_allowance_m` and `twist_takeup_fraction` default to 0: choosing the model without setting them changes nothing, so the number you add is always yours. The number of loops is `service_loops_per_wire`: with 0 the `flatsat` wire `W001-001` is the path alone, 3.25 m, and with 3 it is 3.25 + 3 × 0.1 = 3.55 m (generate again after the change; `explain DIR W001-001` shows `3 × 0.1`). Which constructions are twisted is a definition, [`D-TWISTED`](definitions.md#d-twisted-which-constructions-are-twisted). Assumption A-SERVICE-LOOP; [wire length](wire-length.md).
+
+## Where a length is measured to
+
+`model.length_reference` (format 5, since 5.0.0):
+
+| Value | A segment that ends at a cable connector runs to |
+| --- | --- |
+| `rear` (default) | its rear, where the wires leave the body or backshell: the meaning of every length of formats 1 to 4 |
+| `face` | its mating face; the depth of the connector part and of each backshell on it (`depth_mm`) is taken off each wire, so the lengths stay rear to rear |
+
+A cable connector may say otherwise (`length_to`, *Lengths measured to* in the Inspector, or the cable ends of `import-build-data`). A depth is never assumed: a face end without one leaves its wires without a length, and `check` says so (`length_depth_missing`). Assumption A-LENGTH-TO; [wire length](wire-length.md#a-face-end-and-the-depth-of-a-connector).
 
 ## Voltage drop model
 

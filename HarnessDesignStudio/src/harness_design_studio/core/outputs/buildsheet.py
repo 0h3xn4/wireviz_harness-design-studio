@@ -27,7 +27,14 @@ from harness_design_studio.core.deviations import (
     override_text,
     tests_band,
 )
-from harness_design_studio.core.generate.lengths import reference_lines, wire_length
+from harness_design_studio.core.generate.lengths import (
+    EndDepths,
+    end_depths,
+    face_ends,
+    reference_lines,
+    segment_node_text,
+    wire_length,
+)
 from harness_design_studio.core.model import Connector, Harness, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
 from harness_design_studio.core.wirecolours import resolve
@@ -315,10 +322,12 @@ def _tick_rules(ws: Any, ref: str) -> None:
 # ---- what each sheet needs from the model ----------------------------------------------------
 
 
-def _wire_sort_key(h: Harness, w: Wire) -> tuple[int, int, str, int, float, str]:
+def _wire_sort_key(
+    h: Harness, w: Wire, ends: EndDepths | None = None
+) -> tuple[int, int, str, int, float, str]:
     """Cut order: thick before thin, then by colour, then by length, so the same wire is cut in
     one go; wires with no gauge or no length come last."""
-    length = wire_length(h, w)
+    length = wire_length(h, w, ends)
     return (
         0 if w.gauge_awg is not None else 1,
         w.gauge_awg if w.gauge_awg is not None else 0,
@@ -378,13 +387,14 @@ def open_items(project: Project, h: Harness) -> dict[str, tuple[str, ...]]:
     CONNECTOR.PIN of the pins in use, part IDs (sorted). The counts of `readiness` are their lengths."""
     wires = list(h.wires)
     attached = _attached(h)
+    ends = end_depths(project, h)
     pins = [
         (c, p) for c in h.connectors for p in c.pins if attached.get((c.id, p.id))
     ]  # pins in use
     parts = {c.part_id for c in h.connectors} | {w.part_id for w in wires if w.part_id}
     parts.discard(TBD_PART_ID)  # a loose end is not a part to approve: see LOOSE_CHECK
     return {
-        "Wires without a length": tuple(w.id for w in wires if wire_length(h, w) is None),
+        "Wires without a length": tuple(w.id for w in wires if wire_length(h, w, ends) is None),
         "Wires without a gauge": tuple(w.id for w in wires if w.gauge_awg is None),
         "Wires without a colour": tuple(w.id for w in wires if not w.colour),
         "Wires without a part": tuple(w.id for w in wires if not w.part_id),
@@ -487,7 +497,7 @@ def _start_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         lay.see(1, label)
     # what every length of the workbook is measured from (4.1.0, part D): a sentence a row, each
     # running over the empty cells to its right, as the lines of *How to use this workbook*
-    for n, line in enumerate(reference_lines(project)):
+    for n, line in enumerate(reference_lines(project, h)):
         body.append([
             _cell(ws, "" if n else LENGTHS_ROW, fill=_BAND),
             _cell(ws, line, box=False, wrap=False),
@@ -544,12 +554,13 @@ def _strip(v: float | None) -> float | str:
     return round(v, 9) + 0.0 if v is not None else TO_FILL
 
 
-def _reference_rows(ws: Any, project: Project) -> list[list[Any]]:
+def _reference_rows(ws: Any, project: Project, h: Harness) -> list[list[Any]]:
     """The last rows of a sheet with lengths: what they are measured from, in words from the
     settings in force (`lengths.reference_lines`), a sentence a row, each running over the empty
     cells to its right."""
     return [
-        [_cell(ws, line, italic=True, box=False, wrap=False)] for line in reference_lines(project)
+        [_cell(ws, line, italic=True, box=False, wrap=False)]
+        for line in reference_lines(project, h)
     ]
 
 
@@ -561,10 +572,11 @@ def _cut_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     over = any(w.overrides for w in h.wires)  # a column only for a harness that has overrides
     header = [*CUT_HEADER, *(["Override"] if over else [])]
     body.append(_header(ws, lay, header))
-    wires = sorted(h.wires, key=lambda w: _wire_sort_key(h, w))
+    ends = end_depths(project, h)
+    wires = sorted(h.wires, key=lambda w: _wire_sort_key(h, w, ends))
     total = 0.0
     for w in wires:
-        length = wire_length(h, w)
+        length = wire_length(h, w, ends)
         if length is not None:
             total += length
         values = [
@@ -595,7 +607,7 @@ def _cut_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         *[_cell(ws, "", fill=_BAND) for _ in range(7 + (1 if over else 0))],
     ])  # fmt: skip
     body.append([])
-    body.extend(_reference_rows(ws, project))
+    body.extend(_reference_rows(ws, project, h))
     ws.auto_filter.ref = f"A1:{_letter(len(header))}{last}"
     if wires:
         _tick_rules(ws, f"A2:A{last}")
@@ -659,14 +671,17 @@ def _pin_rows(
     return rows
 
 
-def _routing_blocks(h: Harness) -> tuple[list[list[object]], list[list[object]]]:
-    """The rows under the two headers of *Routing*: the segments and the branch points."""
+def _routing_blocks(project: Project, h: Harness) -> tuple[list[list[object]], list[list[object]]]:
+    """The rows under the two headers of *Routing*: the segments and the branch points. A node at a
+    face end reads `W001-P1 (face)` (design of 5.0.0 section 4.4)."""
     through = tables.segment_wires(h)
+    faces = face_ends(project, h)
     segs: list[list[object]] = []
     for s in sorted(h.segments, key=lambda x: tables.natural_key(x.id)):
         ids = through[s.id]
         length: object = round(s.length_m, 9) + 0.0 if s.length_m is not None else TO_FILL
-        segs.append([s.id, s.from_node, s.to_node, length, len(ids), "; ".join(ids)])
+        a, b = segment_node_text(s.from_node, faces), segment_node_text(s.to_node, faces)
+        segs.append([s.id, a, b, length, len(ids), "; ".join(ids)])
     points: list[list[object]] = [
         [bid, name, tables.side_text(sides)] for bid, name, sides in tables.branch_sides(h)
     ]
@@ -681,8 +696,8 @@ def routing_rows(project: Project, h: Harness) -> list[list[object]]:
     one part per segment that meets it, all on one line: `tables.side_text`), then an empty row and
     the sentences that say what the lengths are measured from (`lengths.reference_lines`), a row
     each."""
-    segs, points = _routing_blocks(h)
-    lines: list[list[object]] = [[line] for line in reference_lines(project)]
+    segs, points = _routing_blocks(project, h)
+    lines: list[list[object]] = [[line] for line in reference_lines(project, h)]
     return [
         list(ROUTING_HEADER), *segs, [], list(tables.BRANCH_HEADER), *points, [], *lines,
     ]  # fmt: skip
@@ -695,7 +710,7 @@ def _routing_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
     a length* of *Start here*, so the sheet adds no check."""
     ws = wb.create_sheet(ROUTING_SHEET)
     lay = _Layout({})
-    segs, points = _routing_blocks(h)
+    segs, points = _routing_blocks(project, h)
     body: list[list[Any]] = [_header(ws, lay, ROUTING_HEADER)]
     for values in segs:
         body.append([
@@ -712,7 +727,7 @@ def _routing_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> None:
         for n, v in enumerate(values, start=1):
             lay.see(n, str(v))
     body.append([])
-    body.extend(_reference_rows(ws, project))
+    body.extend(_reference_rows(ws, project, h))
     _finish(ws, lay, stamp, body, tab="5D6D7E", freeze="B2")
 
 
@@ -830,7 +845,7 @@ def _production_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> No
         body.append([])
         row += 1
         since_break += size
-    body.extend(_reference_rows(ws, project))
+    body.extend(_reference_rows(ws, project, h))
     for first, last in ticks:
         _tick_rules(ws, f"{_letter(width)}{first}:{_letter(width)}{last}")
     lay.widths[1] = max(lay.widths.get(1, 0), 8.0)
@@ -1110,8 +1125,9 @@ def cut_rows(project: Project, h: Harness) -> Table:
     shields = tables.shield_of(h)
     over = any(w.overrides for w in h.wires)
     rows: Table = []
-    for w in sorted(h.wires, key=lambda x: _wire_sort_key(h, x)):
-        length = wire_length(h, w)
+    ends = end_depths(project, h)
+    for w in sorted(h.wires, key=lambda x: _wire_sort_key(h, x, ends)):
+        length = wire_length(h, w, ends)
         rows.append([
             w.id, w.colour or "", "" if w.gauge_awg is None else str(w.gauge_awg), w.part_id or "",
             tables.data_num(length), tables.data_num(w.strip_a_mm), tables.data_num(w.strip_b_mm),

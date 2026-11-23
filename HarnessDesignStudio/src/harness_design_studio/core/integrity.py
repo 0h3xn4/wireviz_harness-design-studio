@@ -635,6 +635,37 @@ def row_layout_issues(project: Project) -> list[Issue]:
     return out
 
 
+def length_issues(project: Project) -> list[Issue]:
+    """The two checks of a face end (format 5, design of 5.0.0 sections 4 and 10.2), both warnings,
+    so they reach the DRC as `model-inconsistent`: `length_depth_missing`, a cable connector
+    measured to its face whose part, or a backshell on it, has no depth, so the wires there have no
+    length; `length_below_depth`, a wire whose segments are not longer than the depths taken off,
+    so its length is not known. A project without a face end has none (A-LENGTH-TO)."""
+    from .generate.lengths import FACE, depth_taken, end_depths, length_reference, path_length
+
+    if length_reference(project) != FACE and not any(
+        c.length_to == FACE for h in project.harnesses.values() for c in h.connectors
+    ):
+        return []
+    out: list[Issue] = []
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        ends = end_depths(project, h)
+        if not ends:
+            continue
+        for cid, reason in sorted(ends.missing.items()):
+            out.append(_warn("length_depth_missing", f"{cid} is measured to its face, but {reason}, so the wires there have no length", cid))  # fmt: skip
+        for w in sorted(h.wires, key=lambda x: x.id):
+            taken = depth_taken(ends, w.from_connector, w.to_connector)
+            if w.length_m is not None or not taken or not h.segments:
+                continue
+            if w.from_connector in ends.missing or w.to_connector in ends.missing:
+                continue
+            path = path_length(h, w.from_connector, w.to_connector)
+            if path is not None and round(path - taken, 9) <= 0:
+                out.append(_warn("length_below_depth", f"The segments of {w.id} ({path:g} m) are not longer than the depths taken off at its face ends ({taken:g} m), so its length is not known", w.id))  # fmt: skip
+    return out
+
+
 # The collections whose keys must differ only by more than upper/lower case, with the word the
 # message uses for them.
 _CASEFOLD_KINDS = (
@@ -689,6 +720,7 @@ def check_integrity(project: Project) -> list[Issue]:
     _CACHE.clear()
     _CACHE.update(seen)
     out.extend(row_layout_issues(project))
+    out.extend(length_issues(project))
     return out
 
 

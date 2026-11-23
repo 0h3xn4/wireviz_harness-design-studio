@@ -100,6 +100,38 @@ def input_hash(project: Project) -> str:
     )
     if manual:
         payload["manual_interfaces"] = manual
+    # Where the segments of a generated harness end at a cable connector (format 5, design of 5.0.0
+    # section 4.2): Generate takes the depth of a face end off each wire. Only added when a cable
+    # connector says it, so a project without data of format 5 keeps its hash.
+    length_to = sorted(
+        (h.id, c.mates_with or c.id, c.length_to)
+        for h in generated
+        for c in h.connectors
+        if c.length_to is not None
+    )
+    if length_to:
+        payload["length_to"] = length_to
+    # and the backshells on a face end, whose depth is taken off as well (the rule of
+    # `generate.lengths.face_ends`, stated here so that this module imports no generator)
+    from harness_design_studio.core import settings
+
+    reference = settings.choice(project, "model", "length_reference")
+    shells = sorted(
+        (h.id, a.id, a.target or "", a.part_id or "")
+        for h in generated
+        for faces in [
+            {
+                c.id
+                for c in h.connectors
+                if c.role == "cable" and (c.length_to or reference) == "face"
+            }
+        ]
+        if faces
+        for a in h.accessories
+        if a.kind == "backshell" and a.target in faces
+    )
+    if shells:
+        payload["face_backshells"] = shells
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()

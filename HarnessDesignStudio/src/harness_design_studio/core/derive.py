@@ -33,9 +33,13 @@ from harness_design_studio.core.generate.lengths import (
     ORIGIN_LOCKED,
     ORIGIN_NONE,
     ORIGIN_SEGMENTS,
+    depth_taken,
+    end_depths,
     generated_length,
     length_origin,
+    missing_depth,
     path_trail,
+    rear_path,
     wire_length,
 )
 from harness_design_studio.core.generate.mass import harness_mass, open_end_missing, wire_mass_g
@@ -410,7 +414,7 @@ def wire_voltage_drop_derivation(project: Project, h: Harness, w: Wire) -> Deriv
     )
     i = project.interfaces.get(w.interface_id or "")
     itype = project.interface_types.get(i.type_id) if i else None
-    length = wire_length(h, w)
+    length = wire_length(h, w, end_depths(project, h))
     subject = f"Wire {w.id}"
     assumptions = ("A-DC-SOLID", "A-ROUND-TRIP")
     missing: list[str] = []
@@ -484,6 +488,23 @@ def wire_voltage_drop_derivation(project: Project, h: Harness, w: Wire) -> Deriv
     )  # fmt: skip
 
 
+def _depth_inputs(project: Project, h: Harness, face: list[str]) -> list[Input]:
+    """The depths taken off at the face ends of a wire: the connector part's and each backshell's,
+    in millimetres, as `lengths.end_depths` adds them (A-LENGTH-TO)."""
+    out: list[Input] = []
+    by_id = {c.id: c for c in h.connectors}
+    for cid in dict.fromkeys(face):
+        c = by_id[cid]
+        part = project.parts.get(c.part_id)
+        depth = part.depth_mm if part is not None else None
+        out.append(Input(f"Depth of part {c.part_id} ({cid}, measured to its face)", depth, "mm", f"part {c.part_id}: depth_mm"))  # fmt: skip
+        for a in sorted(h.accessories, key=lambda x: x.id):
+            if a.kind == "backshell" and a.target == cid:
+                shell = project.parts.get(a.part_id or "")
+                out.append(Input(f"Depth of backshell part {a.part_id or '(none)'} ({cid}, backshell {a.id})", shell.depth_mm if shell else None, "mm", f"part {a.part_id or '(none)'}: depth_mm"))  # fmt: skip
+    return out
+
+
 def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
     """Where the length of the wire comes from: the routing segments of its path and the service
     loops generation added, or a length stored on the wire itself."""
@@ -503,15 +524,26 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
             else ""
         )
     )
-    assumptions = ("A-PATH-UNIQUE", "A-SERVICE-LOOP")
-    length = wire_length(h, w)
-    origin = length_origin(h, w)  # the first cut, as the Production sheet says it (4.1.0, 6.3)
+    assumptions: tuple[str, ...] = ("A-PATH-UNIQUE", "A-SERVICE-LOOP")
+    ends = end_depths(project, h)
+    # a face end of the wire (format 5, design of 5.0.0 section 4.4): its depth comes off the path
+    face = [cid for cid in (w.from_connector, w.to_connector) if cid in ends.faces]
+    taken = depth_taken(ends, w.from_connector, w.to_connector)
+    gap = missing_depth(ends, w.from_connector, w.to_connector)
+    if face:
+        assumptions = (*assumptions, "A-LENGTH-TO")
+        equation = equation.replace(
+            "between its connectors", "between its connectors − depth of each face end", 1
+        )
+    length = wire_length(h, w, ends)
+    origin = length_origin(h, w, ends)  # the first cut, as the Production sheet says it (4.1.0)
     trail = path_trail(h, w.from_connector, w.to_connector) if h.segments else None
     known = trail is not None and all(x is not None for _, x in trail)
     seg_sum = float(sum(x for _, x in trail if x is not None)) if trail and known else None
+    rear = rear_path(seg_sum, w.from_connector, w.to_connector, ends) if taken else seg_sum
     expected = (
-        generated_length(project, seg_sum, loop or 0.0, construction)
-        if seg_sum is not None
+        generated_length(project, rear, loop or 0.0, construction)
+        if rear is not None and gap is None
         else None
     )
     if origin == ORIGIN_NONE:
@@ -531,6 +563,13 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
                 "the length of every routing segment on the path: "
                 + ", ".join(sid for sid, x in trail if x is None)
             ]
+        elif gap is not None:
+            missing = [f"the depth of {gap[0]}: it is measured to its face and {gap[1]}"]
+        elif taken and seg_sum is not None and rear is None:
+            missing = [
+                f"a path longer than the depths taken off at its face ends: the segments give "
+                f"{_g(seg_sum or 0.0)} m and the depths {_g(taken)} m (see length_below_depth)"
+            ]
         return Derivation(
             "wire-length", subject, "Length", None, "m", equation,
             assumptions=assumptions, missing=tuple(missing),
@@ -548,6 +587,7 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
             inputs.append(
                 Input(f"Segment {sid}", x, "m", f"routing segment {sid} of harness {h.id}")
             )
+        inputs.extend(_depth_inputs(project, h, face))
         inputs.append(
             Input(
                 "Service loop",
@@ -566,6 +606,9 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
                 "m",
             )
         )
+        if taken and rear is not None:
+            steps.append(Step("Path from rear to rear", f"{_g(seg_sum)} − {_g(taken)}", rear, "m"))
+            seg_sum = rear
         extra = loops * (loop or 0.0)
         label = "Service loops, one at each end" if loops == 2 else f"Service loops ({loops})"
         steps.append(Step(label, f"{loops} × {_g(loop or 0.0)}", extra, "m"))
@@ -598,7 +641,7 @@ def wire_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
         basis = "the routing segments of its path (no length is stored on the wire; no service loop is added here)"
         value = length
         if seg_sum is not None:
-            steps = steps[:1]
+            steps = steps[: 2 if taken else 1]
     elif seg_sum is not None and math.isclose(length, expected or 0.0, rel_tol=0, abs_tol=1e-9):
         basis = "generated: the path through the segments plus two service loops"
         value = length  # the length stored on the wire (`wire_length` returns it)
@@ -628,7 +671,7 @@ def wire_mass_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
     equation = "m = mass per metre of the wire part × L / conductors of the part"
     assumptions = ("A-MASS-CONDUCTORS", "A-MASS-SCOPE")
     part = project.parts.get(w.part_id) if w.part_id else None
-    length = wire_length(h, w)
+    length = wire_length(h, w, end_depths(project, h))
     missing: list[str] = []
     if part is None:
         missing.append(f"the wire part of wire {w.id} (set its type)")
@@ -691,9 +734,10 @@ def harness_mass_derivation(project: Project, h: Harness) -> Derivation:
     steps.append(Step(f"Connectors ({len(counted)})", "sum of the connector masses", conn_sum, "g"))
     by_part: dict[str, tuple[int, float, float]] = {}
     unknown = 0
+    ends = end_depths(project, h)
     for w in h.wires:
         part = project.parts.get(w.part_id) if w.part_id else None
-        length = wire_length(h, w)
+        length = wire_length(h, w, ends)
         if part is None or part.mass_per_m_g is None or length is None:
             unknown += 1
             continue
@@ -1103,7 +1147,7 @@ def replay_sizing(project: Project, h: Harness, w: Wire) -> Sizing:
     return size_wire(
         cfg(project, "derating"), cfg(project, "generation"), resistivity=(rho, rho_missing),
         current_a=interface.max_current_a if interface else None,
-        length_m=wire_length(h, w),
+        length_m=wire_length(h, w, end_depths(project, h)),
         path_conductors=settings.drop_conductors(project, itype.category) if itype else 1,
         bundle_wires=bundle_size(project, h, w),
     )  # fmt: skip

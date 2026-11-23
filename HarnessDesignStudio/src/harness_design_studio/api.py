@@ -59,6 +59,7 @@ from harness_design_studio.core.annotate import AnnotationResult
 from harness_design_studio.core.asbuilt import AsBuiltImportResult, AsBuiltReport
 from harness_design_studio.core.checks import Finding, find
 from harness_design_studio.core.commands import History
+from harness_design_studio.core.connector_edit import plan_set_length_to
 from harness_design_studio.core.derive import Derivation, explain_object
 from harness_design_studio.core.derive import explain_finding as _explain_finding
 from harness_design_studio.core.derive_export import explain_all as _explain_all
@@ -184,6 +185,7 @@ __all__ = [
     "run_checks",
     "save_project",
     "set_config",
+    "set_length_reference",
     "set_override",
     "set_row_layout",
     "start_journal",
@@ -858,3 +860,32 @@ def clear_row_layout(
             History(project).execute(f"Clear the rows of {part or connector}", ops)
             _save_project(project, path)
     return records.row_layout_record(project, part=part, connector=connector)
+
+
+def set_length_reference(
+    folder: PathLike,
+    harness: str,
+    connector: str,
+    to: str | None,
+    *,
+    author: str | None = None,
+) -> str | None:
+    """Say where the routing segments that end at a cable connector are measured to (format 5,
+    design of 5.0.0 section 4.5): `"face"` (the depth of the connector and its backshells is then
+    taken off each wire), `"rear"`, or None for the project's setting `model.length_reference`, and
+    save the project, through the same plan as the editor (`connector_edit.plan_set_length_to`).
+    A released harness, a connector that is not a cable connector and another value break with
+    `EditError`. One undo step, in the journal with `author` when the project keeps one. Takes the
+    project lock. Returns the value the connector now has."""
+    path = Path(folder)
+    with _locked(path), _as(author):
+        project = _load(path)
+        _writable(project)
+        ops = plan_set_length_to(project, harness, connector, to)
+        if ops:
+            History(project).execute(
+                f"Lengths of {connector} measured to {to or 'the project'}", ops
+            )
+            _save_project(project, path)
+    h = project.harnesses[harness]
+    return next(c.length_to for c in h.connectors if c.id == connector)

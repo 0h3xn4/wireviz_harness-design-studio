@@ -10,7 +10,7 @@ from decimal import Decimal
 from harness_design_studio.core import settings
 from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.imports import Table
-from harness_design_studio.core.model import Harness, Project, Segment, Wire, evolve
+from harness_design_studio.core.model import Connector, Harness, Project, Segment, Wire, evolve
 
 
 def _adjacency(h: Harness) -> dict[str, list[tuple[str, str, float | None]]]:
@@ -109,9 +109,141 @@ def generated_length(project: Project, path_m: float, loop_m: float, constructio
     return length
 
 
-def wire_length(h: Harness, w: Wire) -> float | None:
-    """The wire's own length, else the sum of routing segments between its connectors.
-    The one place that answers 'how long is this wire' (tables, mass, rules and the release gate)."""
+# ---- where a segment ends at a cable connector, and the depth of a face end (format 5) ----------
+# Design of 5.0.0, part A (D-264, A-LENGTH-TO): a segment that ends at a cable connector runs to its
+# rear (the meaning of every length of formats 1 to 4) or, where the connector or the project's
+# setting `model.length_reference` says so, to its mating face. At a face end the depth of the
+# connector part and of each backshell on the connector (`Part.depth_mm`) is taken off each wire, so
+# every length stays a length from rear to rear. A depth is never assumed: without one the wire has
+# no length, and `check` says why (`length_depth_missing`).
+
+FACE = "face"
+REAR = "rear"
+
+
+@dataclass(frozen=True)
+class EndDepths:
+    """The face ends of one harness: the depth in metres of each face end that has one, and for each
+    face end without one the reason, by cable connector ID. Empty (false) for a harness with no face
+    end, which is every harness of a project without data of format 5."""
+
+    depths: dict[str, float] = field(default_factory=dict)
+    missing: dict[str, str] = field(default_factory=dict)
+
+    def __bool__(self) -> bool:
+        return bool(self.depths or self.missing)
+
+    @property
+    def faces(self) -> tuple[str, ...]:
+        """The IDs of the face ends, sorted."""
+        return tuple(sorted({*self.depths, *self.missing}))
+
+
+NO_FACE_END = EndDepths()
+
+
+def length_reference(project: Project) -> str:
+    """The project's setting `model.length_reference`: `rear` (the default) or `face`."""
+    return settings.choice(project, "model", "length_reference")
+
+
+def measured_to(c: Connector, reference: str) -> str | None:
+    """Where the segments that end at connector `c` are measured to: its own `length_to`, else the
+    project's `reference`, for a cable connector; None for a connector of any other role (a splice,
+    a loose end, a branch point has no face)."""
+    if c.role != "cable":
+        return None
+    return c.length_to or reference
+
+
+def face_ends(project: Project, h: Harness) -> tuple[str, ...]:
+    """The cable connectors of the harness that are measured to their face, sorted by ID."""
+    reference = length_reference(project)
+    return tuple(sorted(c.id for c in h.connectors if measured_to(c, reference) == FACE))
+
+
+def _depth_of(project: Project, h: Harness, c: Connector) -> tuple[float, str]:
+    """The depth of a face end in millimetres (the connector part's, plus the part of each
+    backshell on it), or the reason it has none."""
+    part = project.parts.get(c.part_id)
+    if part is None:
+        return 0.0, f"part {c.part_id} is not in the library"
+    if part.depth_mm is None:
+        return 0.0, f"part {part.id} has no depth (library: depth_mm)"
+    total = part.depth_mm
+    for a in sorted(h.accessories, key=lambda x: x.id):
+        if a.kind != "backshell" or a.target != c.id:
+            continue
+        if a.part_id is None:
+            return 0.0, f"its backshell {a.id} has no part"
+        shell = project.parts.get(a.part_id)
+        if shell is None:
+            return 0.0, f"part {a.part_id} of its backshell {a.id} is not in the library"
+        if shell.depth_mm is None:
+            return 0.0, f"part {shell.id} of its backshell {a.id} has no depth (library: depth_mm)"
+        total += shell.depth_mm
+    return total, ""
+
+
+def end_depths(project: Project, h: Harness) -> EndDepths:
+    """The depth in metres of each face end of the harness, and for each face end without one the
+    reason (`EndDepths`). `NO_FACE_END` when the harness has no face end. A-LENGTH-TO."""
+    faces = face_ends(project, h)
+    if not faces:
+        return NO_FACE_END
+    by_id = {c.id: c for c in h.connectors}
+    depths: dict[str, float] = {}
+    missing: dict[str, str] = {}
+    for cid in faces:
+        mm, reason = _depth_of(project, h, by_id[cid])
+        if reason:
+            missing[cid] = reason
+        else:
+            depths[cid] = round(mm * LENGTH_UNITS_M["mm"], 9)
+    return EndDepths(depths, missing)
+
+
+def depth_taken(ends: EndDepths | None, a: str, b: str) -> float:
+    """The depth in metres taken off the path of a wire from connector `a` to connector `b`: the
+    depth of each of its face ends (0.0 with none; a face end without a depth adds nothing here: the
+    wire then has no length)."""
+    if not ends:
+        return 0.0
+    return round(ends.depths.get(a, 0.0) + ends.depths.get(b, 0.0), 9)
+
+
+def missing_depth(ends: EndDepths | None, a: str, b: str) -> tuple[str, str] | None:
+    """The first end of a wire from `a` to `b` measured to its face without a depth, with the
+    reason; None when there is none."""
+    if not ends:
+        return None
+    for cid in (a, b):
+        if cid in ends.missing:
+            return cid, ends.missing[cid]
+    return None
+
+
+def rear_path(path: float | None, a: str, b: str, ends: EndDepths | None) -> float | None:
+    """The path of a wire from connector `a` to connector `b`, from rear to rear: the sum of its
+    segments less the depth of each face end. None when the path is not known, a face end has no
+    depth, or the segments are not longer than the depths taken off (`length_below_depth`)."""
+    if path is None or not ends:
+        return path
+    if missing_depth(ends, a, b) is not None:
+        return None
+    taken = depth_taken(ends, a, b)
+    if not taken:
+        return path
+    rest = round(path - taken, 9)
+    return rest if rest > 0 else None
+
+
+def wire_length(h: Harness, w: Wire, ends: EndDepths | None = None) -> float | None:
+    """The wire's own length, else the sum of routing segments between its connectors, from rear to
+    rear: with `ends` (`end_depths` of the harness) the depth of each face end is taken off the
+    path. The one place that answers 'how long is this wire' (tables, mass, rules and the release
+    gate); with `ends` empty or None it is the function of 4.4.0. A stored length is not touched
+    (Generate's lengths already have the depths taken off)."""
     if w.length_m is not None:
         return w.length_m
     if not h.segments:
@@ -122,7 +254,13 @@ def wire_length(h: Harness, w: Wire) -> float | None:
         if len(_PATHS) >= _PATHS_LIMIT:
             _PATHS.clear()
         hit = _PATHS[key] = (h, path_length(h, w.from_connector, w.to_connector))
-    return hit[1]
+    return rear_path(hit[1], w.from_connector, w.to_connector, ends) if ends else hit[1]
+
+
+def segment_node_text(node: str, faces: tuple[str, ...] | frozenset[str]) -> str:
+    """A node of a routing segment as the segment tables write it: a face end reads `W001-P1
+    (face)` (design of 5.0.0 section 4.4)."""
+    return f"{node} (face)" if node in faces else node
 
 
 # Where a wire's length comes from, as the Production sheet says it (design of 4.1.0, section 6.3).
@@ -132,14 +270,14 @@ ORIGIN_SEGMENTS = "segments only, no service loops"  # no length of its own: the
 ORIGIN_NONE = ""  # no length at all: the cell reads *to fill in*
 
 
-def length_origin(h: Harness, w: Wire) -> str:
+def length_origin(h: Harness, w: Wire, ends: EndDepths | None = None) -> str:
     """Where the length of a wire comes from, read from the wire and the segments only: its own
     length (`on the wire`, or `locked` when Generate keeps it, `length_is_kept`), the segments of its path
     (`segments only, no service loops`), or nothing (empty). It does not tell a generated length
     from an imported one; `derive.wire_length_derivation` does, and starts from this answer."""
     if w.length_m is not None:
         return ORIGIN_LOCKED if length_is_kept(w) else ORIGIN_ON_WIRE
-    return ORIGIN_SEGMENTS if wire_length(h, w) is not None else ORIGIN_NONE
+    return ORIGIN_SEGMENTS if wire_length(h, w, ends) is not None else ORIGIN_NONE
 
 
 def length_is_kept(w: Wire) -> bool:
@@ -160,14 +298,41 @@ def _number_text(v: float) -> str:
     return text[:-2] if text.endswith(".0") else text
 
 
-def reference_lines(project: Project) -> tuple[str, str, str, str]:
+def _and_list(ids: tuple[str, ...]) -> str:
+    """`A`, `A and B`, `A, B and C`."""
+    return ids[0] if len(ids) == 1 else f"{', '.join(ids[:-1])} and {ids[-1]}"
+
+
+def face_line(project: Project, h: Harness) -> str | None:
+    """The fifth sentence of the length note of a harness with a face end (design of 5.0.0 section
+    4.4), None for a harness without one."""
+    faces = face_ends(project, h)
+    if not faces:
+        return None
+    if length_reference(project) == FACE:
+        rears = tuple(
+            sorted(c.id for c in h.connectors if c.role == "cable" and c.length_to == REAR)
+        )
+        but = f", but at {_and_list(rears)}" if rears else ""
+        return (
+            f"The segments run to the mating face of each connector (model.length_reference){but}; "
+            "the depth of the connector and its backshell is taken off each wire."
+        )
+    return (
+        f"At {_and_list(faces)} the segments run to the mating face; the depth of the connector and "
+        "its backshell is taken off each wire there."
+    )
+
+
+def reference_lines(project: Project, h: Harness | None = None) -> tuple[str, ...]:
     """What every length of a document is measured from, in words from the settings in force
     (design of 4.1.0, section 6.1), as four short sentences, so a sheet can print each on a row of its
     own: from the rear of a connector along the segments, through the centre of each branch point,
     to the rear of the other; what Generate adds (the service loops of
     `model.service_loops_per_wire` and `generation.service_loop_m`, and under the length model
     `path_loops_allowance_twist` the take-up of twisting and the cut allowance); and what *locked*
-    and *segments only* mean. Every number is the project's; none is invented."""
+    and *segments only* mean. Every number is the project's; none is invented. For harness `h` with
+    a face end a fifth sentence names the face ends (`face_line`, design of 5.0.0 section 4.4)."""
     loops = settings.service_loops(project)
     raw = settings.effective(project, "generation", "service_loop_m").value
     loop = float(raw) if isinstance(raw, int | float) and not isinstance(raw, bool) else None
@@ -184,18 +349,20 @@ def reference_lines(project: Project) -> tuple[str, str, str, str]:
             f", the take-up of twisting ({takeup}) for a wire of a twisted construction, and a "
             f"cut allowance of {cut} m"
         )
-    return (
+    lines = (
         "Lengths run from the rear of a connector, where the wires leave its body or backshell.",
         "They follow the routing segments through the centre of each branch point to the rear of "
         "the other connector.",
         f"A wire Generate made adds {added}.",
         '"Locked" is a length a person typed; "segments only" has no service loops.',
     )
+    face = face_line(project, h) if h is not None else None
+    return (*lines, face) if face else lines
 
 
-def reference_text(project: Project) -> str:
+def reference_text(project: Project, h: Harness | None = None) -> str:
     """The sentences of `reference_lines` as one text."""
-    return " ".join(reference_lines(project))
+    return " ".join(reference_lines(project, h))
 
 
 @dataclass
@@ -295,7 +462,21 @@ def segment_lengths_known(h: Harness) -> bool:
 
 
 __all__ = [
+    "FACE",
     "LENGTH_UNITS_M",
+    "NO_FACE_END",
+    "REAR",
+    "EndDepths",
+    "depth_taken",
+    "end_depths",
+    "face_ends",
+    "face_line",
+    "length_reference",
+    "measured_to",
+    "missing_depth",
+    "rear_path",
+    "segment_node_text",
+    "wire_length",
     "ORIGIN_LOCKED",
     "ORIGIN_NONE",
     "ORIGIN_ON_WIRE",

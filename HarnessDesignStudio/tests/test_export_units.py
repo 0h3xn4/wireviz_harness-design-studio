@@ -34,6 +34,7 @@ from harness_design_studio.core.outputs.export_units import (
     FIELD_UNITS,
     RATING_UNITS,
     RATINGS,
+    SPARSE_FIELD_UNITS,
     field_units,
     missing_units,
     numeric_paths,
@@ -95,7 +96,7 @@ def _table_paths() -> set[str]:
     """The table, with the ratings written as the model writes them: one `<key>`."""
     return {
         (RATINGS + "<key>") if p.startswith(RATINGS) else p
-        for p in set(FIELD_UNITS) | {RATINGS + k for k in RATING_UNITS}
+        for p in set(FIELD_UNITS) | set(SPARSE_FIELD_UNITS) | {RATINGS + k for k in RATING_UNITS}
     }
 
 
@@ -121,7 +122,7 @@ def test_no_unit_is_empty() -> None:
 
 def test_the_units_of_a_name_that_carries_one_agree_with_the_name() -> None:
     suffix = {"_m": "m", "_mm": "mm", "_a": "A", "_v": "V", "_ohm": "ohm", "_g": "g", "_awg": "AWG"}
-    for path, unit in FIELD_UNITS.items():
+    for path, unit in {**FIELD_UNITS, **SPARSE_FIELD_UNITS}.items():
         name = path.rsplit(".", 1)[-1]
         for end, expected in suffix.items():
             if name.endswith(end) and not name.endswith("per_m_g"):
@@ -174,7 +175,7 @@ def test_every_number_in_real_files_has_a_unit_and_every_unit_names_a_number_or_
         assert missing_units(doc) == []
         # an entry of the file is a field of the model (the ratings of a project are free names)
         for path in units:
-            assert path in FIELD_UNITS or path.startswith(RATINGS), path
+            assert path in FIELD_UNITS or path.startswith(RATINGS), path  # none of format 5 here
         # an entry that is a number of this file, or a field the model has but this project left empty
         assert set(units) == set(field_units(p))
 
@@ -235,3 +236,17 @@ def test_rating_unit_reads_the_end_of_a_name_and_otherwise_says_it_does_not_know
     assert rating_unit("my_limit_v") == "V"
     assert rating_unit("max_temp_c") == "degC"
     assert rating_unit("something") == export_units.NOT_STATED
+
+
+def test_a_field_of_format_5_is_named_only_while_the_project_has_one() -> None:
+    """Design of 5.0.0 section 4.4: `parts[].depth_mm` in mm, only while a part has a depth, so
+    the export of a project without data of format 5 keeps its bytes."""
+    from tests.format5_support import format5_project
+
+    p = mini3()
+    assert "parts[].depth_mm" not in field_units(p)
+    q = format5_project()
+    assert field_units(q)["parts[].depth_mm"] == "mm"
+    doc = json.loads(build_outputs(q).files["system/export.json"])
+    assert missing_units(doc) == []
+    assert "parts[].depth_mm" in numeric_paths(doc)

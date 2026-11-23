@@ -14,7 +14,7 @@ from collections.abc import Iterator, Sequence
 from harness_design_studio.core import settings
 from harness_design_studio.core.configcheck import validate as validate_config
 from harness_design_studio.core.generate.bundle import bundle_size
-from harness_design_studio.core.generate.lengths import loop_segments, wire_length
+from harness_design_studio.core.generate.lengths import end_depths, loop_segments, wire_length
 from harness_design_studio.core.generate.sizing import (
     ampacity_table,
     bundle_k,
@@ -425,10 +425,11 @@ def _voltage_drop(project: Project) -> Iterator[Hit]:
     if limit is None or rho is None:
         return
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        ends = end_depths(project, h)
         for w in h.wires:
             i = project.interfaces.get(w.interface_id or "")
             itype = project.interface_types.get(i.type_id) if i else None
-            length = wire_length(h, w)
+            length = wire_length(h, w, ends)
             if not (
                 i and itype and i.max_current_a is not None and length and w.gauge_awg is not None
             ):
@@ -655,13 +656,14 @@ def _voltage_drop_gaps(project: Project) -> Iterator[Hit]:
     no_gauge: list[str] = []
     no_length: list[str] = []
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        ends = end_depths(project, h)
         for w in h.wires:
             i = project.interfaces.get(w.interface_id or "")
             if not (i and i.type_id in project.interface_types and i.max_current_a is not None):
                 continue
             if w.gauge_awg is None:
                 no_gauge.append(w.id)
-            if wire_length(h, w) is None:
+            if wire_length(h, w, ends) is None:
                 no_length.append(w.id)
     if no_gauge or no_length:
         parts = []

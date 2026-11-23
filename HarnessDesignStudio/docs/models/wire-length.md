@@ -12,6 +12,7 @@ This page explains the length the tool gives a wire: the number in the wire list
 - [Three ways a length can be there](#three-ways-a-length-can-be-there)
 - [What the written files say](#what-the-written-files-say)
 - [Segments and branch points](#segments-and-branch-points)
+- [A face end and the depth of a connector](#a-face-end-and-the-depth-of-a-connector)
 - [What happens when a value is missing](#what-happens-when-a-value-is-missing)
 - [What the model does not do](#what-the-model-does-not-do)
 
@@ -39,6 +40,7 @@ The path is the one path through the tree of segments from the connector at one 
 
 - **A-PATH-UNIQUE.** The length is the one path through the segments. If the segments form a loop there is no single length, the length stays undecided and the design rule `segment-loop` reports it. Bend radii, tolerances and the part of a connector inside its backshell are not added. Stays built in: whether a path is unique is a property of the drawn segments and not a choice; an allowance you want is the cut allowance of the length model.
 - **A-SERVICE-LOOP.** A generated wire is longer than its path by two service loops, one at each end, the same for every wire. The length of a loop is the setting `service_loop_m` and the number of loops the setting `service_loops_per_wire` (2 by default).
+- **A-LENGTH-TO.** A segment that ends at a cable connector runs to its rear, where the wires leave the body or backshell, unless the project (`model.length_reference`) or the connector (`length_to`) says the face; at a face end the depth of the connector part and of each backshell on it is taken off each wire. A depth is never assumed: without one the wire has no length. See [a face end](#a-face-end-and-the-depth-of-a-connector).
 
 ## A worked example
 
@@ -94,6 +96,20 @@ On the `flatsat` example, `harness-design-studio explain DIR W005-L3` prints *Se
 ### Splices (format 3)
 
 A splice is a node of the routing tree like a connector: a segment may end at it, and a wire from a plug to a splice is measured along the segments between them like any other wire. Each pin of a splice is a node that joins every wire on it into one net (a net is the set of pins its wires join). `routing DIR HARNESS` lists the splices of a harness with the wires on each node, and `explain DIR SPLICE` gives the derivation of kind `splice`: its part and, for each node, the ends of its net (the pins not on a splice). Like a segment, it is computed when asked and is not in `explain --all`.
+
+## A face end and the depth of a connector
+
+Since 5.0.0 (format 5) a segment that ends at a cable connector may be measured to the connector's mating face instead of its rear: a length from a mechanical model of the boxes is often a length to the face. The project's setting `model.length_reference` (`rear` by default, the meaning of every length before 5.0.0) says it for every cable connector, and a cable connector may say otherwise (`length_to`: `face` or `rear`; the Inspector's *Lengths measured to*, or the cable ends of `import-build-data`). Only a cable connector has a face: a splice, a branch point or a loose end has none.
+
+The **depth** of a face end is the depth of the connector's part (`depth_mm` in the library: from the mating face back to where the wires leave) plus the depth of the part of each backshell on the connector (an accessory of kind `backshell`: what it adds behind the rear of the connector). At a face end the tool takes the depth off the path of each wire, so every length stays a length from rear to rear (the cut length):
+
+`path = (sum of the segments between its two nodes) − depth(from end, if face) − depth(to end, if face)`
+
+The service loops, the take-up and the cut allowance are added to this path as before. A made-up example: one segment of 1.200 m between W001-P1 and W001-P2, both measured to the face; their part has a depth of 25 mm and a backshell of 30 mm sits on W001-P1. The path from rear to rear is 1.200 − 0.055 − 0.025 = 1.120 m, and with two loops of 0.1 m Generate stores 1.320 m. `explain DIR WIRE` lists each depth as an input and the step *Path from rear to rear*.
+
+A depth is never assumed (A-LENGTH-TO). When a face end has no depth (its part or a backshell on it has none, or the backshell has no part), its wires have no length: Generate stores none and says why in a note, and `check` warns `length_depth_missing` (*W001-P1 is measured to its face, but part EX-MICROD-9-M has no depth (library: depth_mm), so the wires there have no length*). When the segments of a wire are not longer than the depths taken off, its length is not known either (`length_below_depth`). Both warnings reach the design rules as `model-inconsistent`.
+
+The written files say which ends are faces: a fifth sentence of the length note (*At W001-P1 and W001-P2 the segments run to the mating face; the depth of the connector and its backshell is taken off each wire there.*), the node `W001-P1 (face)` in `segments.csv`, the *Segments* and the *Routing* sheets, and *lengths to the face* under the connector in the drawing. The headings *rear to rear* do not change: they stay true. A project without a face end keeps every file it had.
 
 ## What happens when a value is missing
 

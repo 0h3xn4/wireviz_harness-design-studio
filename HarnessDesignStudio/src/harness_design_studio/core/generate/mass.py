@@ -15,7 +15,7 @@ from harness_design_studio.core import settings
 from harness_design_studio.core.model import Connector, Harness, Project
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 
-from .lengths import wire_length
+from .lengths import end_depths, wire_length
 
 
 @dataclass
@@ -88,6 +88,7 @@ def open_end_missing(c: Connector) -> str:
 
 def harness_mass(project: Project, h: Harness) -> MassReport:
     r = MassReport()
+    ends = end_depths(project, h)
     for c in h.connectors:
         if c.role == LOOSE_ROLE:
             r.missing.append(open_end_missing(c))
@@ -103,7 +104,7 @@ def harness_mass(project: Project, h: Harness) -> MassReport:
         part = project.parts.get(w.part_id) if w.part_id else None
         if part is None or part.mass_per_m_g is None:
             r.missing.append(f"mass per metre of wire part {w.part_id or '(none)'}")
-        elif (length := wire_length(h, w)) is None:
+        elif (length := wire_length(h, w, ends)) is None:
             r.missing.append(f"length of wire {w.id}")
         else:
             r.total_g += wire_mass_g(part.mass_per_m_g, length, part.conductors)

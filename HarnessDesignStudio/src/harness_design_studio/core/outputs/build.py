@@ -13,6 +13,7 @@ from harness_design_studio.core import asbuilt, checks, drc
 from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.drc.report import render_markdown
 from harness_design_studio.core.errors import HarnessError, SaveError
+from harness_design_studio.core.generate.lengths import face_ends
 from harness_design_studio.core.io.fs import atomic_write_bytes, escapes_root
 from harness_design_studio.core.model import Harness, Project
 from harness_design_studio.core.vcs.hashing import content_hash
@@ -179,7 +180,7 @@ def build_outputs(
             out[f"{base}/accessories.csv"] = csv_bytes(ac, stamp)
             sheets["Accessories"] = ac
         if tables.has_branches(h):  # the routing only for a harness that branches (D-243 B7)
-            sg = tables.segments(h)
+            sg = tables.segments(h, face_ends(project, h))
             out[f"{base}/segments.csv"] = csv_bytes(sg, stamp)
             sheets["Segments"] = sg
         out[f"{base}/wireviz.yaml"] = exports.wireviz_yaml(project, h, stamp)

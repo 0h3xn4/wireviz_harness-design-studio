@@ -29,7 +29,7 @@ from dataclasses import dataclass
 
 from harness_design_studio.core import configcheck
 from harness_design_studio.core.deviations import deviation_lines, override_lines
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import EndDepths, end_depths, wire_length
 from harness_design_studio.core.model import Connector, Harness, Project, ShieldGroup, Wire
 from harness_design_studio.core.shield_ends import reference_wire
 from harness_design_studio.core.wirecolours import resolve
@@ -346,7 +346,7 @@ def _extras(h: Harness, project: Project | None = None) -> list[str]:
     return out
 
 
-def _cable_summary(h: Harness, wires: list[Wire]) -> str:
+def _cable_summary(h: Harness, wires: list[Wire], ends: EndDepths | None = None) -> str:
     gauges = {w.gauge_awg for w in wires}
     gauge = (
         "AWG ?"
@@ -355,7 +355,7 @@ def _cable_summary(h: Harness, wires: list[Wire]) -> str:
     )
     if gauge == "AWG ?":
         gauge = PENDING
-    lengths = {wire_length(h, w) for w in wires}
+    lengths = {wire_length(h, w, ends) for w in wires}
     length = (
         "length n/a"
         if lengths == {None}
@@ -467,6 +467,7 @@ def _draw_page(
     w_mm = sh.width
     limit = sh.height - MARGIN - TB_H - 4.0  # the cable blocks stop here (the title block)
     conns = {c.id: c for c in h.connectors}
+    depths = end_depths(project, h)  # the face ends (format 5): their depth is off each length
     pins: dict[str, set[str]] = {}
     order: list[str] = []
     groups: dict[tuple[str, str], list[Wire]] = {}
@@ -521,6 +522,8 @@ def _draw_page(
             part, mate = f"{part_text(c)}, {len(c.pins)}-pin", OPEN_END
         else:
             mate = f"mates {c.mates_with}" if c is not None and c.mates_with else ""
+            if c is not None and c.id in depths.faces:  # format 5, design of 5.0.0 section 4.4
+                mate = f"{mate}, lengths to the face" if mate else "lengths to the face"
             part = f"{c.part_id}, {_gender_words(c)}, {len(c.pins)}-pin" if c is not None else ""
         refs = (f"part/{cid}", f"end/{cid}") if loose else ("", "")
         for k, (text, size, bold) in enumerate(
@@ -590,13 +593,13 @@ def _draw_page(
             Text(
                 box_x + BOX_W / 2,
                 bt + 2 * HEAD_ROW - 1.1,
-                fit(_cable_summary(h, ws), BOX_W - 2.0, HEAD_SIZE),
+                fit(_cable_summary(h, ws, depths), BOX_W - 2.0, HEAD_SIZE),
                 size=HEAD_SIZE,
                 anchor="middle",
                 color=GREY,
             )
         )
-        mixed = len({(w.gauge_awg, wire_length(h, w)) for w in ws}) > 1
+        mixed = len({(w.gauge_awg, wire_length(h, w, depths)) for w in ws}) > 1
         # place the rows, then draw the sleeves (behind), then the wires
         y = bt + HEAD_H
         placed: list[tuple[float, str, Wire | None, tuple[str, ...]]] = []
@@ -662,7 +665,7 @@ def _draw_page(
                 bottom = max(bottom, yr)
             label = f"{w.id}  {code}".rstrip()
             if mixed:
-                length = wire_length(h, w)
+                length = wire_length(h, w, depths)
                 gauge = "AWG ?" if w.gauge_awg is None else f"AWG {w.gauge_awg}"
                 label += f"  {gauge}  {num(length) + ' m' if length is not None else 'n/a'}"
             label_size = fit_size(label, BOX_W - 2.0, PIN_SIZE, ID_FLOOR)  # shrunk, not cut
