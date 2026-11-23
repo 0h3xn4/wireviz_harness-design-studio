@@ -1130,8 +1130,14 @@ def _system(
                         attached[(mates[cid] or "", pin)].append(w.id)
         boxes_sorted = sorted(project.connectors.values(), key=lambda c: c.id)
         faces = _faces(project, boxes_sorted)
-        _compare_rows(r, "out_box_pinouts", "The box connector pinouts", bp, _pinout_header(project, faces is not None),
-                      _pin_rows(boxes_sorted, attached, _uses_function(project), _uses_termination(project), _uses_contact(project), _uses_direction(project), None, faces), (0, 4), "box_pinouts")  # fmt: skip
+        # the column Current (A) last, while some device pin states a current (format 5)
+        amps = any(p.current_a is not None for c in boxes_sorted for p in c.pins)
+        want = _pin_rows(boxes_sorted, attached, _uses_function(project), _uses_termination(project), _uses_contact(project), _uses_direction(project), None, faces)  # fmt: skip
+        if amps:
+            pins = [p for c in boxes_sorted for p in c.pins]
+            want = [[*row, p.current_a] for row, p in zip(want, pins, strict=True)]
+        _compare_rows(r, "out_box_pinouts", "The box connector pinouts", bp, [*_pinout_header(project, faces is not None), *(["Current (A)"] if amps else [])],
+                      want, (0, 4), "box_pinouts")  # fmt: skip
     _system_workbook(r, project, files)
     _connections(r, project, files)
     ex = files.get("system/export.json")

@@ -18,8 +18,9 @@ and the own rows of a box connector): the digest of every file, and the pinout t
 
 `format5` (format 5, pull request 2 of `docs/ait/DESIGN_5.0_FORMAT_5.md` on, section 11) is the
 project with data of format 5 of `tests/format5_support.py` (`format5_project`: the branching
-fixture with face ends and depths): the digest of every file, and the wire lists, the segments, a
-WireViz file and `system/export.json` as text to read. Its plans are in `harness_plan/format5*`.
+fixture with face ends and depths, and pin currents since pull request 3): the digest of every
+file, and the box pinouts, the design rule findings, the wire lists, the segments, a WireViz file
+and `system/export.json` as text to read. Its plans are in `harness_plan/format5*`.
 
 `harness_plan/` (3.0.0, D-242, pull requests 3 and 6 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`):
 the harness plans of the four examples, of the branching fixture, of the splice fixture

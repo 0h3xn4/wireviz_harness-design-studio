@@ -666,6 +666,28 @@ def length_issues(project: Project) -> list[Issue]:
     return out
 
 
+def current_issues(project: Project) -> list[Issue]:
+    """The two checks of the pin currents of a net (format 5, design of 5.0.0 sections 5.3 and
+    10.2): `current_unbalanced`, a warning (so `model-inconsistent` in the DRC), when every end of a
+    net has a pin current and they do not add up (A-ONE-SOURCE); `current_not_worked_out`, an info,
+    when they add up but the wires form a loop other than equal parallel wires between two pins
+    (A-PARALLEL-SHARE). Either way the wires of the net were not checked for current. A project
+    without a pin current has none (`core/currents.py`)."""
+    from .currents import NOT_WORKED_OUT, UNBALANCED, currents_text, has_pin_currents, net_currents
+
+    if not has_pin_currents(project):
+        return []
+    out: list[Issue] = []
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        for nc in net_currents(project, h):
+            first = nc.net.wires[0]
+            if nc.status == UNBALANCED:
+                out.append(_warn("current_unbalanced", f"The pin currents of the net of {first} do not add up: {currents_text(nc.ends)}. Its wires were not checked for current. Correct the currents of the pins.", first))  # fmt: skip
+            elif nc.status in NOT_WORKED_OUT:
+                out.append(Issue("info", "current_not_worked_out", f"The currents of the net of {first} were not worked out: {nc.detail}. Its wires were not checked for current.", None, first))  # fmt: skip
+    return out
+
+
 # The collections whose keys must differ only by more than upper/lower case, with the word the
 # message uses for them.
 _CASEFOLD_KINDS = (
@@ -721,6 +743,7 @@ def check_integrity(project: Project) -> list[Issue]:
     _CACHE.update(seen)
     out.extend(row_layout_issues(project))
     out.extend(length_issues(project))
+    out.extend(current_issues(project))
     return out
 
 

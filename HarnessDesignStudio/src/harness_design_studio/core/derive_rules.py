@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from harness_design_studio.core import settings
 from harness_design_studio.core.checks import Finding
 from harness_design_studio.core.checks import find as logical_findings
+from harness_design_studio.core.currents import wire_current
 from harness_design_studio.core.derive import (
     EXPLAINABLE_RULES,
     LOGICAL_RULES,
@@ -35,6 +36,7 @@ from harness_design_studio.core.derive import (
     Step,
     _bundle,
     _g,
+    current_steps,
     text_step,
 )
 from harness_design_studio.core.drc import electrical
@@ -502,7 +504,8 @@ def _bundle_current(project: Project, oid: str) -> Derivation | None:
             n = bundle_size(project, h, w)
             k, k_input, k_ref, k_missing = _bundle(d, n, h.id)
             temp = number(d.get("temperature_derating"))
-            i = project.interfaces.get(w.interface_id or "")
+            carried = wire_current(project, h, w)  # format 5: the pin currents of its net decide
+            current = carried.value
             missing = [m for m in (k_missing,) if m]
             if table is None:
                 missing.append("derating.ampacity_a_by_awg")
@@ -535,9 +538,11 @@ def _bundle_current(project: Project, oid: str) -> Derivation | None:
             inputs.append(
                 Input(
                     "Current carried",
-                    i.max_current_a if i else None,
+                    current,
                     "A",
-                    f"interface {w.interface_id or '(none)'}: Max current",
+                    carried.reason
+                    if carried.ends
+                    else f"interface {w.interface_id or '(none)'}: Max current",
                 )
             )
             steps = []
@@ -550,21 +555,23 @@ def _bundle_current(project: Project, oid: str) -> Derivation | None:
                         "A",
                     )
                 )
+            steps += current_steps(carried)
             check = (
                 _upper(
-                    i.max_current_a,
+                    current,
                     limit,
                     "A",
                     f"the current of wire {w.id}",
                     f"the limit of a bundle of {n} wires",
                 )
-                if limit is not None and i is not None and i.max_current_a is not None
+                if limit is not None and current is not None
                 else None
             )
+            pins = ("A-ONE-SOURCE", "A-PARALLEL-SHARE") if carried.ends else ()
             return _derivation(
                 f"Wire {w.id}", "Bundle current limit", limit, "A",
                 "limit = base ampacity × bundle factor K of the table × temperature factor (1 when not set)",
-                inputs, steps, check, ("A-BUNDLE-ALL", "A-BUNDLE-CURRENT"),
+                inputs, steps, check, ("A-BUNDLE-ALL", "A-BUNDLE-CURRENT", *pins),
                 k_ref + "The rule runs only when the table of bundle factors is set; the factor L of "
                 "partly loaded bundles (Table 6-42) is not applied.", missing,
             )  # fmt: skip

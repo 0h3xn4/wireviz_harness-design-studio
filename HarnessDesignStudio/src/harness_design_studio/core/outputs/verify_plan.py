@@ -145,6 +145,7 @@ HARNESS_HEADING, PRODUCTION_HEADING = (5, 8), (0, 2)
 # far pin column per far connector from T, a gap, then seven columns per far box connector
 COL_A, COL_B, COL_C, COL_D, COL_E, COL_F = range(6)
 PIN_ROW = "Pin row"  # F of a CON_ sheet and A of a near block, on a box connector with a layout
+CURRENT = "Current [A]"  # after Description and Pin row, while a pin of the connector has a current
 COL_H, COL_I, COL_J, COL_K, COL_L, COL_M, COL_N, COL_O, COL_P, COL_Q, COL_R, COL_S, COL_T = range(
     7, 20
 )
@@ -573,6 +574,10 @@ def _con(project: Project, box: Connector) -> _Con:
             *(name for row in face for name in row),
             *(p.id for p in box.pins if p.id not in numbers),
         )
+    amps = any(p.current_a is not None for p in box.pins)
+    amps_col = COL_F + (1 if face is not None else 0)
+    if amps:
+        _put(g, 17, amps_col, CURRENT)
     rows, values = {}, {}
     for n, pin in enumerate(box.pins):
         five = (
@@ -587,6 +592,8 @@ def _con(project: Project, box: Connector) -> _Con:
             _put(g, 18 + n, k, item)
         if faces is not None:
             _put(g, 18 + n, COL_F, faces[pin.id])
+        if amps:  # format 5: the current of the pin, after Description and Pin row
+            _put(g, 18 + n, amps_col, "" if pin.current_a is None else pin.current_a)
     return _Con(CON + box.id, g, rows, values, device, description, faces, order, named)
 
 

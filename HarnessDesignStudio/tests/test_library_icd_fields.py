@@ -191,7 +191,7 @@ def test_the_fields_are_library_owned_and_keep_the_order_of_4_4_0():
     )  # fmt: skip
     assert ll.PIN_FIELDS == (
         "signal", "fixed", "function", "contact_size", "termination", "contact_part", "role",
-        "direction", "level",
+        "direction", "level", "current_a",  # the current of a pin: format 5, part B of 5.0.0
     )  # fmt: skip
     own = [ll._FIELD_ORDER[f] for f in ("connector", "pin", *ll.CONNECTOR_FIELDS)]
     pins = [ll._FIELD_ORDER[f] for f in ll.PIN_FIELDS]

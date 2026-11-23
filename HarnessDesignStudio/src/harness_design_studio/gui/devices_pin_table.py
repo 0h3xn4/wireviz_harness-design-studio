@@ -49,7 +49,7 @@ from harness_design_studio.gui.theme import ThemeManager
 
 EDITABLE = (
     "pin", "signal", "role", "mode", "contact_size", "termination", "function", "contact_part",
-    "level",
+    "level", "current_a",
 )  # fmt: skip
 Validator = Callable[[str, dict[str, Any], str], str | None]
 

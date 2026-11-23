@@ -32,6 +32,7 @@ from harness_design_studio.core.derive import (
     explain_part,
     explain_wire_all,
     is_explainable,
+    pin_contact_current_derivation,
 )
 from harness_design_studio.core.derive_rules import explain_rule
 from harness_design_studio.core.drc import run as run_drc
@@ -68,6 +69,10 @@ def explain_all(project: Project) -> list[Derivation]:
         for e in i.endpoints:
             if e.connector_id and e.connector_id in project.connectors:
                 found.append(contact_current_derivation(project, i.id, e.connector_id))
+    for c in sorted(project.connectors.values(), key=lambda x: x.id):  # pin currents (format 5)
+        for p in c.pins:
+            if p.current_a is not None:
+                found.append(pin_contact_current_derivation(project, c.id, p.id))
     findings = [*checks.find(project), *run_drc(project)]
     seen: set[tuple[str, str]] = set()
     for f in findings:

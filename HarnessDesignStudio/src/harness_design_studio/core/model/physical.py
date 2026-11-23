@@ -11,6 +11,7 @@ from harness_design_studio.core.ids import Id, PinId
 from .base import (
     MAX_PIN_COUNT,
     Awg,
+    CurrentA,
     Entity,
     IsoDate,
     LengthM,
@@ -60,7 +61,7 @@ PinDirection = Literal["", "in", "out", "bidir"]  # "" = not set: the name and t
 
 class Pin(SparseEntity):
     OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
-        {"function", "contact_part", "role", "direction", "level"}
+        {"function", "contact_part", "role", "direction", "level", "current_a"}
     )
 
     id: PinId
@@ -84,6 +85,9 @@ class Pin(SparseEntity):
         # the link checks and the pairing proposal then take it from the interface types
     )
     level: Name | None = None  # the signal level from the device's ICD (`RS422-3V3`; format 3)
+    # The current through the contact in operation, in amperes, as the device's ICD states it
+    # (format 5, design of 5.0.0 section 5.1): only on a pin of a box connector; never assumed.
+    current_a: CurrentA | None = None
 
 
 MAX_ROWS = 64  # the most rows (or rings) a row layout has (format 4, design of 4.0.0 section 4.1)
@@ -187,6 +191,17 @@ class Connector(SparseEntity):
                 f"only a cable connector says where its lengths are measured to; {self.id} is a "
                 f"connector of role {self.role}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _current_on_a_device_pin(self) -> Connector:
+        if self.unit_id is None:
+            pin = next((p for p in self.pins if p.current_a is not None), None)
+            if pin is not None:
+                raise ValueError(
+                    f"only a pin of a device connector has a current; pin {pin.id} of {self.id} "
+                    "is on a connector of a harness"
+                )
         return self
 
     @model_validator(mode="after")

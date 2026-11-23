@@ -4556,3 +4556,11 @@ INS_PART_DEPTH_SET_TIP = "Save the depth of this part (one undo step); an empty 
 INS_PART_DEPTH_BAD = "'{0}' is not a depth in millimetres."
 STEP_SET_PART_DEPTH = "Set the depth of {0}"
 PART_DEPTH_SET = "The depth of {0} is set."
+
+# ---- 5.0.0 E5, part B: a current per pin (design of 5.0.0 section 5.1)
+DV_COL_CURRENT = "Current (A)"
+DV_COL_CURRENT_TIP = (
+    "The current through the contact in operation, in amperes, as the device's ICD states it "
+    "(2, 2 A or 500 mA). The rules judge the contact and the wires of its net with it; empty: not "
+    "known, and the interface's current applies."
+)

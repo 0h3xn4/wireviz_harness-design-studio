@@ -24,8 +24,14 @@ from typing import Any
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.assumptions import describe
+from harness_design_studio.core.currents import WireCurrent, wire_current
 from harness_design_studio.core.drc.base import cfg, number
-from harness_design_studio.core.drc.rules import RULES, contact_rating, contact_rating_key
+from harness_design_studio.core.drc.rules import (
+    RULES,
+    contact_rating,
+    contact_rating_key,
+    judged_per_pin,
+)
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.generate import bundle
 from harness_design_studio.core.generate.bundle import bundle_size
@@ -309,6 +315,56 @@ def _bundle(
     )
 
 
+def interface_current_input(project: Project, w: Wire, carried: WireCurrent) -> list[Input]:
+    """The current of the wire's interface, named beside a current the pin currents of its net
+    give (design of 5.0.0 section 12: the pins win for the wire, and the explanation names both).
+    None for any other current."""
+    i = project.interfaces.get(w.interface_id or "")
+    if carried.source != "pins" or i is None or i.max_current_a is None:
+        return []
+    return [
+        Input(
+            "Current of the interface (not used: the pin currents decide)",
+            i.max_current_a,
+            "A",
+            f"interface {i.id}: Max current",
+        )  # fmt: skip
+    ]
+
+
+def current_steps(carried: WireCurrent) -> list[Step]:
+    """The steps of a current worked out from the pin currents of a net (format 5, design of 5.0.0
+    section 5.2): the current of each end, the current of the wire's branch (the smaller of the
+    sums on its two sides) and the share of each of its parallel wires. None for another current."""
+    if carried.source != "pins" or carried.branch is None:
+        return []
+    b = carried.branch
+    steps = [
+        Step(f"Current at {e.label}", f"pin {e.pin} of {e.box}: Current (A)", e.current, "A")
+        for e in carried.ends
+        if e.current is not None
+    ]
+    a_text, b_text = f"{b.a[0]}.{b.a[1]}", f"{b.b[0]}.{b.b[1]}"
+    steps.append(
+        Step(
+            f"Current between {a_text} and {b_text}",
+            f"the smaller of the end currents on its two sides: min({_g(b.side_a)}, {_g(b.side_b)})",
+            b.current,
+            "A",
+        )  # fmt: skip
+    )
+    if len(b.wires) > 1:
+        steps.append(
+            Step(
+                f"Share of each of the {len(b.wires)} parallel wires",
+                f"{_g(b.current)} / {len(b.wires)} (one gauge, one length: A-PARALLEL-SHARE)",
+                b.current / len(b.wires),
+                "A",
+            )  # fmt: skip
+        )
+    return steps
+
+
 def wire_current_limit_derivation(project: Project, h: Harness, w: Wire) -> Derivation:
     """The current the wire's gauge may carry after derating, and what the wire carries."""
     derating = cfg(project, "derating")
@@ -329,7 +385,7 @@ def wire_current_limit_derivation(project: Project, h: Harness, w: Wire) -> Deri
         missing.append("derating.temperature_derating")
     subject = f"Wire {w.id}"
     equation = "limit = base ampacity of the gauge × bundle factor K × temperature factor"
-    assumptions = ("A-AMPACITY-AWG", "A-BUNDLE-ALL", "A-TEMP-FACTOR")
+    assumptions: tuple[str, ...] = ("A-AMPACITY-AWG", "A-BUNDLE-ALL", "A-TEMP-FACTOR")
     limit = (
         wire_current_limit(derating, w.gauge_awg, wires)
         if not missing and w.gauge_awg is not None
@@ -368,16 +424,21 @@ def wire_current_limit_derivation(project: Project, h: Harness, w: Wire) -> Deri
         ),
     ]
     check = None
-    i = project.interfaces.get(w.interface_id or "")
-    if i is not None and i.max_current_a is not None:
-        inputs.append(
-            Input("Current carried", i.max_current_a, "A", f"interface {i.id}: Max current")
-        )
-        ok = not exceeds(i.max_current_a, limit)
+    carried = wire_current(project, h, w)
+    current = carried.value
+    if carried.ends:  # format 5: the pin currents of its net decide (`core/currents.py`)
+        assumptions = (*assumptions, "A-ONE-SOURCE", "A-PARALLEL-SHARE")
+        inputs.append(Input("Current carried", current, "A", carried.reason))
+        inputs += interface_current_input(project, w, carried)
+        steps += current_steps(carried)
+    elif current is not None:
+        inputs.append(Input("Current carried", current, "A", carried.reason))
+    if current is not None:
+        ok = not exceeds(current, limit)
         check = Check(
-            i.max_current_a, limit, "A", ok, limit - i.max_current_a,
-            f"the wire carries {_g(i.max_current_a)} A and the limit is {_g(limit)} A: "
-            + (f"within the limit, {_g(limit - i.max_current_a)} A to spare" if ok else f"over the limit by {_g(i.max_current_a - limit)} A"),
+            current, limit, "A", ok, limit - current,
+            f"the wire carries {_g(current)} A and the limit is {_g(limit)} A: "
+            + (f"within the limit, {_g(limit - current)} A to spare" if ok else f"over the limit by {_g(current - limit)} A"),
         )  # fmt: skip
     return Derivation(
         "wire-current-limit", subject, "Derated current limit", limit, "A", equation,
@@ -416,9 +477,19 @@ def wire_voltage_drop_derivation(project: Project, h: Harness, w: Wire) -> Deriv
     itype = project.interface_types.get(i.type_id) if i else None
     length = wire_length(h, w, end_depths(project, h))
     subject = f"Wire {w.id}"
-    assumptions = ("A-DC-SOLID", "A-ROUND-TRIP")
+    assumptions: tuple[str, ...] = ("A-DC-SOLID", "A-ROUND-TRIP")
     missing: list[str] = []
-    if i is None or i.max_current_a is None:
+    carried = wire_current(project, h, w)
+    current = carried.value
+    if carried.ends:  # format 5: the pin currents of its net decide (`core/currents.py`)
+        assumptions = (*assumptions, "A-ONE-SOURCE", "A-PARALLEL-SHARE")
+        if current is None:
+            missing.append(f"the current of the wire ({carried.reason})")
+        elif itype is None:
+            missing.append(
+                "an interface type of the wire, whose category says how many conductors to count (A-ROUND-TRIP)"
+            )
+    elif current is None:
         missing.append("the current of the interface (set Max current on the interface)")
     if rho is None:
         missing.append(rho_missing or "generation.conductor_resistivity_ohm_m")
@@ -430,10 +501,8 @@ def wire_voltage_drop_derivation(project: Project, h: Harness, w: Wire) -> Deriv
         missing.append(f"the gauge of wire {w.id}")
     elif not AWG_MIN <= w.gauge_awg <= AWG_MAX:
         missing.append(f"a gauge of {AWG_MIN} to {AWG_MAX} (the wire has AWG {w.gauge_awg})")
-    current = i.max_current_a if i is not None else None
     if (
         missing
-        or i is None
         or current is None
         or itype is None
         or rho is None
@@ -452,7 +521,8 @@ def wire_voltage_drop_derivation(project: Project, h: Harness, w: Wire) -> Deriv
     drop = voltage_drop_v(current, rho, length, awg, n)
     own = w.length_m is not None
     inputs = [
-        Input("Current I", current, "A", f"interface {i.id}: Max current"),
+        Input("Current I", current, "A", carried.reason),
+        *interface_current_input(project, w, carried),
         Input("Resistivity ρ", rho, "Ω·m", rho_source),
         Input(
             "Length L", length, "m",
@@ -467,6 +537,7 @@ def wire_voltage_drop_derivation(project: Project, h: Harness, w: Wire) -> Deriv
     ]  # fmt: skip
     resistance = rho * length / (area * 1e-6) * n
     steps = [
+        *current_steps(carried),
         Step("Cross-section A", f"π/4 × d², d = 0.127 mm × 92^((36 − {awg})/39)", area, "mm²"),
         Step("Resistance of the conductors counted", f"ρ × L / A × n = {_g(rho)} × {_g(length)} / {_g(area * 1e-6)} × {n}", resistance, "Ω"),
         Step("Voltage drop", f"I × resistance = {_g(current)} × {_g(resistance)}", current * resistance, "V"),
@@ -977,6 +1048,22 @@ def contact_current_derivation(
             assumptions=assumptions, missing=tuple(missing),
         )  # fmt: skip
     limit = rating * factor
+    if judged_per_pin(conn, i.id):  # format 5: every pin of it here states its own current
+        pins = [p for p in conn.pins if p.interface_id == i.id]
+        return Derivation(
+            "contact-current", subject, "Contact current limit", limit, "A", equation,
+            (
+                Input(f"Contact rating '{key}'", rating, "A", f"connector part {conn.part_id}: ratings.{key} (the key is config/derating.json: contact_rating_key)"),
+                Input("Contact current factor", factor, "", "config/derating.json: contact_current_factor"),
+            ),
+            (
+                Step("Limit after derating", f"{_g(rating)} × {_g(factor)}", limit, "A"),
+                *(Step(f"Pin {p.id} of {conn.id}", f"its own current, judged on its own (explain {conn.id}.{p.id})", p.current_a or 0.0, "A") for p in pins),
+            ),
+            None, assumptions,
+            f"Every pin of {conn.id} that carries {i.id} states its own current, so the rule judges "
+            "each pin against the limit and not the current of the interface.",
+        )  # fmt: skip
     ok = not exceeds(i.max_current_a, limit)
     inputs = (
         Input("Current of the interface", i.max_current_a, "A", f"interface {i.id}: Max current"),
@@ -997,6 +1084,65 @@ def contact_current_derivation(
         inputs, steps, check, assumptions,
         "The rating is a value of the parts library of the project and the factor is the project's "
         "own (config/derating.json); the project records no source for either.",
+    )  # fmt: skip
+
+
+def pin_contact_current_derivation(project: Project, connector_id: str, pin_id: str) -> Derivation:
+    """The current a device pin states (format 5, design of 5.0.0 section 5.3), against what the
+    contacts of its connector's part allow after derating: the check of `current-over-contact` for
+    a pin with a current of its own."""
+    subject = f"Pin {pin_id} of {connector_id}"
+    equation = "limit = contact rating of the connector part × contact current factor"
+    conn = project.connectors.get(connector_id)
+    pin = next((p for p in conn.pins if p.id == pin_id), None) if conn is not None else None
+    factor = number(cfg(project, "derating").get("contact_current_factor"))
+    key = contact_rating_key(project)
+    rating = contact_rating(project, conn) if conn is not None else None
+    missing: list[str] = []
+    if conn is None or pin is None:
+        missing.append(f"pin {pin_id} of connector {connector_id}")
+    elif pin.current_a is None:
+        missing.append("the current of the pin (set Current (A) on the pin)")
+    if conn is not None and rating is None:
+        missing.append(
+            f"the rating '{key}' of the connector part {conn.part_id} (a rating of the part in the library)"
+        )
+    if factor is None:
+        missing.append("derating.contact_current_factor")
+    if (
+        missing
+        or conn is None
+        or pin is None
+        or pin.current_a is None
+        or rating is None
+        or factor is None
+    ):
+        return Derivation(
+            "contact-current", subject, "Contact current limit", None, "A", equation,
+            missing=tuple(missing),
+        )  # fmt: skip
+    current = pin.current_a
+    limit = rating * factor
+    ok = not exceeds(current, limit)
+    inputs = (
+        Input("Current of the pin", current, "A", f"pin {pin.id} of {conn.id}: Current (A), from the ICD of the device"),
+        Input(
+            f"Contact rating '{key}'", rating, "A",
+            f"connector part {conn.part_id}: ratings.{key} (the key is config/derating.json: contact_rating_key)",
+        ),
+        Input("Contact current factor", factor, "", "config/derating.json: contact_current_factor"),
+    )  # fmt: skip
+    steps = (Step("Limit after derating", f"{_g(rating)} × {_g(factor)}", limit, "A"),)
+    check = Check(
+        current, limit, "A", ok, limit - current,
+        f"the pin carries {_g(current)} A and its contacts allow {_g(limit)} A: "
+        + (f"within the limit, {_g(limit - current)} A to spare" if ok else f"over the limit by {_g(current - limit)} A"),
+    )  # fmt: skip
+    return Derivation(
+        "contact-current", subject, "Contact current limit", limit, "A", equation,
+        inputs, steps, check, (),
+        "The current is the pin's own, from the ICD of the device; the rating is a value of the "
+        "parts library of the project and the factor is the project's own (config/derating.json).",
     )  # fmt: skip
 
 
@@ -1062,6 +1208,8 @@ def explain_finding(project: Project, rule_id: str, object_id: str) -> list[Deri
             return [wire_voltage_drop_derivation(project, h, w)]
         if rule_id == "current-over-contact":
             left, _, right = object_id.partition(".")
+            if right and left not in project.interfaces and left in project.connectors:
+                return [pin_contact_current_derivation(project, left, right)]  # a pin (format 5)
             if right:
                 return [contact_current_derivation(project, left, right)]
             return []
@@ -1122,6 +1270,9 @@ def explain_object(project: Project, object_id: str) -> list[Derivation]:
         return found
     found = derive_layout.explain_connector_or_pin(project, object_id)
     if found:
+        conn = project.connectors.get(left) if right else None
+        if conn is not None and any(p.id == right and p.current_a is not None for p in conn.pins):
+            found = [*found, pin_contact_current_derivation(project, left, right)]
         return found
     found = explain_routing_object(project, object_id)  # a segment or a branch point (2.3.0)
     if found:

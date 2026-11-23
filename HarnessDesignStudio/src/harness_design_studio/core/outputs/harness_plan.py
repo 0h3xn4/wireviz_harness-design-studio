@@ -135,6 +135,9 @@ LENGTH_HEAD = "Length [mm] rear to rear"  # every length column of the plan (4.1
 DEVICE_HEAD = ["Pin No.", "Function", "Direction", "Level", "Description"]
 PIN_HEAD = ["Pinout", "Function", "Direction", "Level", "Description"]
 PIN_ROW_HEAD = "Pin row"  # column F of a CON_ sheet and A of a near block, with a row layout
+# the column of a CON_ sheet after Description (and after Pin row) while a pin of its connector
+# states a current (format 5, design of 5.0.0 section 5.4)
+CURRENT_HEAD = "Current [A]"
 # The Production sheet (4.1.0, part A): the columns of `production.PLAN_HEADER`, and while the
 # plan colours by pin code a column *Pigtail colour* after *Colour* (P8 of the design); widths in
 # mm that sum to less than the width of the page (270 mm), so it prints at 100 %
@@ -500,6 +503,10 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
     if face is not None:
         g.put(CON_FIRST_PIN_ROW - 1, COL_F, PIN_ROW_HEAD, HEAD)
         pin_rows = {}
+    amps = any(p.current_a is not None for p in box.pins)  # format 5: the pin currents
+    amps_col = COL_F + (1 if face is not None else 0)
+    if amps:
+        g.put(CON_FIRST_PIN_ROW - 1, amps_col, CURRENT_HEAD, HEAD)
     pins: dict[str, int] = {}
     values: dict[str, tuple[Value, str, str, str, str]] = {}
     for n, pin in enumerate(box.pins):
@@ -519,10 +526,12 @@ def con_sheet(project: Project, box: Connector, stamp: Stamp) -> ConSheet:
             number = face.row_of(pin.id)
             pin_rows[pin.id] = "" if number is None else number
             g.put(r, COL_F, pin_rows[pin.id], BOX)
+        if amps:
+            g.put(r, amps_col, "" if pin.current_a is None else pin.current_a, BOX)
     sheet = Sheet(
         name,
         g.rows(),
-        widths=(48, 60, 22, 22, 60, *((22,) if face is not None else ())),
+        widths=(48, 60, 22, 22, 60, *((22,) if face is not None else ()), *((22,) if amps else ())),
         page=Page("A4", landscape=False, fit=True, footer=_footer(stamp)),
     )
     return ConSheet(
