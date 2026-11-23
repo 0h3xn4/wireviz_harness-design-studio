@@ -164,3 +164,15 @@ def test_the_tag_workflow_tags_only_a_tested_commit_of_master_and_starts_the_rel
         assert f"os: [{os_name}]" in workflow, name
     release = (workflows / "release.yml").read_text("utf-8")
     assert "workflow_dispatch:" in release and "inputs.tag || github.ref_name" in release
+
+
+def test_ci_can_run_the_full_suite_by_hand_on_a_commit_whose_change_was_documents_only() -> None:
+    """On 2026-11-23 the commit to tag for 4.4.1 (352c108, #355) changed documents only, so CI ran
+    its `docs` job and skipped `test (ubuntu-24.04)`, which the tag workflow requires. CI can be
+    started by hand (workflow_dispatch), and such a run always runs the full suite."""
+    text = (ROOT.parent / ".github" / "workflows" / "harness-ci.yml").read_text("utf-8")
+    on = text.split("\non:", 1)[1].split("\npermissions:", 1)[0]
+    assert "workflow_dispatch:" in on
+    changes = text[text.index("  changes:") : text.index("  docs:")]
+    assert 'if [ "$EVENT" != workflow_dispatch ]' in changes
+    assert "EVENT: ${{ github.event_name }}" in changes
