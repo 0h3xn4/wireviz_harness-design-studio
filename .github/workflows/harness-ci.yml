@@ -134,7 +134,7 @@ jobs:
     # Prove that the packages work on a fresh machine without the source tree.
     needs: test
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25  # 2 to 6 minutes on a good day; room for a slow package mirror
     defaults:
       run:
         working-directory: ${{ github.workspace }}  # the checkout below holds only the container scripts, not the source tree
@@ -159,6 +159,8 @@ jobs:
           HOME="$PWD/home" "$PWD/home/.local/bin/harness" --version
           HOME="$PWD/home" ./harness-design-studio/uninstall.sh
       - name: Run the tarball on the smallest machine it supports (no Python, three system libraries)
+        env:
+          APT_MIRROR: http://azure.archive.ubuntu.com/ubuntu/  # the mirror of the runner itself, not archive.ubuntu.com
         run: sh HarnessDesignStudio/packaging/ubuntu/container/minimal-machine-test.sh pkg/harness-design-studio-*-linux-*.tar.gz
       - name: Install and run the .deb built in the test job
         working-directory: pkg

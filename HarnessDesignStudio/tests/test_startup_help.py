@@ -205,6 +205,21 @@ def test_ci_runs_the_tarball_on_the_smallest_machine_it_supports() -> None:
     assert job.index("actions/checkout") < job.index("actions/download-artifact")
 
 
+def test_the_smallest_machine_image_does_not_hang_on_one_slow_mirror() -> None:
+    """On 2026-11-23 the job `package-on-24-04` of the merge of 4.4.1 ran out of its time twice while
+    the image downloaded its four packages from archive.ubuntu.com, which answered with time-outs.
+    The image takes the mirror that the runner itself uses, and apt retries and gives up on a
+    stalled download instead of waiting on it."""
+    script = (ROOT / "packaging/ubuntu/container/minimal-machine-test.sh").read_text()
+    assert "ARG APT_MIRROR" in script and '--build-arg "APT_MIRROR=' in script
+    assert "/etc/apt/sources.list.d/ubuntu.sources" in script
+    assert "Acquire::Retries=" in script and "Acquire::http::Timeout=" in script
+    workflow = (ROOT.parent / ".github/workflows/harness-ci.yml").read_text()
+    job = workflow[workflow.index("package-on-24-04:") :]
+    step = job[job.index("minimal-machine-test.sh") - 400 : job.index("minimal-machine-test.sh")]
+    assert "APT_MIRROR: http://azure.archive.ubuntu.com/ubuntu/" in step
+
+
 def test_the_smoke_environment_keeps_the_system_folders_even_with_a_stub_python(
     tmp_path: Path, monkeypatch
 ) -> None:

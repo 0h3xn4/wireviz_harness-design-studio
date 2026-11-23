@@ -7,14 +7,24 @@
 # Usage (on a machine with Docker, after building the tarball):
 #   packaging/ubuntu/container/minimal-machine-test.sh dist/harness-design-studio-<version>-linux-x86_64.tar.gz
 # The image is prepared while online; the test itself runs with --network none.
+# APT_MIRROR (optional, e.g. http://azure.archive.ubuntu.com/ubuntu/) replaces archive.ubuntu.com
+# while the image is prepared: CI passes the mirror its runner uses, so one slow mirror does not
+# stop the test (on 2026-11-23 archive.ubuntu.com timed out twice). apt retries and gives up on a
+# stalled download instead of waiting on it.
 set -eu
 tarball="${1:?usage: minimal-machine-test.sh PATH_TO_TARBALL}"
 case "$tarball" in /*) ;; *) tarball="$(pwd)/$tarball" ;; esac
 image="harness-minimal:24.04"
-docker build -t "$image" - <<'DOCKER'
+docker build --build-arg "APT_MIRROR=${APT_MIRROR:-}" -t "$image" - <<'DOCKER'
 FROM ubuntu:24.04
+ARG APT_MIRROR=
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libegl1 libxcb1 xvfb xauth \
+RUN if [ -n "$APT_MIRROR" ]; then \
+      sed -i "s#http://archive.ubuntu.com/ubuntu/\?#$APT_MIRROR#" /etc/apt/sources.list.d/ubuntu.sources; \
+    fi \
+ && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update \
+ && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
+      libgl1 libegl1 libxcb1 xvfb xauth \
  && rm -rf /var/lib/apt/lists/*
 DOCKER
 docker run --rm --network none -v "$tarball":/pkg.tar.gz:ro "$image" sh -eu -c '
