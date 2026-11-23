@@ -20,11 +20,12 @@ from .logical import InterfaceInstance, InterfaceType, Link, Unit
 from .physical import Connector, Harness
 from .review import Baseline, ChangeEntry, DiagramMark, Placement, Waiver
 
-# Format 4 since D-251 (the row layout of a connector, `row_layout` on a connector part and on a
-# box connector, both sparse; design of 4.0.0 section 4). Format 3 (D-242: the versions
-# MAJOR.MINOR.PATCH with the keys `version`, and the fields of the harness plan) is frozen at the
-# 3.0.0 tag (D-249), format 2 (D-226) at the 2.0.0 tag.
-SCHEMA_VERSION = 4
+# Format 5 since D-264 (the fields of milestone E5, each sparse: design of 5.0.0 section 3; the
+# keys come with their readers, pull requests 2 to 6). Format 4 (D-251: the row layout of a
+# connector) is frozen at the 4.0.0 tag (D-254), format 3 (D-242: the versions MAJOR.MINOR.PATCH
+# with the keys `version`, and the fields of the harness plan) at the 3.0.0 tag (D-249), format 2
+# (D-226) at the 2.0.0 tag.
+SCHEMA_VERSION = 5
 DEFAULT_ZONES = ("panel-A", "panel-B")
 MAX_CONTACT_LINES = 8
 

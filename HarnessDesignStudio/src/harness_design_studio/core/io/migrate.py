@@ -541,6 +541,37 @@ def _v3_to_v4(files: RawFiles) -> RawFiles:
     return out
 
 
+# ---- format 4 to 5 (D-264, design of 5.0.0 section 3) --------------------------------------------
+
+
+def _v5_number(files: RawFiles) -> RawFiles:
+    """The number: a 4.x tool opens a format 5 project read-only (the rule of D-226)."""
+    meta = files.get("project.json")
+    if isinstance(meta, dict):
+        meta["schema_version"] = 5
+    return files
+
+
+# The parts of the step from format 4 to 5. Every new key of format 5 (design of 5.0.0 section 3.1:
+# `length_to` of a cable connector, `depth_mm` of a part, `current_a` of a pin, `at_a` and `at_b` of
+# a shield group, `checked` of a device) is sparse and nobody has one before format 5, so the step
+# writes the number and nothing else: no other file changes, and `project.json` in its number only.
+V4_TO_V5_PARTS: tuple[Callable[[RawFiles], RawFiles], ...] = (_v5_number,)
+
+
+def _v4_to_v5(files: RawFiles) -> RawFiles:
+    """v4 to v5 (D-264, design of 5.0.0 section 3.3). Format 5 holds the fields of milestone E5
+    (where a length is measured to and the depth of a connector, a current per pin, the place of a
+    shield end, the checked state of a device), each left out of the files while unset. A format 4
+    tree is a valid format 5 tree apart from the number, so the step writes the number
+    (`V4_TO_V5_PARTS`) and changes no hash: as for the step from 3 to 4, the migration safety net
+    (`core.io.upgrade`) is its whole proof (the same model hash, findings, baselines and export)."""
+    out = copy.deepcopy(files)
+    for part in V4_TO_V5_PARTS:
+        out = part(out)
+    return out
+
+
 # `MIGRATIONS[n]` takes a project from format n to n + 1; there is one for every format before the
 # one this tool writes (`SCHEMA_VERSION`).
 MIGRATIONS: dict[int, Callable[[RawFiles], RawFiles]] = {
@@ -548,6 +579,7 @@ MIGRATIONS: dict[int, Callable[[RawFiles], RawFiles]] = {
     1: _v1_to_v2,
     2: _v2_to_v3,
     3: _v3_to_v4,
+    4: _v4_to_v5,
 }
 # The steps that take the versions a person gave for the revisions the mapping cannot guess.
 TAKES_VERSIONS = frozenset({2})

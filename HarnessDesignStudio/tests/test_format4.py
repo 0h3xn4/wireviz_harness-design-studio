@@ -4,7 +4,9 @@
 """REQ-MIGRATE-09: format 4 (D-250, D-251, design of 4.0.0 `docs/ait/DESIGN_4.0_ROW_LAYOUT.md`
 sections 4 and 5, pull request 1).
 
-This tool writes `schema_version` 4. The step from 3 to 4 (`core/io/migrate.py` `_v3_to_v4`, the
+This tool writes `schema_version` 5 since D-264 (`tests/test_format5.py`); the step from 3 to 4 is
+still one of its steps, and an upgrade from format 3 takes it and then the step from 4 to 5, which
+writes the number only. The step from 3 to 4 (`core/io/migrate.py` `_v3_to_v4`, the
 parts `V3_TO_V4_PARTS`) writes the number and nothing else: the one new key of format 4,
 `row_layout` of a connector part and of a box connector, is sparse, and nobody has a layout before
 format 4. Like the step from 1 to 2 it changes no hash, so the migration safety net is its whole
@@ -64,16 +66,16 @@ def _rows() -> RowLayout:
 # ---- the number ----------------------------------------------------------------------------------------
 
 
-def test_this_tool_writes_format_4_and_has_a_step_for_every_older_format() -> None:
-    assert SCHEMA_VERSION == 4 and migrate.current_version() == 4
-    assert sorted(migrate.MIGRATIONS) == [0, 1, 2, 3]
+def test_the_step_from_3_to_4_is_still_a_step_of_this_tool() -> None:
+    assert SCHEMA_VERSION == 5 and migrate.current_version() == 5  # format 5 since D-264
+    assert sorted(migrate.MIGRATIONS) == [0, 1, 2, 3, 4]
     assert migrate.MIGRATIONS[3] is migrate._v3_to_v4
     assert (migrate._v4_number,) == migrate.V3_TO_V4_PARTS
     assert upgrade.VERSIONS_FORMAT == migrate.VERSIONS_FORMAT == 3
     assert layout.HASH_SCHEMA_VERSION == 1  # the hash is of the design, never of the format
 
 
-def test_every_fixture_and_every_shipped_example_is_in_format_4_without_a_layout() -> None:
+def test_every_fixture_and_example_is_in_the_current_format_without_a_layout() -> None:
     examples = examples_path()
     assert examples is not None
     roots = [p.parent for p in FIXTURES.rglob("project.json")]
@@ -81,7 +83,7 @@ def test_every_fixture_and_every_shipped_example_is_in_format_4_without_a_layout
     assert len(roots) >= 10
     for root in sorted(roots):
         doc = json.loads((root / "project.json").read_text(encoding="utf-8"))
-        assert doc.get("schema_version") == OLD_FIXTURES.get(root.name, 4), root
+        assert doc.get("schema_version") == OLD_FIXTURES.get(root.name, SCHEMA_VERSION), root
         for path in root.rglob("*.json"):
             assert LAYOUT not in path.read_bytes(), path  # the starter parts ship no layout (L3)
 
@@ -92,7 +94,7 @@ def test_every_fixture_and_every_shipped_example_is_in_format_4_without_a_layout
 def test_the_step_writes_the_number_and_nothing_else(tmp_path: Path) -> None:
     root = as_three("released", tmp_path / "p")
     files, _broken, _issues = read_tree(root)
-    out = migrate.migrate_raw(copy.deepcopy(files), 3)
+    out = migrate.migrate_raw(copy.deepcopy(files), 3, to_version=4)
     assert out["project.json"] == {**files["project.json"], "schema_version": 4}
     assert {rel: data for rel, data in out.items() if rel != "project.json"} == {
         rel: data for rel, data in files.items() if rel != "project.json"
@@ -106,8 +108,8 @@ def test_the_step_writes_the_number_and_nothing_else(tmp_path: Path) -> None:
 def test_the_upgrade_from_3_changes_the_number_only_and_passes_every_check(
     name: str, tmp_path: Path
 ) -> None:
-    """Section 5.2: the files of format 3 read as they are and the files of format 4 give the same
-    model hash, findings, released harnesses and export (the run-time check of `upgrade`); after
+    """Section 5.2: the files of format 3 read as they are and the files the upgrade writes give the
+    same model hash, findings, released harnesses and export (the run-time check of `upgrade`); after
     the step no part and no connector has a layout, `project.json` differs in its number only, and
     every other project file is byte-identical (the journal has one more entry)."""
     root = as_three(name, tmp_path / "p")
@@ -116,7 +118,7 @@ def test_the_upgrade_from_3_changes_the_number_only_and_passes_every_check(
     plan = upgrade.plan_upgrade(root)  # the dry run
     assert managed(root) == before  # writes nothing
     assert plan is not None and plan.ok, plan.lost
-    assert (plan.from_version, plan.to_version) == (3, 4)
+    assert (plan.from_version, plan.to_version) == (3, 5)  # and on through the step from 4 to 5
     assert plan.hash_equal is True and plan.exports_equal is True and plan.baselines_intact
     assert plan.nothing_but_versions is None and plan.versions == []  # no step 2 to 3 here
     assert set(plan.files) == {"project.json", *([JOURNAL] if had_journal else [])}
@@ -128,13 +130,13 @@ def test_the_upgrade_from_3_changes_the_number_only_and_passes_every_check(
     assert changed == {"project.json", *([JOURNAL] if had_journal else [])}
     old, new = json.loads(before["project.json"]), json.loads(after["project.json"])
     old_number, new_number = old.pop("schema_version"), new.pop("schema_version")
-    assert old_number == 3 and new_number == 4 and old == new
+    assert old_number == 3 and new_number == 5 and old == new
     if had_journal:  # one more line: "migrated from format 3"
         assert after[JOURNAL].startswith(before[JOURNAL])
         assert after[JOURNAL].count(b"\n") == before[JOURNAL].count(b"\n") + 1
     assert not [rel for rel, data in after.items() if LAYOUT in data]  # no layout appears
     record = json.loads((root / done.record).read_bytes())
-    assert (record["status"], record["from_version"], record["to_version"]) == ("complete", 3, 4)
+    assert (record["status"], record["from_version"], record["to_version"]) == ("complete", 3, 5)
     assert done.backup == ".migration-backup-v3"
 
 
@@ -169,18 +171,18 @@ def test_migrate_dry_run_shows_the_one_change_and_writes_nothing(tmp_path: Path,
     before = folder_bytes(root)
     assert main(["migrate", str(root), "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "Project format 3; this tool writes format 4." in out
+    assert "Project format 3; this tool writes format 5." in out
     assert "changed  project.json" in out and "(equal)" in out and "identical" in out
     assert "Nothing is lost. Nothing was written." in out
     assert main(["migrate", str(root), "--dry-run", "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
-    assert (doc["from_version"], doc["to_version"], doc["ok"]) == (3, 4, True)
+    assert (doc["from_version"], doc["to_version"], doc["ok"]) == (3, 5, True)
     assert doc["files"] == [{"file": "project.json", "change": "changed"}]
     assert doc["model_hash_before"] == doc["model_hash_after"]
     assert folder_bytes(root) == before
     assert main(["migrate", str(root)]) == 0
     out = capsys.readouterr().out
-    assert "Format 3 to 4." in out and "same model hash" in out
+    assert "Format 3 to 5." in out and "same model hash" in out
 
 
 # ---- format 2 and format 1 in one upgrade -----------------------------------------------------------------
@@ -196,20 +198,20 @@ def test_an_older_project_goes_through_every_step_in_one_upgrade(
     as_format(root, version)
     assert main(["migrate", str(root), "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert f"Project format {version}; this tool writes format 4." in out
+    assert f"Project format {version}; this tool writes format 5." in out
     assert "revision B → version 2.0.0" in out and "Only the versions change" in out
     assert main(["migrate", str(root)]) == 0
-    assert f"Format {version} to 4." in capsys.readouterr().out
+    assert f"Format {version} to 5." in capsys.readouterr().out
     after = managed(root)
     assert {k: v for k, v in after.items() if not k.startswith("journal")} == {
         k: v for k, v in want.items() if not k.startswith("journal")
-    }  # the files of format 4 as this tool writes them, byte for byte
+    }  # the files of the current format as this tool writes them, byte for byte
     record = json.loads((root / f".migration-backup-v{version}" / upgrade.RECORD_NAME).read_bytes())
-    assert record["to_version"] == 4
+    assert record["to_version"] == 5
     assert record["proof"] == {"nothing_but_versions": True, "versions_mapped": True}
 
 
-def test_set_version_is_still_taken_on_the_way_from_2_to_4(tmp_path: Path, capsys) -> None:
+def test_set_version_is_still_taken_on_the_way_from_2_to_5(tmp_path: Path, capsys) -> None:
     root = as_format(build("mini3", tmp_path / "p"), 2)
     path = root / "physical" / "harnesses" / "W001.json"
     doc = json.loads(path.read_bytes())
@@ -219,7 +221,7 @@ def test_set_version_is_still_taken_on_the_way_from_2_to_4(tmp_path: Path, capsy
     capsys.readouterr()
     assert main(["migrate", str(root), "--set-version", "W001:A1=1.1.0"]) == 0
     p = load_project(root).project
-    assert p.meta.schema_version == 4 and p.harnesses["W001"].version == "1.1.0"
+    assert p.meta.schema_version == 5 and p.harnesses["W001"].version == "1.1.0"
 
 
 # ---- older and newer tools ---------------------------------------------------------------------------------
@@ -230,7 +232,7 @@ def test_a_reader_of_format_3_opens_a_format_4_project_read_only(
 ) -> None:
     """What a 3.0.x tool does with a format 4 project, simulated by the loader's own version check
     (D-226): it is newer than the reader, so it is opened read-only and nothing is saved over it."""
-    root = build("mini3", tmp_path / "p")
+    root = as_format(build("mini3", tmp_path / "p"), 4)
     before = managed(root)
     for module in (loader, saver):
         monkeypatch.setattr(module, "SCHEMA_VERSION", 3)
@@ -249,7 +251,7 @@ def test_a_format_3_project_is_written_only_by_migrate(tmp_path: Path) -> None:
         save_project(r.project, root)
     out = tmp_path / "copy"
     save_project(r.project, out)  # a new folder gets the current format
-    assert json.loads((out / "project.json").read_bytes())["schema_version"] == 4
+    assert json.loads((out / "project.json").read_bytes())["schema_version"] == SCHEMA_VERSION
 
 
 def test_check_of_a_format_3_project_finds_nothing_to_rewrite(tmp_path: Path, capsys) -> None:
@@ -356,6 +358,6 @@ def test_the_schemas_hold_the_new_key(tmp_path: Path) -> None:
     rows = defs["RowLayout"]["properties"]["rows"]
     assert (rows["minItems"], rows["maxItems"]) == (1, 64)
     device = found["device-file"]["properties"]["version"]
-    assert device["maximum"] == 3
+    assert device["maximum"] == device_library.VERSION >= 3  # 4 since format 5 (D-264)
     assert main(["schema", str(tmp_path / "s")]) == 0
     assert "RowLayout" in (tmp_path / "s" / "connectors.schema.json").read_text(encoding="utf-8")

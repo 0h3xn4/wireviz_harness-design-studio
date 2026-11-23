@@ -7,7 +7,7 @@ request 6 of section 14 of `docs/ait/DESIGN_4.0_ROW_LAYOUT.md`), through the com
 A project as 3.0.x saved it: the sample `mini3`, generated and saved, with the number 3 in
 `project.json` (`tests/migration_support.as_format`; the step from 3 to 4 writes the number and
 nothing else, so these are the bytes a 3.0.x tool writes). `generate` refuses it until the upgrade;
-`migrate --dry-run` names `project.json` only and writes nothing; `migrate` writes format 4, keeps
+`migrate --dry-run` names `project.json` only and writes nothing; `migrate` writes format 4 (5 since D-264), keeps
 the backup `.migration-backup-v3/` and changes no other file (beside the journal's entry of the
 step and the copy `project.json.bak` the save keeps). The project without a layout writes
 what 3.0.x wrote, apart from the older names that pull request R dropped: every file of
@@ -107,12 +107,12 @@ def test_the_whole_path_of_4_0_0_end_to_end(
     assert code != 0 and "migrate" in out  # a format 3 project is written only by migrate
     assert project_files(proj) == before
     out = ok(capsys, "migrate", proj, "--dry-run")
-    assert "Project format 3; this tool writes format 4." in out
+    assert "Project format 3; this tool writes format 5." in out
     assert "Files that would change (1):\n  changed  project.json\n" in out
     assert "(equal)" in out and "Nothing was written." in out
     assert project_files(proj) == before
     out = ok(capsys, "migrate", proj)
-    assert "Format 3 to 4. Record: .migration-backup-v3/MIGRATION.json." in out
+    assert "Format 3 to 5. Record: .migration-backup-v3/MIGRATION.json." in out
     after = {
         k: v for k, v in project_files(proj).items() if not k.startswith(".migration-backup-v3/")
     }
@@ -120,7 +120,7 @@ def test_the_whole_path_of_4_0_0_end_to_end(
     # project.json, the copy of the file it replaced, and the journal's entry of the step
     assert changed - {"journal.jsonl"} == {"project.json", "project.json.bak"}
     assert after["project.json.bak"] == before["project.json"]
-    assert json.loads(after["project.json"])["schema_version"] == 4
+    assert json.loads(after["project.json"])["schema_version"] == 5
     assert {
         k: v for k, v in json.loads(before["project.json"]).items() if k != "schema_version"
     } == {k: v for k, v in json.loads(after["project.json"]).items() if k != "schema_version"}

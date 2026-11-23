@@ -533,7 +533,7 @@ def test_a_project_of_4_3_with_both_keys_loads_saves_and_keeps_them(tmp_path: Pa
 
     edit_json(naming, put)
     p = load_project(folder).project
-    assert p.meta.schema_version == SCHEMA_VERSION == 4
+    assert p.meta.schema_version == SCHEMA_VERSION == 5
     assert configcheck.validate(p) == configcheck.validate(plain)
     changed = [f.id for f in run_drc(p) if not f.id.startswith("verify-mismatch.outputs_outdated")]
     assert changed == [f for f in findings if not f.startswith("verify-mismatch.outputs_outdated")]

@@ -116,7 +116,7 @@ def test_the_whole_path_of_3_0_0_end_to_end(
     assert "Only the versions change" in out
     assert json.loads((proj / "project.json").read_bytes())["schema_version"] == 2
     out = ok(capsys, "migrate", proj)
-    assert "Format 2 to 4." in out
+    assert "Format 2 to 5." in out
     p = load_project(proj).project
     assert (p.harnesses["W001"].version, p.harnesses["W001"].status) == ("2.0.0", "draft")
     assert sorted(p.baselines) == ["W001.1.0.0"]
