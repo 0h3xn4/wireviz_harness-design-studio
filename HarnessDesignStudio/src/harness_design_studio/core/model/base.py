@@ -123,6 +123,10 @@ Awg = Annotated[int, Field(ge=AWG_MIN, le=AWG_MAX)]
 LengthM = Annotated[float, Field(ge=0, le=MAX_LENGTH_M)]
 MAX_LENGTH_MM = 100_000.0  # a guard against a typing slip (10 m in millimetres), not a design limit
 LengthMm = Annotated[float, Field(ge=0, le=MAX_LENGTH_MM)]
+# The depth of a connector or backshell part (format 5, design of 5.0.0 section 3.1): from the
+# mating face back to where the wires leave; above 0 and at most 1000 mm.
+MAX_DEPTH_MM = 1000.0
+DepthMm = Annotated[float, Field(gt=0, le=MAX_DEPTH_MM)]
 Positive = Annotated[float, Field(gt=0)]
 NonNegative = Annotated[float, Field(ge=0)]
 

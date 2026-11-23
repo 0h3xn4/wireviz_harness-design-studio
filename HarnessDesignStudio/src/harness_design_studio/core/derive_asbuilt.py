@@ -23,7 +23,7 @@ project, and the result stays what the person recorded.
 
 from harness_design_studio.core.asbuilt import LIMIT_KEYS, TOLERANCE, LengthCheck, length_check
 from harness_design_studio.core.derive import Check, Derivation, Input, Step, _g
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.model import AsBuiltRecord, Harness, Project, Wire
 from harness_design_studio.core.model.asbuilt import record_id
 from harness_design_studio.core.outputs import tables
@@ -108,7 +108,7 @@ def cut_length_derivation(project: Project, h: Harness, w: Wire) -> Derivation |
     rec = _record(project, "wire", h.id, w.id)
     if rec is None or rec.cut_length_m is None:
         return None
-    designed = wire_length(h, w)
+    designed = wire_length(h, w, end_depths(project, h))
     inputs = [
         Input("Cut length", rec.cut_length_m, "m", f"{SOURCE}: wire {w.id} of harness {h.id}"),
         Input(

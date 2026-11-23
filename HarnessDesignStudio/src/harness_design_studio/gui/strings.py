@@ -4532,3 +4532,27 @@ END_PORT_FAR_RELEASED = (
     "It is kept because harness {harness} is released; a new version takes the port of {far}."
 )
 END_PORT_FAR_REGENERATE = "Regenerate, or choose the port of {far}."
+
+# ---- 5.0.0 E5, part A: where a length is measured to, and the depth of a part (design of 5.0.0
+# section 4.5)
+INS_LENGTH_TO = "Lengths measured to"
+INS_LENGTH_TO_TIP = (
+    "Where the routing segments that end at this cable connector are measured to: its rear, "
+    "where the wires leave the body or backshell, or its mating face. At the face the depth of "
+    "the connector part and its backshell (library: depth_mm) is taken off each wire."
+)
+INS_LENGTH_TO_PROJECT = "the project's ({0})"
+INS_LENGTH_TO_REAR = "rear"
+INS_LENGTH_TO_FACE = "face"
+STEP_SET_LENGTH_TO = "Lengths of {0} measured to {1}"
+INS_PART_DEPTH = "Depth (mm)"
+INS_PART_DEPTH_TIP = (
+    "A connector part: from its mating face back to where the wires leave. A backshell part: "
+    "what it adds behind the rear of the connector. Taken off the wires at a cable connector "
+    "measured to its face; empty: not known."
+)
+INS_PART_DEPTH_SET = "Set"
+INS_PART_DEPTH_SET_TIP = "Save the depth of this part (one undo step); an empty field clears it"
+INS_PART_DEPTH_BAD = "'{0}' is not a depth in millimetres."
+STEP_SET_PART_DEPTH = "Set the depth of {0}"
+PART_DEPTH_SET = "The depth of {0} is set."

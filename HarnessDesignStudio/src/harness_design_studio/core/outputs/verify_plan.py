@@ -64,7 +64,7 @@ from harness_design_studio.core.verify import VerifyReport
 
 from .stamp import Stamp, stamp_of
 from .verify_labels import _label_format
-from .verify_production import _length_lines, production_rows
+from .verify_production import _end_depths, _from_rear, _length_lines, production_rows
 
 # ---- the words of the plan, stated here a second time (never imported from the layout) --------
 
@@ -618,6 +618,7 @@ class _HarnessSheet:
         codes: list[_Code],
     ) -> None:
         self.project, self.h, self.name, self.cons, self.tables = project, h, name, cons, tables
+        self.depths = _end_depths(project, h)  # the face ends (format 5)
         self.g: Grid = {}
         self.conditions: dict[tuple[int, int], tuple[tuple[str, str], ...]] = {}
         self.rows: dict[int, str] = {}
@@ -678,7 +679,7 @@ class _HarnessSheet:
         self.put(5, COL_Q, f"VERSION: v{h.version} ({STATUS.get(h.status, h.status)})")
         if self.sgnd_open():
             self.put(5, COL_T, NO_SGND)
-        self.put(8, COL_H, "\n".join(_length_lines(self.project)))  # H9: the length note
+        self.put(8, COL_H, "\n".join(_length_lines(self.project, self.h)))  # H9: the length note
         for col in (COL_I, COL_M):
             self.put(1, col, SEARCH_LABEL)
             self.put(2, col, SEARCH_TEXT)
@@ -1068,6 +1069,8 @@ class _HarnessSheet:
         self.put(row, COL_L, kind)
         self.put(row, COL_M, ", ".join(self.groups.get(w.id, [])))
         length = _length(self.h, w)
+        if w.length_m is None:  # a path: the depth of each face end is taken off
+            length = _from_rear(length, w, self.depths)
         self.put(row, COL_N, TO_FILL if length is None else round(length * 1000, 1) + 0.0)
         return kind
 
@@ -1267,7 +1270,7 @@ def _production(
         for part in listed.parts:
             by_part.setdefault(part, listed)
     _put(g, 0, 0, f"Production sheet of {h.id}")
-    _put(g, 1, 0, "\n".join(_length_lines(project)))
+    _put(g, 1, 0, "\n".join(_length_lines(project, h)))
     for n, text in enumerate(heads):
         _put(g, 2, n, text)
         looks[2, n] = "wrap"

@@ -9,6 +9,7 @@
     ops = plan_add_pins(project, "W001", "W001-P1", ["10", "11"])
     ops = plan_delete_pin(project, "W001", "W001-P1", "11")
     ops = plan_reset_connector(project, "W001", "W001-P2")                       # give it back
+    ops = plan_set_length_to(project, "W001", "W001-P1", "face")      # None: the project's setting
 
 A harness that a person made (`Harness.generated` False) takes every one of these. A harness that
 Generate made rebuilds its cable connectors from the device connectors they plug into, so an edit
@@ -36,7 +37,7 @@ from .edit import EditError
 from .manual_harness import _text, _writable
 from .model import Connector, Harness, Pin, Project, evolve
 from .model.base import MAX_PIN_COUNT
-from .model.physical import LOOSE_ROLE, Gender, PinRole, Termination
+from .model.physical import LENGTH_TO, LOOSE_ROLE, Gender, PinRole, Termination
 from .wires import released_text
 
 GENDERS: tuple[str, ...] = get_args(Gender)
@@ -149,6 +150,28 @@ def plan_edit_connector(
     if h.generated:
         clean["locked"] = True
     return _put(h, evolve(c, **clean))
+
+
+def plan_set_length_to(
+    project: Project, harness_id: str, connector_id: str, to: str | None
+) -> list[Op]:
+    """Ops that say where the segments ending at a cable connector are measured to (format 5,
+    design of 5.0.0 section 4.5): `face` or `rear`, or None for the project's setting
+    `model.length_reference`. Only a cable connector has a face; Generate keeps the value on a
+    harness it made, as it keeps the label, so the connector does not become the person's
+    (`locked`). One undo step; a released harness refuses."""
+    h = _open(project, harness_id)
+    c = _connector(h, connector_id)
+    if to is not None and to not in LENGTH_TO:
+        raise EditError(f"Lengths are measured to one of {', '.join(LENGTH_TO)}, or the project's.")
+    if c.role != "cable":
+        raise EditError(
+            f"{connector_id} is not a cable connector (its role is {c.role}), so its lengths have "
+            "no face to be measured to."
+        )
+    if c.length_to == to:
+        return []
+    return _put(h, evolve(c, length_to=to))
 
 
 def _pin(c: Connector, pin_id: str) -> Pin:

@@ -47,7 +47,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 
-from harness_design_studio.core.generate.lengths import reference_lines, wire_length
+from harness_design_studio.core.generate.lengths import end_depths, reference_lines, wire_length
 from harness_design_studio.core.issues import Issue
 from harness_design_studio.core.label_format import format_of
 from harness_design_studio.core.links import effective_role
@@ -579,6 +579,7 @@ class _HarnessSheet:
         self.cons, self.settings, self.drawings = cons, settings, drawings
         self.g = _Grid()
         self.sides = plan_sides(h)
+        self.ends = end_depths(project, h)  # the depth of each face end (format 5)
         self.splices = splice_ids(h)
         self.joined = joined_wires(h)
         self.boxes = {c.id: project.connectors.get(c.mates_with or "") for c in h.connectors}
@@ -699,7 +700,7 @@ class _HarnessSheet:
         g.put(5, COL_Q, f"VERSION: v{h.version} ({STATUS_WORDS[h.status]})", BOLD)
         if self.signal_ground_open():
             g.put(5, COL_T, NO_SGND, RED_BOLD)
-        g.put(8, COL_H, "\n".join(reference_lines(project)), NOTE)  # H9: the length note
+        g.put(8, COL_H, "\n".join(reference_lines(project, h)), NOTE)  # H9: the length note
         for col in (COL_I, COL_M):
             g.put(SEARCH_ROW - 1, col, SEARCH_LABEL, BOLD)
             g.put(SEARCH_ROW, col, SEARCH_TEXT, TYPED)
@@ -1071,7 +1072,7 @@ class _HarnessSheet:
             g.put(row, COL_L, TO_FILL, FILL)
         if self.shields.get(w.id):
             g.put(row, COL_M, ", ".join(self.shields[w.id]), TYPED)
-        length = wire_length(self.h, w)
+        length = wire_length(self.h, w, self.ends)
         if length is None:
             g.put(row, COL_N, TO_FILL, FILL)
         else:
@@ -1278,7 +1279,7 @@ def production_sheet(project: Project, h: Harness, stamp: Stamp, settings: PlanS
     connectors = {c.id: c for c in h.connectors}
     g = _Grid()
     g.put(0, 0, f"Production sheet of {h.id}", TITLE)
-    g.put(1, 0, "\n".join(reference_lines(project)), NOTE)
+    g.put(1, 0, "\n".join(reference_lines(project, h)), NOTE)
     for n, text in enumerate(head):
         g.put(2, n, text, HEAD)
     row, spans, titled = 3, [], False

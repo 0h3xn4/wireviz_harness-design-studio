@@ -25,7 +25,8 @@ from harness_design_studio.core.commands import Op, Put, SetLibraryInfo
 from harness_design_studio.core.ids import ID_RE
 from harness_design_studio.core.imports import ImportError_
 from harness_design_studio.core.model import Part, Project, evolve
-from harness_design_studio.core.model.library import PART_CATEGORIES
+from harness_design_studio.core.model.base import MAX_DEPTH_MM
+from harness_design_studio.core.model.library import DEPTH_CATEGORIES, PART_CATEGORIES
 from harness_design_studio.core.vcs.release import valid_date
 
 Table = list[list[str]]
@@ -36,6 +37,7 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("approval", "Approval status"), ("pin_count", "Pin count"), ("mass_g", "Mass (g)"),
     ("mass_per_m_g", "Mass per metre (g/m)"), ("mates_with", "Mating part ID"),
     ("tool", "Crimp tool"), ("conductors", "Conductors"), ("link", "Link"),
+    ("depth_mm", "Depth (mm)"),
 )  # fmt: skip
 _ALIASES = {
     "id": (
@@ -62,6 +64,9 @@ _ALIASES = {
     "conductors": ("conductors", "conductorcount", "cores", "numberofconductors"),
     # a web page of the part (format 3, design of 3.0.0 section 4.1); InvenTree exports `Link`
     "link": ("link", "url", "weblink", "partlink", "parturl"),
+    # the depth of a connector or backshell part, in millimetres (format 5, design of 5.0.0
+    # section 4.2): `Depth`, `Depth (mm)`, `Connector depth`
+    "depth_mm": ("depthmm", "depth", "connectordepth"),
 }
 
 
@@ -334,6 +339,21 @@ def plan_parts_import(
                 problem = problem or (
                     f"Pin count '{text}' is not a whole number from 1 to {MAX_PIN_COUNT}"
                 )
+        if cell("depth_mm"):  # a connector or backshell part only: the model refuses another
+            text = cell("depth_mm")
+            depth = _number(text)
+            if depth is None or not 0 < depth <= MAX_DEPTH_MM:
+                problem = problem or (
+                    f"Depth '{text}' is not a number of millimetres above 0 and at most "
+                    f"{MAX_DEPTH_MM:g}"
+                )
+            elif category not in DEPTH_CATEGORIES:
+                problem = problem or (
+                    f"Only a connector or backshell part has a depth; {pid} is a part of "
+                    f"category {category}"
+                )
+            else:
+                changes["depth_mm"] = depth
         if cell("conductors") and category == "wire":  # only a wire part has conductors
             text = cell("conductors")
             if _WHOLE.fullmatch(text) and 1 <= float(text) <= 64:

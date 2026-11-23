@@ -70,7 +70,7 @@ __all__ = [
 FORMAT = "harness-subsystem-library"
 # The newest version this program reads and writes. A file is written as version 3 only when one of
 # its devices, pins or parts holds a key of format 5 (D-264, design of 5.0.0 section 3.7; the keys
-# `device_library.FORMAT5_KEYS`, none yet), as version 2 when one of its box connectors or parts has
+# `device_library.FORMAT5_KEYS`), as version 2 when one of its box connectors or parts has
 # a row layout (format 4, D-251, design of 4.0.0 section 5.5), else as version 1, so that an older
 # tool still reads every file that holds nothing it would refuse (`content_version`).
 VERSION = 3

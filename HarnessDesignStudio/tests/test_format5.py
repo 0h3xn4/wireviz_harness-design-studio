@@ -14,7 +14,7 @@ are and the format 5 files the step writes give the same model hash, findings, r
 and in-memory export, byte for byte. A format 3, 2 or 1 project goes through every step in one
 upgrade. A 4.x tool opens a format 5 project read-only. A device library file is written as version
 4 and a subsystem file as version 3 only when they hold a key of format 5
-(`device_library.FORMAT5_KEYS`, empty until the keys come; section 3.7). The output-hash baseline
+(`device_library.FORMAT5_KEYS`, each key added with its reader; section 3.7). The output-hash baseline
 and the numbers snapshot stay *identical* (section 11).
 """
 
@@ -343,9 +343,10 @@ def _device_content(extra_pin_key: str | None = None) -> dict[str, Any]:
     return content
 
 
-def test_no_key_of_format_5_yet_so_no_file_is_version_4() -> None:
-    """Pull request 1 makes the rule; the keys come with their readers (pull requests 2, 3, 6)."""
-    assert not device_library.FORMAT5_KEYS
+def test_only_the_keys_that_came_make_a_file_version_4() -> None:
+    """Pull request 1 makes the rule; the keys come with their readers (pull requests 2, 3, 6):
+    `depth_mm` of a part with pull request 2."""
+    assert frozenset({"depth_mm"}) == device_library.FORMAT5_KEYS
     assert device_library.VERSION == 4 and device_library.FORMAT4_VERSION == 3
     assert subsystem_library.VERSION == 3 and subsystem_library.FORMAT4_VERSION == 2
     assert device_library.content_version(_device_content()) == 1

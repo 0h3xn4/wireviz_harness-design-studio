@@ -16,6 +16,11 @@ row layouts of `tests/row_layout_support.py` (`row_layout_project`: mini3 with t
 and the own rows of a box connector): the digest of every file, and the pinout tables and
 `system/export.json` as text to read. Its plans are in `harness_plan/row_layout*`.
 
+`format5` (format 5, pull request 2 of `docs/ait/DESIGN_5.0_FORMAT_5.md` on, section 11) is the
+project with data of format 5 of `tests/format5_support.py` (`format5_project`: the branching
+fixture with face ends and depths): the digest of every file, and the wire lists, the segments, a
+WireViz file and `system/export.json` as text to read. Its plans are in `harness_plan/format5*`.
+
 `harness_plan/` (3.0.0, D-242, pull requests 3 and 6 of `docs/ait/DESIGN_3.0_HARNESS_PLAN.md`):
 the harness plans of the four examples, of the branching fixture, of the splice fixture
 (`splices`, `branch_leg_project`) and of the row layout fixture (`row_layout`), made with the plan on (`build_outputs(..., harness_plan=True)`):
@@ -31,6 +36,8 @@ from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.outputs.build import build_outputs
 from harness_design_studio.core.samples import mini3, sat15, sat15_full
+from tests.format5_support import format5_project
+from tests.format5_support import golden_text_files as format5_text_files
 from tests.helpers import output_digests
 from tests.loose_support import generated_loose, golden_text_files
 from tests.plan_support import GOLDEN_PROJECTS, READABLE, golden_files, golden_project
@@ -86,6 +93,15 @@ def main() -> None:
     text = ROOT / "row_layout"
     shutil.rmtree(text, ignore_errors=True)
     for rel, data in row_layout_text_files(files).items():
+        (text / rel).parent.mkdir(parents=True, exist_ok=True)
+        (text / rel).write_bytes(data)
+    files = build_outputs(format5_project()).files
+    (ROOT / "format5.json").write_text(
+        json.dumps(output_digests(files), indent=1, sort_keys=True) + "\n", newline="\n"
+    )
+    text = ROOT / "format5"
+    shutil.rmtree(text, ignore_errors=True)
+    for rel, data in format5_text_files(files).items():
         (text / rel).parent.mkdir(parents=True, exist_ok=True)
         (text / rel).write_bytes(data)
     plans = ROOT / "harness_plan"

@@ -40,6 +40,12 @@ SPLICE_ROLE: Role = "splice"
 Origin = Literal["interfaces", "link", "drawn"]
 Termination = Literal["crimp", "solder", "unspecified"]
 HarnessStatus = Literal["draft", "in_review", "released"]
+# Where the routing segments that end at a cable connector are measured to (format 5, design of
+# 5.0.0 section 4): its rear, where the wires leave the body or backshell (the meaning of every
+# length of formats 1 to 4), or its mating face. Unset on a connector: the project's setting
+# `model.length_reference`.
+LengthTo = Literal["face", "rear"]
+LENGTH_TO: tuple[LengthTo, ...] = ("face", "rear")
 ShieldKind = Literal["twisted_pair", "shielded_pair", "overall_shield", "quad", "coax"]
 ShieldEnd = Literal["backshell_360", "pigtail", "floating"]
 # The outer conductor of a coax carries the signal return, so it is bonded at both ends whatever the
@@ -133,7 +139,15 @@ class RowLayout(SparseEntity):
 
 class Connector(SparseEntity):
     OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset(
-        {"label", "locked", "source_doc", "source_version", "source_link", "row_layout"}
+        {
+            "label",
+            "locked",
+            "source_doc",
+            "source_version",
+            "source_link",
+            "row_layout",
+            "length_to",
+        }
     )
 
     id: Id
@@ -162,6 +176,18 @@ class Connector(SparseEntity):
     # The connector's own row layout (format 4, design of 4.0.0 section 3): a box connector only,
     # where its insert differs from its part's; every name is a pin of the connector.
     row_layout: RowLayout | None = None
+    # Where the segments that end at this cable connector are measured to (format 5, design of
+    # 5.0.0 section 4.2): `face` or `rear`; None follows the setting `model.length_reference`.
+    length_to: LengthTo | None = None
+
+    @model_validator(mode="after")
+    def _length_to_on_a_cable_connector(self) -> Connector:
+        if self.length_to is not None and self.role != "cable":
+            raise ValueError(
+                f"only a cable connector says where its lengths are measured to; {self.id} is a "
+                f"connector of role {self.role}"
+            )
+        return self
 
     @model_validator(mode="after")
     def _own_rows_name_own_pins(self) -> Connector:

@@ -44,7 +44,16 @@ from harness_design_studio.core.vcs.snapshot import carried_interfaces
 from harness_design_studio.core.wirecolours import signal_colour
 
 from . import bundle, shields
-from .lengths import generated_length, path_length, path_trail
+from .lengths import (
+    EndDepths,
+    depth_taken,
+    end_depths,
+    generated_length,
+    missing_depth,
+    path_length,
+    path_trail,
+    rear_path,
+)
 from .naming import Namer, namer_for
 from .pins import (
     DEFAULT_STRATEGY,
@@ -753,7 +762,8 @@ def _build_harness(
                 mate = box.part_id
             cables[box_id] = Connector(
                 id=cid, name=cid.rsplit("-", 1)[-1], role="cable", part_id=mate, gender=_opposite(box.gender if box.gender != "unspecified" else part_gender(part)),
-                keying=box.keying, mates_with=box_id, label=old_cables[box_id].label if box_id in old_cables else None, pins=[Pin(id=pin.id, contact_size=pin.contact_size, termination=pin.termination, function=pin.function, contact_part=pin.contact_part) for pin in box.pins],
+                keying=box.keying, mates_with=box_id, label=old_cables[box_id].label if box_id in old_cables else None,
+                length_to=old_cables[box_id].length_to if box_id in old_cables else None, pins=[Pin(id=pin.id, contact_size=pin.contact_size, termination=pin.termination, function=pin.function, contact_part=pin.contact_part) for pin in box.pins],
             )  # fmt: skip
             ctx.note(
                 f"connector:{cid}",
@@ -767,7 +777,9 @@ def _build_harness(
             kept_edit = old_cables.get(box_id)
             if box_id in taken_cables:  # under the numbering of the harness that is kept
                 kept_edit = taken_cables[box_id]
-                cables[box_id] = evolve(cables[box_id], label=kept_edit.label)
+                cables[box_id] = evolve(
+                    cables[box_id], label=kept_edit.label, length_to=kept_edit.length_to
+                )
             if kept_edit is not None and kept_edit.locked:
                 cables[box_id] = _keep_edited_connector(cables[box_id], kept_edit)
                 ctx.note(
@@ -823,7 +835,12 @@ def _build_harness(
         connectors=list(cables.values()),
         branch_points=branches,
         segments=segments,
+        # the backshells kept on the cable connectors kept: their depth is part of a face end's
+        accessories=[a for a in (old.accessories if old else []) if a.target in carried],
     )
+    # the depth of each face end (format 5, design of 5.0.0 section 4.3): taken off each path
+    # before the service loops are added; empty for a harness with no face end
+    depths = end_depths(p, skeleton)
     loop = _num(ctx.gen.get("service_loop_m"))
     if ctx.gen.get("service_loop_m") is None:
         ctx.note(
@@ -861,6 +878,8 @@ def _build_harness(
                 )
                 used_wires.add(wid)
             length = path_length(skeleton, cables[src_box].id, cables[dst_box].id)
+            if depths and length is not None:
+                length = _rear_to_rear(ctx, wid, cables[src_box].id, cables[dst_box].id, length, depths)  # fmt: skip
             if length is not None:
                 length = generated_length(p, length, loop or 0.0, itype.construction)
             wire = Wire(
@@ -980,6 +999,31 @@ def _build_harness(
             )
             built = evolve(built, status="draft", checker=None)
     return built
+
+
+def _rear_to_rear(
+    ctx: _Ctx, wid: str, a: str, b: str, path: float, ends: EndDepths
+) -> float | None:
+    """The path of a generated wire from rear to rear (design of 5.0.0 section 4.3): the depth of
+    each face end taken off; None, with a note, when a face end has no depth or the segments are not
+    longer than the depths (no length is ever invented)."""
+    rest = rear_path(path, a, b, ends)
+    if rest is not None:
+        return rest
+    gap = missing_depth(ends, a, b)
+    if gap is not None:
+        cid, reason = gap
+        ctx.note(
+            f"wire:{wid}",
+            f"length: {wid} has no length: {cid} is measured to its face and {reason}",
+        )
+    else:
+        ctx.note(
+            f"wire:{wid}",
+            f"length: {wid} has no length: its segments ({path:g} m) are not longer than the "
+            f"depths taken off at its face ends ({depth_taken(ends, a, b):g} m)",
+        )
+    return None
 
 
 def _keep_edited_connector(new: Connector, prev: Connector) -> Connector:

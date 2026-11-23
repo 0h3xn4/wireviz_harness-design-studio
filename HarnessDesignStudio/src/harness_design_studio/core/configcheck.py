@@ -218,6 +218,7 @@ _MODEL_NUMBERS: dict[str, tuple[float, float, bool]] = {  # key: (lowest, highes
 _MODEL_CHOICES: dict[str, tuple[str, ...]] = {
     "bundle_basis": ("all_wires", "loaded_wires", "busiest_segment"),
     "length_model": ("path_plus_loops", "path_loops_allowance_twist"),
+    "length_reference": ("rear", "face"),
     "drop_model": ("dc_solid", "dc_at_ambient"),
     "mass_model": ("connectors_and_wires", "full_bom"),
     "pin_fit_strategy": ("first_fit", "last_fit", "spread"),

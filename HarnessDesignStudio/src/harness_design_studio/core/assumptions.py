@@ -97,6 +97,16 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "core/generate/lengths.py (path_trail)",
         ),
         Assumption(
+            "A-LENGTH-TO",
+            "A segment runs to the rear of a cable connector unless it says the face",
+            "A segment that ends at a cable connector runs to its rear, where the wires leave the "
+            "body or backshell, unless the project (model.length_reference) or the connector says "
+            "the face; at a face end the depth of the connector part and of each backshell on it is "
+            "taken off each wire. A depth is never assumed: without one the wire has no length.",
+            "setting",
+            "core/generate/lengths.py (end_depths, wire_length); config/model.json: length_reference",
+        ),
+        Assumption(
             "A-MASS-SCOPE",
             "The mass of a harness is its connectors and its wires",
             "By default the mass counts the mass of each connector part of the harness and the mass "

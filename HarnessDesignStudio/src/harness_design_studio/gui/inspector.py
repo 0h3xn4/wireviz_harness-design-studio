@@ -45,10 +45,17 @@ from PySide6.QtWidgets import (
 )
 
 from harness_design_studio.core import cable_ends, configcheck, describe, document
-from harness_design_studio.core.build_data import plan_set_part_link, plan_set_part_tool
+from harness_design_studio.core.build_data import (
+    plan_set_part_depth,
+    plan_set_part_link,
+    plan_set_part_tool,
+)
+from harness_design_studio.core.connector_edit import plan_set_length_to
 from harness_design_studio.core.devices import connector_parts_to_choose
 from harness_design_studio.core.edit import EditError
+from harness_design_studio.core.generate.lengths import length_reference
 from harness_design_studio.core.model import BranchPoint, Harness, Project
+from harness_design_studio.core.model.library import DEPTH_CATEGORIES
 from harness_design_studio.core.model.physical import LOOSE_ROLE
 from harness_design_studio.core.origin import harness_link, harness_origin
 from harness_design_studio.core.usedby import KINDS as USED_KINDS
@@ -556,12 +563,18 @@ class Inspector(QWidget):
         self.end_box.plugRequested.connect(self.plugRequested)
         self.end_box.setVisible(False)
         facts_lay.addWidget(self.end_box)
+        self.length_box = LengthToBox(ctl, theme)  # a cable connector: lengths to (5.0.0)
+        self.length_box.setVisible(False)
+        facts_lay.addWidget(self.length_box)
         self.plan_box = PlanDocumentBox(ctl, theme)  # a harness: its plan document (3.0.0)
         self.plan_box.setVisible(False)
         facts_lay.addWidget(self.plan_box)
         self.link_box = PartLinkBox(ctl, theme)  # a part: its web link (3.0.0)
         self.link_box.setVisible(False)
         facts_lay.addWidget(self.link_box)
+        self.depth_box = PartDepthBox(ctl, theme)  # a connector or backshell part: depth (5.0.0)
+        self.depth_box.setVisible(False)
+        facts_lay.addWidget(self.depth_box)
         self.rows_box = PartRowsBox(ctl, theme)  # a connector part: its pin rows (4.0.0)
         self.rows_box.rowsRequested.connect(lambda pid: self.rowsRequested.emit("part", pid))
         self.rows_box.setVisible(False)
@@ -791,6 +804,10 @@ class Inspector(QWidget):
         self.end_box.setVisible(kind == "cable_end")
         if kind == "cable_end":
             self.end_box.show_end(oid, reload=reload)
+        found = cable_ends.connector_of(self.ctl.project, oid) if kind == "cable_end" else None
+        self.length_box.setVisible(found is not None and found[1].role == "cable")
+        if found is not None and found[1].role == "cable":
+            self.length_box.show_end(oid)
         self.plan_box.setVisible(kind == "harness")
         if kind == "harness":
             self.plan_box.show_harness(oid, reload=reload)
@@ -798,6 +815,9 @@ class Inspector(QWidget):
         if kind == "part":
             self.link_box.show_part(oid, reload=reload)
         part = self.ctl.project.parts.get(oid) if kind == "part" else None
+        self.depth_box.setVisible(part is not None and part.category in DEPTH_CATEGORIES)
+        if part is not None and part.category in DEPTH_CATEGORIES:
+            self.depth_box.show_part(oid, reload=reload)
         self.rows_box.setVisible(part is not None and part.category == "connector")
         if part is not None and part.category == "connector":
             self.rows_box.show_part(oid)
@@ -1154,6 +1174,156 @@ class PlanDocumentBox(QWidget):
             strings.STEP_SET_PLAN_DOCUMENT.format(self.harness_id),
             ops,
             message=strings.PLAN_DOCUMENT_SET.format(self.harness_id),
+        )
+
+
+class LengthToBox(QWidget):
+    """Where the segments that end at a cable connector are measured to (format 5, design of 5.0.0
+    section 4.5): the project's setting, rear or face, one undo step
+    (`connector_edit.plan_set_length_to`). Also on a harness made by Generate, which keeps it;
+    off for a released harness or a read-only project, with the reason in the tooltip."""
+
+    def __init__(self, ctl: EditorController, theme: ThemeManager) -> None:
+        super().__init__()
+        self.ctl = ctl
+        self.setObjectName("length-to-box")
+        self.end_id = ""
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
+        lay.setSpacing(theme.space(4))
+        title = QLabel(strings.INS_LENGTH_TO)
+        title.setProperty("heading", True)
+        lay.addWidget(title)
+        self.choice = QComboBox()
+        self.choice.setObjectName("length-to")
+        self.choice.setAccessibleName(strings.INS_LENGTH_TO)
+        self.choice.setToolTip(strings.INS_LENGTH_TO_TIP)
+        lay.addWidget(self.choice)
+        self.error = QLabel()
+        self.error.setObjectName("length-to-error")
+        self.error.setWordWrap(True)
+        self.error.setProperty("error", True)
+        self.error.setVisible(False)
+        lay.addWidget(self.error)
+        self.choice.activated.connect(lambda _i: self.apply())
+
+    def show_end(self, end_id: str) -> None:
+        if end_id != self.end_id:
+            self.error.setVisible(False)
+        self.end_id = end_id
+        p = self.ctl.project
+        found = cable_ends.connector_of(p, end_id)
+        if found is None:
+            return
+        h, c = found
+        self.choice.blockSignals(True)
+        self.choice.clear()
+        self.choice.addItem(strings.INS_LENGTH_TO_PROJECT.format(length_reference(p)), "")
+        self.choice.addItem(strings.INS_LENGTH_TO_REAR, "rear")
+        self.choice.addItem(strings.INS_LENGTH_TO_FACE, "face")
+        self.choice.setCurrentIndex(max(0, self.choice.findData(c.length_to or "")))
+        self.choice.blockSignals(False)
+        why = (
+            strings.WHY_READ_ONLY
+            if self.ctl.read_only
+            else strings.CE_RELEASED.format(h.id)
+            if h.status == "released"
+            else ""
+        )
+        self.choice.setEnabled(not why)
+        self.choice.setToolTip(why or strings.INS_LENGTH_TO_TIP)
+
+    def apply(self) -> bool:
+        found = cable_ends.connector_of(self.ctl.project, self.end_id)
+        if found is None or not self.choice.isEnabled():
+            return False
+        h, _c = found
+        to = str(self.choice.currentData() or "") or None
+        try:
+            ops = plan_set_length_to(self.ctl.project, h.id, self.end_id, to)
+        except EditError as exc:
+            self.error.setText(str(exc))
+            self.error.setVisible(True)
+            return False
+        self.error.setVisible(False)
+        shown = to or strings.INS_LENGTH_TO_PROJECT.format(length_reference(self.ctl.project))
+        return not ops or self.ctl.run(strings.STEP_SET_LENGTH_TO.format(self.end_id, shown), ops)
+
+
+class PartDepthBox(QWidget):
+    """The depth of a connector or backshell part in millimetres (format 5, design of 5.0.0
+    section 4.5): a field and *Set*, one undo step (`build_data.plan_set_part_depth`); an empty
+    field clears it. A refusal (a released harness uses the part) is said under the field."""
+
+    def __init__(self, ctl: EditorController, theme: ThemeManager) -> None:
+        super().__init__()
+        self.ctl = ctl
+        self.setObjectName("part-depth-box")
+        self.part_id = ""
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(theme.space(8), 0, theme.space(8), 0)
+        lay.setSpacing(theme.space(4))
+        title = QLabel(strings.INS_PART_DEPTH)
+        title.setProperty("heading", True)
+        lay.addWidget(title)
+        self.edit = QLineEdit()
+        self.edit.setObjectName("part-depth")
+        self.edit.setAccessibleName(strings.INS_PART_DEPTH)
+        self.edit.setToolTip(strings.INS_PART_DEPTH_TIP)
+        self.set_btn = QPushButton(strings.INS_PART_DEPTH_SET)
+        self.set_btn.setObjectName("part-depth-set")
+        self.set_btn.setAccessibleName(strings.INS_PART_DEPTH_SET)
+        self.set_btn.setToolTip(strings.INS_PART_DEPTH_SET_TIP)
+        row = QHBoxLayout()
+        row.addWidget(self.edit, 1)
+        row.addWidget(self.set_btn)
+        lay.addLayout(row)
+        self.error = QLabel()
+        self.error.setObjectName("part-depth-error")
+        self.error.setWordWrap(True)
+        self.error.setProperty("error", True)
+        self.error.setVisible(False)
+        lay.addWidget(self.error)
+        self.edit.returnPressed.connect(self.apply)
+        self.set_btn.clicked.connect(self.apply)
+
+    def show_part(self, part_id: str, *, reload: bool = True) -> None:
+        changed = part_id != self.part_id
+        self.part_id = part_id
+        part = self.ctl.project.parts.get(part_id)
+        depth = part.depth_mm if part is not None else None
+        if (reload or changed) and not self.edit.hasFocus():
+            self.edit.setText("" if depth is None else f"{depth:g}")
+        ro = self.ctl.read_only
+        self.edit.setEnabled(not ro)
+        self.set_btn.setEnabled(not ro)
+        self.edit.setToolTip(strings.WHY_READ_ONLY if ro else strings.INS_PART_DEPTH_TIP)
+        if changed:
+            self.error.setVisible(False)
+
+    def _say(self, text: str) -> None:
+        self.error.setText(text)
+        self.error.setVisible(bool(text))
+
+    def apply(self) -> bool:
+        if not self.set_btn.isEnabled() or not self.part_id:
+            return False
+        text = self.edit.text().strip()
+        try:
+            depth = float(text.replace(",", ".")) if text else None
+        except ValueError:
+            self._say(strings.INS_PART_DEPTH_BAD.format(text))
+            return False
+        try:
+            ops = plan_set_part_depth(self.ctl.project, self.part_id, depth)
+        except EditError as exc:
+            self._say(str(exc))
+            return False
+        self._say("")
+        return not ops or self.ctl.run(
+            strings.STEP_SET_PART_DEPTH.format(self.part_id),
+            ops,
+            message=strings.PART_DEPTH_SET.format(self.part_id),
         )
 
 

@@ -33,7 +33,8 @@ from .commands import Op, Put
 from .devices import check_contact_part, check_web_link
 from .edit import EditError
 from .model import Accessory, Harness, Part, Project, Wire, evolve
-from .model.base import MAX_LENGTH_MM, Name, Text
+from .model.base import MAX_DEPTH_MM, MAX_LENGTH_MM, Name, Text
+from .model.library import DEPTH_CATEGORIES
 from .model.physical import AccessoryKind
 from .wires import released_text
 
@@ -286,6 +287,43 @@ def plan_set_part_link(project: Project, part_id: str, link: str | None) -> list
     return [Put("parts", evolve(part, link=url))]
 
 
+def plan_set_part_depth(project: Project, part_id: str, depth_mm: float | None) -> list[Op]:
+    """Ops that set the depth of a connector or backshell part in millimetres (format 5, design of
+    5.0.0 section 4.2; above 0 and at most 1000); None clears it. It is refused for a part of
+    another category, and while a released harness uses the part as a cable connector or a
+    backshell (its wire lengths would change)."""
+    _writable(project)
+    part: Part | None = project.parts.get(part_id)
+    if part is None:
+        raise EditError(f"Part '{part_id}' does not exist.")
+    if depth_mm is not None:
+        if part.category not in DEPTH_CATEGORIES:
+            raise EditError(
+                f"Only a connector or backshell part has a depth; {part_id} is a part of category "
+                f"{part.category}."
+            )
+        if not 0 < depth_mm <= MAX_DEPTH_MM:
+            raise EditError(f"A depth is above 0 and at most {MAX_DEPTH_MM:g} mm.")
+        depth_mm = round(float(depth_mm), 6)
+    if depth_mm == part.depth_mm:
+        return []
+    users = sorted(
+        h.id
+        for h in project.harnesses.values()
+        if h.status == "released"
+        and (
+            any(c.part_id == part_id for c in h.connectors)
+            or any(a.part_id == part_id for a in h.accessories)
+        )
+    )
+    if users:
+        raise EditError(
+            f"Part {part_id} is used by {users[0]}, which is released; start a new version of it "
+            "to change the depth."
+        )
+    return [Put("parts", evolve(part, depth_mm=depth_mm))]
+
+
 # ---- accessories -------------------------------------------------------------------------------
 
 
@@ -387,6 +425,7 @@ __all__ = [
     "plan_next_accessory_id",
     "plan_set_accessory",
     "plan_set_contacts",
+    "plan_set_part_depth",
     "plan_set_part_link",
     "plan_set_part_tool",
     "plan_set_strip",

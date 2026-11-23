@@ -76,8 +76,16 @@ from .verify_labels import (
     _wire_label_texts,
 )
 from .verify_plan import face_rows, plan_stamp, row_numbers, verify_plans
+from .verify_production import (
+    _NO_DEPTHS,
+    Depths,
+    _end_depths,
+    _face_ends,
+    _from_rear,
+    _length_lines,
+    production_rows,
+)
 from .verify_production import HEADER as _PRODUCTION_HEADER
-from .verify_production import _length_lines, production_rows
 from .verify_review import LOOSE_CHECK as _LOOSE_CHECK
 from .verify_review import SHEET as _REVIEW
 from .verify_review import START_LINE as _REVIEW_LINE
@@ -466,7 +474,7 @@ def _harness(
     _harness_cells(r, project, h, files)
     _harness_tables(r, project, h, files)
     _build_workbook(r, project, h, files, found)
-    _routing(r, h, files)
+    _routing(r, project, h, files)
     if _has_drawings(files):  # D-169: the drawings are optional, but all or none of the harnesses
         _drawings(r, project, h, files)
 
@@ -480,9 +488,14 @@ def _length(h: Harness, wire_id: str) -> float | None:
     return _length_of(h, next(x for x in h.wires if x.id == wire_id))
 
 
-def _length_of(h: Harness, w: Wire) -> float | None:
+def _length_of(h: Harness, w: Wire, depths: Depths = _NO_DEPTHS) -> float | None:
+    """A wire's own length, else its path less the depth of each face end (`depths`)."""
     if w.length_m is not None:
         return w.length_m
+    return _from_rear(_path_of(h, w), w, depths)
+
+
+def _path_of(h: Harness, w: Wire) -> float | None:
     adj: dict[str, list[tuple[str, float | None]]] = defaultdict(list)
     for s in h.segments:
         adj[s.from_node].append((s.to_node, s.length_m))
@@ -537,9 +550,10 @@ def _mass(project: Project, h: Harness) -> tuple[float, bool]:
             complete = False
         else:
             total += part.mass_g
+    depths = _end_depths(project, h)
     for w in h.wires:
         part = project.parts.get(w.part_id) if w.part_id else None
-        length = _length_of(h, w)
+        length = _length_of(h, w, depths)
         if part is None or part.mass_per_m_g is None or length is None:
             complete = False
         else:
@@ -556,6 +570,7 @@ def _margin(project: Project) -> float | None:
 def _harness_cells(r: VerifyReport, project: Project, h: Harness, files: dict[str, bytes]) -> None:
     base = f"harnesses/{h.id}"
     shield_of = _shield_groups(h)
+    depths = _end_depths(project, h)
     wl = wl_whole = _table(files, f"{base}/wirelist.csv")
     if wl and _splice_set(h):  # the very last column, only for a harness with a splice
         if wl[0][-1:] != [_VIA]:
@@ -644,7 +659,7 @@ def _harness_cells(r: VerifyReport, project: Project, h: Harness, files: dict[st
                 wrong.append("part")
             if row[9] != (w.colour or ""):
                 wrong.append("colour")
-            if not _same_number(row[10], _length_of(h, w)):
+            if not _same_number(row[10], _length_of(h, w, depths)):
                 wrong.append("length")
             if row[11] != shield_of.get(w.id, ""):
                 wrong.append("shield group")
@@ -706,7 +721,8 @@ def _mass_row(r: VerifyReport, project: Project, h: Harness, row: list[str], wha
         )
         return
     total, complete = _mass(project, h)
-    lengths = [_length_of(h, w) for w in h.wires]
+    depths = _end_depths(project, h)
+    lengths = [_length_of(h, w, depths) for w in h.wires]
     known = sum(x for x in lengths if x is not None)
     unknown = sum(1 for x in lengths if x is None)
     margin = _margin(project)
@@ -1407,7 +1423,7 @@ def _bom_rows(project: Project, harnesses: list[Harness]) -> list[list[Cell]]:
             pid = w.part_id or "(no part)"
             wire_parts.add(pid)
             used[pid].add(h.id)
-            length = _length_of(h, w)
+            length = _length_of(h, w, _end_depths(project, h))
             if length is None:
                 unknown[pid] += 1
             else:
@@ -1564,7 +1580,7 @@ def _missing_mass_data(project: Project, h: Harness) -> str:
         part = project.parts.get(w.part_id) if w.part_id else None
         if part is None or part.mass_per_m_g is None:
             missing.add(f"mass per metre of wire part {w.part_id or '(none)'}")
-        elif _length_of(h, w) is None:
+        elif _length_of(h, w, _end_depths(project, h)) is None:
             missing.add(f"length of wire {w.id}")
     return "; ".join(sorted(missing))
 
@@ -1837,7 +1853,7 @@ def _harness_tables(r: VerifyReport, project: Project, h: Harness, files: dict[s
                       _label_rows(project, h), (0,), h.id)  # fmt: skip
     yml = files.get(f"{base}/wireviz.yaml")
     if yml is not None:
-        _yaml_values(r, h, yml.decode())
+        _yaml_values(r, h, yml.decode(), _end_depths(project, h))
     x = files.get(f"{base}/{h.id}.xlsx")
     if x is not None:
         sheets = _xlsx_sheets(x)
@@ -1900,9 +1916,9 @@ def _xlsx_values(data: bytes) -> dict[str, list[list[str]]]:
     return out
 
 
-def _cut_key(h: Harness, w: Wire) -> tuple[int, int, str, int, float, str]:
+def _cut_key(h: Harness, w: Wire, depths: Depths) -> tuple[int, int, str, int, float, str]:
     """The order of the cut list: thick before thin, then colour, then length; unknown last."""
-    length = _length_of(h, w)
+    length = _length_of(h, w, depths)
     return (
         0 if w.gauge_awg is not None else 1,
         w.gauge_awg if w.gauge_awg is not None else 0,
@@ -1957,12 +1973,12 @@ def _build_workbook(
     listed = any(row[:1] == [_ROUTING] for row in sheets["Start here"])
     if listed != branching:
         r.error("out_routing", f"{what} (Start here) lists the {_ROUTING} sheet wrongly.", h.id)
-    lines = _length_lines(project)
+    lines = _length_lines(project, h)
     if branching:
-        _build_routing(r, h, what, sheets[_ROUTING], lines)
+        _build_routing(r, project, h, what, sheets[_ROUTING], lines)
     if "As-built" in sheets:
         _build_asbuilt(r, project, h, what, sheets["As-built"])
-    _build_cut(r, h, what, sheets["Cut list"], lines)
+    _build_cut(r, h, what, sheets["Cut list"], lines, _end_depths(project, h))
     _build_production(r, project, h, what, sheets[_PRODUCTION], lines)
     _build_connectors(r, project, h, what, sheets["Connectors"])
     parts = sheets["Parts"]
@@ -2111,7 +2127,12 @@ def _build_asbuilt(
 
 
 def _build_cut(
-    r: VerifyReport, h: Harness, what: str, rows: list[list[str]], lines: tuple[str, ...]
+    r: VerifyReport,
+    h: Harness,
+    what: str,
+    rows: list[list[str]],
+    lines: tuple[str, ...],
+    depths: Depths,
 ) -> None:
     over = any(w.overrides for w in h.wires)  # one more column, only for a harness with overrides
     if not rows or rows[0] != [*_BUILD_CUT_HEADER, *(["Override"] if over else [])]:
@@ -2130,7 +2151,7 @@ def _build_cut(
         rows = [row[:13] for row in rows]
     body = [row for row in rows[1:-1] if any(row)]
     total_row = rows[-1] if len(rows) > 1 else []
-    order = [w.id for w in sorted(h.wires, key=lambda w: _cut_key(h, w))]
+    order = [w.id for w in sorted(h.wires, key=lambda w: _cut_key(h, w, depths))]
     if [row[1] for row in body] != order:
         r.error("out_build", f"{what} (Cut list) does not list the wires once each in cut order.", h.id)  # fmt: skip
         return
@@ -2140,7 +2161,7 @@ def _build_cut(
     known = 0.0
     for row in body:
         w = by_id[row[1]]
-        length = _length_of(h, w)
+        length = _length_of(h, w, depths)
         if length is not None:
             known += length
         colour_ok = row[2].startswith(w.colour) if w.colour else row[2] == _TO_FILL
@@ -2583,12 +2604,19 @@ def _beyond(h: Harness, bid: str) -> str:
     return "; ".join(lines)
 
 
-def _segment_rows(h: Harness, joiner: str, unknown: Cell) -> list[list[Cell]]:
+def _segment_rows(
+    h: Harness, joiner: str, unknown: Cell, faces: tuple[str, ...] = ()
+) -> list[list[Cell]]:
     """The segments in natural ID order: ID, ends, length (`unknown` while there is none), the
-    number of wires and the wires joined by `joiner`."""
+    number of wires and the wires joined by `joiner`. An end in `faces` (`_face_ends`, format 5) reads
+    `W001-P1 (face)`."""
     through = _through(h)
+
+    def node(n: str) -> str:
+        return f"{n} (face)" if n in faces else n
+
     return [
-        [s.id, s.from_node, s.to_node, unknown if s.length_m is None else s.length_m,
+        [s.id, node(s.from_node), node(s.to_node), unknown if s.length_m is None else s.length_m,
          float(len(through[s.id])), joiner.join(through[s.id])]
         for s in sorted(h.segments, key=lambda x: _natural(x.id))
     ]  # fmt: skip
@@ -2608,7 +2636,7 @@ def _ordered_rows(
         r.error("out_routing", f"{what} is not in the order of the IDs.", obj)
 
 
-def _routing(r: VerifyReport, h: Harness, files: dict[str, bytes]) -> None:
+def _routing(r: VerifyReport, project: Project, h: Harness, files: dict[str, bytes]) -> None:
     """`segments.csv` and the *Segments* sheet: exactly for a harness with a branch point, with the
     rows worked out here."""
     base = f"harnesses/{h.id}"
@@ -2619,7 +2647,7 @@ def _routing(r: VerifyReport, h: Harness, files: dict[str, bytes]) -> None:
     if not branching and rel in files:
         r.error("out_routing", f"{h.id} has no branch point but {rel} was written.", h.id)
     table = _table(files, rel)
-    want = _segment_rows(h, ";", None)
+    want = _segment_rows(h, ";", None, _face_ends(project, h))
     if table and branching:
         _ordered_rows(r, f"The segments of {h.id}", table, _SEGMENT_HEADER, want, h.id)
     x = files.get(f"{base}/{h.id}.xlsx")
@@ -2633,7 +2661,12 @@ def _routing(r: VerifyReport, h: Harness, files: dict[str, bytes]) -> None:
 
 
 def _build_routing(
-    r: VerifyReport, h: Harness, what: str, rows: list[list[str]], lines: tuple[str, ...]
+    r: VerifyReport,
+    project: Project,
+    h: Harness,
+    what: str,
+    rows: list[list[str]],
+    lines: tuple[str, ...],
 ) -> None:
     """The *Routing* sheet of the build workbook: the segments (a length or *to fill in*, the number
     of wires and the wires joined by `; `), an empty row, then the branch points with the
@@ -2659,14 +2692,14 @@ def _build_routing(
         [[*row, *[""] * (len(header) - len(row))] for row in block]
         for block, header in zip(blocks, (_ROUTING_HEADER, _BRANCH_HEADER), strict=True)
     )
-    _ordered_rows(r, what, segs, _ROUTING_HEADER, _segment_rows(h, "; ", _TO_FILL), h.id)
+    _ordered_rows(r, what, segs, _ROUTING_HEADER, _segment_rows(h, "; ", _TO_FILL, _face_ends(project, h)), h.id)  # fmt: skip
     want_points: list[list[Cell]] = [
         [b.id, b.name, _beyond(h, b.id)] for b in sorted(h.branch_points, key=lambda x: _natural(x.id))
     ]  # fmt: skip
     _ordered_rows(r, what, points, _BRANCH_HEADER, want_points, h.id)
 
 
-def _yaml_values(r: VerifyReport, h: Harness, text: str) -> None:
+def _yaml_values(r: VerifyReport, h: Harness, text: str, depths: Depths) -> None:
     """The values in the WireViz file: pins of each connector, gauge, colour and length of each
     wire, and the two ends of every connection."""
     section, cur = "", ""
@@ -2709,7 +2742,7 @@ def _yaml_values(r: VerifyReport, h: Harness, text: str) -> None:
             wrong.append(f"gauge of {w.id}")
         if got.get("colors") != (f"[{q(w.colour)}]" if w.colour else None):
             wrong.append(f"colour of {w.id}")
-        length = _length_of(h, w)
+        length = _length_of(h, w, depths)
         shown = got.get("length")
         if length is None:
             if shown is not None:
@@ -2774,7 +2807,8 @@ def _mass_total(r: VerifyReport, project: Project, row: list[str]) -> None:
     for h in hs:
         m, complete = _mass(project, h)
         mass += m
-        lengths = [_length_of(h, w) for w in h.wires]
+        depths = _end_depths(project, h)
+        lengths = [_length_of(h, w, depths) for w in h.wires]
         known += sum(x for x in lengths if x is not None)
         unknown += sum(1 for x in lengths if x is None)
         all_complete = all_complete and complete

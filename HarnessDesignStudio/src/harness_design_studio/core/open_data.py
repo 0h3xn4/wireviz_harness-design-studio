@@ -64,7 +64,7 @@ from harness_design_studio.core.drc.base import cfg, number
 from harness_design_studio.core.errors import SaveError
 from harness_design_studio.core.generate import bundle
 from harness_design_studio.core.generate.bundle import bundle_size
-from harness_design_studio.core.generate.lengths import wire_length
+from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.generate.mass import harness_mass, wire_mass_g
 from harness_design_studio.core.generate.segmentation import _cfg as _seg_cfg
 from harness_design_studio.core.generate.segmentation import _class_of, segment
@@ -183,7 +183,7 @@ def wire_sizing(project: Project) -> DataTable:
         current = i.max_current_a if i is not None else None
         awg = w.gauge_awg
         in_range = awg is not None and AWG_MIN <= awg <= AWG_MAX
-        length = wire_length(h, w)
+        length = wire_length(h, w, end_depths(project, h))
         n_bundle = bundle_size(project, h, w)
         k, _k_input, _ref, _k_missing = _bundle(derating, n_bundle, h.id, basis)
         base = table.get(awg) if table is not None and awg is not None else None
@@ -280,7 +280,8 @@ def mass(project: Project) -> DataTable:
     for hid in sorted(project.harnesses):
         h = project.harnesses[hid]
         r = harness_mass(project, h)
-        lens = [wire_length(h, w) for w in h.wires]
+        ends = end_depths(project, h)
+        lens = [wire_length(h, w, ends) for w in h.wires]
         unknown = sum(1 for x in lens if x is None)
         rows.append({
             "harness": h.id, "wires": len(h.wires), "connectors": len(h.connectors),
@@ -308,7 +309,7 @@ def mass_wires(project: Project) -> DataTable:
     rows: list[dict[str, Any]] = []
     for h, w in _all_wires(project):
         part = project.parts.get(w.part_id) if w.part_id else None
-        length = wire_length(h, w)
+        length = wire_length(h, w, end_depths(project, h))
         per_m = part.mass_per_m_g if part is not None else None
         grams = (
             wire_mass_g(per_m, length, part.conductors)
