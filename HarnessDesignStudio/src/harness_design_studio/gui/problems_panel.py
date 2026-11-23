@@ -18,9 +18,18 @@ it from `ctl.layout_notes()` as a row of severity Info (the count says it too). 
 them goes to the connector (`connectorRequested`: the Devices tab for a device connector, the
 Inspector for a cable connector); the row menu has *Edit the pin rows of …* (`rowsRequested`), for
 the object whose rows the connector takes (`rows_target`).
+
+The checks of format 5 (design of 5.0.0 sections 4.5, 5.3, 6.1, 7.3 to 7.5 and 8.3): their
+warnings are findings of model-inconsistent too; a click on one goes where it is put right
+(`GO_CODES`: `length_depth_missing` to the cable connector's Inspector, `connectorRequested`, with
+*Lengths measured to* and its part; `device_check_stale` to the Devices tab, `deviceRequested`,
+with *Mark as checked…*; a finding of a shield group to its harness and its Inspector through
+`showRequested`). Its infos are no finding of a rule, so the list adds them from
+`ctl.check_notes()` as Info rows with their own sentence (`info_row`): `current_not_worked_out`,
+`shield_place_not_stated` and the review's `link_junction`, which the filter Connections keeps.
 """
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Any, Final
 
 from PySide6.QtCore import QModelIndex, QPoint, Qt, QTimer, Signal
@@ -102,9 +111,21 @@ ROW_LAYOUT_CODES: Final = (
 def row_layout_code(f: Finding) -> str | None:
     """The check of the row layouts a finding comes from (the warnings are reported through the
     rule model-inconsistent, whose finding ID carries the code), or None."""
+    return check_code(f, ROW_LAYOUT_CODES)
+
+
+def check_code(f: Finding, codes: Collection[str]) -> str | None:
+    """The code of `check` among `codes` that a finding of model-inconsistent comes from (its
+    finding ID carries the code), or None."""
     if f.rule != "model-inconsistent":
         return None
-    return next((code for code in ROW_LAYOUT_CODES if f".{code}." in f.id), None)
+    return next((code for code in codes if f".{code}." in f.id), None)
+
+
+# where a click on a warning of format 5 goes: where it is put right (design of 5.0.0 sections
+# 4.5 and 8.2): the Inspector of the cable connector (Lengths measured to, its part), the Devices
+# tab (Mark as checked…)
+GO_CODES: Final = {"length_depth_missing": "connector", "device_check_stale": "device"}
 
 
 def rows_target(project: Project, object_id: str) -> tuple[str, str] | None:
@@ -141,6 +162,23 @@ def note_row(issue: Issue) -> dict[str, Any]:
     }
 
 
+def info_row(issue: Issue) -> dict[str, Any]:
+    """A row for an info of format 5 (`ctl.check_notes`, not a finding of a rule): its own
+    sentence under Why; an info of the review of a connection (`link_junction`) is kept by the
+    filter Connections."""
+    return {
+        "severity": (_ORDER["info"], strings.CHECKS_SEVERITY["info"]),
+        "state": "info",
+        "rule": issue.code,
+        "object": issue.object_id or strings.CHECKS_WHOLE_DESIGN,
+        "message": issue.message,
+        "why": strings.PROBLEMS_NOTE_WHY.get(issue.code, ""),
+        "object_id": issue.object_id,
+        "level": "info",
+        "link": issue.code.startswith("link_"),
+    }
+
+
 def problem_row(f: Finding) -> dict[str, Any]:
     word = strings.CHECKS_SEVERITY.get(f.severity, f.severity)
     order = _ORDER.get(f.severity, 3)
@@ -163,6 +201,7 @@ class ProblemsList(QWidget):
     segmentationRequested = Signal()  # open Settings at the segmentation choice
     connectorRequested = Signal(str)  # a row layout check: go to the connector (or part) it names
     rowsRequested = Signal(str, str)  # ("part" | "connector", ID): edit the pin rows there
+    deviceRequested = Signal(str)  # a device whose check is stale: the Devices tab (5.0.0)
 
     def __init__(
         self, ctl: EditorController, theme: ThemeManager, parent: QWidget | None = None
@@ -246,9 +285,16 @@ class ProblemsList(QWidget):
             row["fix"] = branch_fix(project, f)
             if row_layout_code(f) is not None:
                 row["rows"] = True
+            go = check_code(f, GO_CODES)
+            if go is not None:
+                row["go"] = GO_CODES[go]
             rows.append(row)
         notes = self.ctl.layout_notes()
         rows += [note_row(n) for n in sorted(notes, key=lambda n: (n.object_id or "", n.message))]
+        infos = self.ctl.check_notes()
+        rows += [
+            info_row(n) for n in sorted(infos, key=lambda n: (n.code, n.object_id or "", n.message))
+        ]
         for row in rows:
             if row.get("rows") and row.get("object_id"):
                 row["rows_fix"] = rows_target(project, str(row["object_id"]))
@@ -292,7 +338,10 @@ class ProblemsList(QWidget):
             self.table.proxy.set_predicate(
                 lambda row: (
                     isinstance(row, Mapping)
-                    and str(row.get("rule", "")).startswith(LINK_RULE_PREFIX)
+                    and (
+                        str(row.get("rule", "")).startswith(LINK_RULE_PREFIX)
+                        or bool(row.get("link"))
+                    )
                 )
             )
         else:
@@ -354,7 +403,10 @@ class ProblemsList(QWidget):
         source = self.table.proxy.mapToSource(index)
         row = self.model.row(source.row())  # (a dict: this table is built from dicts)
         target = row.get("object_id", "") if isinstance(row, Mapping) else ""
-        if target and isinstance(row, Mapping) and row.get("rows"):
+        go = row.get("go") if isinstance(row, Mapping) else None
+        if target and isinstance(row, Mapping) and (row.get("rows") or go == "connector"):
             self.connectorRequested.emit(str(target))  # (Show goes to the connector, section 9)
+        elif target and go == "device":
+            self.deviceRequested.emit(str(target))
         elif target:
             self.showRequested.emit(str(target))

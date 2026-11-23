@@ -996,6 +996,13 @@ class HarnessView(QWidget):
         and the drawing follow. `("harness", id)` or an unknown object clears the selection."""
         self._set_selection((kind, ident) if self._exists(kind, ident) else None, origin="api")
 
+    def edit_wire(self, wire_id: str) -> None:
+        """Select a wire of the shown harness and show it in the Edit wire tab, as a click on its
+        row does (a finding of a shield group goes to its lowest wire: the tab shows the group,
+        where its ends land and *Change group…*; design of 5.0.0 section 7.5)."""
+        self.select("wire", wire_id)
+        self._update_wire_editor()
+
     def refresh(self) -> None:
         """Bring the view up to date with the design. Quick: the slow parts are worked out in the
         background and cached (`wait_idle()` waits for them)."""

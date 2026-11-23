@@ -4,8 +4,10 @@
 """Render screenshots of the real Qt editor (offscreen) into docs/ux/qt for the docs and the UX review.
 Files 01 to 13 show the built-in sample; 14 and up show the views and dialogs of the editor on the
 flatsat example, as the Electrical / AIT engineer (project tree, Harness, Lists, Checks, Releases, engineering values, export, import
-wizard, release dialog, new project, stale banner, the two Settings sections of the harness plans, and the pin rows of a
-connector of 4.0.0: the Devices tab and the dialog). Usage: python -m tools.gui_screenshots"""
+wizard, release dialog, new project, stale banner, the two Settings sections of the harness plans, the pin rows of a
+connector of 4.0.0: the Devices tab and the dialog, and the fields of format 5 of 5.0.0: the Devices tab with a pin
+current and a checked device, and the window Change group with where the shield ends land). Usage: python -m
+tools.gui_screenshots"""
 
 import shutil
 import sys
@@ -129,6 +131,7 @@ def main() -> int:
     views()
     wizard_and_release()
     pin_rows()
+    format5()
     return 0
 
 
@@ -386,6 +389,60 @@ def pin_rows() -> None:
     win.run_dialog = rows_dialog  # type: ignore[assignment]
     win.pin_rows_flow("connector", cid)
     win.ctl.undo()
+    _settle(win)
+    win.close()
+
+
+def format5() -> None:
+    """Pictures 31 and 32 (5.0.0, format 5, design of 5.0.0 section 18, pull request 7): the
+    Devices tab of a device with a current on two pins and a check (the column Current (A) and the
+    line *Checked by … on … against …*), and the window *Change group* of a shielded pair Generate
+    made, with *Lands on pin* and *Backshell* under each end. The currents, the check and the ICD
+    are an example of the form on the flatsat example, undone afterwards."""
+    tmp = _work_folder("flatsat-format5")
+    root = examples_path()
+    assert root is not None
+    shutil.copytree(root / "projects" / "flatsat", tmp / "flatsat")
+    settings = QSettings(str(tmp / "ui.ini"), QSettings.Format.IniFormat)
+    win = MainWindow(settings, ThemeManager(), first_run=False)
+    win.ask_choice = lambda t, x, b: 1  # type: ignore[assignment]  # (close without saving)
+    win.set_role("electrical")
+    win.resize(1440, 900)
+    win.show()
+    assert win.open_project(tmp / "flatsat")
+    cid = "MTQ1-J01"
+    assert win.ctl.set_pin(cid, "1", current_a=1.5)
+    assert win.ctl.set_pin(cid, "2", current_a=1.5)
+    assert win.ctl.set_device_checked("MTQ1", "A. Example", "2026-11-23", "ICD-MTQ Issue 2")
+    _settle(win)
+    win.dock_left.hide()  # (the tab needs the width: the card and the pin table side by side)
+    win.dock_right.hide()
+    win.go_to("devices")
+    win.devices_view.select_connector(cid)
+    _settle(win)
+    _grab(win, "31-devices-current-and-check")
+    for _ in range(3):
+        win.ctl.undo()
+    win.dock_left.show()
+    win.show_harness_view()
+    view = win.harness_view
+    assert view.select_harness("W002")
+    view.refresh()
+    _settle(win)
+    group = next(s for s in win.ctl.project.harnesses["W002"].shields if s.id == "W002-S12")
+    view.edit_wire(sorted(group.wire_ids)[0])
+    _settle(win)
+
+    def change_group(d: QDialog) -> int:
+        d.show()
+        shell = d.shells["a"]  # type: ignore[attr-defined]
+        shell.setCurrentIndex(shell.count() - 1)  # Add a backshell…
+        _wait(300)
+        _grab(win, "32-change-group-places", d)
+        return 0
+
+    view.wire_editor.run_dialog = change_group  # type: ignore[assignment,method-assign]
+    view.wire_editor.change_group()
     _settle(win)
     win.close()
 

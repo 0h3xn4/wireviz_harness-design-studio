@@ -137,6 +137,7 @@ class SettingsPage(QWidget):
         remove_project_library: Callable[[str], None] = lambda _path: None,
         set_segmentation: Callable[[str], None] = lambda _mode: None,
         set_label_format: Callable[[str], None] = lambda _value: None,
+        set_length_reference: Callable[[str], None] = lambda _value: None,
         set_checklist: Callable[[list[str]], None] = lambda _points: None,
         template_points: Callable[[], list[str]] = lambda: [],
         file_points: Callable[[], list[str] | str | None] = lambda: None,
@@ -309,6 +310,25 @@ class SettingsPage(QWidget):
         self.label_format_about = _muted("")
         self.label_format_about.setObjectName("settings-label-format-about")
         col.addWidget(self.label_format_about)
+        # where the segments are measured to (model.length_reference; 5.0.0 part A, design of
+        # 5.0.0 sections 4.2, 4.5 and 10.1): rear (the default) or the mating face
+        reference_title = QLabel(strings.SETTINGS_LENGTH_REFERENCE)
+        reference_title.setProperty("heading", True)
+        col.addWidget(reference_title)
+        col.addWidget(_muted(strings.SETTINGS_LENGTH_REFERENCE_TEXT))
+        self.length_reference_combo = QComboBox()
+        self.length_reference_combo.setObjectName("settings-length-reference")
+        self.length_reference_combo.setAccessibleName(strings.SETTINGS_LENGTH_REFERENCE)
+        self.length_reference_combo.setToolTip(strings.SETTINGS_LENGTH_REFERENCE_TIP)
+        for value, text in strings.SETTINGS_LENGTH_REFERENCE_CHOICES.items():
+            self.length_reference_combo.addItem(text, value)
+        self.length_reference_combo.currentIndexChanged.connect(
+            lambda _i: self._length_reference_picked(set_length_reference)
+        )
+        col.addWidget(self.length_reference_combo, 0, Qt.AlignmentFlag.AlignLeft)
+        self.length_reference_about = _muted("")
+        self.length_reference_about.setObjectName("settings-length-reference-about")
+        col.addWidget(self.length_reference_about)
         # the review checklist of the project (naming.review_checklist; 4.3.0 part A, section 3.2):
         # the box is the person's until Save, which is one undo step
         checklist_title = QLabel(strings.SETTINGS_CHECKLIST)
@@ -731,6 +751,32 @@ class SettingsPage(QWidget):
         self.label_format_about.setText(" ".join(t for t in (about, why_not) if t))
         combo.setEnabled(not why_not)
         combo.setToolTip(why_not or strings.SETTINGS_LABEL_FORMAT_TIP)
+
+    def _length_reference_picked(self, set_length_reference: Callable[[str], None]) -> None:
+        value = self.length_reference_combo.currentData()
+        if isinstance(value, str):
+            set_length_reference(value)  # the window shows the outcome (`show_length_reference`)
+
+    def show_length_reference(self, value: str, why_not: str = "") -> None:
+        """Show where the segments are measured to (`model.length_reference`); `why_not` says why
+        it cannot change now ("" when it can). A choice of a newer version is shown and never
+        written back by this page."""
+        combo = self.length_reference_combo
+        combo.blockSignals(True)
+        while combo.count() > len(strings.SETTINGS_LENGTH_REFERENCE_CHOICES):
+            combo.removeItem(combo.count() - 1)
+        i = combo.findData(value)
+        if i < 0:
+            combo.addItem(value, value)
+            i = combo.count() - 1
+        combo.setCurrentIndex(i)
+        combo.blockSignals(False)
+        about = strings.SETTINGS_LENGTH_REFERENCE_ABOUT.get(
+            value, strings.SETTINGS_LENGTH_REFERENCE_UNKNOWN.format(value)
+        )
+        self.length_reference_about.setText(" ".join(t for t in (about, why_not) if t))
+        combo.setEnabled(not why_not)
+        combo.setToolTip(why_not or strings.SETTINGS_LENGTH_REFERENCE_TIP)
 
     def checklist_points(self) -> list[str]:
         """The points in the box: one per line that is not empty, the spaces around it left out."""

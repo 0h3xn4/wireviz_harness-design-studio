@@ -94,6 +94,7 @@ from harness_design_studio.core.generate.engine import (
     GenerationPlan,
     plan_generation,
 )
+from harness_design_studio.core.generate.lengths import length_reference
 from harness_design_studio.core.import_record import CHANGED, CachedHasher, check_sources
 from harness_design_studio.core.io.layout import model_hash
 from harness_design_studio.core.io.migrate import current_version
@@ -111,6 +112,7 @@ from harness_design_studio.core.outputs.build import (
     write_outputs,
 )
 from harness_design_studio.core.outputs.verify import verify_outputs
+from harness_design_studio.core.shield_ends import reference_wire
 from harness_design_studio.core.validation import plan_notes
 from harness_design_studio.core.vcs.hashing import content_hash
 from harness_design_studio.core.vcs.lockview import field_lock_reason
@@ -181,7 +183,7 @@ from harness_design_studio.gui.harness_view import HarnessView
 from harness_design_studio.gui.icons import icon, icon_button, style_dock_buttons, tooltip_text
 from harness_design_studio.gui.import_kinds import KINDS, parse_pairs
 from harness_design_studio.gui.import_wizard import ImportWizard
-from harness_design_studio.gui.inspector import Inspector
+from harness_design_studio.gui.inspector import Inspector, shield_group_of
 from harness_design_studio.gui.interface_table import InterfaceTable
 from harness_design_studio.gui.jobs import JobStatus
 from harness_design_studio.gui.journal_dialog import JournalDialog
@@ -901,6 +903,7 @@ class MainWindow(QMainWindow):
             remove_project_library=lambda path: self.remove_project_library(path),
             set_segmentation=lambda mode: self.set_segmentation(mode),
             set_label_format=lambda value: self.set_label_format(value),
+            set_length_reference=lambda value: self.set_length_reference(value),
             set_checklist=lambda points: self.set_checklist(points),
             template_points=review.template_points,
             file_points=self._checklist_file_points,
@@ -1009,6 +1012,7 @@ class MainWindow(QMainWindow):
         self.problems_list.segmentationRequested.connect(self.segmentation_flow)
         self.problems_list.connectorRequested.connect(self.show_connector)
         self.problems_list.rowsRequested.connect(self.pin_rows_flow)
+        self.problems_list.deviceRequested.connect(self.show_device)
 
     def _dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea, name: str) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -3350,8 +3354,13 @@ class MainWindow(QMainWindow):
         self.status_saved.setVisible(eff >= 1100)
 
     def _update_problems_button(self) -> None:
-        # (the notes of the row layout checks are rows of the Problems list too: the two agree)
-        n = len(self.ctl.open_findings()) + len(self.ctl.layout_notes())
+        # (the notes of the row layout checks and the infos of format 5 are rows of the Problems
+        # list too: the two agree)
+        n = (
+            len(self.ctl.open_findings())
+            + len(self.ctl.layout_notes())
+            + len(self.ctl.check_notes())
+        )
         self.problems_btn.setText(strings.PROBLEMS_BUTTON.format(n))
 
     # ---- Home: recent projects and the examples -------------------------------------------------
@@ -4298,6 +4307,7 @@ class MainWindow(QMainWindow):
         )
         self.settings_page.show_segmentation(mode, why)
         self._show_label_format()
+        self._show_length_reference()
         self._show_checklist()
         self._show_far_device_names()
         self._show_signal_map()
@@ -5043,6 +5053,30 @@ class MainWindow(QMainWindow):
                 )
         self._show_label_format()
 
+    # ---- Settings > Project: where the segments are measured to (5.0.0, part A, section 4.5) ----
+    def _show_length_reference(self) -> None:
+        self.settings_page.show_length_reference(
+            length_reference(self.ctl.project),
+            self._project_why_not("model", "length_reference"),
+        )
+
+    def set_length_reference(self, value: str) -> None:
+        """Settings > Project: where a routing segment ends at a cable connector
+        (`model.length_reference`, rear or face; one undo step through `plan_set_choice`). A
+        choice equal to the one in force changes nothing, so the default is not written."""
+        if value != length_reference(self.ctl.project):
+            plan = configcheck.plan_set_choice(self.ctl.project, "model", "length_reference", value)
+            if not plan.ok:
+                self.ctl.message.emit(plan.error or "", False)
+            elif plan.ops:
+                words = strings.SETTINGS_LENGTH_REFERENCE_CHOICES.get(value, value)
+                self.ctl.run(
+                    strings.STEP_SET_LENGTH_REFERENCE.format(words),
+                    plan.ops,
+                    message=strings.LENGTH_REFERENCE_SET.format(words),
+                )
+        self._show_length_reference()
+
     def _show_checklist(self, error: str = "") -> None:
         points = review.points(self.ctl.project)
         self.settings_page.show_checklist(
@@ -5585,7 +5619,7 @@ class MainWindow(QMainWindow):
             self.ctl.apply_import(dlg.plan)
 
     def show_object(self, object_id: str) -> None:
-        if self._show_cable_end(object_id):
+        if self._show_cable_end(object_id) or self._show_shield_group(object_id):
             return
         if object_id in self.ctl.project.links:  # a connection: on the diagram, picked
             self.main_tabs.show_slot("diagram")
@@ -5613,6 +5647,37 @@ class MainWindow(QMainWindow):
             self.view.focus_unit(target)
         else:
             self.view.focus_link(target)
+
+    def _show_shield_group(self, object_id: str) -> bool:
+        """A finding or a note about a shield group (format 5, design of 5.0.0 section 7.5): its
+        harness in the Harness tab with its lowest wire picked, so the Edit wire tab shows the
+        group and *Change group…*, and the group in the Inspector with where its ends land. True
+        when it went there."""
+        found = shield_group_of(self.ctl.project, object_id)
+        if found is None:
+            return False
+        h, s = found
+        self.show_harness_view()
+        view = self.harness_target()
+        select_harness = getattr(view, "select_harness", None)
+        if select_harness is not None:
+            select_harness(h.id)
+        wire = reference_wire(h, s)
+        edit_wire = getattr(view, "edit_wire", None)
+        if wire is not None and edit_wire is not None:
+            edit_wire(wire.id)
+        self.dock_right.show()
+        self.inspector.show_object("shield_group", object_id, tab="inspector")
+        return True
+
+    def show_device(self, unit_id: str) -> None:
+        """A device whose check is stale (`device_check_stale`, design of 5.0.0 section 8.3): the
+        Devices tab on it, where *Mark as checked…* is; anything else as any finding."""
+        if unit_id not in self.ctl.project.units:
+            self.show_object(unit_id)
+            return
+        self.go_to("devices")
+        self.devices_view.show_unit(unit_id)
 
     def _show_cable_end(self, object_id: str) -> bool:
         """A finding about a cable end drawn by hand (or the stand-in part of the loose ends, whose

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 0h3xn4
 # SPDX-License-Identifier: GPL-3.0-only
 # mypy: disable-error-code="no-untyped-def,no-untyped-call,no-any-return,arg-type,attr-defined,index,union-attr,type-arg,call-overload"
-"""The editor's fields of format 5 (design of 5.0.0 `docs/ait/DESIGN_5.0_FORMAT_5.md` section
+"""REQ-GUI-33. The editor's fields of format 5 (design of 5.0.0 `docs/ait/DESIGN_5.0_FORMAT_5.md` section
 4.5; offscreen). Pull request 2, part A: the Inspector of a cable connector has *Lengths measured
 to* (the project's, rear or face; one undo step; also on a harness Generate made, which keeps it;
 off for a released harness), and the Inspector of a connector or backshell part has *Depth (mm)*
@@ -18,8 +18,14 @@ names the places; deleting a backshell says which places it cleared. Pull reques
 Devices tab says whether the device is checked (*Checked by … on … against …*, *…; changed since
 the check*, *not checked*), *Mark as checked…* asks who, the day and the ICD (proposed from the
 connectors) and marks it in one undo step, *Clear the check* takes it away; the Library window has
-the column *Checked* and *Mark as checked…* for the project's device that follows an entry. The
-later pull requests add their fields here."""
+the column *Checked* and *Mark as checked…* for the project's device that follows an entry. Pull
+request 7, the rest of the editor: *Settings > Project* sets where the segments are measured to
+(`model.length_reference`, one undo step, off in a read-only project); the Problems list shows the
+infos `current_not_worked_out`, `shield_place_not_stated` and `link_junction` as Info rows with
+their own sentence (the junction under the filter Connections), and a click on a finding of a
+check of format 5 goes where it is put right: the Inspector of a cable connector without a depth,
+the Devices tab of a device whose check is stale, the harness and the Inspector of a shield group,
+which shows where its ends land."""
 
 from pathlib import Path
 
@@ -474,3 +480,192 @@ def test_the_library_window_has_the_column_checked_and_marks_the_project_s_devic
     qtbot.waitUntil(lambda: win.check_btn.isEnabled(), timeout=5000)
     win.check_btn.click()
     assert asked == ["RW1"]
+
+
+# ---- pull request 7: the rest of the editor (design of 5.0.0 sections 4.5, 5.3, 6.1, 7.3 to 7.5,
+# 8.3 and 18) --------------------------------------------------------------------------------------
+
+
+def _to_settings(win) -> None:
+    win.set_area("settings")
+    win.settings_page.show_section("project")
+    win._show_segmentation()
+    settle()
+
+
+def _model(p) -> dict:
+    cfg = p.config.get("model")
+    return dict(cfg.values) if cfg is not None else {}
+
+
+def test_settings_project_sets_where_the_segments_are_measured_to_in_one_undo_step(win):
+    from harness_design_studio.core.generate.lengths import length_reference
+
+    before = _model(win.ctl.project)
+    _to_settings(win)
+    page = win.settings_page
+    combo = page.length_reference_combo
+    assert combo.objectName() == "settings-length-reference" and combo.isEnabled()
+    assert combo.accessibleName() == strings.SETTINGS_LENGTH_REFERENCE and combo.toolTip()
+    assert combo.currentData() == "rear" and combo.count() == 2
+    assert page.length_reference_about.text() == strings.SETTINGS_LENGTH_REFERENCE_ABOUT["rear"]
+    n = steps(win)
+    combo.setCurrentIndex(combo.findData("rear"))  # the choice in force: nothing is written
+    assert steps(win) == n and _model(win.ctl.project) == before
+    combo.setCurrentIndex(combo.findData("face"))
+    settle()
+    assert length_reference(win.ctl.project) == "face" and steps(win) == n + 1
+    assert win.ctl.history._undo[-1].label == strings.STEP_SET_LENGTH_REFERENCE.format(
+        strings.SETTINGS_LENGTH_REFERENCE_CHOICES["face"]
+    )
+    assert page.length_reference_about.text() == strings.SETTINGS_LENGTH_REFERENCE_ABOUT["face"]
+    win.ctl.undo()
+    settle()
+    assert _model(win.ctl.project) == before and combo.currentData() == "rear"
+
+
+def test_the_setting_is_off_in_a_read_only_project_and_a_newer_choice_is_shown(win):
+    page = win.settings_page
+    page.show_length_reference("middle")
+    assert page.length_reference_combo.currentData() == "middle"
+    assert page.length_reference_about.text() == strings.SETTINGS_LENGTH_REFERENCE_UNKNOWN.format(
+        "middle"
+    )
+    win.ctl.project.read_only = True
+    _to_settings(win)
+    combo = page.length_reference_combo
+    assert not combo.isEnabled() and combo.toolTip() == strings.WHY_READ_ONLY
+    assert combo.count() == 2 and strings.WHY_READ_ONLY in page.length_reference_about.text()
+
+
+def _format5_window(qtbot, tmp_path: Path):
+    from tests.format5_support import format5_project
+
+    win = _window_with(qtbot, tmp_path, format5_project())
+    win.ctl.run_drc_now()
+    win.ctl.wait_drc()
+    plist = win.problems_list
+    win.dock_problems.show()
+    plist.refresh()
+    settle()
+    return win, plist
+
+
+def _click(plist, pick) -> None:
+    k = next(
+        k for k in range(plist.table.proxy.rowCount())
+        if pick(plist.table.row_at(plist.table.proxy.index(k, 0)))
+    )  # fmt: skip
+    plist._clicked(plist.table.proxy.index(k, 0))
+    settle()
+
+
+def test_the_problems_list_shows_the_infos_of_format_5_as_info_rows(qtbot, tmp_path):
+    win, plist = _format5_window(qtbot, tmp_path)
+    rows = plist.rows()
+    infos = {(r["rule"], r["object_id"]) for r in rows if r["level"] == "info"}
+    assert ("shield_place_not_stated", "W001-S2") in infos
+    assert ("link_junction", "L1") in infos
+    junction = next(r for r in rows if r["rule"] == "link_junction")
+    assert junction["state"] == "info" and junction["why"] == strings.PROBLEMS_NOTE_WHY["link_junction"]  # fmt: skip
+    assert junction["message"].startswith("Pin 1 of PCDU1-J01 is joined to pins 1, 2 and 3")
+    pigtail = next(r for r in rows if r["rule"] == "shield_place_not_stated")
+    assert pigtail["why"] == strings.PROBLEMS_NOTE_WHY["shield_place_not_stated"]
+    # the warnings stay findings of model-inconsistent, as pull requests 2 to 6 made them
+    warned = {r["object_id"] for r in rows if r["rule"] == "model-inconsistent"}
+    assert {"W002-P2", "W001-009", "W002-S1", "OBC1"} <= warned
+    win._update_problems_button()
+    total = len(win.ctl.open_findings()) + len(win.ctl.layout_notes()) + len(win.ctl.check_notes())  # fmt: skip
+    assert plist.total() == total == len(rows)
+    assert win.problems_btn.text() == strings.PROBLEMS_BUTTON.format(total)
+    plist.show_filter("links")  # the filter Connections keeps the info of the review
+    kept = [plist.table.row_at(plist.table.proxy.index(k, 0))["rule"] for k in range(plist.table.proxy.rowCount())]  # fmt: skip
+    assert "link_junction" in kept and "shield_place_not_stated" not in kept
+    _click(plist, lambda r: r["rule"] == "link_junction")
+    assert win.ctl.selected_link == "L1"
+
+
+def test_a_net_that_was_not_worked_out_is_an_info_row(qtbot, tmp_path):
+    from tests.test_pin_currents import parallel_project
+
+    win = _window_with(qtbot, tmp_path, parallel_project(second={"gauge_awg": 20}))
+    plist = win.problems_list
+    win.dock_problems.show()
+    plist.refresh()
+    (row,) = [r for r in plist.rows() if r["rule"] == "current_not_worked_out"]
+    assert row["level"] == "info" and row["object_id"] == "W001-001"
+    assert row["why"] == strings.PROBLEMS_NOTE_WHY["current_not_worked_out"]
+    assert "were not worked out" in row["message"]
+
+
+def test_a_project_of_format_4_has_no_info_of_format_5(win):
+    assert win.ctl.check_notes() == []
+
+
+def test_a_click_on_a_shield_group_shows_its_harness_and_where_its_ends_land(qtbot, tmp_path):
+    win, plist = _format5_window(qtbot, tmp_path)
+    _click(plist, lambda r: r["rule"] == "shield_place_not_stated" and r["object_id"] == "W001-S2")
+    assert win.main_tabs.currentWidget() is win.main_tabs.widget_of("harness")
+    assert win.harness_view.harness_id() == "W001"
+    assert win.inspector.current() == ("shield_group", "W001-S2")
+    s2 = next(s for s in win.ctl.project.harnesses["W001"].shields if s.id == "W001-S2")
+    assert win.harness_view.wire_editor.group_label.text().startswith(
+        strings.WIRE_IN_GROUP.format(s2.kind.replace("_", " "), "W001-S2")
+    )
+    rows = {r["name"]: r for r in win.inspector.facts_table.source.rows()}
+    assert rows[strings.INS_SG_END.format("A")]["value"] == "pigtail at W001-P3"
+    assert rows[strings.INS_SG_END.format("A")]["state"] == "pending"
+    assert rows[strings.INS_SG_END.format("A")]["status"] == strings.INS_SG_NOT_STATED
+    assert rows[strings.INS_SG_END.format("B")]["value"] == "backshell 360 (W001-A1) at W001-P1"
+    assert rows[strings.INS_SG_END.format("B")]["state"] is None
+    assert win.inspector.facts_title.text() == "SHIELD GROUP W001-S2"
+    # a warning about a group goes there too (the pigtail of W002-S1 on a wired pin)
+    _click(plist, lambda r: r["rule"] == "model-inconsistent" and r["object_id"] == "W002-S1")
+    assert win.inspector.current() == ("shield_group", "W002-S1")
+    rows = {r["name"]: r for r in win.inspector.facts_table.source.rows()}
+    assert rows[strings.INS_SG_END.format("A")]["value"] == "pigtail to pin 3 at W002-P1"
+
+
+def test_a_place_that_names_another_connector_is_marked_in_the_inspector(qtbot, tmp_path):
+    from harness_design_studio.core.model import ShieldEndPlace
+    from harness_design_studio.gui.inspector import facts_for
+    from tests.format5_support import format5_project
+
+    p = format5_project()
+    h = p.harnesses["W001"]
+    shields = [
+        evolve(s, at_a=ShieldEndPlace(connector="W001-P4", pin="9")) if s.id == "W001-S2" else s
+        for s in h.shields
+    ]
+    p.harnesses["W001"] = evolve(h, shields=shields)
+    rows = {r["name"]: r for r in facts_for(p, "shield_group", "W001-S2")}
+    end_a = rows[strings.INS_SG_END.format("A")]
+    assert end_a["state"] == "warning" and end_a["status"] == strings.INS_SG_MOVED.format("W001-P4")
+    assert end_a["tip"] == strings.INS_SG_MOVED_TIP
+    assert facts_for(p, "shield_group", "W009-S1") == []
+
+
+def test_a_click_on_a_missing_depth_or_a_stale_check_goes_where_it_is_put_right(qtbot, tmp_path):
+    win, plist = _format5_window(qtbot, tmp_path)
+    _click(plist, lambda r: r["rule"] == "model-inconsistent" and r["object_id"] == "W002-P2")
+    assert win.inspector.current() == ("cable_end", "W002-P2")
+    assert win.inspector.length_box.isVisibleTo(win.inspector)  # Lengths measured to
+    _click(plist, lambda r: r["rule"] == "model-inconsistent" and r["object_id"] == "OBC1")
+    assert win.main_tabs.currentWidget() is win.main_tabs.widget_of("devices")
+    assert win.devices_view.unit_id() == "OBC1"
+    assert win.devices_view.check_btn.isVisibleTo(win.devices_view)  # Mark as checked…
+
+
+def test_the_strings_of_pull_request_7_say_device_and_are_in_strings() -> None:
+    names = [
+        n
+        for n in vars(strings)
+        if n.startswith(("SETTINGS_LENGTH_REFERENCE", "INS_SG_", "PROBLEMS_NOTE_WHY"))
+        or n in ("STEP_SET_LENGTH_REFERENCE", "LENGTH_REFERENCE_SET")
+    ]
+    assert len(names) >= 15
+    for n in names:
+        assert "unit" not in str(getattr(strings, n)).lower(), n
+    assert set(strings.PROBLEMS_NOTE_WHY) == {
+        "current_not_worked_out", "shield_place_not_stated", "link_junction",
+    }  # fmt: skip

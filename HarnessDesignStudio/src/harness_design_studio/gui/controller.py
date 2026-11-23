@@ -45,7 +45,11 @@ from harness_design_studio.core.extensions import refresh as refresh_extensions
 from harness_design_studio.core.generate.engine import GenerationPlan
 from harness_design_studio.core.generation_status import generation_status, input_hash
 from harness_design_studio.core.imports import ImportPlan
-from harness_design_studio.core.integrity import row_layout_issues
+from harness_design_studio.core.integrity import (
+    current_issues,
+    row_layout_issues,
+    shield_place_issues,
+)
 from harness_design_studio.core.io.fs import ProjectLock
 from harness_design_studio.core.io.loader import LoadResult, disk_fingerprint, load_project
 from harness_design_studio.core.io.saver import save_project
@@ -266,6 +270,7 @@ class EditorController(QObject):
         self._open_cache: list[checks.Finding] | None = None
         self._counts_cache: tuple[object, tuple[int, int]] | None = None
         self._notes_cache: tuple[object, list[Issue]] | None = None
+        self._infos_cache: tuple[object, list[Issue]] | None = None
         self._owners: dict[str, str] = {}
         self._ends: dict[str, tuple[str, ...]] = {}
         self._installs = 0
@@ -2333,6 +2338,28 @@ class EditorController(QObject):
             notes = [i for i in row_layout_issues(self.project) if i.severity == "info"]
             self._notes_cache = (key, notes)
         return self._notes_cache[1]
+
+    def check_notes(self) -> list[Issue]:
+        """The infos of format 5 that are no finding of a rule, so no written file has them
+        (design of 5.0.0 sections 5.3, 6.1 and 7.3): `current_not_worked_out` (a net whose
+        currents were not worked out, its first wire as the object), `shield_place_not_stated` (a
+        pigtail without a place, the shield group) and the review's `link_junction` (a pin joined
+        to several pins, the connection). The Problems list shows them as Info rows beside the
+        notes of the row layouts. Worked out once per change; none for a project without pin
+        currents, pigtail ends or junctions."""
+        key = self.findings_key()
+        if self._infos_cache is None or self._infos_cache[0] != key:
+            p = self.project
+            notes = [
+                i for i in (*current_issues(p), *shield_place_issues(p)) if i.severity == "info"
+            ]
+            notes += [
+                Issue("info", f.code, f.message, None, f.link_id)
+                for f in links.check_links(p)
+                if f.severity == "info"
+            ]
+            self._infos_cache = (key, notes)
+        return self._infos_cache[1]
 
 
 def reason_of(exc: BaseException) -> str:
