@@ -135,14 +135,18 @@ LINKED_STATES = frozenset({UP_TO_DATE, LIBRARY_CHANGED, CHANGED_HERE})
 KIND: Literal["devices"] = "devices"
 UNIT_FIELDS = ("kind", "mass_relevant", "notes")
 # `row_layout` (format 4): a box connector's own rows are library-owned, and a difference shows in
-# the diff like any other field (design of 4.0.0 section 5.5), in the short text form
+# the diff like any other field (design of 4.0.0 section 5.5), in the short text form. The ICD a
+# connector came from (`source_doc`, `source_version`, `source_link`) and the level of a pin
+# (format 3) are library-owned too (4.4.1, design of 5.0.0 part F): a new ICD issue is a change.
 CONNECTOR_FIELDS = (
     "name", "part_id", "gender", "keying", "carries", "notes", "label", "row_layout",
+    "source_doc", "source_version", "source_link",
 )  # fmt: skip
 PIN_FIELDS = (
     "signal", "fixed", "function", "contact_size", "termination", "contact_part", "role",
-    "direction",
+    "direction", "level",
 )  # fmt: skip
+# The order of the rows of one connector or pin: its own fields first, then the pin's (20 and on).
 _FIELD_ORDER = {f: k for k, f in enumerate(("connector", "pin", *UNIT_FIELDS, *CONNECTOR_FIELDS))}
 _FIELD_ORDER.update({f: 20 + k for k, f in enumerate(PIN_FIELDS)})
 
