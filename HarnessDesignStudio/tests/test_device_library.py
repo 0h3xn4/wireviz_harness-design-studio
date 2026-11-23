@@ -160,7 +160,7 @@ def test_the_file_round_trips_and_merges_in_a_stable_order(project, tmp_path: Pa
     [
         ({}, "not a device library"),
         ({"format": "harness-device-library"}, "version"),
-        ({"format": "harness-device-library", "version": 4}, "newer program"),
+        ({"format": "harness-device-library", "version": 5}, "newer program"),
         ({"format": "harness-device-library", "version": 1, "devices": {}}, "list of records"),
         ({"format": "harness-device-library", "version": 1, "parts": [1]}, "list of records"),
     ],

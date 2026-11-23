@@ -75,19 +75,26 @@ __all__ = [
 ]
 
 FORMAT = "harness-device-library"
-# The newest version this program reads and writes. A file is written as version 3 only when one
-# of its box connectors or parts has a row layout (format 4, D-251, design of 4.0.0 section 5.5),
-# as version 2 when one of its devices or parts uses a field of format 3 (D-242, design of 3.0.0
-# section 4.5: a pin level, the role `signal_ground`, a connector's source, a part's link), and as
-# version 1 otherwise, so that an older tool still reads every file that holds nothing it would
-# refuse (`content_version`).
-VERSION = 3
+# The newest version this program reads and writes. A file is written as version 4 only when one
+# of its devices, pins or parts holds a key of format 5 (`FORMAT5_KEYS`, D-264, design of 5.0.0
+# section 3.7), as version 3 when one of its box connectors or parts has a row layout (format 4,
+# D-251, design of 4.0.0 section 5.5), as version 2 when one of its devices or parts uses a field of
+# format 3 (D-242, design of 3.0.0 section 4.5: a pin level, the role `signal_ground`, a connector's
+# source, a part's link), and as version 1 otherwise, so that an older tool still reads every file
+# that holds nothing it would refuse (`content_version`).
+VERSION = 4
+FORMAT4_VERSION = 3
 FORMAT3_VERSION = 2
 FIRST_VERSION = 1
 FORMAT3_CONNECTOR_KEYS = frozenset({"source_doc", "source_version", "source_link"})
 FORMAT3_PIN_KEYS = frozenset({"level"})
 FORMAT3_PART_KEYS = frozenset({"link"})
 FORMAT4_KEYS = frozenset({"row_layout"})  # of a box connector and of a part
+# The keys of format 5 that a device library file can carry (design of 5.0.0 section 3.7):
+# `depth_mm` of a part, `current_a` of a pin and `checked` of a device. Empty until each key comes
+# with the code that reads it (pull requests 2, 3 and 6 of that design), so that no file is
+# written as version 4 before then; checked on a device, a box connector, a pin and a part.
+FORMAT5_KEYS: frozenset[str] = frozenset()
 MAX_BYTES = 8 * 1024 * 1024
 MAX_DEVICES = 500
 MAX_CONNECTORS = 64  # per device
@@ -350,11 +357,13 @@ def merge_with_notes(
 
 
 def content_version(content: dict[str, Any]) -> int:
-    """The version a device library file with this content is written as: 3 when a box connector
-    or a part has a row layout (`row_layout`, format 4, design of 4.0.0 section 5.5); else 2 when a
-    device or a part uses a field of format 3 (a pin's `level`, the role `signal_ground`, a
-    connector's `source_doc`, `source_version` or `source_link`, a part's `link`; design of 3.0.0
-    section 4.5); else 1. The parts may be given as models or as their JSON."""
+    """The version a device library file with this content is written as: 4 when a device, a box
+    connector, a pin or a part holds a key of format 5 (`FORMAT5_KEYS`, design of 5.0.0 section
+    3.7; none yet); else 3 when a box connector or a part has a row layout (`row_layout`, format 4,
+    design of 4.0.0 section 5.5); else 2 when a device or a part uses a field of format 3 (a pin's
+    `level`, the role `signal_ground`, a connector's `source_doc`, `source_version` or
+    `source_link`, a part's `link`; design of 3.0.0 section 4.5); else 1. The parts may be given as
+    models or as their JSON."""
 
     def keys(rec: Any) -> set[str]:
         if isinstance(rec, dict):
@@ -364,19 +373,28 @@ def content_version(content: dict[str, Any]) -> int:
 
     found = FIRST_VERSION
     for device in _dicts(content.get("devices", [])):
-        for c in _dicts(device.get("connectors", [])):
-            if FORMAT4_KEYS & set(c):
-                return VERSION
-            if FORMAT3_CONNECTOR_KEYS & set(c):
-                found = FORMAT3_VERSION
-            for pin in _dicts(c.get("pins", [])):
-                if FORMAT3_PIN_KEYS & set(pin) or pin.get("role") == "signal_ground":
-                    found = FORMAT3_VERSION
-    for part in content.get("parts", []) or []:
-        if FORMAT4_KEYS & keys(part):
+        if FORMAT5_KEYS & keys(device.get("unit", {})):
             return VERSION
-        if FORMAT3_PART_KEYS & keys(part):
-            found = FORMAT3_VERSION
+        for c in _dicts(device.get("connectors", [])):
+            if FORMAT5_KEYS & set(c):
+                return VERSION
+            if FORMAT4_KEYS & set(c):
+                found = FORMAT4_VERSION
+            if FORMAT3_CONNECTOR_KEYS & set(c):
+                found = max(found, FORMAT3_VERSION)
+            for pin in _dicts(c.get("pins", [])):
+                if FORMAT5_KEYS & set(pin):
+                    return VERSION
+                if FORMAT3_PIN_KEYS & set(pin) or pin.get("role") == "signal_ground":
+                    found = max(found, FORMAT3_VERSION)
+    for part in content.get("parts", []) or []:
+        found_keys = keys(part)
+        if FORMAT5_KEYS & found_keys:
+            return VERSION
+        if FORMAT4_KEYS & found_keys:
+            found = FORMAT4_VERSION
+        if FORMAT3_PART_KEYS & found_keys:
+            found = max(found, FORMAT3_VERSION)
     return found
 
 

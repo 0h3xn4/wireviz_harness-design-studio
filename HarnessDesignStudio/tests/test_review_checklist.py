@@ -302,7 +302,7 @@ def test_a_project_of_4_2_with_the_key_loads_saves_and_keeps_it(tmp_path: Path) 
     naming = folder / "config" / "naming.json"
     edit_json(naming, lambda d: d["values"].__setitem__("review_checklist", ["Point one.", "Point two."]))  # fmt: skip
     p = load_project(folder).project
-    assert p.meta.schema_version == SCHEMA_VERSION == 4
+    assert p.meta.schema_version == SCHEMA_VERSION == 5
     assert configcheck.validate(p) == configcheck.validate(plain)
     assert generation_status(p) == generation_status(plain)
     changed = [f.id for f in run_drc(p) if not f.id.startswith("verify-mismatch.outputs_outdated")]

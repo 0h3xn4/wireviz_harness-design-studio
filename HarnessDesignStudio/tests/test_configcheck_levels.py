@@ -117,7 +117,7 @@ def test_a_project_of_4_1_with_the_key_loads_saves_and_keeps_it(tmp_path: Path) 
     naming = folder / "config" / "naming.json"
     edit_json(naming, lambda d: d["values"].__setitem__("pair_suffixes", [["+", "-"], ["P", "N"]]))
     p = load_project(folder).project
-    assert p.meta.schema_version == SCHEMA_VERSION == 4
+    assert p.meta.schema_version == SCHEMA_VERSION == 5
     assert configcheck.validate(p) == configcheck.validate(plain)
     # the rule that reads the key (pair-untwisted) finds nothing new: flatsat has no harness without
     # an interface; the outputs are older than a changed config file, as for any change of a value
@@ -241,7 +241,7 @@ def test_a_project_of_4_1_with_the_level_table_loads_saves_and_keeps_it(tmp_path
     seg = folder / "config" / "segregation.json"
     edit_json(seg, lambda d: d["values"].__setitem__("level_pairs_to_separate", [["28V", "3V3"]]))
     p = load_project(folder).project
-    assert p.meta.schema_version == 4 and configcheck.validate(p) == configcheck.validate(plain)
+    assert p.meta.schema_version == 5 and configcheck.validate(p) == configcheck.validate(plain)
     save_project(p, folder)
     assert main(["settings", str(folder), "--set", "segregation.forbid_pyro_with_other=true"]) == 0
     values = json.loads(seg.read_text(encoding="utf-8"))["values"]

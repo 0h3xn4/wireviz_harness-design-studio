@@ -68,11 +68,13 @@ __all__ = [
 ]
 
 FORMAT = "harness-subsystem-library"
-# The newest version this program reads and writes. A file is written as version 2 only when one of
-# its box connectors or parts has a row layout (format 4, D-251, design of 4.0.0 section 5.5), else
-# as version 1, so that a 3.0 tool still reads every file that holds nothing it would refuse
-# (`content_version`).
-VERSION = 2
+# The newest version this program reads and writes. A file is written as version 3 only when one of
+# its devices, pins or parts holds a key of format 5 (D-264, design of 5.0.0 section 3.7; the keys
+# `device_library.FORMAT5_KEYS`, none yet), as version 2 when one of its box connectors or parts has
+# a row layout (format 4, D-251, design of 4.0.0 section 5.5), else as version 1, so that an older
+# tool still reads every file that holds nothing it would refuse (`content_version`).
+VERSION = 3
+FORMAT4_VERSION = 2
 FIRST_VERSION = 1
 MAX_BYTES = dl.MAX_BYTES
 MAX_DEVICES = 100  # in one subsystem
@@ -233,11 +235,15 @@ def export_subsystem(
 
 
 def content_version(content: dict[str, Any]) -> int:
-    """The version a subsystem library file with these devices and parts is written as: 2 when a
-    box connector or a part has a row layout (the rule of the device library file's version 3,
+    """The version a subsystem library file with these devices and parts is written as: 3 when a
+    device, a pin or a part holds a key of format 5 (the rule of the device library file's version
+    4), 2 when a box connector or a part has a row layout (its version 3; both
     `device_library.content_version`), else 1. The fields of format 3 keep version 1 (as at
     3.0.0)."""
-    return VERSION if dl.content_version(content) == dl.VERSION else FIRST_VERSION
+    found = dl.content_version(content)
+    if found == dl.VERSION:
+        return VERSION
+    return FORMAT4_VERSION if found == dl.FORMAT4_VERSION else FIRST_VERSION
 
 
 def left_out_connections(project: Project, unit_ids: list[str]) -> int:

@@ -388,7 +388,7 @@ def test_save_device_and_add_device_carry_the_rows(tmp_path: Path, capsys) -> No
     rc, out, _ = cli(capsys, "save-device", src, "RW1")
     assert rc == 0, out
     data = json.loads((lib / "RW1.device.json").read_text(encoding="utf-8"))
-    assert data["version"] == dl.VERSION == 3
+    assert data["version"] == dl.FORMAT4_VERSION == 3
     j01 = next(c for c in data["devices"][0]["connectors"] if c["id"] == "RW1-J01")
     assert j01["row_layout"] == {"rows": [["2", "1"], ["3"]]}
     part = next(x for x in data["parts"] if x["id"] == "EX-MICROD-9-M")
@@ -466,7 +466,7 @@ def test_the_subsystem_file_carries_the_rows(tmp_path: Path, capsys) -> None:
     argv = ["export-subsystem", src, lib, "--device", "OBC", "--device", "RW1", "--name", "Wheel"]
     assert cli(capsys, *argv)[0] == 0
     data = json.loads(lib.read_text(encoding="utf-8"))
-    assert data["version"] == sl.VERSION == 2
+    assert data["version"] == sl.FORMAT4_VERSION == 2
     assert cli(capsys, "import-subsystem", dst, lib)[0] == 0
     q = load_project(dst).project
     assert q.connectors["RW1-J01"].row_layout == rows(["2", "1"], ["3"])

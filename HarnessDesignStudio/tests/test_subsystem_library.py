@@ -120,7 +120,7 @@ def test_nothing_to_export_and_unknown_devices(project):
         ("[]", "not a subsystem library"),
         (json.dumps({"format": dl.FORMAT, "version": 1}), "not a subsystem library"),
         (json.dumps({"format": sl.FORMAT}), "valid version"),
-        (json.dumps({"format": sl.FORMAT, "version": 9, "name": "x"}), "reads version 2"),
+        (json.dumps({"format": sl.FORMAT, "version": 9, "name": "x"}), "reads version 3"),
         (json.dumps({"format": sl.FORMAT, "version": 1}), "no name"),
         (json.dumps({"format": sl.FORMAT, "version": 1, "name": "x"}), "no devices"),
         (json.dumps({"format": sl.FORMAT, "version": 1, "name": "x", "devices": 3}), "list of rec"),
@@ -329,7 +329,7 @@ def test_a_damaged_file_does_not_hide_the_others(project, tmp_path: Path):
     assert [e.id for e in scan.entries] == ["OBC"]
     said = {p.file: p.message for p in scan.problems}
     assert "not valid JSON" in said["broken.json"]
-    assert "reads version 2" in said["future.json"]
+    assert "reads version 3" in said["future.json"]
     assert "no devices" in said["empty-sub.json"]
     assert str(scan.problems[0]).startswith(scan.problems[0].file + ": ")
 
