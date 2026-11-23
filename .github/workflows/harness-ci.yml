@@ -6,6 +6,9 @@ on:
     paths: ["HarnessDesignStudio/**", ".github/workflows/harness-ci.yml"]
   pull_request:
     paths: ["HarnessDesignStudio/**", ".github/workflows/harness-ci.yml"]
+  # By hand: always the full suite, for a commit of master whose change was documents only and that
+  # is to be tagged (the tag workflow needs `test (ubuntu-24.04)` to have passed on the commit).
+  workflow_dispatch:
 
 permissions:
   contents: read  # the jobs only read the repository; artifacts need no token rights
@@ -35,11 +38,13 @@ jobs:
           fetch-depth: 0
       - id: diff
         env:
+          EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           code=true
-          if files=$(git diff --name-only "$BASE...$HEAD" 2>/dev/null) && [ -n "$files" ]; then
+          files=""
+          if [ "$EVENT" != workflow_dispatch ] && files=$(git diff --name-only "$BASE...$HEAD" 2>/dev/null) && [ -n "$files" ]; then
             if ! echo "$files" | grep -v -E '^HarnessDesignStudio/[^/]+\.md$|^HarnessDesignStudio/docs/.*\.md$|^HarnessDesignStudio/compliance/' | grep -q .; then
               code=false
             fi
