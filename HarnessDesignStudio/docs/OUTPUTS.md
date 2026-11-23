@@ -222,7 +222,7 @@ When at least one interface type has an EMC class, the wire list gets a last col
 
 ## Open data and the run record
 
-The outputs above are what you build from. `harness-design-studio export-data DIR --out FOLDER` writes the numbers behind them as JSON and CSV (wire sizing, lengths, mass, bill of materials, rule results with actual, limit and margin, readiness, test limits, pin allocation, segmentation, findings, parts, settings, the configuration as used, and a provenance file) to a folder of your choice, so that a result can be reproduced from the files alone ([export the data](user-manual/export-the-data.md); the files are described in [`FILE_FORMAT.md`](FILE_FORMAT.md#open-data-files-and-the-run-record-not-part-of-a-project)). They are not part of `export`, are not listed in the manifest and do not change the hashes of the outputs.
+The outputs above are what you build from. `harness-design-studio export-data DIR --out FOLDER` writes the numbers behind them as JSON and CSV (wire sizing, lengths, mass, bill of materials, rule results with actual, limit and margin, readiness, test limits, pin allocation, segmentation, findings, parts, settings, the checked state of each device, the configuration as used, and a provenance file) to a folder of your choice, so that a result can be reproduced from the files alone ([export the data](user-manual/export-the-data.md); the files are described in [`FILE_FORMAT.md`](FILE_FORMAT.md#open-data-files-and-the-run-record-not-part-of-a-project)). They are not part of `export`, are not listed in the manifest and do not change the hashes of the outputs.
 
 No written output holds a time or a name, so the same design gives the same bytes. When you want the time, the operator, the tool and Python versions and the model hash of a run on record, add `--run-record` to `export` or `generate` (or `export-data`): `run_record.json` is then written beside the files, in the `outputs` folder, outside `manifest.json` and every hash. `verify --outputs` does not call it an unlisted file. Without the option no record is written.
 
@@ -347,3 +347,16 @@ A shield group whose end states where it lands (format 5, 5.0.0; design `docs/ai
 | `system/drc_findings.csv`, the DRC report | the warnings `shield_end_moved`, `shield_pin_missing`, `shield_pin_wired`, `shield_pin_role` and `shield_backshell_missing` of `check`, as findings of `model-inconsistent` (the info `shield_place_not_stated` is no finding) |
 
 Not changed: the wire list, the cut list, the pinouts, the tests (no test row for a pigtail, F16), the labels and the bill of materials. The independent check (`verify --outputs`) words the shield cell and the pigtail row again with its own copy (`verify_production._place_here`, `_landings`, `_end_words`) and compares *Goes to* of the *Connectors* sheet and `export.json`: a wrong place is `out_build`, `out_plan` or `out_json`.
+
+## A checked device
+
+A device marked as checked (format 5, 5.0.0; design `docs/ait/DESIGN_5.0_FORMAT_5.md` section 8.5; [File format](FILE_FORMAT.md#the-checked-state-of-a-device-part-e)) changes these files only, and only while some device of the project is checked. A project without a check keeps every file. The date in them is the day the person gave (or the day of the check, which `device-checked` stores in the project); no file gets the time of the export.
+
+| Output | What a project with a checked device holds |
+| --- | --- |
+| the *Review* sheet of the build workbook (and the Review page of the editor), block *Sources to look at* | before the device connectors, one row *Device* for each device the harness plugs into, in ID order: the device's ID and *Checked by A. Example on 2026-11-23 against ICD-TTC Issue 3*, *…; changed since the check* when the device changed after the check, or *not checked* |
+| `system/export.json` | `checked` of each device where set (`by`, `on`, `icd`, `sha256`) |
+| `system/drc_findings.csv`, the DRC report | the warning `device_check_stale` of `check`, as a finding of `model-inconsistent` (it does not stop a release) |
+| `export-data` (not a file of `export`) | the table `devices`: *Device*, *Checked by*, *Checked on*, *Checked against* and *Check* (*checked*, *changed since the check*, *not checked*) for every device, also of a project without a check |
+
+Not changed: the harness plan, the build workbook's other sheets, the drawings, the lists and the labels. The independent check (`verify --outputs`) words the rows of the *Review* sheet again with its own copy of the hash (`verify_review._device_sha256`): a wrong row is `out_review`.

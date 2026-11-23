@@ -231,6 +231,8 @@ Edit a cell, add or delete pins, change the part: each is one step, and **Undo**
 
 **What the device looks like.** The card of a device has the picture and the colour of its kind, read from its name. If the tool reads it wrong, select the device and set the **Kind** in the Inspector (under **Subsystem**; *Automatic: Battery* is the first entry, one undo step each change); the kind is stored on the device only when you set it ([telling devices apart](telling-devices-apart.md#setting-the-kind-by-hand)). The **kind** you pick in the **Add device** window is another thing: it chooses the connectors a new device starts with.
 
+**A device you checked.** When you have checked the device against its ICD, **Mark as checked…** in the Devices tab records who, the day and the ICD (since 5.0.0; [use the library](use-the-library.md#10-mark-a-device-as-checked)). A later change of its kind, connectors or pins keeps the record and marks it *changed since the check*; a note or a label does not.
+
 Where a harness made by hand (not generated) has a wire on a pin, the pin cannot be deleted or renamed until that harness is deleted or given a new version. A generated harness only becomes out of date and is rebuilt by the next Generate.
 
 ## What a pin can hold

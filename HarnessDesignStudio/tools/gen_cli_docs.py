@@ -37,7 +37,10 @@ GROUPS = (
         ),
     ),
     ("Write data out", ("export-pinout", "export-devices", "export-subsystem")),
-    ("Device library", ("libraries", "add-device", "update-device", "save-device")),
+    (
+        "Device library",
+        ("libraries", "add-device", "update-device", "save-device", "device-checked"),
+    ),
     ("Record what was built", ("export-asbuilt", "import-asbuilt", "asbuilt")),
     (
         "Review, release and change",
@@ -257,6 +260,11 @@ EXAMPLES: dict[str, list[str]] = {
         "harness-design-studio save-device my-design PCDU00",
         "harness-design-studio save-device my-design PCDU00 --library ../acme-device-library",
         "harness-design-studio save-device my-design PCDU00 --replace --json",
+    ],
+    "device-checked": [
+        'harness-design-studio device-checked my-design TTC1 --by "A. Example"',
+        'harness-design-studio device-checked my-design TTC1 --by "A. Example" --icd "ICD-TTC Issue 3" --date 2026-11-23',
+        "harness-design-studio device-checked my-design TTC1 --clear --json",
     ],
     "export-subsystem": [
         'harness-design-studio export-subsystem my-design wheel-drive.json --device OBC1 --device RW1 --name "Wheel drive"',

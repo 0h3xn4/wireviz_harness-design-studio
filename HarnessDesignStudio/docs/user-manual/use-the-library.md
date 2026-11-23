@@ -18,6 +18,7 @@ This page shows how a team keeps its devices and subsystems in a **library**: a 
 - [7. Add a device from a device library](#7-add-a-device-from-a-device-library)
 - [8. Review and update a device](#8-review-and-update-a-device)
 - [9. Save a device to a device library](#9-save-a-device-to-a-device-library)
+- [10. Mark a device as checked](#10-mark-a-device-as-checked)
 - [A worked example on the command line](#a-worked-example-on-the-command-line)
 - [Subsystems on the command line](#subsystems-on-the-command-line)
 - [Share the library: a drive or a Git repository](#share-the-library-a-drive-or-a-git-repository)
@@ -178,6 +179,17 @@ When the library has a newer version of a device, the program shows the differen
 - **In the editor:** *Save this project's to the library…* in the review window, or **Save selection to library…** in the library window (which writes into your library folder).
 
 The device goes into the file that holds it already, else into `<ID>.device.json` at the root of the library. A different device of the same ID is refused unless you say `--replace` (in the editor: **Replace**). The project then gets the record of the written file, so the device follows the library at once; the record says *not committed* until you commit. The message ends with *Commit the library to share it.*: the program never commits.
+
+## 10. Mark a device as checked
+
+When you have checked a device against its ICD (since 5.0.0, format 5), record it: who, the day and the ICD with its version.
+
+- **In the editor:** **Mark as checked…** in the Devices tab (or in the library window, for the project's device that follows the device you chose). Type your name; the day is today and the ICD is proposed when every connector of the device names the same document and issue. **Clear the check** takes it away. Each is one step that **Undo** takes back.
+- **On the command line:** `harness-design-studio device-checked DIR DEVICE --by "A. Example" [--icd "ICD-TTC Issue 3"] [--date 2026-11-23]`, and `device-checked DIR DEVICE --clear`. `--by` is required: the program takes no name from the computer. Without `--icd` the ICD the connectors name is used; when they name none, or several, the command asks you to name it with `--icd`.
+
+The check holds a fingerprint (a SHA-256) of what you checked: the kind of the device and its connectors and pins as the library holds them, not its notes or labels. When the device changes later, the check stays, the Devices tab says *changed since the check*, and `check` warns (*TTC1 was checked by A. Example on 2026-11-23 against ICD-TTC Issue 3; its connectors or pins changed since*); check it again, or see what changed in the journal and in **Review…**. A release does not lock the check, and anyone may mark a device.
+
+**Share it through the library.** Save the device to its library ([section 9](#9-save-a-device-to-a-device-library); `--replace`, since the library's device then differs by its check): the library file holds the check, **Add** brings it with the device, and **Review** shows the field *checked* and takes the library's (also *not checked*). The library window has a column **Checked**. The Review page and the *Review* sheet of each harness list the devices it plugs into with their check once any device of the project is checked.
 
 ## A worked example on the command line
 
