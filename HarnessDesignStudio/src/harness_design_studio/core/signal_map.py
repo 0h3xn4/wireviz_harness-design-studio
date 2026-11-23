@@ -17,13 +17,17 @@ so `TTC1_TXP` gives `TTC1_TX+` and the port and the separator are kept (N7). A n
 two ways is not renamed. Only the two importers that read a device's pins from outside apply the
 map (N6, N11); generation does not read it (`generation_status.NOT_READ_BY_GENERATION`).
 
+`Renamed` and `renamed_lines` are one rename of an import and the lines that say it (section
+5.3): the echo of `import-pinout` and `import-netlist`, the import wizard's preview, and the
+conversions of the import record (`UNIT`).
+
 `read_file` reads a file of pairs as `import-netlist --signal-map FILE` always has (moved here from
 `cli/data.py` without a change): a CSV of two columns with an optional heading row, or a JSON
 object. The module is pure but for `read_file`.
 """
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -140,6 +144,52 @@ def apply(name: str, mapping: Mapping[str, str]) -> Mapped:
         f"{r.port}{r.separator}{signal}" if r.form == "prefix" else f"{signal}{r.separator}{r.port}"
     )
     return Mapped(name, stored, (r.signal,), 1)
+
+
+# the unit of a rename in the import record (`import_record.Conversion`, section 5.3)
+UNIT = "signal map"
+FIELD = "signal"
+HEADING = "Renamed by the project's signal map (config/naming.json signal_map): {} signal(s)"
+
+
+@dataclass(frozen=True)
+class Renamed:
+    """One pin an import renamed by the project's map (section 5.3): the row of the file (the
+    sheet row of `import-pinout`, the connector component of `import-netlist`), the connector and
+    the pin, the name `read` in the file and the name `stored` on the pin (with the port of a Port
+    column composed in)."""
+
+    row: int
+    connector: str
+    pin: str
+    read: str
+    stored: str
+
+    @property
+    def where(self) -> str:
+        return f"{self.connector} pin {self.pin}"
+
+    def text(self) -> str:
+        """`TTC1_TXP -> TTC1_TX+: OBC1-J01 pin 1`."""
+        return f"{self.read} -> {self.stored}: {self.where}"
+
+    def as_dict(self) -> dict[str, str]:
+        """The rename as `--json` writes it (`renamed_signals`)."""
+        return {
+            "connector": self.connector,
+            "pin": self.pin,
+            "read": self.read,
+            "stored": self.stored,
+        }
+
+
+def renamed_lines(renamed: Sequence[Renamed]) -> list[str]:
+    """The lines of the echo and of the import wizard's preview: none without a rename, else
+    `Renamed by the project's signal map (config/naming.json signal_map): 4 signal(s)` and one
+    indented line per pin."""
+    if not renamed:
+        return []
+    return [HEADING.format(len(renamed)), *(f"  {r.text()}" for r in renamed)]
 
 
 def read_file(path: Path) -> dict[str, str]:

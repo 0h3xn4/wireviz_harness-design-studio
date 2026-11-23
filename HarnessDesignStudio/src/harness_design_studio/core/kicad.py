@@ -15,7 +15,11 @@ What is not known yet is how your KiCad names relate to the tool's, so nothing i
 - signal names: the net name without its sheet path, translated by a mapping table you give;
   names that match no signal of any interface type are reported so you can build that table. A
   net named for a port (`RS422_2_TX+`, 2.1.0, D-237) is the signal TX+ of RS-422 and is not
-  reported: keep such names, Generate reads the port from them.
+  reported: keep such names, Generate reads the port from them. The table given with the import
+  (`--signal-map`) reads whole names and comes first; a name it does not hold is read against the
+  project's signal map (`naming.signal_map`, 4.4.0, `core/signal_map.py`), which also reads inside
+  a port (`TTC1_TXP` becomes `TTC1_TX+`); each rename of the project's map is listed
+  (`NetlistPlan.renamed`) and kept in the import record.
 
 The pin type of each pin (`input`, `power_in` ...) and the design source of the netlist are not
 lost: they go into the import record (`NetlistPlan.pin_types`, `Netlist.source`, D-193). With
@@ -34,6 +38,9 @@ from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.ids import ID_RE, PIN_RE
 from harness_design_studio.core.model import Connector, Pin, Project, evolve
 from harness_design_studio.core.ports import is_signal_of
+from harness_design_studio.core.signal_map import Mapped, Renamed
+from harness_design_studio.core.signal_map import apply as apply_signal_map
+from harness_design_studio.core.signal_map import table as project_signal_map
 
 MAX_BYTES = 32 * 1024 * 1024
 CONNECTOR_FIELD = "harnessconnector"
@@ -313,6 +320,7 @@ class NetlistPlan:
     warnings: list[str] = field(default_factory=list)
     pin_types: dict[str, str] = field(default_factory=dict)  # "<connector>.<pin>" -> KiCad pin type
     ignored_fields: list[str] = field(default_factory=list)  # parts of a component not imported
+    renamed: list[Renamed] = field(default_factory=list)  # pins the project's signal map renamed
 
     @property
     def ok_count(self) -> int:
@@ -343,7 +351,9 @@ def plan_netlist_import(
     use_pin_type_direction: bool = False,
 ) -> NetlistPlan:
     """One row per connector component. `refs` selects connectors by reference (default: every
-    component whose reference starts with `prefix`). Nothing is applied here."""
+    component whose reference starts with `prefix`). `signal_map` is the table given with the
+    import (`--signal-map`, whole names); a name it does not hold is read against the project's
+    signal map (`naming.signal_map`, also inside a port). Nothing is applied here."""
     plan = NetlistPlan()
     if unit_id not in project.units:
         plan.rows.append(RowResult("", False, f"Device '{unit_id}' does not exist"))
@@ -365,6 +375,7 @@ def plan_netlist_import(
             if key not in netlist.components or (refs and key not in refs):
                 plan.warnings.append(f"{what} {key}=... was ignored: {key} is not among the connectors being imported")  # fmt: skip
     mapping = signal_map or {}
+    team_names = project_signal_map(project)  # {} without the setting: the names as in 4.3.0
     taken: dict[str, str] = {}
     for ref in chosen:
         comp = netlist.components.get(ref)
@@ -434,11 +445,14 @@ def plan_netlist_import(
             continue
         seen_names: dict[str, str] = {}
         types_here: dict[str, str] = {}
+        renamed_here: list[tuple[str, str, str]] = []  # (pin, read, stored)
         failed = False
         for number in sorted(comp.pins, key=natural_key):
             info = comp.pins[number]
             raw = (info.function if use_pin_function else clean_net(info.net)) or None
-            signal = mapping.get(raw, raw) if raw else None
+            signal, read_by_map = _signal_of(raw, mapping, team_names)
+            if read_by_map is not None and read_by_map.ambiguous:
+                plan.warnings.append(read_by_map.warning(f"{cid} pin {number}"))
             if signal is not None and not is_known_signal(project, signal):
                 plan.unmatched_signals.setdefault(signal, []).append(f"{cid} pin {number}")
             if signal is not None and signal in seen_names:
@@ -458,6 +472,8 @@ def plan_netlist_import(
                         f"{cid}: pin {number} is locked (signal {base.signal or 'none'}) and was not changed; the netlist says {signal or 'no signal'}"
                     )
                 continue
+            if read_by_map is not None and read_by_map.renamed:
+                renamed_here.append((number, read_by_map.read, read_by_map.stored))
             filled: dict[str, str] = {}
             if use_pin_type_direction and not base.direction:
                 word = PIN_TYPE_DIRECTION.get(info.pin_type)
@@ -510,6 +526,7 @@ def plan_netlist_import(
             )
         taken[cid] = ref
         plan.pin_types.update(types_here)
+        plan.renamed += [Renamed(len(plan.rows) + 1, cid, *r) for r in renamed_here]
         for what, text in (("value", comp.value), ("footprint", comp.footprint)):
             if text and what not in plan.ignored_fields:
                 plan.ignored_fields.append(what)
@@ -519,3 +536,17 @@ def plan_netlist_import(
         action = "unchanged" if same else "updated" if old else "added"
         plan.rows.append(RowResult(ref, True, "", cid, action, sum(1 for p in merged if p.fixed)))
     return plan
+
+
+def _signal_of(
+    raw: str | None, mapping: dict[str, str], team_names: dict[str, str]
+) -> tuple[str | None, Mapped | None]:
+    """The signal of a pin whose net or pin name is `raw`: the pair of the table given with the
+    import (whole names, as before 4.4.0) when it has one, else `raw` as the project's signal map
+    reads it, with that reading (None when the map was not asked)."""
+    if not raw:
+        return None, None
+    if raw in mapping:
+        return mapping[raw], None
+    read = apply_signal_map(raw, team_names)
+    return read.stored, read
