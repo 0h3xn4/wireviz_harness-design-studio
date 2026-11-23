@@ -16,6 +16,7 @@ from harness_design_studio.core import links, wires
 from harness_design_studio.core.commands import apply_ops
 from harness_design_studio.core.edit import EditError, clone_with
 from harness_design_studio.core.model import PinPair, Project, evolve
+from tests.junction_support import old_review_without_pairs_again, review_as_before
 from tests.links_gen import VOCABULARY, generated_project
 from tests.reference import links_181 as old
 
@@ -97,10 +98,23 @@ def scrambled(seed: int) -> Project:
 
 @pytest.mark.parametrize("seed", SEEDS)
 def test_the_review_of_every_link_is_the_old_one(seed: int) -> None:
+    """Since format 5 a pin in several pairs of one link is a junction or a parallel pair (section
+    6.1 of the design of 5.0.0): those findings differ on purpose (`tests/junction_support.py`);
+    every other finding is the old one, in the old order."""
     for p in (generated_project(seed, links=6), scrambled(seed)):
-        assert as_tuples(links.check_links(p)) == as_tuples(old.check_links(p))
+        assert review_as_before(links.check_links(p)) == old_review_without_pairs_again(
+            old.check_links(p)
+        )
         for link in p.links.values():
-            assert as_tuples(links.check_link(p, link)) == as_tuples(old.check_link(p, link))
+            assert review_as_before(links.check_link(p, link)) == old_review_without_pairs_again(
+                old.check_link(p, link)
+            )
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_without_a_pin_in_two_pairs_of_a_link_the_review_is_the_old_one_word_for_word(seed: int) -> None:  # fmt: skip
+    p = generated_project(seed, links=6)
+    assert as_tuples(links.check_links(p)) == as_tuples(old.check_links(p))
 
 
 def test_the_review_has_something_to_say_in_every_code() -> None:

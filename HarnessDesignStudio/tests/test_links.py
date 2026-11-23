@@ -189,12 +189,13 @@ def test_a_link_accepts_pairs_and_an_id_and_checks_them():
     assert lid == "WHEEL1"
     for bad, text in (
         ([("1", "99")], "no pin '99'"),
-        ([("1", "3"), ("1", "4")], "two pairs"),
-        ([("1", "3"), ("2", "3")], "two pairs"),
         ([("1",)], "A pair is"),
     ):
         with pytest.raises(EditError, match=text):
             plan_add_link(p, *RS, bad)  # type: ignore[arg-type]
+    # format 5: a pin in two pairs of one link is a junction (or a parallel pair), not refused
+    for junction in ([("1", "3"), ("1", "4")], [("1", "3"), ("2", "3")], [("1", "3"), ("1", "3")]):
+        assert plan_add_link(p, *RS, junction)[1] == "L1"
     for ident in ("OBC", "bad id", "W001"):
         with pytest.raises(EditError):
             plan_add_link(p, *RS, [], link_id=ident)
@@ -370,7 +371,7 @@ def test_power_without_a_return_is_a_warning_and_a_return_role_cures_it():
     assert "link_power_without_return" not in codes(p, p.links[lid])
 
 
-def test_a_pin_in_two_pairs_or_two_links_is_an_error():
+def test_a_pin_in_two_links_is_an_error_and_in_two_pairs_a_junction():
     p = pinout_project()
     p.links["L1"] = Link(
         id="L1", a_connector=RS[0], b_connector=RS[1], pairs=pairs(("1", "3"), ("1", "4"))
@@ -382,9 +383,11 @@ def test_a_pin_in_two_pairs_or_two_links_is_an_error():
         id="L3", a_connector="PCDU-J03", b_connector=RS[1], pairs=pairs(("2", "4"))
     )
     assert [f.pin for f in check_link(p, p.links["L1"]) if f.code == "link_pin_reused"] == [
-        "OBC-J01.1",
         "RW1-J02.4",
     ]
+    assert [f.pin for f in check_link(p, p.links["L1"]) if f.code == "link_junction"] == [
+        "OBC-J01.1"
+    ]  # format 5 (tests/test_link_junctions.py)
     assert codes(p, p.links["L2"]).count("link_pin_reused") == 0  # OBC pin 2 is only in L2
 
 

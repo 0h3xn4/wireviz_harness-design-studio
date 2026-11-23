@@ -82,6 +82,7 @@ from harness_design_studio.core import (
 from harness_design_studio.core import label_format as core_label_format
 from harness_design_studio.core import links as core_links
 from harness_design_studio.core import signal_map as core_signal_map
+from harness_design_studio.core import splices as core_splices
 from harness_design_studio.core import workflow as core_workflow
 from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.drc import by_rule
@@ -193,7 +194,12 @@ from harness_design_studio.gui.library_review import (
 )
 from harness_design_studio.gui.library_window import SETTINGS_FOLDER as LIBRARY_FOLDER_KEY
 from harness_design_studio.gui.library_window import LibraryWindow, save_devices_asking
-from harness_design_studio.gui.link_dialog import CreateHarnessDialog, LinkDialog, harness_preview
+from harness_design_studio.gui.link_dialog import (
+    CreateHarnessDialog,
+    LinkDialog,
+    harness_preview,
+    needs_splice,
+)
 from harness_design_studio.gui.lists_panel import ListsPanel
 from harness_design_studio.gui.new_project_dialog import (
     BLANK,
@@ -1507,17 +1513,21 @@ class MainWindow(QMainWindow):
         if self.ctl.read_only:
             self.ctl.refuse_read_only()
             return
+        project = self.ctl.project
+        # a connection with a junction (format 5) asks for the splice part, the person's choice
+        parts = core_splices.splice_parts(project) if needs_splice(project, lid) else []
+        first = parts[0].id if parts else None
         try:
-            sentence = harness_preview(self.ctl.project, lid)
+            sentence = harness_preview(project, lid, first)
         except edit.EditError as exc:
             self._error(str(exc))
             return
-        if (
-            self.run_dialog(CreateHarnessDialog(self, self.theme, sentence))
-            != QDialog.DialogCode.Accepted
-        ):
+        dlg = CreateHarnessDialog(
+            self, self.theme, sentence, parts, lambda part: harness_preview(project, lid, part)
+        )
+        if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
             return
-        hid = self.ctl.create_harness_from_link(lid)
+        hid = self.ctl.create_harness_from_link(lid, dlg.splice_part())
         if hid is None:
             return
         if not self._stays_on_the_path():
@@ -1532,7 +1542,8 @@ class MainWindow(QMainWindow):
         if not self.ctl.project.links:
             self.toasts.show_message(strings.LINK_CHECK_NONE, None)
             return
-        found = core_links.check_links(self.ctl.project)
+        # an info (a junction, format 5) is not a thing to look at
+        found = [f for f in core_links.check_links(self.ctl.project) if f.severity != "info"]
         self.dock_problems.show()
         self.problems_list.show_filter("links")
         self.ctl.check_now()

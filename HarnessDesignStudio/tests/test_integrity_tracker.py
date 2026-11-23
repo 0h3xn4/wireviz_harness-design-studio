@@ -39,6 +39,7 @@ from harness_design_studio.core.model import (
     evolve,
 )
 from harness_design_studio.core.samples import mini3, sat15
+from tests.junction_support import old_check_without_pairs_again
 from tests.links_gen import generated_project
 from tests.reference import integrity_181 as old
 from tools.bench_stress import build
@@ -66,7 +67,8 @@ def whole_check_old(p: Project) -> Counter:
     old._CACHE.clear()
     integrity._CACHE.clear()
     newer = Counter({k: n for k, n in keys_of(check_integrity(p)).items() if k[1] in SINCE_181})
-    return keys_of(old.check_integrity(p)) + newer
+    # format 5: a pin in several pairs of one link is a junction, no error (tests/junction_support)
+    return keys_of(old_check_without_pairs_again(old.check_integrity(p))) + newer
 
 
 def whole_check_new(p: Project) -> Counter:
@@ -359,8 +361,8 @@ def test_the_whole_check_still_reports_every_issue_of_release_181() -> None:
         old._CACHE.clear()
         integrity._CACHE.clear()
         assert [as_181(i) for i in check_integrity(p) if i.code not in ROUTING_SINCE_220] == [
-            as_181(i) for i in old.check_integrity(p)
-        ], seed
+            as_181(i) for i in old_check_without_pairs_again(old.check_integrity(p))
+        ], seed  # format 5: a pin in two pairs of one link is a junction (tests/junction_support)
 
 
 # Warnings that 1.8.1 did not have: the routing tree of a harness (2.3.0, D-243). They read the

@@ -13,7 +13,15 @@ interface". The review (`check_link`) says what looks wrong without changing any
     ops, link_id = plan_add_link(project, "OBC-J01", "RW1-J02")    # pairs default to the proposal
     ops = plan_set_pairs(project, link_id, [("1", "3"), ("2", "4")])
     ops, harness_id = plan_create_harness(project, link_id)        # cable connectors and wires
+    ops, harness_id = plan_create_harness(project, link_id, "EX-SPLICE-1")  # with a junction
     findings = check_link(project, project.links[link_id])
+
+Since format 5 (part C of the design of 5.0.0, `docs/ait/DESIGN_5.0_FORMAT_5.md` section 6) a
+link may pair one pin with several pins (a **junction**: every pin of one side of the net with
+every pin of the other) and may repeat a pair (a **parallel pair**: two wires between the same two
+pins). `link_nets` gives the nets of the pairs; the harness made from a link with a junction gets
+one splice for each junction, of a splice part the person chooses. A link with neither is read and
+made as before (`tests/test_links_same_as_181.py`).
 
 The `plan_*` functions are pure: they return `Op`s that `History.execute` runs as one undo step,
 or raise `EditError` with a plain sentence that says what to do. Nothing here is invented: no
@@ -564,31 +572,26 @@ def _as_pairs(pairs: Iterable[PairLike]) -> list[PinPair]:
 def _check_pairs(
     project: Project, a: Connector, b: Connector, pairs: Sequence[PinPair], link_id: str | None
 ) -> None:
-    """A pin exists, belongs to one pair, and is in no other link."""
+    """A pin exists and is in no other link. Since format 5 a pin may be in several pairs of the
+    link (a junction, or a parallel pair: section 6.1 of the design of 5.0.0); the review says
+    what such pairs make (`link_junction`) and which of them no harness can be made from."""
     have_a = {p.id for p in a.pins}
     have_b = {p.id for p in b.pins}
     owners = link_pin_index(project, {a.id, b.id})
     other_a = _taken(owners, a.id, link_id)
     other_b = _taken(owners, b.id, link_id)
-    seen_a: set[str] = set()
-    seen_b: set[str] = set()
     for pair in pairs:
-        for conn, pid, have, other, seen in (
-            (a, pair.a_pin, have_a, other_a, seen_a),
-            (b, pair.b_pin, have_b, other_b, seen_b),
+        for conn, pid, have, other in (
+            (a, pair.a_pin, have_a, other_a),
+            (b, pair.b_pin, have_b, other_b),
         ):
             if pid not in have:
                 raise EditError(f"{conn.id} has no pin '{pid}'.")
-            if pid in seen:
-                raise EditError(
-                    f"Pin {pid} of {conn.id} is in two pairs. A pin can be in one pair only."
-                )
             if pid in other:
                 raise EditError(
                     f"Pin {pid} of {conn.id} is already paired in link {other[pid]}. "
                     "A pin can be in one link only; change that link first."
                 )
-            seen.add(pid)
 
 
 def _label(text: str) -> str:
@@ -892,7 +895,173 @@ def _wire_signal(a: Pin, b: Pin) -> str | None:
     return x or y or None
 
 
-def plan_create_harness(project: Project, link_id: str) -> tuple[list[Op], str]:
+# ---- junctions and parallel pairs (format 5, part C of the design of 5.0.0, section 6.1) --------
+
+
+@dataclass(frozen=True)
+class LinkNet:
+    """The pins that some pairs of a link join: the pins of the first connector (`a_pins`) and of
+    the second (`b_pins`), each in the order the pairs first name them, and those pairs in their
+    order. A net of one pin on each side is a pair (two or more of its pairs are parallel wires);
+    a net of more pins is a **junction**: the harness made from the link joins it in a splice."""
+
+    a_pins: tuple[str, ...]
+    b_pins: tuple[str, ...]
+    pairs: tuple[PinPair, ...]
+
+    @property
+    def is_junction(self) -> bool:
+        return len(self.a_pins) + len(self.b_pins) > 2
+
+
+def link_nets(pairs: Sequence[PinPair]) -> list[LinkNet]:
+    """The nets of the pairs of a link, in the order of their first pair: two pairs are in one
+    net when they share a pin of the first connector or of the second."""
+    parent: dict[tuple[str, str], tuple[str, str]] = {}
+
+    def find(x: tuple[str, str]) -> tuple[str, str]:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for pair in pairs:
+        x, y = find(("a", pair.a_pin)), find(("b", pair.b_pin))
+        if x != y:
+            parent[y] = x
+    order: list[tuple[str, str]] = []
+    a_pins: dict[tuple[str, str], list[str]] = {}
+    b_pins: dict[tuple[str, str], list[str]] = {}
+    members: dict[tuple[str, str], list[PinPair]] = {}
+    for pair in pairs:
+        root = find(("a", pair.a_pin))
+        if root not in members:
+            order.append(root)
+        members.setdefault(root, []).append(pair)
+        for pins, pid in ((a_pins.setdefault(root, []), pair.a_pin), (b_pins.setdefault(root, []), pair.b_pin)):  # fmt: skip
+            if pid not in pins:
+                pins.append(pid)
+    return [LinkNet(tuple(a_pins[r]), tuple(b_pins[r]), tuple(members[r])) for r in order]
+
+
+def link_junctions(link: Link) -> list[LinkNet]:
+    """The junctions of a link (nets of more than two pins), in the order of their first pair."""
+    return [n for n in link_nets(link.pairs) if n.is_junction]
+
+
+def _pins_of(pins: Sequence[str], connector_id: str) -> str:
+    """`pin 1 of OBC1-J01`, `pins 1, 2 and 3 of OBC1-J01`."""
+    return f"{'pin' if len(pins) == 1 else 'pins'} {_and(list(pins))} of {connector_id}"
+
+
+def _junction_sides(net: LinkNet, a_id: str, b_id: str) -> tuple[tuple[str, ...], str, tuple[str, ...], str]:  # fmt: skip
+    """The side of the junction named first (the one with fewer pins, the first connector on a tie)
+    and the other: (its pins, its connector, the other's pins, the other connector)."""
+    if len(net.b_pins) < len(net.a_pins):
+        return net.b_pins, b_id, net.a_pins, a_id
+    return net.a_pins, a_id, net.b_pins, b_id
+
+
+def junction_text(net: LinkNet, a_id: str, b_id: str) -> str:
+    """The info `link_junction`: *Pin 1 of PCDU1-J01 is joined to pins 1, 2 and 3 of OBC1-J01 (a
+    junction); the harness made from the link joins them in a splice.*"""
+    first, first_id, other, other_id = _junction_sides(net, a_id, b_id)
+    verb = "is" if len(first) == 1 else "are"
+    head = _pins_of(first, first_id)
+    return (
+        f"{head[0].upper()}{head[1:]} {verb} joined to {_pins_of(other, other_id)} (a junction); "
+        "the harness made from the link joins them in a splice."
+    )
+
+
+def junction_problem(net: LinkNet, a_id: str, b_id: str, link_id: str) -> tuple[str, str] | None:
+    """Why no harness can be made from a junction, and the pin it is about ("CONNECTOR.PIN"), or
+    None. A splice joins every pin of a junction to every other, so the link must pair each pin of
+    one side with every pin of the other, and once: a pair that is missing would be joined all the
+    same, and a pair given twice would ask for two wires that a splice does not make."""
+    have = {(p.a_pin, p.b_pin) for p in net.pairs}
+    for x in net.a_pins:
+        for y in net.b_pins:
+            if (x, y) not in have:
+                return (
+                    f"Link {link_id} joins {_pins_of(net.a_pins, a_id)} and {_pins_of(net.b_pins, b_id)} "
+                    f"in one junction, but does not pair pin {x} of {a_id} with pin {y} of {b_id}. A "
+                    "junction pairs each of its pins with every pin of the other side: add that "
+                    "pair, or keep one pair for each pin.",
+                    _pin_ref(a_id, x),
+                )  # fmt: skip
+    seen: set[tuple[str, str]] = set()
+    for p in net.pairs:
+        if (p.a_pin, p.b_pin) in seen:
+            return (
+                f"Link {link_id} pairs pin {p.a_pin} of {a_id} with pin {p.b_pin} of {b_id} twice "
+                "inside a junction, but the harness takes one wire from each pin of a junction to "
+                "its splice. Keep one pair.",
+                _pin_ref(a_id, p.a_pin),
+            )
+        seen.add((p.a_pin, p.b_pin))
+    return None
+
+
+def _splice_needed(net: LinkNet, a_id: str, b_id: str, link_id: str) -> str:
+    first, first_id, other, other_id = _junction_sides(net, a_id, b_id)
+    return (
+        f"Link {link_id} joins {_pins_of(first, first_id)} to {len(other)} pins of {other_id}. "
+        "Choose a splice part (category splice) for the joint; the harness gets one splice for "
+        "each junction."
+    )
+
+
+def _pin_signal(pin: Pin) -> str | None:
+    return (pin.signal or "").strip() or None
+
+
+def _junction_ends(
+    scratch: Project,
+    hid: str,
+    link: Link,
+    nets: Sequence[LinkNet],
+    part_id: str,
+    cable_a: str,
+    cable_b: str,
+    pins_a: Mapping[str, Pin],
+    pins_b: Mapping[str, Pin],
+) -> list[tuple[str, str, str, str, str | None]]:
+    """The wires of a link with a junction, in the order of its pairs, after a splice for each
+    junction was added to `scratch` (the harness being made, which no link names yet, so a splice
+    may be placed): a pair outside a junction gives a wire between its pins, as before; a junction,
+    where its first pair stands, a wire from each of its pins of the first connector to node 1 of
+    its splice, then one from the node to each of its pins of the second, each with the signal of
+    its pin."""
+    from .splices import plan_add_splice  # (splices builds on wires)
+
+    splice_of: dict[int, str] = {}
+    for k, net in enumerate(nets):
+        if net.is_junction:
+            ops, sid = plan_add_splice(scratch, hid, part_id)
+            apply_ops(scratch, ops)
+            splice_of[k] = sid
+    net_of = {id(pair): k for k, net in enumerate(nets) for pair in net.pairs}
+    done: set[int] = set()
+    ends: list[tuple[str, str, str, str, str | None]] = []
+    for pair in link.pairs:
+        k = net_of[id(pair)]
+        if k not in splice_of:
+            ends.append((cable_a, pair.a_pin, cable_b, pair.b_pin, _wire_signal(pins_a[pair.a_pin], pins_b[pair.b_pin])))  # fmt: skip
+            continue
+        if k in done:
+            continue
+        done.add(k)
+        sid = splice_of[k]
+        ends += [(cable_a, x, sid, "1", _pin_signal(pins_a[x])) for x in nets[k].a_pins]
+        ends += [(sid, "1", cable_b, y, _pin_signal(pins_b[y])) for y in nets[k].b_pins]
+    return ends
+
+
+def plan_create_harness(
+    project: Project, link_id: str, splice_part: str | None = None
+) -> tuple[list[Op], str]:
     """Ops that make a harness, which a person owns (`generated` is False, so Generate leaves it
     alone), from a link, and its ID: a cable connector that mates with each device connector (as
     `manual_harness.plan_add_connector` makes them), one wire drawn by hand for each pair with the
@@ -901,7 +1070,14 @@ def plan_create_harness(project: Project, link_id: str) -> tuple[list[Op], str]:
     no pairs, has a harness already, does not pass its review for a missing connector or pin, or when
     a device connector of the link has a cable plug of another harness on it, or a paired pin is
     allocated to an interface. Done in one pass: the review reads the links once and the wires are
-    added together, so a link of 1,000 pairs takes seconds less than one wire after the other."""
+    added together, so a link of 1,000 pairs takes seconds less than one wire after the other.
+
+    Format 5 (section 6.2 of the design of 5.0.0): a parallel pair gives a wire for each time it is
+    given. A link with a junction needs `splice_part` (a part of category `splice`; refused
+    without one): each junction gets a splice of that part (`W003-X1`, `W003-X2` … in the order of
+    the junctions), and a wire from each pin of the junction to its node 1 with the signal of that
+    pin, the wires of a junction where its first pair stands. The part is the person's choice; it
+    is not read for a link without a junction."""
     _writable(project)
     link = _known_link(project, link_id)
     if link.harness_id:
@@ -916,6 +1092,14 @@ def plan_create_harness(project: Project, link_id: str) -> tuple[list[Op], str]:
             raise EditError(f.message)
     a, b = _two_devices(project, link.a_connector, link.b_connector)
     _refuse_if_built(project, a, b, link.pairs)
+    nets = link_nets(link.pairs)
+    junctions = [n for n in nets if n.is_junction]
+    if junctions and splice_part is None:
+        raise EditError(_splice_needed(junctions[0], a.id, b.id, link_id))
+    if junctions:
+        from .splices import splice_part as known_splice_part  # (splices builds on wires)
+
+        known_splice_part(project, splice_part or "")
     title = link.name or f"{a.unit_id} to {b.unit_id}"
     names = {h.name.casefold() for h in project.harnesses.values()}
     unique, n = title, 1
@@ -932,10 +1116,8 @@ def plan_create_harness(project: Project, link_id: str) -> tuple[list[Op], str]:
         cable[box.id] = cid
     pins_a = {p.id: p for p in a.pins}
     pins_b = {p.id: p for p in b.pins}
-    ops = plan_add_wires(  # all the wires in one pass, with the IDs one after the other would get
-        scratch,
-        hid,
-        [
+    if not junctions:
+        ends = [
             (
                 cable[a.id],
                 pair.a_pin,
@@ -944,8 +1126,10 @@ def plan_create_harness(project: Project, link_id: str) -> tuple[list[Op], str]:
                 _wire_signal(pins_a[pair.a_pin], pins_b[pair.b_pin]),
             )
             for pair in link.pairs
-        ],
-    )
+        ]
+    else:
+        ends = _junction_ends(scratch, hid, link, nets, splice_part or "", cable[a.id], cable[b.id], pins_a, pins_b)  # fmt: skip
+    ops = plan_add_wires(scratch, hid, ends)  # all the wires in one pass, IDs one after the other
     apply_ops(scratch, ops)
     return [
         Put("harnesses", scratch.harnesses[hid]),
@@ -1144,7 +1328,9 @@ def _review_of(project: Project, connectors: Collection[str] | None) -> _Review:
 def check_link(project: Project, link: Link) -> list[LinkFinding]:
     """Review a link without changing anything. The codes:
     `link_dangling` (error: a connector or pin of the link is gone), `link_pin_reused` (error: a pin
-    in two pairs or in two links), `link_direction_conflict` (error: output against output, or
+    in two links, or a junction no harness can be made from: a pair of it missing or given twice),
+    `link_junction` (info, format 5: a pin joined to several pins, which the harness made from the
+    link joins in a splice), `link_direction_conflict` (error: output against output, or
     input against input), `link_signal_mismatch` (warning: the names on a pair differ and are not
     the two ends of one line), `link_pin_unpaired` (warning: a pin with a signal that no pair of
     this link or of another link uses), `link_power_without_return` (warning: a power pair and no
@@ -1188,12 +1374,20 @@ def _check_link(project: Project, link: Link, review: _Review) -> list[LinkFindi
             (b, pair.b_pin, seen_b, other_b),
         ):
             if pid in seen:
-                out.append(LinkFinding("link_pin_reused", "error", f"Pin {pid} of {conn.id} is in two pairs of link {lid}. Keep one pair for it.", lid, _pin_ref(conn.id, pid)))  # fmt: skip
-            elif pid in other:
+                continue  # a junction or a parallel pair (format 5): judged by its net below
+            if pid in other:
                 out.append(LinkFinding("link_pin_reused", "error", f"Pin {pid} of {conn.id} is paired in link {other[pid]} and in link {lid}. Keep it in one link.", lid, _pin_ref(conn.id, pid)))  # fmt: skip
             seen.add(pid)
         if not missing:
             good.append(pair)
+    for net in link_nets(good):
+        if not net.is_junction:
+            continue  # one pair, or parallel pairs between the same two pins: one wire each
+        if problem := junction_problem(net, a.id, b.id, lid):
+            out.append(LinkFinding("link_pin_reused", "error", problem[0], lid, problem[1]))
+        else:
+            first, first_id = _junction_sides(net, a.id, b.id)[:2]
+            out.append(LinkFinding("link_junction", "info", junction_text(net, a.id, b.id), lid, _pin_ref(first_id, first[0])))  # fmt: skip
     for pair in good:
         x, y = pa[pair.a_pin], pb[pair.b_pin]
         where = f"pin {x.id} of {a.id} with pin {y.id} of {b.id}"
@@ -1279,6 +1473,7 @@ __all__ = [
     "QuickLink",
     "LinkEnd",
     "LinkFinding",
+    "LinkNet",
     "Proposal",
     "best_connectors",
     "check_link",
@@ -1287,8 +1482,12 @@ __all__ = [
     "derived_interfaces",
     "effective_role",
     "far_device_names_on",
+    "junction_problem",
+    "junction_text",
     "link_caption",
     "link_ends",
+    "link_junctions",
+    "link_nets",
     "link_pin_index",
     "link_path",
     "links_of_connector",

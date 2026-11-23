@@ -15,6 +15,11 @@ step. The same window edits the pairs of a connection that exists (the connector
     dlg = LinkDialog(parent, theme, project, a_unit="OBC", b_unit="RW1")
     dlg.pairs(), dlg.roles(), dlg.name()
     CreateHarnessDialog(parent, theme, harness_preview(project, "L1"))
+    CreateHarnessDialog(parent, theme, harness_preview(project, "L2", "EX-SPLICE-1"), parts)
+
+Since format 5 a pin may be paired again by hand (a junction, or a parallel pair: section 6.1 of
+the design of 5.0.0); the review under the table names each junction, and Create harness asks for
+the splice part of a link with one.
 """
 
 from collections.abc import Callable, Sequence
@@ -46,6 +51,7 @@ from harness_design_studio.core.links import (
     check_link,
     effective_role,
     link_caption,
+    link_junctions,
     natural_key,
     plan_add_link,
     plan_create_harness,
@@ -53,7 +59,8 @@ from harness_design_studio.core.links import (
     plan_set_roles,
     propose_pairs,
 )
-from harness_design_studio.core.model import Connector, Pin, Project
+from harness_design_studio.core.model import Connector, Part, Pin, Project
+from harness_design_studio.core.model.physical import SPLICE_ROLE
 from harness_design_studio.core.pairing import pair_by_number, parse_pairing
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.connector_picker import ConnectorPicker
@@ -65,18 +72,36 @@ from harness_design_studio.gui.theme import ThemeManager
 ROLES: tuple[str, ...] = ("", "power", "return", "ground", "signal", "shield", "spare")
 
 
-def harness_preview(project: Project, link_id: str) -> str:
+def harness_preview(project: Project, link_id: str, splice_part: str | None = None) -> str:
     """One plain sentence on what "Create harness" will add (raises `EditError` with the reason
-    when it cannot be made)."""
-    ops, hid = plan_create_harness(project, link_id)
+    when it cannot be made). A link with a junction (format 5) needs `splice_part`, and the
+    sentence then counts the splices."""
+    ops, hid = plan_create_harness(project, link_id, splice_part)
     harness = next(o.obj for o in ops if isinstance(o, Put) and o.collection == "harnesses")
     link = project.links[link_id]
-    return strings.LINK_HARNESS_PREVIEW.format(
+    made = harness.connectors  # type: ignore[attr-defined]
+    spliced = [c for c in made if c.role == SPLICE_ROLE]
+    if not spliced:
+        return strings.LINK_HARNESS_PREVIEW.format(
+            name=harness.name,  # type: ignore[attr-defined]
+            connectors=len(made),
+            wires=len(harness.wires),  # type: ignore[attr-defined]
+            caption=link_caption(link),
+        )
+    return strings.LINK_HARNESS_PREVIEW_SPLICES[0 if len(spliced) == 1 else 1].format(
         name=harness.name,  # type: ignore[attr-defined]
-        connectors=len(harness.connectors),  # type: ignore[attr-defined]
+        connectors=len(made) - len(spliced),
+        splices=len(spliced),
+        part=splice_part,
         wires=len(harness.wires),  # type: ignore[attr-defined]
         caption=link_caption(link),
     )
+
+
+def needs_splice(project: Project, link_id: str) -> bool:
+    """True when the link has a junction, so its harness needs a splice part (format 5)."""
+    link = project.links.get(link_id)
+    return link is not None and bool(link_junctions(link))
 
 
 def _buttons(dialog: QDialog, ok_text: str) -> tuple[QPushButton, QHBoxLayout]:
@@ -97,14 +122,37 @@ def _buttons(dialog: QDialog, ok_text: str) -> tuple[QPushButton, QHBoxLayout]:
 
 
 class CreateHarnessDialog(Dialog):
-    """Says what Create harness will add and asks once. Nothing is made before OK."""
+    """Says what Create harness will add and asks once. Nothing is made before OK. For a link with
+    a junction (format 5) `parts` are the splice parts of the library to choose from and `preview`
+    words the sentence for the part chosen; the person's choice is `splice_part()`."""
 
-    def __init__(self, parent: QWidget | None, theme: ThemeManager, sentence: str) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None,
+        theme: ThemeManager,
+        sentence: str,
+        parts: Sequence[Part] = (),
+        preview: Callable[[str], str] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("link-harness-dialog")
         self.setWindowTitle(strings.LINK_HARNESS_TITLE)
         self.setAccessibleName(strings.LINK_HARNESS_TITLE)
+        self._preview = preview
         lay = QVBoxLayout(self)
+        self.part: QComboBox | None = None
+        if parts:
+            form = QFormLayout()
+            self.part = QComboBox()
+            self.part.setObjectName("link-harness-splice-part")
+            self.part.setAccessibleName(strings.LINK_HARNESS_SPLICE_PART)
+            self.part.setToolTip(strings.LINK_HARNESS_SPLICE_PART_TIP)
+            for part in parts:
+                words = f"{part.id}: {part.description}" if part.description else part.id
+                self.part.addItem(words, part.id)
+            self.part.currentIndexChanged.connect(lambda _i: self._part_chosen())
+            form.addRow(strings.LINK_HARNESS_SPLICE_PART, self.part)
+            lay.addLayout(form)
         self.text = QLabel(sentence)
         self.text.setObjectName("link-harness-text")
         self.text.setWordWrap(True)
@@ -117,6 +165,21 @@ class CreateHarnessDialog(Dialog):
         self.ok.setToolTip(strings.LINK_HARNESS_OK_TIP)
         self.ok.setAccessibleName(strings.LINK_HARNESS_OK)
         lay.addLayout(row)
+
+    def splice_part(self) -> str | None:
+        """The splice part chosen, or None when the link needs none."""
+        if self.part is None:
+            return None
+        data = self.part.currentData()
+        return str(data) if data else None
+
+    def _part_chosen(self) -> None:
+        part = self.splice_part()
+        if self._preview is not None and part:
+            try:
+                self.text.setText(self._preview(part))
+            except EditError as exc:
+                self.text.setText(str(exc))
 
 
 class AddConnectorDialog(Dialog):
@@ -891,8 +954,15 @@ class LinkDialog(Dialog):
         if not found:
             self.review.clear()
             return
-        worst: Severity = "error" if any(f.severity == "error" for f in found) else "warning"
-        head = strings.LINK_REVIEW_ERRORS if worst == "error" else strings.LINK_REVIEW_WARNINGS
+        severities = {f.severity for f in found}
+        worst: Severity = (
+            "error" if "error" in severities else "warning" if "warning" in severities else "info"
+        )
+        head = {
+            "error": strings.LINK_REVIEW_ERRORS,
+            "warning": strings.LINK_REVIEW_WARNINGS,
+            "info": strings.LINK_REVIEW_INFO,
+        }[worst]
         self.review.show_notice(worst, head, details=[f.message for f in found])
 
     # ---- for tests and screen readers ---------------------------------------------------------
@@ -906,4 +976,5 @@ __all__ = [
     "LinkDialog",
     "PastePairingDialog",
     "harness_preview",
+    "needs_splice",
 ]

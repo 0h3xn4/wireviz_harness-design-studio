@@ -33,16 +33,36 @@ The pin currents are set before Generate runs, which does not read them (F5). `b
 gets the column Current (A), the `CON_…` sheets of DEV1-J01, DEV2-J01 and DEV3-J01 the column
 Current [A], and `export.json` the key and its unit.
 
+Part C (pull request 4) adds a splice in a harness made from a connection:
+
+- two devices, PCDU1 and OBC1, each with a connector J01 of part `EX-MICROD-25-F`, and the splice
+  part `EX-SPLICE-1`. PCDU1-J01 pin 1 (PWR) gives 6 A and pin 2 (RTN) takes 6 A back; OBC1-J01
+  pins 1, 2 and 3 (PWR) take 2 A each and pins 4, 5 and 6 (RTN) give 2 A each (the example of
+  section 5.2 of the design);
+- the connection L1 joins PCDU1-J01 pin 1 to OBC1-J01 pins 1, 2 and 3 and pin 2 to pins 4, 5 and
+  6 (two junctions); the harness W003 made from it has the splices W003-X1 and W003-X2 of
+  `EX-SPLICE-1`, a wire from each pin to its node and no length, gauge or colour. W003-001 carries
+  6 A from its pins and W003-002 to W003-004 2 A each.
+
+W003 has the splice outputs of a harness drawn by hand: the column *Via* of its wire list, a test
+per pair of ends of a net, the splice block of the build workbook. Its wire list is in the golden
+set as text.
+
 The depths, ratings and currents are made up (no real part is shipped, D-12). The later pull requests of the design add
 their data to this project. The golden set `tests/fixtures/outputs/format5*` is made from it.
 """
 
+from harness_design_studio.core.commands import apply_ops
 from harness_design_studio.core.generate.engine import generate_project
+from harness_design_studio.core.links import plan_add_link, plan_create_harness
 from harness_design_studio.core.model import (
     Accessory,
     ConfigFile,
+    Connector,
     Part,
+    Pin,
     Project,
+    Unit,
     evolve,
 )
 
@@ -57,6 +77,8 @@ TEXT_FILES = (
     "harnesses/W001/segments.csv",
     "harnesses/W001/wireviz.yaml",
     "harnesses/W002/wirelist.csv",
+    "harnesses/W003/wirelist.csv",
+    "harnesses/W003/tests.csv",
     "system/export.json",
 )
 
@@ -79,7 +101,45 @@ PIN_CURRENTS = {
     ("DEV2-J01", "3"): 2.0,
     ("DEV1-J01", "5"): 1.0,
     ("DEV3-J01", "3"): 0.5,
+    # part C: the example of section 5.2 of the design, and its return
+    ("PCDU1-J01", "1"): 6.0,
+    ("PCDU1-J01", "2"): 6.0,
+    **{("OBC1-J01", str(k)): 2.0 for k in range(1, 7)},
 }
+SPLICE_PART = "EX-SPLICE-1"
+# part C: the pins of the connection and their signals
+JUNCTION_SIGNALS = {
+    ("PCDU1-J01", "1"): "PWR",
+    ("PCDU1-J01", "2"): "RTN",
+    **{("OBC1-J01", str(k)): "PWR" for k in (1, 2, 3)},
+    **{("OBC1-J01", str(k)): "RTN" for k in (4, 5, 6)},
+}
+JUNCTION_PAIRS = [("1", "1"), ("1", "2"), ("1", "3"), ("2", "4"), ("2", "5"), ("2", "6")]
+
+
+def _with_junction_devices(p: Project) -> None:
+    """Part C: the devices PCDU1 and OBC1 with their connector J01, and the splice part."""
+    for unit in ("PCDU1", "OBC1"):
+        cid = f"{unit}-J01"
+        p.units[unit] = Unit(id=unit, name=unit, subsystem="s", zone="panel-A", side="nominal")
+        p.connectors[cid] = Connector(
+            id=cid, name="J01", role="box", part_id=BOX_PART, unit_id=unit, gender="female",
+            pins=[Pin(id=str(k), signal=JUNCTION_SIGNALS.get((cid, str(k)))) for k in range(1, 26)],
+        )  # fmt: skip
+    p.parts[SPLICE_PART] = Part(
+        id=SPLICE_PART, category="splice", manufacturer="Example Ltd", part_number=SPLICE_PART,
+        description="Crimp splice, one node (example)", pin_count=1, unverified=True,
+    )  # fmt: skip
+
+
+def _with_junction_harness(p: Project) -> None:
+    """Part C: the connection L1 with two junctions and the harness W003 made from it."""
+    ops, lid = plan_add_link(p, "PCDU1-J01", "OBC1-J01", JUNCTION_PAIRS)
+    apply_ops(p, ops)
+    ops, _hid = plan_create_harness(p, lid, SPLICE_PART)
+    apply_ops(p, ops)
+
+
 BOX_PART = "EX-MICROD-25-F"
 
 
@@ -104,6 +164,7 @@ def format5_project() -> Project:
 
     p = branching_project()
     _with_loop(p, 0.1)
+    _with_junction_devices(p)
     _with_currents(p)
     for hid in ("W001", "W002"):
         h = p.harnesses[hid]
@@ -132,6 +193,7 @@ def format5_project() -> Project:
         accessories=[Accessory(id="W002-A1", kind="backshell", target="W002-P2")],
     )
     generate_project(p)
+    _with_junction_harness(p)
     return p
 
 
