@@ -157,9 +157,31 @@ ASSUMPTIONS: dict[str, Assumption] = {
             "The whole current of an interface is compared with the derated rating of the contacts "
             "of the connector at each of its endpoints: it is not split over the pins the interface "
             "uses, and the rating is that of the connector part, not of the contact or the wire "
-            "crimped into it. The derating factor is one number for every connector.",
+            "crimped into it. The derating factor is one number for every connector. A pin that "
+            "states its own current (format 5) is judged with it instead, and the interface only "
+            "for its pins at that connector that state none.",
             "built in",
             "core/drc/rules.py (_current_over_contact)",
+        ),
+        Assumption(
+            "A-ONE-SOURCE",
+            "The pin currents of a net are one source and its loads",
+            "The pin currents of a net describe one source and its loads: the largest is the sum "
+            "of the others. A net whose currents do not add up is not worked out, and check says "
+            "so (current_unbalanced). A net in which an end has no current takes the current of "
+            "the interface of each wire, as before.",
+            "built in",
+            "core/currents.py (net_currents, wire_currents)",
+        ),
+        Assumption(
+            "A-PARALLEL-SHARE",
+            "Equal parallel wires share a current equally",
+            "Wires between the same two pins, of one gauge and one length, share the current "
+            "equally; contact resistance is not counted. Parallel wires that differ, or whose "
+            "gauge or length is not known, are not worked out, and neither is a net whose wires "
+            "form another loop (check: current_not_worked_out).",
+            "built in",
+            "core/currents.py (wire_currents)",
         ),
         Assumption(
             "A-READY-CHECKS",

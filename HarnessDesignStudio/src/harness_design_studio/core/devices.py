@@ -43,7 +43,7 @@ from .model import (
     Unit,
     evolve,
 )
-from .model.base import MAX_PIN_COUNT, Name, WebLink
+from .model.base import MAX_PIN_COUNT, MAX_PIN_CURRENT_A, Name, WebLink
 from .model.logical import Category, Construction, Direction, Shielding, Side
 from .model.physical import TBD_PART_ID, Gender, PinDirection, PinRole, Termination
 from .outputs.stamp import Table
@@ -57,7 +57,7 @@ PIN_MODES: tuple[PinMode, ...] = get_args(PinMode)
 PIN_FIELDS = frozenset(
     {
         "signal", "contact_size", "termination", "fixed", "locked", "function", "contact_part",
-        "role", "direction", "level",
+        "role", "direction", "level", "current_a",
     }
 )  # fmt: skip
 # the source of a box connector's pinout (format 3, design of 3.0.0 section 4.1)
@@ -92,6 +92,40 @@ def parse_pin_direction(value: object) -> str:
             "interface types)."
         )
     return found
+
+
+# A current as a person or a sheet writes it (format 5, design of 5.0.0 section 5.5): a number, or
+# a number followed by A or mA
+_CURRENT_TEXT = re.compile(r"^\s*(\d+(?:\.\d*)?|\.\d+)\s*(a|ma)?\s*$", re.IGNORECASE)
+CURRENT_UNITS = {"a": 1.0, "ma": 0.001}  # the units of a current cell, in amperes
+
+
+def read_current(value: object, unit: str = "A") -> tuple[float | None, str]:
+    """(the current in amperes, the unit it was written in) for what a person or a sheet wrote:
+    a number in `unit` (A or mA), or a number followed by A or mA; an empty text is no current
+    (None). An EditError for anything else, for a current that is not above 0 and for one above
+    1000 A (`Pin.current_a`, never assumed)."""
+    if value is None:
+        return None, unit
+    if isinstance(value, bool):
+        raise EditError("A current is a number of amperes.")
+    if isinstance(value, int | float):
+        amps, said = float(value) * CURRENT_UNITS[unit.casefold()], unit
+    else:
+        text = str(value).strip()
+        if not text:
+            return None, unit
+        m = _CURRENT_TEXT.match(text)
+        if m is None:
+            raise EditError(f"The current '{text}' is not a number of amperes (2, 2 A or 500 mA).")
+        said = {"a": "A", "ma": "mA"}[(m.group(2) or unit).casefold()]
+        amps = float(m.group(1)) * CURRENT_UNITS[said.casefold()]
+    amps = round(amps, 9) + 0.0
+    if not amps > 0:
+        raise EditError("A current is above 0 A; leave it empty when the ICD states none.")
+    if amps > MAX_PIN_CURRENT_A:
+        raise EditError(f"A current is at most {MAX_PIN_CURRENT_A:g} A.")
+    return amps, said
 
 
 _NAME = TypeAdapter(Name)
@@ -695,6 +729,8 @@ def _edit_pin(pin: Pin, changes: Mapping[str, object], project: Project | None =
             )
         elif key == "direction":
             new[key] = parse_pin_direction(value)
+        elif key == "current_a":
+            new[key] = read_current(value)[0]
         elif key == "role":
             text = "" if value is None else value
             if text not in PIN_ROLES:
@@ -971,8 +1007,9 @@ ROW_COLUMNS = (
     "pin", "signal", "mode", "contact_size", "termination", "function", "contact_part", "direction",
 )  # fmt: skip
 # what the pinout import may also write per pin (format 3): the level, and the role that a
-# Direction word such as PWR or SGND gives (`read_direction_word`)
-IMPORT_ROW_COLUMNS = (*ROW_COLUMNS, "level", "role")
+# Direction word such as PWR or SGND gives (`read_direction_word`); and the current of the pin
+# (format 5), in amperes
+IMPORT_ROW_COLUMNS = (*ROW_COLUMNS, "level", "role", "current_a")
 
 
 @dataclass(frozen=True)
@@ -1066,6 +1103,8 @@ def plan_pin_rows(
                 changes["direction"] = row["direction"]
             if "level" in row:
                 changes["level"] = row["level"]
+            if "current_a" in row:
+                changes["current_a"] = row["current_a"]
             if "role" in row:
                 changes["role"] = row["role"]
             if "mode" in row:
@@ -1362,13 +1401,20 @@ def pinout_sheet(project: Project, unit_id: str) -> Table:
     Source version and Source link, each only while a pin or a connector of this device has a
     value for it, so that the file reads back through `import-pinout`. The column Pin row of
     `pinout_table` (format 4) stays only while a connector of this device has a row layout
-    (design of 4.0.0 section 6.3), so a device without one writes the file of 3.0.0."""
-    from .outputs.tables import PIN_ROW  # here, not at the top: it closes an import cycle
+    (design of 4.0.0 section 6.3), so a device without one writes the file of 3.0.0; the column
+    Current (A) (format 5, design of 5.0.0 section 5.4) only while a pin of this device states a
+    current."""
+    from .outputs.tables import CURRENT, PIN_ROW  # here, not at the top: it closes an import cycle
 
     table = pinout_table(project, unit_id)
     conns = {c.id: c for c in unit_connectors(project, unit_id)}
     if PIN_ROW in table[0] and all(layout_of(project, c) is None for c in conns.values()):
         at = table[0].index(PIN_ROW)
+        table = [[*row[:at], *row[at + 1 :]] for row in table]
+    if CURRENT in table[0] and not any(
+        p.current_a is not None for c in conns.values() for p in c.pins
+    ):
+        at = table[0].index(CURRENT)
         table = [[*row[:at], *row[at + 1 :]] for row in table]
     pins = {(c.id, p.id): p for c in conns.values() for p in c.pins}
     used = [

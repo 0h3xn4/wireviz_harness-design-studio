@@ -44,6 +44,10 @@ FIELD_UNITS: dict[str, str] = {
 # object of the project has one, so the export of a project without data of format 5 keeps its bytes.
 SPARSE_FIELD_UNITS: dict[str, str] = {
     "parts[].depth_mm": "mm",
+    "box_connectors[].pins[].current_a": "A",
+    # the model of a pin is the same in a harness, but only a pin of a device connector may state a
+    # current (the rule of the file, design of 5.0.0 section 3.2), so this path is never named
+    "harnesses[].connectors[].pins[].current_a": "A",
 }
 
 RATINGS = "parts[].ratings."  # the keys of `Part.ratings` are names a project may choose
@@ -81,6 +85,9 @@ def field_units(project: Project) -> dict[str, str]:
     out = dict(FIELD_UNITS)
     if any(part.depth_mm is not None for part in project.parts.values()):
         out["parts[].depth_mm"] = SPARSE_FIELD_UNITS["parts[].depth_mm"]
+    if any(p.current_a is not None for c in project.connectors.values() for p in c.pins):
+        key = "box_connectors[].pins[].current_a"
+        out[key] = SPARSE_FIELD_UNITS[key]
     for key, unit in RATING_UNITS.items():
         out[RATINGS + key] = unit
     for part in project.parts.values():

@@ -18,7 +18,22 @@ then given what a person enters for the lengths of part A, and generated again (
   end is not known, so the wires of W002 have no length, and `check` says why
   (`length_depth_missing`).
 
-The depths are made up (no real part is shipped, D-12). The later pull requests of the design add
+Part B (pull request 3) adds a current per pin (`Pin.current_a`) and the values its rules read:
+
+- the device connector part `EX-MICROD-25-F` has a contact rating of 3 A and the derating factor of
+  the contacts is 0.5, so a contact may carry 1.5 A;
+- DEV1-J01 pin 1 and DEV2-J01 pin 3 each state 2 A: the net of W001-001 adds up, so the wire
+  carries 2 A from its pins (its interface IF-001 states no current), and `current-over-contact`
+  judges each of the two pins on its own (2 A over 1.5 A);
+- DEV1-J01 pin 5 states 1 A and DEV3-J01 pin 3 0.5 A: the net of W001-009 does not add up, so its
+  wire is not checked for current and `check` says so (`current_unbalanced`, a finding of
+  `model-inconsistent`).
+
+The pin currents are set before Generate runs, which does not read them (F5). `box_pinouts.csv`
+gets the column Current (A), the `CON_…` sheets of DEV1-J01, DEV2-J01 and DEV3-J01 the column
+Current [A], and `export.json` the key and its unit.
+
+The depths, ratings and currents are made up (no real part is shipped, D-12). The later pull requests of the design add
 their data to this project. The golden set `tests/fixtures/outputs/format5*` is made from it.
 """
 
@@ -36,6 +51,8 @@ CONNECTOR_PART = "EX-MICROD-25-M"
 SEGMENTS = {"W001-L3": 0.375, "W001-L5": 0.3, "W002-L1": 0.8}
 # the text files of the golden set kept to read in a diff
 TEXT_FILES = (
+    "system/box_pinouts.csv",
+    "system/drc_findings.csv",
     "harnesses/W001/wirelist.csv",
     "harnesses/W001/segments.csv",
     "harnesses/W001/wireviz.yaml",
@@ -56,11 +73,38 @@ def _with_loop(p: Project, loop: float) -> None:
     }
 
 
+# part B: (device connector, pin) -> the current the pin states, in amperes
+PIN_CURRENTS = {
+    ("DEV1-J01", "1"): 2.0,
+    ("DEV2-J01", "3"): 2.0,
+    ("DEV1-J01", "5"): 1.0,
+    ("DEV3-J01", "3"): 0.5,
+}
+BOX_PART = "EX-MICROD-25-F"
+
+
+def _with_currents(p: Project) -> None:
+    """Part B: the pin currents, the contact rating of the device connector part and the derating
+    factor of the contacts."""
+    for cid in sorted({cid for cid, _pin in PIN_CURRENTS}):
+        c = p.connectors[cid]
+        pins = [evolve(x, current_a=PIN_CURRENTS.get((cid, x.id), x.current_a)) for x in c.pins]
+        p.connectors[cid] = evolve(c, pins=pins)
+    p.parts[BOX_PART] = evolve(p.parts[BOX_PART], ratings={"contact_current_a": 3.0})
+    old = p.config["derating"]
+    p.config["derating"] = ConfigFile(
+        name="derating",
+        placeholder=old.placeholder,
+        values={**old.values, "contact_current_factor": 0.5},
+    )
+
+
 def format5_project() -> Project:
     from tests.test_outputs_routing import branching_project
 
     p = branching_project()
     _with_loop(p, 0.1)
+    _with_currents(p)
     for hid in ("W001", "W002"):
         h = p.harnesses[hid]
         segments = [evolve(x, length_m=SEGMENTS.get(x.id, x.length_m)) for x in h.segments]

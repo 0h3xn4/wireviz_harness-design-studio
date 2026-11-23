@@ -286,6 +286,16 @@ def _pin_rows(
 
 # the last column of a pinout table while a connector of the table has a row layout (format 4)
 PIN_ROW = "Pin row"
+# the column of `box_pinouts.csv` after the last one while some device pin of the project states a
+# current (format 5, design of 5.0.0 section 5.4); the harness pinouts never have it (cable pins
+# carry no current)
+CURRENT = "Current (A)"
+
+
+def uses_pin_current(project: Project) -> bool:
+    """True when some pin of a device connector states a current (format 5)."""
+    return any(p.current_a is not None for c in project.connectors.values() for p in c.pins)
+
 
 PINOUT_HEADER = [
     "Connector",
@@ -351,7 +361,8 @@ def pinouts(project: Project, h: Harness) -> Table:
 def box_pinouts(project: Project, connector_ids: Collection[str] | None = None) -> Table:
     """The rows of `system/box_pinouts.csv`; `connector_ids` keeps only those box connectors
     (the Devices view shows one device's rows exactly as they are exported, so the Pin row column
-    is there while some box connector of the project has a row layout)."""
+    is there while some box connector of the project has a row layout, and the column Current (A)
+    while some device pin of the project states a current)."""
     attached: dict[tuple[str, str], list[str]] = defaultdict(list)
     for h in project.harnesses.values():
         mates = {c.id: c.mates_with for c in h.connectors}
@@ -365,10 +376,16 @@ def box_pinouts(project: Project, connector_ids: Collection[str] | None = None) 
     )  # fmt: skip
     faces = {c.id: layout_of(project, c) for c in project.connectors.values()}
     pin_row = any(f is not None for f in faces.values())
-    rows = [_header(fn, term, contact, direction, pin_row)]
+    current = uses_pin_current(project)
+    rows = [[*_header(fn, term, contact, direction, pin_row), *([CURRENT] if current else [])]]
     for c in sorted(project.connectors.values(), key=lambda x: x.id):
         if connector_ids is None or c.id in connector_ids:
-            rows += _pin_rows(c, attached, fn, term, contact, direction, None, pin_row, faces[c.id])
+            found = _pin_rows(c, attached, fn, term, contact, direction, None, pin_row, faces[c.id])
+            if current:
+                found = [
+                    [*row, data_num(p.current_a)] for row, p in zip(found, c.pins, strict=True)
+                ]
+            rows += found
     return rows
 
 

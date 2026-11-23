@@ -55,9 +55,11 @@ def input_hash(project: Project) -> str:
     boxes = []
     for c in sorted(project.connectors.values(), key=lambda x: x.id):
         d = c.model_dump(mode="json")
+        # the current of a pin (format 5) is not an input: Generate sizes a wire from its
+        # interface's current (design of 5.0.0, F5), so a pin current leaves the plans current
         d["pins"] = [
             {
-                **p.model_dump(mode="json"),
+                **p.model_dump(mode="json", exclude={"current_a"}),
                 "interface_id": None,
                 "signal": p.signal if (p.locked or p.fixed or p.interface_id is None) else None,
             }

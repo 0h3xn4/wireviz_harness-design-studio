@@ -95,6 +95,8 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("source_version", "Source version"),
     ("source_link", "Source link"),
     ("pin_row", "Pin row"),
+    ("current", "Current (A)"),
+    ("current_ma", "Current (mA)"),
 )
 _ALIASES = {
     "connector": ("connector", "conn", "connectorid", "connectorname", "ref", "reference"),
@@ -120,7 +122,12 @@ _ALIASES = {
     "source_version": ("sourceversion", "icdversion", "sourcedocumentversion"),
     "source_link": ("sourcelink", "icdlink", "sourceurl", "icdurl"),
     "pin_row": ("pinrow", "row", "contactrow"),  # 4.0.0: the row of the pin on the face
-}
+    # 5.0.0 (format 5): the current through the contact, in amperes, or in milliamperes
+    "current": (
+        "current", "currenta", "pincurrent", "pincurrenta", "maxcurrent", "maxcurrenta",
+    ),
+    "current_ma": ("currentma", "pincurrentma", "maxcurrentma"),
+}  # fmt: skip
 # the fields that belong to a connector, not to a pin: the rows of one connector give one value
 CONNECTOR_COLUMNS = ("source_doc", "source_version", "source_link")
 DIRECTION_UNIT = "Direction word"
@@ -130,7 +137,7 @@ WORDS = "PWR, PWR-RET, GND, SGND, SHIELD, SPARE, IN, OUT, IN/OUT"
 _UNSTORED = frozenset(
     {
         "remarks", "remark", "notes", "note", "comment",
-        "comments", "voltage", "current", "class",
+        "comments", "voltage", "class",
     }
 )  # fmt: skip
 _YES = frozenset({"yes", "y", "true", "x", "1", "fixed"})
@@ -217,6 +224,22 @@ MAX_SIGNAL = 200
 
 
 @dataclass(frozen=True)
+class CurrentConversion:
+    """A current the import read in another unit than amperes (`500 mA` is stored as 0.5 A;
+    format 5, design of 5.0.0 section 5.5)."""
+
+    row: int
+    connector: str
+    pin: str
+    read: str
+    unit: str
+    stored: float
+
+
+CURRENT_FIELD = "current_a"
+
+
+@dataclass(frozen=True)
 class PortReport:
     """The named ports of one imported connector for one interface type it can carry."""
 
@@ -263,6 +286,7 @@ class PinoutPlan:
     row_layouts: list[str] = field(default_factory=list)  # connectors given own rows (4.0.0)
     row_notes: list[str] = field(default_factory=list)  # a gap closed up, rows on one connector
     renamed: list[Renamed] = field(default_factory=list)  # pins the project's signal map renamed
+    currents: list[CurrentConversion] = field(default_factory=list)  # a current read in mA (5.0.0)
 
     @property
     def port_lines(self) -> list[str]:
@@ -427,7 +451,17 @@ def plan_pinout_import(
         with_port: list[str] = []  # pins whose signal names the port of a Port column
         written_rows: list[tuple[int, dict[str, str]]] = []
         renamed_here: list[Renamed] = []
+        currents_here: list[CurrentConversion] = []
         for n, r in rows:
+            if "current" in r or "current_ma" in r:  # format 5: the current of the pin
+                amps, problem, converted = _read_current(n, cid, r)
+                if problem:
+                    refused[n] = problem
+                    continue
+                r = {k: v for k, v in r.items() if k not in ("current", "current_ma")}
+                r["current_a"] = "" if amps is None else repr(amps)
+                if converted is not None:
+                    currents_here.append(converted)
             read = r.get("signal", "")
             by_map = apply_signal_map(read, team_names) if read else None
             if by_map is not None and by_map.ambiguous:
@@ -483,6 +517,7 @@ def plan_pinout_import(
         work = edit.clone_with(work, set_ops)
         plan.ops += ops
         plan.renamed += renamed_here
+        plan.currents += currents_here
         if same:
             plan.unchanged.append(cid)
         else:
@@ -507,6 +542,26 @@ def plan_pinout_import(
     if plan.bad_count:
         plan.ops = []  # a sheet with a bad row is not imported at all
     return plan
+
+
+def _read_current(
+    n: int, cid: str, r: dict[str, str]
+) -> tuple[float | None, str, CurrentConversion | None]:
+    """The current of a row in amperes (None for an empty cell), the reason the row is refused
+    (empty when it is not), and the conversion when the cell was in milliamperes. The column
+    *Current* is in amperes, *Current (mA)* in milliamperes; a cell may name its unit (`2 A`,
+    `500 mA`)."""
+    text, unit = (r.get("current", ""), "A")
+    if not text.strip() and r.get("current_ma", "").strip():
+        text, unit = r["current_ma"], "mA"
+    try:
+        amps, said = devices.read_current(text, unit)
+    except EditError as exc:
+        return None, str(exc).rstrip("."), None
+    if amps is None or said == "A":
+        return amps, "", None
+    number = text.strip().rstrip("AaMm").strip()  # the number as written, without its unit
+    return amps, "", CurrentConversion(n, cid, r.get("pin", ""), number, said, amps)
 
 
 def _row_number(cell: str) -> int | None:

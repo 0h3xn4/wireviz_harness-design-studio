@@ -13,6 +13,12 @@ from collections.abc import Iterator, Sequence
 
 from harness_design_studio.core import settings
 from harness_design_studio.core.configcheck import validate as validate_config
+from harness_design_studio.core.currents import (
+    PARTIAL,
+    has_pin_currents,
+    net_currents,
+    wire_currents,
+)
 from harness_design_studio.core.generate.bundle import bundle_size
 from harness_design_studio.core.generate.lengths import end_depths, loop_segments, wire_length
 from harness_design_studio.core.generate.sizing import (
@@ -373,7 +379,18 @@ def _derated_limit_ready(project: Project) -> bool:
     )
 
 
+def judged_per_pin(conn: Connector, interface_id: str) -> bool:
+    """True when every pin of the connector that carries the interface states its own current, so
+    `current-over-contact` judges those pins one by one and not the interface (design of 5.0.0
+    section 5.3). False when no pin of the connector carries it yet."""
+    pins = [p for p in conn.pins if p.interface_id == interface_id]
+    return bool(pins) and all(p.current_a is not None for p in pins)
+
+
 def _current_over_contact(project: Project) -> Iterator[Hit]:
+    """The current of an interface against the derated rating of the contacts of each connector
+    at its ends (A-CONTACT-SHARED); a pin that states its own current (format 5) is judged on its
+    own, and the interface only for its pins at that connector that state none."""
     factor = number(cfg(project, "derating").get("contact_current_factor"))
     if factor is None:
         return
@@ -386,11 +403,22 @@ def _current_over_contact(project: Project) -> Iterator[Hit]:
             if (
                 conn is not None
                 and rating is not None
+                and not judged_per_pin(conn, i.id)
                 and exceeds(i.max_current_a, rating * factor)
             ):
                 yield Hit(
                     f"{i.id}.{conn.id}",
                     f"{i.id} carries {i.max_current_a:g} A but contacts of {conn.id} allow {rating * factor:g} A after derating",
+                )
+    for conn in sorted(project.connectors.values(), key=lambda x: x.id):
+        rating = contact_rating(project, conn)
+        if rating is None:
+            continue
+        for p in conn.pins:
+            if p.current_a is not None and exceeds(p.current_a, rating * factor):
+                yield Hit(
+                    f"{conn.id}.{p.id}",
+                    f"Pin {p.id} of {conn.id} carries {p.current_a:g} A but its contacts allow {rating * factor:g} A after derating",
                 )
 
 
@@ -404,18 +432,14 @@ def _wire_current_limit(project: Project, w: Wire, h: Harness | None = None) -> 
 
 def _current_over_wire(project: Project) -> Iterator[Hit]:
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        currents = wire_currents(project, h)
         for w in h.wires:
-            i = project.interfaces.get(w.interface_id or "")
+            current = currents[w.id].value
             limit = _wire_current_limit(project, w, h)
-            if (
-                i
-                and i.max_current_a is not None
-                and limit is not None
-                and exceeds(i.max_current_a, limit)
-            ):
+            if current is not None and limit is not None and exceeds(current, limit):
                 yield Hit(
                     w.id,
-                    f"Wire {w.id} (AWG {w.gauge_awg}) carries {i.max_current_a:g} A but allows {limit:g} A after derating",
+                    f"Wire {w.id} (AWG {w.gauge_awg}) carries {current:g} A but allows {limit:g} A after derating",
                 )
 
 
@@ -426,13 +450,13 @@ def _voltage_drop(project: Project) -> Iterator[Hit]:
         return
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
         ends = end_depths(project, h)
+        currents = wire_currents(project, h)
         for w in h.wires:
             i = project.interfaces.get(w.interface_id or "")
             itype = project.interface_types.get(i.type_id) if i else None
             length = wire_length(h, w, ends)
-            if not (
-                i and itype and i.max_current_a is not None and length and w.gauge_awg is not None
-            ):
+            current = currents[w.id].value
+            if not (itype and current is not None and length and w.gauge_awg is not None):
                 continue
             if not 0 <= w.gauge_awg <= 40:  # a hand-edited gauge must not stop the whole check
                 yield Hit(
@@ -440,7 +464,7 @@ def _voltage_drop(project: Project) -> Iterator[Hit]:
                 )
                 continue
             n = settings.drop_conductors(project, itype.category)
-            drop = voltage_drop_v(i.max_current_a, rho, length, w.gauge_awg, n)
+            drop = voltage_drop_v(current, rho, length, w.gauge_awg, n)
             if exceeds(drop, limit):
                 yield Hit(w.id, f"Wire {w.id} drops {drop:.3g} V, more than the {limit:g} V limit")
 
@@ -616,17 +640,37 @@ def _carries_current(project: Project, w: Wire) -> bool:
     return i is not None and i.max_current_a is not None
 
 
+def _carrying(project: Project) -> set[tuple[str, str]]:
+    """(harness, wire) of the wires that have a current: their interface's, or, while some pin of
+    the project states a current (format 5), one from the pin currents of their net
+    (`core/currents.py`)."""
+    if not has_pin_currents(project):
+        return {
+            (h.id, w.id)
+            for h in project.harnesses.values()
+            for w in h.wires
+            if _carries_current(project, w)
+        }
+    return {
+        (h.id, wid)
+        for h in project.harnesses.values()
+        for wid, current in wire_currents(project, h).items()
+        if current.value is not None
+    }
+
+
 def _current_gaps(project: Project, table: dict[int, float] | None) -> Iterator[Hit]:
     """Wires the current checks skipped for lack of a bundle factor or a gauge."""
     if table is None:
         return  # the placeholder note already says that no current limit was checked
+    carrying = _carrying(project)
     d = cfg(project, "derating")
     by_count = d.get("bundle_factor_by_count")
     if isinstance(by_count, dict) and by_count:
         short = [
             f"{h.id} ({len(h.wires)} wires)"
             for h in sorted(project.harnesses.values(), key=lambda x: x.id)
-            if any(_carries_current(project, w) for w in h.wires)
+            if any((h.id, w.id) in carrying for w in h.wires)
             and bundle_k(by_count, len(h.wires)) is None
         ]
         if short:
@@ -638,7 +682,7 @@ def _current_gaps(project: Project, table: dict[int, float] | None) -> Iterator[
         w.id
         for h in project.harnesses.values()
         for w in h.wires
-        if w.gauge_awg is None and _carries_current(project, w)
+        if w.gauge_awg is None and (h.id, w.id) in carrying
     )
     if no_gauge:
         yield Hit(
@@ -655,38 +699,68 @@ def _voltage_drop_gaps(project: Project) -> Iterator[Hit]:
         return  # the placeholder note already says that the check did not run
     no_gauge: list[str] = []
     no_length: list[str] = []
+    no_type: list[str] = []  # a current from the pins, but no interface type to count conductors
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
         ends = end_depths(project, h)
+        currents = wire_currents(project, h)
         for w in h.wires:
             i = project.interfaces.get(w.interface_id or "")
-            if not (i and i.type_id in project.interface_types and i.max_current_a is not None):
+            if currents[w.id].value is None:
+                continue
+            if not (i and i.type_id in project.interface_types):
+                if currents[w.id].source == "pins":
+                    no_type.append(w.id)
                 continue
             if w.gauge_awg is None:
                 no_gauge.append(w.id)
             if wire_length(h, w, ends) is None:
                 no_length.append(w.id)
-    if no_gauge or no_length:
+    if no_gauge or no_length or no_type:
         parts = []
         if no_gauge:
             parts.append(f"{len(no_gauge)} wire(s) without a gauge (first: {no_gauge[0]})")
         if no_length:
             parts.append(f"{len(no_length)} wire(s) without a length (first: {no_length[0]})")
+        if no_type:
+            parts.append(
+                f"{len(no_type)} wire(s) without an interface type to count the conductors of "
+                f"(first: {no_type[0]})"
+            )
         yield Hit("voltage-drop-wires", f"Voltage drop was not checked for {' and '.join(parts)}")
 
 
 def _wires_without_interface(project: Project) -> Iterator[Hit]:
     """Wires that name no interface (drawn by hand, or made from a link) carry no current or
-    voltage, so the checks that read an interface skip them. Say so, once for the project."""
+    voltage, so the checks that read an interface skip them. Say so, once for the project. While
+    some pin of the project states a current (format 5), a wire whose net gives it a current from
+    its pins is checked, and a wire whose net has pin currents that were not worked out is said by
+    `check` (`current_unbalanced`, `current_not_worked_out`); the note names the others."""
+    pins = has_pin_currents(project)
     short = []
     for h in sorted(project.harnesses.values(), key=lambda x: x.id):
-        n = sum(1 for w in h.wires if w.interface_id not in project.interfaces)
+        if pins:
+            partial = {
+                wid
+                for nc in net_currents(project, h)
+                if nc.status == PARTIAL
+                for wid in nc.net.wires
+            }
+            n = sum(
+                1 for w in h.wires if w.interface_id not in project.interfaces and w.id in partial
+            )
+        else:
+            n = sum(1 for w in h.wires if w.interface_id not in project.interfaces)
         if n:
             short.append(f"{n} wire(s) of harness {h.id}")
     if short:
+        source = (
+            "they have no interface and no current on their pins to take a current from"
+            if pins
+            else "they have no interface to take a current from"
+        )
         yield Hit(
             "wire-interface",
-            f"Current, voltage-drop and bundle checks did not run for {', '.join(short)}: "
-            "they have no interface to take a current from",
+            f"Current, voltage-drop and bundle checks did not run for {', '.join(short)}: {source}",
         )
 
 
@@ -696,7 +770,11 @@ def _nothing_to_evaluate(project: Project) -> Iterator[Hit]:
     raised only when the rule's own values are set; until then the rule is pending anyway."""
     d = cfg(project, "derating")
     has_design = bool(project.interfaces) or any(h.wires for h in project.harnesses.values())
-    if has_design and not any(i.max_current_a is not None for i in project.interfaces.values()):
+    if (
+        has_design
+        and not any(i.max_current_a is not None for i in project.interfaces.values())
+        and not has_pin_currents(project)
+    ):
         sentence = "No interface has a current yet, so the {} did not run"
         table = ampacity_table(d.get("ampacity_a_by_awg"))
         if number(d.get("contact_current_factor")) is not None:
@@ -729,7 +807,9 @@ def _nothing_to_evaluate(project: Project) -> Iterator[Hit]:
 
 def _unchecked(project: Project) -> Iterator[Hit]:
     d, g = cfg(project, "derating"), cfg(project, "generation")
-    has_current = any(i.max_current_a is not None for i in project.interfaces.values())
+    has_current = any(
+        i.max_current_a is not None for i in project.interfaces.values()
+    ) or has_pin_currents(project)
     if has_current and (
         number(d.get("contact_current_factor")) is None or not _derated_limit_ready(project)
     ):
@@ -739,15 +819,13 @@ def _unchecked(project: Project) -> Iterator[Hit]:
         )
     table = ampacity_table(d.get("ampacity_a_by_awg"))
     if table is not None:
+        carrying = _carrying(project)
         missing_gauges = sorted(
             {
                 w.gauge_awg
                 for h in project.harnesses.values()
                 for w in h.wires
-                if w.gauge_awg is not None
-                and w.gauge_awg not in table
-                and (i := project.interfaces.get(w.interface_id or "")) is not None
-                and i.max_current_a is not None
+                if w.gauge_awg is not None and w.gauge_awg not in table and (h.id, w.id) in carrying
             }
         )
         if missing_gauges:
@@ -764,6 +842,12 @@ def _unchecked(project: Project) -> Iterator[Hit]:
                 if i.max_current_a is not None
                 for e in i.endpoints
                 if (box := project.connectors.get(e.connector_id or "")) is not None
+                and contact_rating(project, box) is None
+            }
+            | {
+                box.part_id
+                for box in project.connectors.values()
+                if any(p.current_a is not None for p in box.pins)
                 and contact_rating(project, box) is None
             }
         )

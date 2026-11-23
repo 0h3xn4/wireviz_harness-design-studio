@@ -50,10 +50,12 @@ from typing import Any
 from harness_design_studio import __version__
 from harness_design_studio.core import checks, settings
 from harness_design_studio.core.checks import Finding
+from harness_design_studio.core.currents import WireCurrent, wire_currents
 from harness_design_studio.core.derive import (
     Derivation,
     _bundle,
     contact_current_derivation,
+    pin_contact_current_derivation,
     wire_current_limit_derivation,
     wire_length_derivation,
     wire_voltage_drop_derivation,
@@ -144,7 +146,13 @@ WIRE_SIZING = (
     Col("signal", "Signal"),
     Col("interface", "Interface"),
     Col("category", "Category", what="the category of the interface type"),
-    Col("current_a", "Current", "A", "Max current of the interface the wire carries"),
+    Col(
+        "current_a",
+        "Current",
+        "A",
+        "the current of the wire: from the pin currents of its net, else the Max current of its "
+        "interface",
+    ),
     Col("gauge_awg", "Gauge", "AWG"),
     Col("area_mm2", "Cross-section", "mm²", "of a solid round conductor of the gauge (D-AWG)"),
     Col("part", "Part"),
@@ -177,10 +185,13 @@ def wire_sizing(project: Project) -> DataTable:
     rho, _why = settings.resistivity(project)
     basis = bundle.basis(project)
     rows: list[dict[str, Any]] = []
+    currents: dict[str, dict[str, WireCurrent]] = {}
     for h, w in _all_wires(project):
         i = project.interfaces.get(w.interface_id or "")
         itype = project.interface_types.get(i.type_id) if i else None
-        current = i.max_current_a if i is not None else None
+        if h.id not in currents:  # format 5: the pin currents of the net decide (`core/currents`)
+            currents[h.id] = wire_currents(project, h)
+        current = currents[h.id][w.id].value
         awg = w.gauge_awg
         in_range = awg is not None and AWG_MIN <= awg <= AWG_MAX
         length = wire_length(h, w, end_depths(project, h))
@@ -620,6 +631,11 @@ def rule_rows(project: Project, findings: list[Finding]) -> list[dict[str, Any]]
             if e.connector_id and e.connector_id in project.connectors:
                 d = contact_current_derivation(project, i.id, e.connector_id)
                 rows.append(_rule_row("current-over-contact", f"{i.id}.{e.connector_id}", d))
+    for c in sorted(project.connectors.values(), key=lambda x: x.id):  # pin currents (format 5)
+        for p in c.pins:
+            if p.current_a is not None:
+                d = pin_contact_current_derivation(project, c.id, p.id)
+                rows.append(_rule_row("current-over-contact", f"{c.id}.{p.id}", d))
     seen: set[tuple[str, str]] = set()
     for f in findings:
         info = INFO.get(f.rule)

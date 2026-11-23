@@ -12,6 +12,7 @@
    "pins": [
     {
      "contact_size": null,
+     "current_a": 2.0,
      "fixed": false,
      "id": "1",
      "interface_id": "IF-001",
@@ -48,6 +49,7 @@
     },
     {
      "contact_size": null,
+     "current_a": 1.0,
      "fixed": false,
      "id": "5",
      "interface_id": "IF-003",
@@ -269,6 +271,7 @@
     },
     {
      "contact_size": null,
+     "current_a": 2.0,
      "fixed": false,
      "id": "3",
      "interface_id": "IF-001",
@@ -508,6 +511,7 @@
     },
     {
      "contact_size": null,
+     "current_a": 0.5,
      "fixed": false,
      "id": "3",
      "interface_id": "IF-003",
@@ -1436,6 +1440,7 @@
   }
  ],
  "field_units": {
+  "box_connectors[].pins[].current_a": "A",
   "format_version": "none (version number of this file format)",
   "harnesses[].accessories[].length_mm": "mm",
   "harnesses[].accessories[].quantity": "none (count of pieces)",
@@ -3992,7 +3997,7 @@
    "voltage_v": null
   }
  ],
- "model_hash": "d200840894116e9369fc40991dcc47cb3f8c9edc2349f489af6266c29c159975",
+ "model_hash": "77a712dfec1582ef12d9b2cd62a85c91b4bbc5f981c9f2e31a384d375dd3a9f4",
  "parts": [
   {
    "approval": "pending",
@@ -4231,7 +4236,9 @@
    "notes": "",
    "part_number": null,
    "pin_count": 25,
-   "ratings": {},
+   "ratings": {
+    "contact_current_a": 3.0
+   },
    "specification": null,
    "unverified": true
   },

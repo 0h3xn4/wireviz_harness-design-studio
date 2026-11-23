@@ -149,6 +149,7 @@ def pin_rows_for_table(
     roles: Mapping[str, tuple[str, str]] | None = None,
     ports: Mapping[str, tuple[str, str]] | None = None,
     levels: Mapping[str, str] | None = None,
+    currents: Mapping[str, float | None] | None = None,
 ) -> list[dict[str, Any]]:
     """The pin table's rows (dicts) for `PIN_COLUMNS`. `roles` maps a pin to (the role a person
     gave, the role it has: given or taken from the signal name); `ports` maps a pin to (its named
@@ -177,6 +178,7 @@ def pin_rows_for_table(
                 "wire": ";".join(r.wires),
                 "function": r.function,
                 "level": (levels or {}).get(r.pin, ""),
+                "current_a": _amps((currents or {}).get(r.pin)),
                 "contact_size": r.contact_size,
                 "termination": strings.DV_TERMINATION[r.termination],
                 "termination_key": r.termination,
@@ -189,6 +191,11 @@ def pin_rows_for_table(
             }
         )
     return out
+
+
+def _amps(value: float | None) -> str:
+    """A pin current as the table shows it: `2`, `0.5`; empty when the pin states none."""
+    return "" if value is None else f"{value:g}"
 
 
 def _tip(key: str) -> Any:
@@ -215,6 +222,9 @@ PIN_COLUMNS = [
     Column("direction", strings.DV_COL_DIRECTION, tooltip=_tip("meaning_tip"), width=76),
     # the level of the pin (format 3; the template's column after Direction); box pins only, Q5
     Column("level", strings.DV_COL_LEVEL, mono=True, tooltip=lambda _r: strings.DV_COL_LEVEL_TIP, width=96),
+    # the current of the pin (format 5, design of 5.0.0 section 5.1): shown while a pin of the
+    # connector has one, and from the column menu; box pins only
+    Column("current_a", strings.DV_COL_CURRENT, numeric=True, tooltip=lambda _r: strings.DV_COL_CURRENT_TIP, width=80),
     Column("class", strings.DV_COL_CLASS, tooltip=_tip("meaning_tip"), width=76),
     Column("wire", strings.DV_COL_WIRE, mono=True, width=96),
     Column("contact_size", strings.DV_COL_CONTACT_SIZE, mono=True, width=96),
@@ -289,6 +299,7 @@ class DevicesView(QWidget):
         self._syncing = False
         self._unit: str | None = None
         self._cid: str | None = None
+        self._currents_cid: str | None = None  # the connector the Current column was last shown for
         self._units: list[str] = []
         self._key: tuple[Any, ...] | None = None
         self._pinout: Table = []
@@ -783,7 +794,7 @@ class DevicesView(QWidget):
         self.pin_model = PinModel(PIN_COLUMNS, (), self.theme)
         self.pin_table = PinTable(
             self.pin_model, self.theme, name=strings.DV_PINS, settings=self.settings,
-            key="devices-pins-4",  # a column was added in 4.0.0 (Pin row): widths saved before do not fit
+            key="devices-pins-5",  # a column was added in 5.0.0 (Current): widths saved before do not fit
         )  # fmt: skip
         self.pin_table.setObjectName("devices-pin-table")
         self.pin_table.setItemDelegate(
@@ -1347,7 +1358,11 @@ class DevicesView(QWidget):
         rows = devices.pin_rows(p, cid, problems=problems)
         roles = {x.id: (x.role, effective_role(x, p, c)) for x in c.pins}
         levels = {x.id: x.level or "" for x in c.pins}
-        data = pin_rows_for_table(rows, problems, frozen, roles, devices.pin_ports(p, cid), levels)
+        currents = {x.id: x.current_a for x in c.pins}
+        data = pin_rows_for_table(
+            rows, problems, frozen, roles, devices.pin_ports(p, cid), levels, currents
+        )
+        self._show_currents(cid, any(v is not None for v in currents.values()))
         if face is not None:
             for row in data:
                 number = face.row_of(str(row["pin"]))
@@ -1451,6 +1466,16 @@ class DevicesView(QWidget):
     def _show_pin_rows(self, face: PinRows | None) -> None:
         """The Pin row column only while the connector shown has a row layout (section 9)."""
         self.pin_table.setColumnHidden(self.pin_model.column_index("pin_row"), face is None)
+
+    def _show_currents(self, cid: str, used: bool) -> None:
+        """The Current column while a pin of the connector shown has a current (design of 5.0.0
+        section 5.1). Shown from the column menu, it stays until another connector is shown."""
+        col = self.pin_model.column_index("current_a")
+        if used:
+            self.pin_table.setColumnHidden(col, False)
+        elif cid != self._currents_cid:
+            self.pin_table.setColumnHidden(col, True)
+        self._currents_cid = cid
 
     def _edit_rows(self) -> None:
         if self._cid is not None and not self.ctl.read_only:
@@ -1794,6 +1819,11 @@ class DevicesView(QWidget):
             return None
         if key in ("signal", "contact_size", "level") and len(text) > 200:
             return strings.DV_TEXT_TOO_LONG
+        if key == "current_a":
+            try:
+                devices.read_current(text)
+            except EditError as exc:
+                return str(exc)
         if key == "contact_part":
             try:
                 devices.check_contact_part(self.ctl.project, text)

@@ -17,6 +17,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from harness_design_studio.core import settings
+from harness_design_studio.core.currents import has_pin_currents, wire_current
 from harness_design_studio.core.drc.rules import _wire_current_limit
 from harness_design_studio.core.generate.lengths import end_depths, wire_length
 from harness_design_studio.core.generate.mass import harness_mass
@@ -98,18 +99,29 @@ def _wire_length(c: Context) -> Value:
     return wire_length(c.harness, c.wire, end_depths(c.project, c.harness))
 
 
+def _wire_current(c: Context) -> Value:
+    """The current of the wire (`core/currents.py`): from the pin currents of its net (format 5),
+    else its interface's; without a pin current in the project, or without a harness in the
+    context, the interface's, as in 4.4.0."""
+    if c.wire is not None and c.harness is not None and has_pin_currents(c.project):
+        return wire_current(c.project, c.harness, c.wire).value
+    i = _interface_of(c)
+    return i.max_current_a if i else None
+
+
 def _wire_drop(c: Context) -> Value:
     """The calculation of the rule voltage-drop: current x resistivity x length / area x conductors."""
     w, i = c.wire, _interface_of(c)
     t = c.project.interface_types.get(i.type_id) if i else None
     rho, _missing = settings.resistivity(c.project)
     length = _wire_length(c)
-    if not (w and i and t and rho is not None and length and i.max_current_a is not None):
+    current = _wire_current(c)
+    if not (w and t and rho is not None and length and current is not None):
         return None
     if w.gauge_awg is None or not AWG_MIN <= w.gauge_awg <= AWG_MAX:
         return None
     n = settings.drop_conductors(c.project, t.category)
-    return voltage_drop_v(i.max_current_a, rho, float(length), w.gauge_awg, n)  # type: ignore[arg-type]
+    return voltage_drop_v(float(current), rho, float(length), w.gauge_awg, n)  # type: ignore[arg-type]
 
 
 def _wire_limit(c: Context) -> Value:
@@ -167,7 +179,7 @@ def _build() -> list[FieldDef]:
         f("wire", "category", "", "text", "The category of the interface type the wire carries (power, ground, signal ...).", _category),
         f("wire", "construction", "", "text", "The construction of the interface type (single, twisted_pair ...).", _construction),
         f("wire", "emc_class", "", "text", "The EMC class of the interface type.", _emc),
-        f("wire", "current_a", "A", "number", "The largest current of the interface the wire implements; not known when none is given.", lambda c: i.max_current_a if (i := _interface_of(c)) else None),
+        f("wire", "current_a", "A", "number", "The current of the wire: from the pin currents of its net when every end has one and they add up, else the largest current of the interface the wire implements; not known when neither is given.", _wire_current),
         f("wire", "voltage_v", "V", "number", "The voltage of the interface the wire implements; not known when none is given.", lambda c: i.voltage_v if (i := _interface_of(c)) else None),
         f("wire", "ampacity_limit_a", "A", "number", "The current the wire's gauge may carry after the bundle and temperature derating (the limit of the rule current-over-wire); not known while a derating value is missing.", _wire_limit),
         f("wire", "voltage_drop_v", "V", "number", "The voltage the wire drops at the interface current (the figure of the rule voltage-drop); not known while an input is missing.", _wire_drop),

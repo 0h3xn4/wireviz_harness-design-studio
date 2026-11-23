@@ -127,6 +127,10 @@ LengthMm = Annotated[float, Field(ge=0, le=MAX_LENGTH_MM)]
 # mating face back to where the wires leave; above 0 and at most 1000 mm.
 MAX_DEPTH_MM = 1000.0
 DepthMm = Annotated[float, Field(gt=0, le=MAX_DEPTH_MM)]
+# The current through the contact of a device pin in operation, in amperes, as the device's ICD
+# states it (format 5, design of 5.0.0 section 5.1): above 0 and at most 1000 A.
+MAX_PIN_CURRENT_A = 1000.0
+CurrentA = Annotated[float, Field(gt=0, le=MAX_PIN_CURRENT_A)]
 Positive = Annotated[float, Field(gt=0)]
 NonNegative = Annotated[float, Field(ge=0)]
 

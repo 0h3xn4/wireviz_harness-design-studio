@@ -1,0 +1,16 @@
+# harness-design-studio 4.4.1 model 77a712dfec15
+# harness-design-studio 4.4.1. Provided as is, without warranty. Verify before use.
+Finding,Rule,Severity,Object,Statement,Waived,Justification,Requirement
+current-over-contact.DEV1-J01.1,current-over-contact,error,DEV1-J01.1,Pin 1 of DEV1-J01 carries 2 A but its contacts allow 1.5 A after derating,,,ECSS-Q-ST-30-11_0140050
+current-over-contact.DEV2-J01.3,current-over-contact,error,DEV2-J01.3,Pin 3 of DEV2-J01 carries 2 A but its contacts allow 1.5 A after derating,,,ECSS-Q-ST-30-11_0140050
+model-inconsistent.W001-009.current_unbalanced.6f8677,model-inconsistent,warning,W001-009,The pin currents of the net of W001-009 do not add up: 1 A at DEV1-J01.5; 0.5 A at DEV3-J01.3. Its wires were not checked for current. Correct the currents of the pins.,,,
+model-inconsistent.W002-P2.length_depth_missing.0d21dc,model-inconsistent,warning,W002-P2,"W002-P2 is measured to its face, but its backshell W002-A1 has no part, so the wires there have no length",,,
+part-unapproved.EX-MICROD-25-F,part-unapproved,warning,EX-MICROD-25-F,Part EX-MICROD-25-F is not approved yet but is used (6 place(s)),,,ESCC3901-4.4
+part-unapproved.EX-MICROD-25-M,part-unapproved,warning,EX-MICROD-25-M,Part EX-MICROD-25-M is not approved yet but is used (6 place(s)),,,ESCC3901-4.4
+part-unapproved.EX-WIRE-TWISTED-SHIELDED,part-unapproved,warning,EX-WIRE-TWISTED-SHIELDED,Part EX-WIRE-TWISTED-SHIELDED is not approved yet but is used (20 place(s)),,,ESCC3901-4.4
+unchecked-config.derating,unchecked-config,info,derating,Current and derating limits were not checked: the derating values are still placeholders,,,
+unchecked-config.emc,unchecked-config,info,emc,EMC class separation was not checked: the EMC rules are still a placeholder,,,
+unchecked-config.grounding,unchecked-config,info,grounding,Shield grounding was not checked against a concept: it is still a placeholder,,,
+unchecked-config.separation,unchecked-config,info,separation,"Power, signal and sensitive-analog separation was not checked: the category pairs are still a placeholder",,,
+unchecked-config.spare-pins,unchecked-config,info,spare-pins,Spare pins were not checked: the required fraction is still a placeholder,,,
+unchecked-config.voltage-drop,unchecked-config,info,voltage-drop,Voltage drop was not checked: the limit or the conductor resistivity is still a placeholder,,,

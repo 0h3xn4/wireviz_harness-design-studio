@@ -24,7 +24,13 @@ from harness_design_studio.core.imports import ImportPlan
 from harness_design_studio.core.kicad import Netlist, NetlistPlan
 from harness_design_studio.core.library_import import PartsPlan, rating_columns
 from harness_design_studio.core.model import Project
-from harness_design_studio.core.pinout_import import DIRECTION_UNIT, NOT_SET, PinoutPlan
+from harness_design_studio.core.outputs.tables import data_num
+from harness_design_studio.core.pinout_import import (
+    CURRENT_FIELD,
+    DIRECTION_UNIT,
+    NOT_SET,
+    PinoutPlan,
+)
 from harness_design_studio.core.signal_map import FIELD as RENAMED_FIELD
 from harness_design_studio.core.signal_map import UNIT as RENAMED_UNIT
 from harness_design_studio.core.signal_map import Renamed
@@ -161,6 +167,11 @@ def pinout_report(
             item=f"{w.connector} pin {w.pin}",
         )  # fmt: skip
     _renamed(report, plan.renamed)
+    for c in plan.currents:  # a current read in milliamperes (format 5, design of 5.0.0 5.5)
+        report.convert(
+            row=c.row, field=CURRENT_FIELD, read=c.read, unit=c.unit,
+            stored=f"{data_num(c.stored)} A", item=f"{c.connector} pin {c.pin}",
+        )  # fmt: skip
     if plan.row_layouts:  # the Pin row column gave connectors rows of their own (4.0.0)
         report.notes.append(f"Row layouts set: {', '.join(plan.row_layouts)}.")
     report.notes += plan.row_notes

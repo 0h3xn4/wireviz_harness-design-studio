@@ -5,8 +5,10 @@
 4.5; offscreen). Pull request 2, part A: the Inspector of a cable connector has *Lengths measured
 to* (the project's, rear or face; one undo step; also on a harness Generate made, which keeps it;
 off for a released harness), and the Inspector of a connector or backshell part has *Depth (mm)*
-(one undo step; an empty field clears it; refused while a released harness uses the part). The
-later pull requests add their fields here."""
+(one undo step; an empty field clears it; refused while a released harness uses the part). Pull
+request 3, part B: the Devices tab's pin table has the column *Current (A)*, shown while a pin of
+the connector has a current (and from the column menu), edited in place in one undo step, a value
+that is not a current refused before it is sent. The later pull requests add their fields here."""
 
 from pathlib import Path
 
@@ -106,3 +108,46 @@ def test_a_part_of_another_category_shows_no_depth(win):
     ins.show_object("part", wire_part)
     settle()
     assert not ins.depth_box.isVisibleTo(ins)
+
+
+# ---- part B: the pin table column Current (A) (design of 5.0.0 section 5.1) ---------------------
+
+
+def _devices_view(win, cid: str):
+    from harness_design_studio.gui.devices_view import DevicesView
+
+    view = win.findChild(DevicesView)
+    unit = win.ctl.project.connectors[cid].unit_id
+    assert view.show_unit(unit, cid)
+    view.refresh()
+    settle()
+    return view
+
+
+def test_the_current_column_shows_while_a_pin_of_the_connector_has_one_and_edits_in_one_step(win):
+    p = win.ctl.project
+    cid = next(c.id for c in p.connectors.values() if c.unit_id and c.pins)
+    view = _devices_view(win, cid)
+    col = view.pin_model.column_index("current_a")
+    assert view.pin_model.columns[col].header == strings.DV_COL_CURRENT
+    assert view.pin_table.isColumnHidden(col)  # no pin of the connector has a current
+    pid = p.connectors[cid].pins[0].id
+    row = view._pin_index[pid]
+    assert view._validate_cell("current_a", {}, "two") is not None
+    assert view._validate_cell("current_a", {}, "500 mA") is None
+    n = steps(win)
+    view.pin_model.cellEdited.emit(row, "current_a", "500 mA")
+    view.refresh()
+    settle()
+    assert win.ctl.project.connectors[cid].pins[0].current_a == 0.5 and steps(win) == n + 1
+    assert not view.pin_table.isColumnHidden(col)
+    assert view.pin_model.row(view._pin_index[pid])["current_a"] == "0.5"
+    win.ctl.undo()
+    view.refresh()
+    settle()
+    assert win.ctl.project.connectors[cid].pins[0].current_a is None
+    # shown from the column menu, it stays on this connector
+    view.pin_table.setColumnHidden(col, False)
+    view.refresh()
+    settle()
+    assert not view.pin_table.isColumnHidden(col)
