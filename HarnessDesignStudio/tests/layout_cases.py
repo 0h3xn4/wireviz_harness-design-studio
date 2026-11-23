@@ -167,6 +167,15 @@ def _cases() -> list[Case]:
 
     add("Port of an interface end", port, "PortDialog")
 
+    def port_by_device(c: Ctx) -> QWidget:
+        # 4.4.0: with naming.far_device_names on, the far device's port first, the other marked
+        from tests.test_ports_far_device import OBC, project
+
+        p = project([("IF-001", "TTC2"), ("IF-002", "TTC1")])
+        return devices_dialogs.PortDialog(None, c.theme, p, OBC, "IF-001")
+
+    add("Port of an interface end, named after devices", port_by_device, "PortDialog")
+
     def lib_dialog(c: Ctx) -> QWidget:
         return devices_dialogs.LibraryDialog(None, c.theme, c.project, _library_data(c))
 

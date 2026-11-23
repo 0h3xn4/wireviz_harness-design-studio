@@ -108,6 +108,12 @@ def _check(text: str, tip: str, object_name: str) -> QCheckBox:
     return box
 
 
+def signal_map_text(table: dict[str, str]) -> str:
+    """The signal map as the box of Settings > Project shows it: `TEAM NAME = SIGNAL` per line, in
+    the order of the table."""
+    return "\n".join(f"{team} = {signal}" for team, signal in table.items())
+
+
 class SettingsPage(QWidget):
     def __init__(
         self,
@@ -134,6 +140,9 @@ class SettingsPage(QWidget):
         set_checklist: Callable[[list[str]], None] = lambda _points: None,
         template_points: Callable[[], list[str]] = lambda: [],
         file_points: Callable[[], list[str] | str | None] = lambda: None,
+        set_far_device_names: Callable[[bool], None] = lambda _on: None,
+        set_signal_map: Callable[[str], None] = lambda _text: None,
+        file_signal_map: Callable[[], dict[str, str] | str | None] = lambda: None,
         set_document_fields: Callable[[dict[str, str]], bool] = lambda _f: False,
         set_document_contact: Callable[[list[tuple[str, str]]], bool] = lambda _c: False,
         set_plan: Callable[..., bool] = lambda **_c: False,
@@ -344,6 +353,66 @@ class SettingsPage(QWidget):
         self._checklist_saved: tuple[str, ...] | None = None  # the list the box last showed
         self._checklist_line = ""
         self._checklist_why_not = ""
+        # pins named after devices (naming.far_device_names; 4.4.0 part A, design section 8.1)
+        far_title = QLabel(strings.SETTINGS_FAR_DEVICE)
+        far_title.setProperty("heading", True)
+        col.addWidget(far_title)
+        col.addWidget(_muted(strings.SETTINGS_FAR_DEVICE_TEXT))
+        self.far_device_box = _check(
+            strings.SETTINGS_FAR_DEVICE_BOX,
+            strings.SETTINGS_FAR_DEVICE_TIP,
+            "settings-far-device-names",
+        )
+        self.far_device_box.clicked.connect(lambda on: set_far_device_names(bool(on)))
+        col.addWidget(self.far_device_box)
+        self.far_device_about = _muted("")
+        self.far_device_about.setObjectName("settings-far-device-names-about")
+        col.addWidget(self.far_device_about)
+        # the project's signal map (naming.signal_map; 4.4.0 part C, section 5.4): the box is the
+        # person's until Save, which is one undo step
+        map_title = QLabel(strings.SETTINGS_SIGNAL_MAP)
+        map_title.setProperty("heading", True)
+        col.addWidget(map_title)
+        col.addWidget(_muted(strings.SETTINGS_SIGNAL_MAP_TEXT))
+        self.signal_map_box = QPlainTextEdit()
+        self.signal_map_box.setObjectName("settings-signal-map")
+        self.signal_map_box.setAccessibleName(strings.SETTINGS_SIGNAL_MAP_BOX)
+        self.signal_map_box.setToolTip(strings.SETTINGS_SIGNAL_MAP_BOX_TIP)
+        self.signal_map_box.setPlaceholderText(strings.SETTINGS_SIGNAL_MAP_HINT)
+        self.signal_map_box.setMinimumHeight(theme.px(110))
+        mark_mono(self.signal_map_box)
+        self.signal_map_box.textChanged.connect(self._signal_map_edited)
+        col.addWidget(self.signal_map_box)
+        map_row = QHBoxLayout()
+        self.signal_map_file = QPushButton(strings.SETTINGS_SIGNAL_MAP_FILE)
+        self.signal_map_file.setObjectName("settings-signal-map-file")
+        self.signal_map_file.setAccessibleName(strings.SETTINGS_SIGNAL_MAP_FILE.rstrip("…"))
+        self.signal_map_file.setToolTip(strings.SETTINGS_SIGNAL_MAP_FILE_TIP)
+        self.signal_map_file.clicked.connect(lambda _c=False: self._signal_map_file(file_signal_map))  # fmt: skip
+        self.signal_map_save = QPushButton(strings.SETTINGS_SIGNAL_MAP_SAVE)
+        self.signal_map_save.setObjectName("settings-signal-map-save")
+        self.signal_map_save.setAccessibleName(strings.SETTINGS_SIGNAL_MAP_SAVE_NAME)
+        self.signal_map_save.setProperty("primary", True)
+        self.signal_map_save.setToolTip(strings.SETTINGS_SIGNAL_MAP_SAVE_TIP)
+        self.signal_map_save.clicked.connect(
+            lambda _c=False: set_signal_map(self.signal_map_box.toPlainText())
+        )
+        for b in (self.signal_map_file, self.signal_map_save):
+            map_row.addWidget(b)
+        map_row.addStretch(1)
+        col.addLayout(map_row)
+        self.signal_map_state = _muted("")
+        self.signal_map_state.setObjectName("settings-signal-map-state")
+        col.addWidget(self.signal_map_state)
+        self.signal_map_error = QLabel()
+        self.signal_map_error.setObjectName("settings-signal-map-error")
+        self.signal_map_error.setWordWrap(True)
+        self.signal_map_error.setProperty("error", True)
+        self.signal_map_error.setVisible(False)
+        col.addWidget(self.signal_map_error)
+        self._signal_map_saved: str | None = None  # the text the box last showed of the saved map
+        self._signal_map_line = ""
+        self._signal_map_why_not = ""
         # the library folder (per person; the library window reads it)
         library_title = QLabel(strings.SETTINGS_LIBRARY_FOLDER)
         library_title.setProperty("heading", True)
@@ -718,6 +787,60 @@ class SettingsPage(QWidget):
             self.checklist_error.setVisible(True)
             return
         self._fill_checklist(found)
+
+    def show_far_device_names(self, on: bool, why_not: str = "") -> None:
+        """Show `naming.far_device_names` in force; `why_not` says why it cannot change now."""
+        box = self.far_device_box
+        box.blockSignals(True)
+        box.setChecked(on)
+        box.blockSignals(False)
+        box.setEnabled(not why_not)
+        box.setToolTip(why_not or strings.SETTINGS_FAR_DEVICE_TIP)
+        about = strings.SETTINGS_FAR_DEVICE_ON if on else strings.SETTINGS_FAR_DEVICE_OFF
+        self.far_device_about.setText(" ".join(t for t in (about, why_not) if t))
+
+    def show_signal_map(self, table: dict[str, str], why_not: str = "", error: str = "") -> None:
+        """Show the project's signal map, one `TEAM NAME = SIGNAL` per line: the box is filled
+        again only when the saved map changed since it was last shown (an undo, Save, another
+        project), so what a person typed and did not save stays; `error` is why a Save was
+        refused (the text of the check), shown under the box."""
+        text = signal_map_text(table)
+        if text != self._signal_map_saved:
+            self._signal_map_saved = text
+            self.signal_map_box.blockSignals(True)
+            self.signal_map_box.setPlainText(text)
+            self.signal_map_box.blockSignals(False)
+        if not table:
+            line = strings.SETTINGS_SIGNAL_MAP_NONE
+        elif len(table) == 1:
+            line = strings.SETTINGS_SIGNAL_MAP_NOW_ONE
+        else:
+            line = strings.SETTINGS_SIGNAL_MAP_NOW.format(len(table))
+        self._signal_map_line = line
+        self._signal_map_why_not = why_not
+        self.signal_map_error.setText(error)
+        self.signal_map_error.setVisible(bool(error))
+        for w in (self.signal_map_box, self.signal_map_file, self.signal_map_save):
+            w.setEnabled(not why_not)
+        self._signal_map_edited()
+
+    def _signal_map_edited(self) -> None:
+        edited = self.signal_map_box.toPlainText().strip() != (self._signal_map_saved or "")
+        parts = [self._signal_map_line, strings.SETTINGS_SIGNAL_MAP_EDITED if edited else ""]
+        self.signal_map_state.setText(" ".join(t for t in (*parts, self._signal_map_why_not) if t))
+
+    def _signal_map_file(self, file_signal_map: Callable[[], dict[str, str] | str | None]) -> None:
+        """*Take the names of a file…*: the pairs the window read fill the box; a sentence says
+        under the box why the file gives none; None: the person closed the chooser."""
+        found = file_signal_map()
+        if found is None:
+            return
+        if isinstance(found, str):
+            self.signal_map_error.setText(found)
+            self.signal_map_error.setVisible(True)
+            return
+        self.signal_map_box.setPlainText(signal_map_text(found))
+        self.signal_map_error.setVisible(False)
 
     def show_library_folder(self, folder: str) -> None:
         """Show the library folder the window uses ('' for none)."""

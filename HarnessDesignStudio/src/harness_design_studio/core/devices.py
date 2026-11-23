@@ -26,6 +26,7 @@ from pydantic import TypeAdapter, ValidationError
 from . import edit
 from .commands import Delete, Op, Put
 from .describe import part_gender
+from .device_names import far_device, named_device, unit_ids
 from .edit import EditError, unit_connectors
 from .ids import check_pin_id
 from .issues import Severity
@@ -1913,11 +1914,21 @@ class EndPort:
 
 @dataclass(frozen=True)
 class PortChoice:
-    """A complete named port of a connector for one interface, and why it cannot be chosen."""
+    """A complete named port of a connector for one interface, and why it cannot be chosen.
+    While `naming.far_device_names` is on (4.4.0), `device` is the device the port's name names
+    ("" for none) and `far` says that it is the device at the interface's other end."""
 
     port: str
     pins: tuple[str, ...]  # in the order of the type's signals
     why_not: str = ""  # "" when `ops_assign_port` takes it
+    device: str = ""
+    far: bool = False
+
+    @property
+    def other_device(self) -> str:
+        """The device the port is named after when it is not the far device ("" otherwise):
+        *Choose port…* marks such a port (design of 4.4.0, section 3.5)."""
+        return "" if self.far else self.device
 
 
 def _usable_ports(project: Project, c: Connector, type_id: str) -> tuple[Port, ...]:
@@ -1964,6 +1975,9 @@ def port_choices(project: Project, connector_id: str, interface_id: str) -> list
     c = project.connectors.get(connector_id)
     if i is None or c is None or c.role != "box":
         return []
+    by_device = edit._far_devices(project)
+    far = far_device(project, i, c.id) if by_device else ""
+    ids = unit_ids(project) if by_device else ()
     out = []
     for port in _usable_ports(project, c, i.type_id):
         try:
@@ -1971,8 +1985,69 @@ def port_choices(project: Project, connector_id: str, interface_id: str) -> list
             why = ""
         except EditError as exc:
             why = str(exc)
-        out.append(PortChoice(port.name, _port_pins(port), why))
+        reading = named_device(port.name, ids, port=True) if by_device else None
+        device = reading.unit if reading is not None else ""
+        out.append(
+            PortChoice(port.name, _port_pins(port), why, device, bool(far) and device == far)
+        )
+    if by_device:  # the far device's ports first, then the ports of no device, then the others
+        out.sort(key=lambda ch: 0 if ch.far else 2 if ch.device else 1)
     return out
+
+
+@dataclass(frozen=True)
+class FarPortWarning:
+    """An interface end on a port named after a device other than the one at its other end, while
+    `naming.far_device_names` is on (the verifier's `port_far_device`, design of 4.4.0 section
+    3.4): `kept` says why it stays (`locked` by a person, `released` in the harness `harness`)
+    or "" when a Generate moves it."""
+
+    interface_id: str
+    connector_id: str
+    port: str
+    far: str
+    device: str
+    kept: Literal["locked", "released", ""]
+    harness: str = ""
+
+
+def far_port_warning(
+    project: Project, interface_id: str, connector_id: str
+) -> FarPortWarning | None:
+    """The warning of the Inspector under an interface end (section 3.5): the end's port is named
+    after a device other than the far device. None while the setting is off, with no far device,
+    with no port held, or on a port of the far device or of no device. A port the dry run only
+    plans is never another device's (Generate does not give one), so it is not read."""
+    if not edit._far_devices(project):
+        return None
+    i = project.interfaces.get(interface_id)
+    if i is None:
+        return None
+    far = far_device(project, i, connector_id)
+    at = end_port(project, interface_id, connector_id) if far else None
+    if at is None or at.how == "planned":
+        return None
+    reading = named_device(at.port, unit_ids(project), port=True)
+    if reading is None or not reading.names or reading.unit == far:
+        return None
+    released = sorted(
+        h.id
+        for h in project.harnesses.values()
+        if h.status == "released" and interface_id in h.interfaces
+    )
+    if released:
+        kept: Literal["locked", "released", ""] = "released"
+    else:
+        kept = "locked" if at.how == "locked" else ""
+    return FarPortWarning(
+        interface_id,
+        connector_id,
+        at.port,
+        far,
+        reading.unit,
+        kept,
+        released[0] if released else "",
+    )
 
 
 def pin_ports(project: Project, connector_id: str) -> dict[str, tuple[str, str]]:
