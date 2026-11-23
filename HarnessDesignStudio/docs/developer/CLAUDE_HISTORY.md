@@ -165,3 +165,13 @@ The note on version 3.1.0, moved word for word from the fourth item of the same 
 The note on version 4.0.0, moved word for word from the fourth item of the Status section (the one that starts with *Not built*) to keep `CLAUDE.md` under its size limit when 4.4.0 was prepared, as the note on 3.0.1 was moved with the preparation of 4.3.0; the sentence there that names the notes moved out of it now names 4.0.0 too, and the first item still names 4.0.0 in the list of releases.
 
 **Version `4.0.0` is published** (D-254; 2026-11-20, the latest full release until 4.0.1; major; no release candidate; tag `v4.0.0` on `c0e0250`, made by the tag workflow, run 44699479126): format 4 with a connector's row layout (D-250, D-251, `docs/ait/DESIGN_4.0_ROW_LAYOUT.md`; #294 to #300): `RowLayout` on `Part.row_layout` and `Connector.row_layout`, `core/row_layout.py`, the three checks, `power-return-adjacent` on the face, the *Pin row* column, `pin-rows`, **Edit rows…**; the older names of 3.0.x are gone (`export.json` `format_version` 2, `harness.revision` removed); format 4 is frozen since the tag `v4.0.0`; a 3.x tool opens it read-only.
+
+## From the Status section of CLAUDE.md, moved with the publication record of 4.4.0 (2026-11-23)
+
+The note on the publication of the minor release 4.3.0, moved word for word from the first item of the Status section when the publication record of 4.4.0 was written, as the note on 4.2.0 was moved with the publication record of 4.3.0, so that `CLAUDE.md` stays under its size limit; that item still names 4.3.0 in the list of releases and says where this note is.
+
+The minor release `4.3.0` (D-261; the review view; no format change) was published on 2026-11-22 (annotated tag `v4.3.0` on `20bf8f1`, the merge of #337; made by the tag workflow, run 45045461615, its seventeenth use; release workflow run 45045481035): the latest full release.
+
+The note on version 4.0.1, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 4.0.1 too, and the first item still names 4.0.1 in the list of releases.
+
+**Version `4.0.1` is published** (D-255; 2026-11-20, the latest full release until 4.1.0; no release candidate; tag `v4.0.1` on `d45da91`, made by the tag workflow, run 44741420907): a patch release with the fix of #306: the self-check of `export` (`core/outputs/verify.py`) words the labels in every label format (`compact`, `descriptive`, `custom` failed it since 1.15.0, D-198); no format change.
