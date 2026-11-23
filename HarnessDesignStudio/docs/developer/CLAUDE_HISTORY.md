@@ -159,3 +159,9 @@ The minor release `4.2.0` (D-259; four electrical rules; no format change) was p
 The note on version 3.1.0, moved word for word from the fourth item of the same section (the one that starts with *Not built*) for the same reason; the sentence there that names the notes moved out of it now names 3.1.0 too, and the first item still names 3.1.0 in the list of releases.
 
 **Version `3.1.0` is published** (D-253; 2026-11-19, the latest full release until 4.0.0; no release candidate; tag `v3.1.0` on `3b183e1`, made by the tag workflow, run 44605378969): a minor release with `SEARCH`/`ISNUMBER` in the plan's search boxes (D-250, #290: `I2:I3` and `M2:M3`, in a conditional format only; every `.ods` turns regular expressions and wildcards off); no format change.
+
+## From the Status section of CLAUDE.md, moved with the preparation of 4.4.0 (2026-11-23)
+
+The note on version 4.0.0, moved word for word from the fourth item of the Status section (the one that starts with *Not built*) to keep `CLAUDE.md` under its size limit when 4.4.0 was prepared, as the note on 3.0.1 was moved with the preparation of 4.3.0; the sentence there that names the notes moved out of it now names 4.0.0 too, and the first item still names 4.0.0 in the list of releases.
+
+**Version `4.0.0` is published** (D-254; 2026-11-20, the latest full release until 4.0.1; major; no release candidate; tag `v4.0.0` on `c0e0250`, made by the tag workflow, run 44699479126): format 4 with a connector's row layout (D-250, D-251, `docs/ait/DESIGN_4.0_ROW_LAYOUT.md`; #294 to #300): `RowLayout` on `Part.row_layout` and `Connector.row_layout`, `core/row_layout.py`, the three checks, `power-return-adjacent` on the face, the *Pin row* column, `pin-rows`, **Edit rows…**; the older names of 3.0.x are gone (`export.json` `format_version` 2, `harness.revision` removed); format 4 is frozen since the tag `v4.0.0`; a 3.x tool opens it read-only.
