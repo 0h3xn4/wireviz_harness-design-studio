@@ -32,6 +32,7 @@ The screen says *device*, the files say *unit*: the written files keep the word 
 - [A splice](#a-splice)
 - [A row layout](#a-row-layout)
 - [A face end](#a-face-end)
+- [A pin current](#a-pin-current)
 
 The main output of a harness is its **build workbook** (`<ID>_build.xlsx`, new in 1.7.0, decision D-169). The PDF and SVG drawings of the harnesses are **optional**: `export` writes none of them unless you add `--drawings` (in the app: the check box **Include the PDF drawings** in the Export window, ticked at the start only when the last export of the folder had them). An `export` without `--drawings` into a folder whose last export had the drawings removes them and says so. Everything else, the system diagrams too, is always written. For the `first-steps` example `export` writes 34 files and `export --drawings` 40 (not counting `manifest.json`; with 1.6.0 and earlier the same command wrote 38). The build data (decision D-170, below) adds nothing to a project that does not use it, and one file, `accessories.csv`, to each harness that has accessories. A harness with a branch point (2.3.0) gets one file more, `segments.csv`, and a sheet more in each of its two workbooks ([below](#a-harness-that-branches)).
 
@@ -318,3 +319,16 @@ A cable connector measured to its mating face (format 5, 5.0.0; design `docs/ait
 
 The headings *Length (m), rear to rear* and *Length [mm] rear to rear* do not change: the lengths stay rear to rear. The independent check (`verify --outputs`) words every one of these again with its own copy of the face ends (`verify_production._end_depths`).
 
+## A pin current
+
+A pin of a device connector that states a current (format 5, 5.0.0; design `docs/ait/DESIGN_5.0_FORMAT_5.md` section 5.4; [File format](FILE_FORMAT.md#a-current-per-pin-part-b); [wire current](models/wire-current.md)) changes these files only while some pin of the project has one. A project without a pin current keeps every file.
+
+| Output | What a project with a pin current holds |
+| --- | --- |
+| `system/box_pinouts.csv`, the *Box pinouts* sheet of `system.xlsx`, the pinout table of the Devices tab | the column **Current (A)** after the last column, the current of each pin (empty for a pin without one) |
+| `export-pinout` | the column *Current (A)* while a pin of the device has a current, so that `import-pinout` reads the file back |
+| the harness plan, the `CON_…` sheet of a device connector | the column **Current [A]** after *Description* (and after *Pin row* when there is one) while a pin of that connector has a current |
+| `system/export.json` | `current_a` of a pin of a box connector where set; `field_units` names `box_connectors[].pins[].current_a` (`A`) while a pin has one |
+| `system/drc_findings.csv`, the DRC report | the findings of `current-over-contact` per pin (*Pin 1 of OBC1-J01 carries 2 A but its contacts allow 1.5 A after derating*, object `OBC1-J01.1`) in place of the finding of the interface at a connector whose every pin of it has a current; the wire findings of `current-over-wire`, `bundle-current` and `voltage-drop` with the current from the pins; the warning `current_unbalanced` of `check` as a finding of `model-inconsistent`; the note of the wires without an interface says *they have no interface and no current on their pins to take a current from* |
+
+Not changed: the harness pinouts (`harnesses/<ID>/pinout.csv`: cable pins carry no current), the build workbook, the Production sheet, the labels and the bill of materials. The independent check (`verify --outputs`) compares the column of `box_pinouts.csv`, the `CON_…` sheets and `export.json` with the model: a wrong current is `out_box_pinouts`, `out_plan` or `out_json`.

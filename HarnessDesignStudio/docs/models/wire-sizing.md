@@ -38,7 +38,7 @@ where I is the current of the interface in A, ρ the resistivity of the conducto
 | Bundle factor K | 1 | `config/derating.json`: `bundle_derating` (one factor), or `bundle_factor_by_count` (a table by number of wires; it replaces the single factor). When the table equals the one of the ECSS profile it is Table 6-41 of ECSS-Q-ST-30-11C. |
 | Number of wires in the bundle | wires | By default every wire of the harness; `config/model.json`: `bundle_basis` chooses only the loaded wires or the busiest segment ([selectable models](selectable-models.md#bundle-basis)). See assumption A-BUNDLE-ALL. |
 | Temperature factor | 1 | `config/derating.json`: `temperature_derating`. One number. |
-| Current I | A | The interface of the wire: Max current. |
+| Current I | A | The interface of the wire: Max current; since 5.0.0 the pin currents of its net when every end has one and they add up ([wire current](wire-current.md)). Generate sizes from the interface's current only. |
 | Resistivity ρ | Ω·m | `config/generation.json`: `conductor_resistivity_ohm_m` (with `model.drop_model` `dc_at_ambient` it is first corrected to the hottest ambient temperature, [selectable models](selectable-models.md#voltage-drop-model)). |
 | Length L | m | The length of the wire itself if it has one, otherwise the sum of the routing segments of its harness between its two connectors. |
 | Conductors counted n | 1 | By default 2 for an interface of the category power or ground, 1 for every other: `config/model.json`: `return_path_categories`, `return_path_conductors` and `single_path_conductors`. See assumption A-ROUND-TRIP. |

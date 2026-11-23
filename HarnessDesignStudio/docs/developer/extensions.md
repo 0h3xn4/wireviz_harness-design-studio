@@ -105,7 +105,7 @@ A rule or a table that applies to an object can read the fields of that object a
 | `wire.category` |  | text | The category of the interface type the wire carries (power, ground, signal ...). |
 | `wire.construction` |  | text | The construction of the interface type (single, twisted_pair ...). |
 | `wire.emc_class` |  | text | The EMC class of the interface type. |
-| `wire.current_a` | A | number | The largest current of the interface the wire implements; not known when none is given. |
+| `wire.current_a` | A | number | The current of the wire: from the pin currents of its net when every end has one and they add up, else the largest current of the interface the wire implements; not known when neither is given. |
 | `wire.voltage_v` | V | number | The voltage of the interface the wire implements; not known when none is given. |
 | `wire.ampacity_limit_a` | A | number | The current the wire's gauge may carry after the bundle and temperature derating (the limit of the rule current-over-wire); not known while a derating value is missing. |
 | `wire.voltage_drop_v` | V | number | The voltage the wire drops at the interface current (the figure of the rule voltage-drop); not known while an input is missing. |
