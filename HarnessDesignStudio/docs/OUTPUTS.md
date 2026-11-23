@@ -31,6 +31,7 @@ The screen says *device*, the files say *unit*: the written files keep the word 
 - [A harness that branches](#a-harness-that-branches)
 - [A splice](#a-splice)
 - [A row layout](#a-row-layout)
+- [A face end](#a-face-end)
 
 The main output of a harness is its **build workbook** (`<ID>_build.xlsx`, new in 1.7.0, decision D-169). The PDF and SVG drawings of the harnesses are **optional**: `export` writes none of them unless you add `--drawings` (in the app: the check box **Include the PDF drawings** in the Export window, ticked at the start only when the last export of the folder had them). An `export` without `--drawings` into a folder whose last export had the drawings removes them and says so. Everything else, the system diagrams too, is always written. For the `first-steps` example `export` writes 34 files and `export --drawings` 40 (not counting `manifest.json`; with 1.6.0 and earlier the same command wrote 38). The build data (decision D-170, below) adds nothing to a project that does not use it, and one file, `accessories.csv`, to each harness that has accessories. A harness with a branch point (2.3.0) gets one file more, `segments.csv`, and a sheet more in each of its two workbooks ([below](#a-harness-that-branches)).
 
@@ -301,3 +302,19 @@ A row layout (format 4, 4.0.0; design `docs/ait/DESIGN_4.0_ROW_LAYOUT.md` sectio
 | `system/drc_findings.csv`, `system/drc_report.md` | The rule `power-return-adjacent` judges the face of a connector with a layout ([RULES.md](RULES.md)): *PCDU1-J01: PWR (pin 1) and RTN (pin 6) are neighbours on the face of the connector (rows 1 and 2), with no unassigned contact between them*; pins of different rings are not judged, and `unchecked-config` names them (object `power-return-rings`). The finding IDs stay those of 3.0.0 |
 
 The output check works the rows out with its own copy of the rules (`verify_plan.face_rows`, used by `verify.py` too; neither imports `core/row_layout.py`): a wrong row, a missing column or a column where no connector has a layout is `out_box_pinouts` or `out_pinout`; a wrong cell, a wrong order of a near block or a wrong formula of the plan is `out_plan` or `out_plan_formula`; a `row_layout` of `export.json` that differs from the model is `out_json` ([Verifier v2](#verifier-v2-coreoutputsverifypy)). The drawings, the build workbook, the labels, the BOM, the mass and length tables, the connection list, the traceability table, the version report and the WireViz file do not show the rows.
+
+## A face end
+
+A cable connector measured to its mating face (format 5, 5.0.0; design `docs/ait/DESIGN_5.0_FORMAT_5.md` section 4.4; [File format](FILE_FORMAT.md#lengths-to-the-face-part-a); [wire length](models/wire-length.md#a-face-end-and-the-depth-of-a-connector)) changes the written files of its harness only. A project without a face end (no `length_to` and the setting `model.length_reference` `rear`) keeps every file.
+
+| Output | What a harness with a face end holds |
+| --- | --- |
+| the length note: `H9` of the plan, row 2 of its *Production* sheet, the row *Lengths* of *Start here* and the last rows of *Cut list*, *Routing* and *Production* of the build workbook | a fifth sentence: *At W001-P1 and W001-P2 the segments run to the mating face; the depth of the connector and its backshell is taken off each wire there.* With the setting `face`: *The segments run to the mating face of each connector (model.length_reference), but at W001-P3; the depth of the connector and its backshell is taken off each wire.* |
+| `segments.csv`, the *Segments* sheet of `<ID>.xlsx`, the *Routing* sheet | the node of a face end reads `W001-P1 (face)` |
+| every wire length (wire list, cut list, *Production*, the plan, the mass, the bill of materials, the WireViz file, the voltage drop) | the depth of each face end taken off the path of a wire without a length of its own; a face end without a depth leaves the length empty (*to fill in*). A length stored on the wire (Generate's) already has it taken off |
+| the drawing (`export --drawings`) | *lengths to the face* under the connector |
+| `system/export.json` | `length_to` of a cable connector and `depth_mm` of a part where set; `field_units` names `parts[].depth_mm` (`mm`) while a part has a depth |
+| `system/drc_findings.csv`, the DRC report | the warnings `length_depth_missing` and `length_below_depth` of `check`, as findings of `model-inconsistent` |
+
+The headings *Length (m), rear to rear* and *Length [mm] rear to rear* do not change: the lengths stay rear to rear. The independent check (`verify --outputs`) words every one of these again with its own copy of the face ends (`verify_production._end_depths`).
+
