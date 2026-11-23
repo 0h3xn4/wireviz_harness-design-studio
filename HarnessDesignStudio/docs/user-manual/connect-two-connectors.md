@@ -51,7 +51,7 @@ The window **Link connectors** opens:
 
 ![The window Link connectors: OBC and RW1 with their connectors OBC-J01 and RW1-J02, four pairs proposed (TX+ with RX+, TX- with RX-, RX+ with TX+, RX- with TX-), the roles Signal, the buttons Add a connector…, Pair by pin number and Paste a pairing…, and the line Every pin that has a signal is paired](../img/link-connectors-window.png)
 
-1. Pick the **First device** and its **Connector**, then the **Second device** and its connector. A connection joins two **different** devices; the window says so if you pick one device twice. A connector can be in several connections, but a pin in one pair of one connection only. A connector that already has the cable plug of a harness on it, and a pin that an interface uses (Generate wires it), are refused with the reason in words (since 1.8.1).
+1. Pick the **First device** and its **Connector**, then the **Second device** and its connector. A connection joins two **different** devices; the window says so if you pick one device twice. A connector can be in several connections, but a pin in one connection only (within it, since 5.0.0, a pin may be paired with several pins: [a junction](#a-junction-one-pin-to-several-since-500)). A connector that already has the cable plug of a harness on it, and a pin that an interface uses (Generate wires it), are refused with the reason in words (since 1.8.1).
 2. The table **Pairs of pins** shows what the program proposes: the pin, its signal and its role on the first connector, beside the pin, signal and role on the second.
 3. **Name** is optional. Without a name the connection is called after its two connectors, `OBC-J01 - RW1-J02`.
 4. Press **Link connectors**. The connection is made as one undo step (Ctrl+Z takes it back) and the diagram shows it.
@@ -107,7 +107,7 @@ So OBC1 to TTC1 is proposed `TTC1_TX=RX, TTC1_RX=TX, TTC1_PPS=PPS` and OBC1 to T
 - **Change pair:** pick a row, choose another pin on either side under the table, press **Change pair**.
 - **Add pair:** choose a pin on each side and press **Add pair**.
 - **Remove pair:** pick a row and press **Remove pair**.
-- A pin in two pairs, no pair at all, or the same device twice is refused at once, in words under the table, and the button stays off until you fix it. That is all that stops you; the program does not forbid what only looks odd.
+- A pin that another connection pairs, no pair at all, or the same device twice is refused at once, in words under the table, and the button stays off until you fix it. That is all that stops you; the program does not forbid what only looks odd.
 - **What looks wrong** is written under the table while you work, in plain words: two outputs or two inputs on one pair (from the directions set on the pins, or else from the interface types), names that differ across a pair, a pin that is named but not paired, power with no return. The same review is *Check my connections* (step 5). You may still make the connection; the review keeps asking until you have fixed it or accepted it.
 
 ## Pair by pin number and paste a pairing
@@ -164,7 +164,7 @@ With **Signal names name the far device** on (since 4.4.0), the review reads nam
 
 *Check my connections* looks at the pairing only. It does not check a current: a harness made from a connection has wires without an interface, and the current checks do not run on those wires (section 6).
 
-The integrity checks add what cannot be right at all: a connection whose connector or pin no longer exists, a pin in two pairs, both connectors on one device. They are errors and are named in the Problems panel too.
+The integrity checks add what cannot be right at all: a connection whose connector or pin no longer exists, a pin in two connections, both connectors on one device. They are errors and are named in the Problems panel too.
 
 ## 6. Create the harness
 
@@ -182,7 +182,13 @@ The connection says which pins go together. It is not yet a harness. When you wa
 
 With the two devices of RS-422 pinouts and no group, a harness of four wires gives two *Twisted pairs* and four *Shielded signals* warnings; `harness-design-studio drc DIR` lists them, and `explain DIR --all --out FOLDER` writes what each rule read.
 
-The button says why it cannot when it cannot: no pairs yet, or the connection has a harness already. To see the harness again later, use **Show the harness** (section 4). A connection whose harness is released is locked with it ([change a released harness](change-a-released-harness.md)).
+### A junction: one pin to several (since 5.0.0)
+
+A line split over several contacts, or several lines joined into one, is a **junction**: pair the one pin with each of the others by hand (**Add pair** again with the same pin; the proposal pairs each pin once). For example *pin 1 of PCDU1-J01 to pins 1, 2 and 3 of OBC1-J01*. The window names it under the table: *Pin 1 of PCDU1-J01 is joined to pins 1, 2 and 3 of OBC1-J01 (a junction); the harness made from the link joins them in a splice.* Where several pins of each side meet in one junction, pair each pin of one side with every pin of the other; a pair missing, or a pair given twice inside a junction, is named as an error and no harness is made from it. The same pair given twice outside a junction is a **parallel pair**: two wires between the same two pins.
+
+For a connection with a junction, **Create harness** asks for the **Splice part** (a part of the category `splice` in your library; the program ships none, so add your own first, [splices](splices.md#before-you-start)). The harness gets one splice of that part for each junction, `W003-X1`, `W003-X2` …, with a wire from each pin of the junction to the splice; a parallel pair gets two wires on the same two cable pins, and *Several wires on one pin* (`pin-shared`) names them. You do not place or delete a splice by hand in such a harness: the connection owns its pins. The *Splices* list of the Harness tab shows the splices, and, when the device pins state their currents, the currents of each net and whether they add up. Where along the harness the splice sits is the routing you draw ([branching harnesses](branching-harnesses.md#branch-points-and-segments)). A tool older than 5.0.0 reads such a connection as an error (a pin in two pairs), so the whole team updates together.
+
+The button says why it cannot when it cannot: no pairs yet, or the connection has a harness already, or a junction and no splice part in the library. To see the harness again later, use **Show the harness** (section 4). A connection whose harness is released is locked with it ([change a released harness](change-a-released-harness.md)).
 
 ## 7. Hand over the connection list
 
