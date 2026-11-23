@@ -623,6 +623,17 @@ def plan_join_harnesses(project: Project, keep_id: str, other_id: str) -> list[O
     moved_accessories = [
         evolve(a, target=kp.id) if a.target == op.id else a for a in other.accessories
     ]
+    moved_shields = [  # a shield end that lands on the other plug lands on the kept one (format 5)
+        evolve(
+            s,
+            **{
+                key: evolve(place, connector=kp.id)
+                for key, place in (("at_a", s.at_a), ("at_b", s.at_b))
+                if place is not None and place.connector == op.id
+            },
+        )
+        for s in other.shields
+    ]
     # the legs that leave the joined plug, each side's own (an undrawn one counts, see `_legs`)
     legs = _legs(keep, kp.id)
     for leg in _legs(other, op.id):
@@ -643,7 +654,7 @@ def plan_join_harnesses(project: Project, keep_id: str, other_id: str) -> list[O
         connectors=[plug if c.id == kp.id else c for c in keep.connectors] + moved_connectors,
         wires=[*keep.wires, *moved_wires],
         splices=[*keep.splices, *other.splices],
-        shields=[*keep.shields, *other.shields],
+        shields=[*keep.shields, *moved_shields],
         branch_points=branches,
         segments=segments,
         accessories=[*keep.accessories, *moved_accessories],

@@ -11,7 +11,10 @@ the connector has a current (and from the column menu), edited in place in one u
 that is not a current refused before it is sent. Pull request 4, part C: the Link window takes a
 pin paired again by hand and names the junction under the table; *Create harness* asks for the
 splice part of a connection with a junction (and says how to get one when the library has none);
-the *Splices* list shows the pin currents of the net of each node. The later pull requests add
+the *Splices* list shows the pin currents of the net of each node. Pull request 5, part D: *Change
+group* says where each shield end lands (*Lands on pin*, *Backshell* with *Add a backshell…*), also
+for a group Generate made (its kind, wires and ends read-only), in one undo step; the Edit wire tab
+names the places; deleting a backshell says which places it cleared. The later pull requests add
 their fields here."""
 
 from pathlib import Path
@@ -259,3 +262,103 @@ def test_check_my_connections_does_not_count_a_junction(qtbot, tmp_path):
     win.toasts.show_message = lambda text, *a, **k: said.append(text)
     win.check_connections_flow()
     assert said[-1] == strings.LINK_CHECK_CLEAN  # the two junctions are infos, nothing to fix
+
+
+# ---- pull request 5, part D: where a shield end lands (section 7.5) -----------------------------
+
+
+def _shield_view(qtbot, theme):
+    from tests.format5_support import format5_project
+    from tests.test_ux_harness import make_view
+
+    ctl, view = make_view(qtbot, theme, format5_project())
+    view.select_harness("W001")
+    view.refresh()
+    ed = view.wire_editor
+    ed.set_harness("W001")
+    return ctl, ed
+
+
+def _group(ctl, gid: str):
+    return next(s for h in ctl.project.harnesses.values() for s in h.shields if s.id == gid)
+
+
+def test_change_group_gives_a_generated_group_its_places_in_one_undo_step(qtbot):
+    from PySide6.QtWidgets import QDialog
+
+    from harness_design_studio.gui.harness_edit_dialogs import ChangeGroupDialog
+    from harness_design_studio.gui.theme import ThemeManager
+
+    ctl, ed = _shield_view(qtbot, ThemeManager())
+    s3 = _group(ctl, "W001-S3")
+    assert not s3.manual and (s3.end_a, s3.end_b) == ("pigtail", "backshell_360")
+    ed.show_wires(list(s3.wire_ids))
+    assert ed.change_group_btn.isVisibleTo(ed) and ed.change_group_btn.isEnabled()
+    seen = []
+
+    def run(dlg):
+        seen.append(dlg)
+        assert isinstance(dlg, ChangeGroupDialog)
+        assert not dlg.kind.isEnabled() and not dlg.end_a.isEnabled() and not dlg.wires.isEnabled()
+        assert dlg.pins["a"].isEnabled() and not dlg.pins["b"].isEnabled()  # end B: 360 degrees
+        assert dlg.shells["b"].isEnabled()
+        assert dlg.error.text() == strings.GD_SAME and not dlg.ok.isEnabled()
+        dlg.pins["a"].setCurrentIndex(dlg.pins["a"].findData("10"))
+        dlg.shells["b"].setCurrentIndex(dlg.shells["b"].findData("+"))  # Add a backshell…
+        assert dlg.ok.isEnabled()
+        return int(QDialog.DialogCode.Accepted)
+
+    ed.run_dialog = run
+    before = len(ctl.history._undo)
+    assert ed.change_group()
+    assert len(seen) == 1 and len(ctl.history._undo) == before + 1
+    s3 = _group(ctl, "W001-S3")
+    assert (s3.at_a.connector, s3.at_a.pin) == ("W001-P2", "10")
+    assert (s3.at_b.connector, s3.at_b.backshell) == ("W001-P3", "ACC-001")
+    assert any(a.id == "ACC-001" and a.kind == "backshell" for a in ctl.project.harnesses["W001"].accessories)  # fmt: skip
+    ed.show_wires(list(s3.wire_ids))
+    assert "end A pigtail to pin 10 at W001-P2" in ed.group_label.text()
+    assert "end B backshell 360 (ACC-001) at W001-P3" in ed.group_label.text()
+
+
+def test_the_place_fields_follow_the_kind_of_end_and_have_names(qtbot):
+    from harness_design_studio.core.wires import plan_group_wires
+    from harness_design_studio.gui.harness_edit_dialogs import ChangeGroupDialog
+    from harness_design_studio.gui.theme import ThemeManager
+    from tests.test_group_edit import mine
+
+    p, hid, w = mine()
+    from harness_design_studio.core.commands import apply_ops
+
+    apply_ops(p, plan_group_wires(p, w[:2], "shielded_pair"))
+    gid = p.harnesses[hid].shields[-1].id
+    dlg = ChangeGroupDialog(None, ThemeManager(), p, gid)
+    qtbot.addWidget(dlg)
+    for box in (*dlg.pins.values(), *dlg.shells.values()):
+        assert box.accessibleName() and box.toolTip(), box.objectName()
+    dlg.end_a.setCurrentIndex(dlg.end_a.findData("pigtail"))
+    assert dlg.pins["a"].isEnabled() and dlg.shells["a"].isEnabled()
+    dlg.end_a.setCurrentIndex(dlg.end_a.findData("floating"))
+    assert not dlg.pins["a"].isEnabled() and not dlg.shells["a"].isEnabled()
+    dlg.end_a.setCurrentIndex(dlg.end_a.findData("pigtail"))
+    dlg.kind.setCurrentIndex(dlg.kind.findData("twisted_pair"))
+    assert not dlg.pins["a"].isEnabled()
+
+
+def test_deleting_a_backshell_says_which_place_it_cleared(qtbot):
+    from harness_design_studio.gui.accessory_editor import AccessoryEditor
+    from harness_design_studio.gui.theme import ThemeManager
+    from tests.format5_support import format5_project
+    from tests.test_ux_harness import make_view
+
+    ctl, _view = make_view(qtbot, ThemeManager(), format5_project())
+    said = []
+    ctl.message.connect(lambda text, _undo: said.append(text))
+    acc = AccessoryEditor(ctl, ThemeManager())
+    qtbot.addWidget(acc)
+    acc.set_harness("W001")
+    acc._selected = "W001-A1"
+    acc.delete.setEnabled(True)
+    assert acc.delete_accessory()
+    assert _group(ctl, "W001-S2").at_b is None
+    assert said[-1] == "W001-A1 is deleted, and the place of W001-S2 end B no longer names it."

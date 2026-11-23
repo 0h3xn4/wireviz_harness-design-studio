@@ -16,7 +16,10 @@ The kind of table is told by its column headings (any case, other columns are ig
 - part tools: `Part`, `Tool`;
 - cable ends (format 5, design of 5.0.0 section 4.2): `Connector` and `Lengths to` (`face`, `rear`,
   or `project` for the project's setting `model.length_reference`); `Harness` is optional while the
-  connector ID is unique in the project.
+  connector ID is unique in the project;
+- shield ends (format 5, design of 5.0.0 section 7.2): `Shield group`, `End` (`A` or `B`) and
+  `Pin` and/or `Backshell` (an accessory of kind backshell on the connector at that end): where
+  the end lands; `Harness` is optional while the group ID is unique in the project.
 
 Every data row gets a result with its reason; the rows are planned with `build_data` one after the
 other on a scratch copy of the project, so a later row sees an earlier one. An empty cell leaves
@@ -41,6 +44,7 @@ from .generate.lengths import LENGTH_UNITS_M
 from .import_record import number_text
 from .imports import ImportError_
 from .model import Harness, Project
+from .wires import plan_set_shield_place, shield_end_key
 
 Table = list[list[str]]
 
@@ -79,6 +83,13 @@ _HEADINGS: dict[str, dict[str, tuple[str, ...]]] = {
         "connector": ("connector", "connectorid"),
         "length_to": ("lengthsto", "lengthto", "lengthsmeasuredto", "measuredto"),
     },
+    "shield_ends": {
+        "harness": ("harness", "harnessid"),
+        "group": ("shieldgroup", "group", "groupid", "shield"),
+        "end": ("end", "shieldend"),
+        "pin": ("pin", "landsonpin", "pigtailpin"),
+        "backshell": ("backshell", "backshellid"),
+    },
 }
 _NEEDS: dict[str, tuple[tuple[str, ...], ...]] = {  # kind -> groups of which one field is needed
     "strips": (("wire",), ("strip_a_mm", "strip_b_mm")),
@@ -86,6 +97,7 @@ _NEEDS: dict[str, tuple[tuple[str, ...], ...]] = {  # kind -> groups of which on
     "accessories": (("harness",), ("kind",)),
     "tools": (("part",), ("tool",)),
     "cable_ends": (("connector",), ("length_to",)),
+    "shield_ends": (("group",), ("end",), ("pin", "backshell")),
 }
 KINDS: tuple[str, ...] = tuple(_NEEDS)  # the order decides when a table fits several
 KIND_LABELS = {
@@ -94,13 +106,14 @@ KIND_LABELS = {
     "accessories": "Import accessories",
     "tools": "Import part tools",
     "cable_ends": "Import cable ends",
+    "shield_ends": "Import shield ends",
 }
 EXPECTED = (
     "strip lengths: Wire, Strip A (mm), Strip B (mm) (Harness is optional); "
     "pin contacts: Harness, Connector, Pin, Contact (Tool is optional); "
     "accessories: Harness, Kind, Part, Target, Position, Length (mm), Quantity, Note "
     "(ID is optional); part tools: Part, Tool; cable ends: Connector, Lengths to (Harness is "
-    "optional)"
+    "optional); shield ends: Shield group, End, Pin and/or Backshell (Harness is optional)"
 )
 
 
@@ -452,12 +465,49 @@ def _cable_ends(project: Project) -> Callable[[Project, Cell], Result]:
     return read
 
 
+def _shield_ends(project: Project) -> Callable[[Project, Cell], Result]:
+    index: dict[str, list[str]] = {}
+    for h in sorted(project.harnesses.values(), key=lambda h: h.id):
+        for g in h.shields:
+            index.setdefault(g.id, []).append(h.id)
+
+    def read(work: Project, cell: Cell) -> Result:
+        gid, said, pin, shell = cell("group"), cell("end"), cell("pin"), cell("backshell")
+        if not gid:
+            raise EditError("The shield group is empty.")
+        hid = _owner(index, cell("harness"), "Shield group", gid)
+        h = work.harnesses.get(hid)
+        group = next((g for g in h.shields if g.id == gid), None) if h is not None else None
+        if group is None:
+            raise EditError(f"'{gid}' is not a shield group of {hid}.")
+        end = shield_end_key(said)
+        target = f"{gid} end {end.upper()}"
+        before = group.at_a if end == "a" else group.at_b
+        if not pin and not shell:  # empty cells leave the place as it is
+            return target, "unchanged", "the place as it was", []
+        pin_id = pin or (before.pin if before is not None else None)
+        shell_id = shell or (before.backshell if before is not None else None)
+        ops = plan_set_shield_place(work, gid, end, pin=pin_id, backshell=shell_id)
+        words = " and ".join(
+            [
+                *([f"pin {pin_id}"] if pin_id else []),
+                *([f"backshell {shell_id}"] if shell_id else []),
+            ]
+        )
+        if not ops:
+            return target, "unchanged", f"lands on {words} (as it was)", []
+        return target, "added" if before is None else "changed", f"lands on {words}", ops
+
+    return read
+
+
 _READERS: dict[str, Callable[[Project], Callable[[Project, Cell], Result]]] = {
     "strips": _strips,
     "contacts": _contacts,
     "accessories": _accessories,
     "tools": _tools,
     "cable_ends": _cable_ends,
+    "shield_ends": _shield_ends,
 }
 
 __all__ = [

@@ -32,7 +32,7 @@ from pydantic import TypeAdapter, ValidationError
 from .commands import Op, Put
 from .devices import check_contact_part, check_web_link
 from .edit import EditError
-from .model import Accessory, Harness, Part, Project, Wire, evolve
+from .model import Accessory, Harness, Part, Project, ShieldEndPlace, ShieldGroup, Wire, evolve
 from .model.base import MAX_DEPTH_MM, MAX_LENGTH_MM, Name, Text
 from .model.library import DEPTH_CATEGORIES
 from .model.physical import AccessoryKind
@@ -407,20 +407,45 @@ def plan_set_accessory(
     )
 
 
+def places_naming(h: Harness, accessory_id: str) -> list[str]:
+    """The shield ends whose place names the accessory as their backshell, as "W001-S2 end A"
+    (format 5, design of 5.0.0 section 7.2), by group ID."""
+    return [
+        f"{s.id} end {end.upper()}"
+        for s in sorted(h.shields, key=lambda x: x.id)
+        for end, place in (("a", s.at_a), ("b", s.at_b))
+        if place is not None and place.backshell == accessory_id
+    ]
+
+
+def _without_backshell(s: ShieldGroup, accessory_id: str) -> ShieldGroup:
+    """The group with the backshell `accessory_id` taken out of the place of each end: the place
+    keeps its pin, or goes when it named only the backshell."""
+    changes: dict[str, ShieldEndPlace | None] = {}
+    for key in ("at_a", "at_b"):
+        place: ShieldEndPlace | None = getattr(s, key)
+        if place is not None and place.backshell == accessory_id:
+            changes[key] = evolve(place, backshell=None) if place.pin is not None else None
+    return evolve(s, **changes) if changes else s
+
+
 def plan_delete_accessory(project: Project, harness_id: str, accessory_id: str) -> list[Op]:
-    """Ops that remove an accessory from a harness."""
+    """Ops that remove an accessory from a harness. A backshell that the place of a shield end
+    names is taken out of that place too (`places_naming` says which, for the message)."""
     h = _harness(project, harness_id)
     if not any(a.id == accessory_id for a in h.accessories):
         raise EditError(f"'{accessory_id}' is not an accessory of {harness_id}.")
-    return [
-        Put("harnesses", evolve(h, accessories=[a for a in h.accessories if a.id != accessory_id]))
-    ]
+    changes: dict[str, object] = {"accessories": [a for a in h.accessories if a.id != accessory_id]}
+    if places_naming(h, accessory_id):
+        changes["shields"] = [_without_backshell(s, accessory_id) for s in h.shields]
+    return [Put("harnesses", evolve(h, **changes))]
 
 
 __all__ = [
     "ACCESSORY_KINDS",
     "UNSET",
     "check_accessory",
+    "places_naming",
     "plan_delete_accessory",
     "plan_next_accessory_id",
     "plan_set_accessory",

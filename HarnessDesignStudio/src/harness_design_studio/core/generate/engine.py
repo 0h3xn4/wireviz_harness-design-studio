@@ -34,12 +34,15 @@ from harness_design_studio.core.model import (
     Pin,
     Project,
     Segment,
+    ShieldEndPlace,
     ShieldGroup,
     Wire,
     evolve,
 )
 from harness_design_studio.core.model.base import FIRST_VERSION, Name
+from harness_design_studio.core.model.physical import SHIELD_PLACE_KEYS
 from harness_design_studio.core.ports import read_signal
+from harness_design_studio.core.shield_ends import END_WORDS
 from harness_design_studio.core.vcs.snapshot import carried_interfaces
 from harness_design_studio.core.wirecolours import signal_colour
 
@@ -961,6 +964,7 @@ def _build_harness(
     shields = _shields(
         ctx, hid, ifaces, [w for w in wires if not w.manual], old, frozenset(s.id for s in mine)
     )
+    shields = _keep_places(ctx, hid, shields, old)
     grouped = {wid for s in shields for wid in s.wire_ids}
     have = {w.id for w in wires}
     for g in mine:  # a group that a person made stays while its wires exist and are in no other
@@ -1212,6 +1216,11 @@ def _warn_lost_taken(ctx: _Ctx, old: Harness, new: Harness) -> None:
     lost += [
         f"the {s.kind.replace('_', ' ')} {s.id} that you made" for s in old.shields if s.manual
     ]
+    lost += [  # format 5: a place given to a group Generate made (its wire IDs are not kept)
+        f"the place of the shield ends of {s.id}"
+        for s in old.shields
+        if not s.manual and (s.at_a or s.at_b)
+    ]
     lost += [
         f"the entered length of segment {s.id} ({s.length_m:g} m)"
         for s in old.segments
@@ -1395,6 +1404,48 @@ def _check_contacts(ctx: _Ctx, wire: Wire, i: InterfaceInstance) -> None:
                 f"{wire.id}: {current:g} A exceeds the derated contact rating of {end.connector_id}.",
                 wire.id,
             )
+
+
+def _keep_places(
+    ctx: _Ctx, hid: str, made: list[ShieldGroup], old: Harness | None
+) -> list[ShieldGroup]:
+    """The places of the shield ends that a person gave the groups Generate made before (format 5,
+    design of 5.0.0 section 7.2, F10): a group made again with the same wires (matched by its wire
+    IDs, whatever its ID now) and the same kind keeps the place of each end that is terminated as
+    before; any other place is dropped, with a note. Generate never fills a place."""
+    if old is None:
+        return made
+    placed = [s for s in old.shields if not s.manual and (s.at_a or s.at_b)]
+    if not placed:
+        return made
+    out = list(made)
+    at = {tuple(sorted(s.wire_ids)): n for n, s in enumerate(made)}
+    for s in sorted(placed, key=lambda x: x.id):
+        n = at.get(tuple(sorted(s.wire_ids)))
+        new = out[n] if n is not None else None
+        kept: dict[str, ShieldEndPlace] = {}
+        for end, key, end_key in SHIELD_PLACE_KEYS:
+            place: ShieldEndPlace | None = getattr(s, key)
+            if place is None:
+                continue
+            was = getattr(s, end_key)
+            if new is None:
+                why = "the wires of the group changed"
+            elif new.kind != s.kind:
+                why = f"the group is now a {new.kind.replace('_', ' ')}"
+            elif getattr(new, end_key) != was:
+                why = f"end {end.upper()} is now {END_WORDS.get(getattr(new, end_key), getattr(new, end_key))}"  # fmt: skip
+            else:
+                kept[key] = place
+                continue
+            where = place.connector + (f" pin {place.pin}" if place.pin else "") + (f" ({place.backshell})" if place.backshell else "")  # fmt: skip
+            ctx.note(
+                f"harness:{hid}",
+                f"shielding: the {END_WORDS.get(was, was)} of {s.id} at {where} was not kept: {why}",  # fmt: skip
+            )
+        if kept and n is not None and new is not None:
+            out[n] = evolve(new, **kept)
+    return out
 
 
 def _shields(

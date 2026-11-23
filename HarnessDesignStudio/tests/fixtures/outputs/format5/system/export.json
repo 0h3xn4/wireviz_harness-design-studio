@@ -2991,8 +2991,12 @@
    ],
    "shields": [
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "at_a": {
+      "connector": "W001-P1",
+      "pin": "9"
+     },
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S1",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3001,8 +3005,12 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "at_b": {
+      "backshell": "W001-A1",
+      "connector": "W001-P1"
+     },
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S2",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3011,8 +3019,8 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S3",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3021,8 +3029,8 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S4",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3031,8 +3039,12 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "at_a": {
+      "connector": "W001-P1",
+      "pin": "9"
+     },
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S5",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3041,8 +3053,8 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S6",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3051,8 +3063,8 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S7",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3061,8 +3073,8 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W001-S8",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3818,8 +3830,12 @@
    ],
    "shields": [
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "at_a": {
+      "connector": "W002-P1",
+      "pin": "3"
+     },
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W002-S1",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -3828,8 +3844,12 @@
      ]
     },
     {
-     "end_a": "floating",
-     "end_b": "floating",
+     "at_a": {
+      "backshell": "W002-A1",
+      "connector": "W002-P2"
+     },
+     "end_a": "pigtail",
+     "end_b": "backshell_360",
      "id": "W002-S2",
      "kind": "shielded_pair",
      "wire_ids": [
@@ -5183,7 +5203,7 @@
    ]
   }
  ],
- "model_hash": "e73ab73cc754ed88748aec9533252771eace8e6faa353bcebbf80b48490a6d34",
+ "model_hash": "5299ad63b5837a72a3583198ecb1cd98e52a6e04227ec9ac77a42a107c79135a",
  "parts": [
   {
    "approval": "pending",

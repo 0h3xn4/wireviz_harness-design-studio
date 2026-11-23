@@ -30,8 +30,15 @@ from dataclasses import dataclass
 from harness_design_studio.core import configcheck
 from harness_design_studio.core.deviations import deviation_lines, override_lines
 from harness_design_studio.core.generate.lengths import EndDepths, end_depths, wire_length
-from harness_design_studio.core.model import Connector, Harness, Project, ShieldGroup, Wire
-from harness_design_studio.core.shield_ends import reference_wire
+from harness_design_studio.core.model import (
+    Connector,
+    Harness,
+    Project,
+    ShieldEndPlace,
+    ShieldGroup,
+    Wire,
+)
+from harness_design_studio.core.shield_ends import end_text, place_here, reference_wire
 from harness_design_studio.core.wirecolours import resolve
 
 from .canvas import CHAR_EM, SHEETS, Curve, Line, Rect, Sheet, Text, fit, fit_size
@@ -308,7 +315,8 @@ def _extras(h: Harness, project: Project | None = None) -> list[str]:
         for sg in sorted(h.shields, key=lambda x: x.id):
             out += _wrapped(
                 f"  {sg.id} ({sg.kind}) ends {sg.end_a} / {sg.end_b}; "
-                f"wires {', '.join(sorted(sg.wire_ids))}"
+                + "".join(f"{_landed(h, sg, end)}; " for end in ("a", "b") if _landed(h, sg, end))
+                + f"wires {', '.join(sorted(sg.wire_ids))}"
             )
     if h.segments:
         out.append("Routing segments:")
@@ -364,6 +372,32 @@ def _cable_summary(h: Harness, wires: list[Wire], ends: EndDepths | None = None)
     return f"{len(wires)}x  {gauge}  {length}"
 
 
+def _landed(h: Harness, sg: ShieldGroup, end: str) -> str:
+    """Where end A or B of a shield group lands, for the lines beneath the diagram: "end A
+    pigtail to pin 9 of W001-P1" (format 5); empty while the end has no place that fits."""
+    first = reference_wire(h, sg)
+    if first is None:
+        return ""
+    cid = first.from_connector if end == "a" else first.to_connector
+    place = place_here(h, sg, cid)
+    if place is None:
+        return ""
+    return f"end {end.upper()} {end_text(sg.end_a if end == 'a' else sg.end_b, place)} at {cid}"
+
+
+def _mark_text(end: str, place: ShieldEndPlace | None) -> str:
+    """The word at an end of a sleeve: how it is terminated and, with a place that fits, the pin
+    or backshell it lands on, short ("pigtail to pin 9", "pigtail to W001-A1", "backshell 360
+    W001-A1") so that it keeps clear of the shield's name."""
+    word = _END_WORDS.get(end, end)
+    if place is None:
+        return word
+    if end == "backshell_360":
+        return f"{word} {place.backshell}" if place.backshell else word
+    named = [*([f"pin {place.pin}"] if place.pin else []), *([place.backshell] if place.backshell else [])]  # fmt: skip
+    return f"{word} to {', '.join(named)}" if named else word
+
+
 def _draw_sleeve(
     sh: Sheet,
     shield: ShieldGroup,
@@ -374,11 +408,13 @@ def _draw_sleeve(
     depth: int,
     inner: int,
     first: Wire,
+    h: Harness,
 ) -> None:
     """A shield as a sleeve around its wires: a grey jacket reaching a little beyond the cable
-    block (less far for a shield inside another), a line above it with the shield's name and
-    kind, and each end drawn as it is terminated (a bar for a 360 degree backshell connection, a
-    pigtail line, an open end). `inner` is how many shields lie inside this one."""
+        block (less far for a shield inside another), a line above it with the shield's name and
+        kind, and each end drawn as it is terminated (a bar for a 360 degree backshell connection, a
+        pigtail line, an open end), named with the pin or backshell it lands on when its place is stated
+    (format 5). `inner` is how many shields lie inside this one."""
     x0 = box_x - SLEEVE_OVER + 2.0 * depth
     x1 = box_x + BOX_W + SLEEVE_OVER - 2.0 * depth
     top = head_y + SLEEVE_HEAD - 1.6  # room above the first wire for its label
@@ -392,6 +428,15 @@ def _draw_sleeve(
     # so the ends never swap between sheets
     left_is_a = side.get(first.from_connector, 0) == 0
     left, right = (shield.end_a, shield.end_b) if left_is_a else (shield.end_b, shield.end_a)
+    # where each end lands (format 5): the place of the end at that side, while it fits
+    at_a, at_b = (
+        place_here(h, shield, first.from_connector),
+        place_here(h, shield, first.to_connector),
+    )
+    marks = (
+        _mark_text(left, at_a if left_is_a else at_b),
+        _mark_text(right, at_b if left_is_a else at_a),
+    )
     base = head_y + 3.0
     sh.add(
         Text(
@@ -403,8 +448,13 @@ def _draw_sleeve(
             anchor="middle",
         )
     )
-    sh.add(Text(x0, base, _END_WORDS.get(left, left), size=HEAD_SIZE, color=GREY))
-    sh.add(Text(x1, base, _END_WORDS.get(right, right), size=HEAD_SIZE, color=GREY, anchor="end"))
+    room = (x1 - x0 - (BOX_W - 40.0)) / 2 - 1.0  # beside the shield's name, which is centred
+    sizes = [
+        HEAD_SIZE if mark == _END_WORDS.get(end, end) else fit_size(mark, room, HEAD_SIZE, 1.6)
+        for mark, end in zip(marks, (left, right), strict=True)
+    ]  # a place shrinks its words to fit; an end without one is drawn as before
+    sh.add(Text(x0, base, marks[0], size=sizes[0], color=GREY))
+    sh.add(Text(x1, base, marks[1], size=sizes[1], color=GREY, anchor="end"))
     mid = (top + bottom) / 2
     for x, end, away in ((x0, left, -1.0), (x1, right, 1.0)):
         if end == "backshell_360":  # a solid bar: the shield is bonded all round
@@ -622,7 +672,7 @@ def _draw_page(
             sleeve_start = len(sh.items)
             _draw_sleeve(
                 sh, shields[sid], side, box_x, heads[sid], last[sid], depth, inner[sid],
-                _reference_wire(h, shields[sid], ws),
+                _reference_wire(h, shields[sid], ws), h,
             )  # fmt: skip
             sh.mark("shield", sid, sleeve_start)
         for yy, _kind, wire, _chain in placed:

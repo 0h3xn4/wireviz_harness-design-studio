@@ -37,12 +37,13 @@ from harness_design_studio.core.generate.lengths import (
 )
 from harness_design_studio.core.model import Connector, Harness, Project, Wire
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE, TBD_PART_ID
+from harness_design_studio.core.shield_ends import landings
 from harness_design_studio.core.wirecolours import resolve
 
 from . import tables
 from .exports import _FIXED, normalise_xlsx
 from .production import HEADER as PRODUCTION_COLUMNS
-from .production import colour_text, production_blocks
+from .production import PIGTAIL, colour_text, production_blocks
 from .stamp import Stamp, Table
 from .xlsx_env import ILLEGAL_CHARACTERS_RE, Cell, Workbook, WriteOnlyCell
 
@@ -624,15 +625,17 @@ def _pin_rows(
     lay: _Layout,
 ) -> list[list[Any]]:
     rows: list[list[Any]] = []
+    land = landings(h)  # the pins a pigtail lands on (format 5): *Goes to* names the group
     for p in c.pins:
         wires = sorted(attached.get((c.id, p.id), []), key=lambda w: w.id)
-        spare = not wires and not p.interface_id and not p.signal
-        grey = _SPARE if not wires else None
+        pigtails = [f"pigtail of {s.id}" for s in land.get((c.id, p.id), [])]
+        spare = not wires and not p.interface_id and not p.signal and not pigtails
+        grey = _SPARE if not wires and not pigtails else None
         if wires:
             wire_ids = "; ".join(w.id for w in wires)
-            goes = "; ".join(_far(w, c.id, p.id) for w in wires)
+            goes = "; ".join([*(_far(w, c.id, p.id) for w in wires), *pigtails])
         else:
-            wire_ids, goes = ("(spare)" if spare else "(no wire)"), ""
+            wire_ids, goes = ("(spare)" if spare else "(no wire)"), "; ".join(pigtails)
         gauge = "; ".join(str(w.gauge_awg) for w in wires if w.gauge_awg is not None)
         term = p.termination if p.termination != "unspecified" else (TO_FILL if wires else "")
         if c.role == SPLICE_ROLE:  # a node: no contact; the tool is the splice part's (format 3)
@@ -645,7 +648,7 @@ def _pin_rows(
         cells = [
             _cell(ws, p.id, bold=True, fill=grey), _cell(ws, p.signal or "", fill=grey),
             _cell(ws, p.function or "", fill=grey),
-            _cell(ws, wire_ids, fill=grey, colour=_GREY_TEXT if not wires else None),
+            _cell(ws, wire_ids, fill=grey, colour=_GREY_TEXT if grey else None),
             _wire_colour_cell(ws, wires[0].colour) if len(wires) == 1 else
             _cell(ws, "; ".join(w.colour or "?" for w in wires), fill=grey),
             _cell(ws, gauge, fill=grey, centre=True), _cell(ws, goes, fill=grey),
@@ -826,10 +829,10 @@ def _production_sheet(wb: Any, project: Project, h: Harness, stamp: Stamp) -> No
         first = row + 1
         for r in block.rows:
             w = wires.get(r.wire)
-            grey = _SPARE if w is None else None
+            grey = _SPARE if w is None and r.wire != PIGTAIL else None  # a pigtail's row: not grey
             body.append([
                 _cell(ws, r.pin, bold=True, fill=grey), _cell(ws, r.signal, fill=grey),
-                _cell(ws, r.wire, fill=grey, colour=_GREY_TEXT if w is None else None),
+                _cell(ws, r.wire, fill=grey, colour=_GREY_TEXT if grey else None),
                 _cell(ws, r.goes_to, fill=grey), _cell(ws, r.part, fill=_amber_or(r.part, grey)),
                 _wire_colour_cell(ws, w.colour) if w is not None else _cell(ws, "", fill=grey),
                 _cell(ws, r.awg, fill=_amber_or(r.awg, grey), centre=True),

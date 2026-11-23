@@ -15,6 +15,11 @@ above the first splice block (`ProductionBlock.splice`).
 - A pin with a signal or an interface and no wire is a row `(no wire)` of its own.
 - A pin with two or more wires has one row per wire, in wire ID order.
 - A value the design does not hold reads *to fill in* (`tables.TO_FILL`); nothing is invented.
+- Where a shield end lands (format 5, design of 5.0.0 section 7.4), only for a place that fits
+  its end (`shield_ends.place_here`): the shield cell says *here pigtail to pin 9*, *here
+  pigtail to backshell W001-A1* or *here backshell 360 (W001-A1)*, and the pin a pigtail lands
+  on gets a row of its own (not in a run of spares, not *(no wire)*): the *Wire* cell *pigtail*,
+  the shield cell *W001-S2 shielded pair: pigtail lands here*. Without a place, the rows of 4.4.0.
 
 The independent verifier words every row again with its own copy of these rules
 (`verify_production.production_rows`), which imports neither this module nor `tables.py`."""
@@ -29,7 +34,7 @@ from harness_design_studio.core.generate.lengths import (
 )
 from harness_design_studio.core.model import Connector, Harness, Project, ShieldGroup, Wire
 from harness_design_studio.core.model.physical import SPLICE_ROLE
-from harness_design_studio.core.shield_ends import end_at
+from harness_design_studio.core.shield_ends import end_at, end_text, landings, place_here
 from harness_design_studio.core.wirecolours import resolve
 
 from .tables import (
@@ -50,6 +55,8 @@ HEADER = (
 PLAN_HEADER = (*HEADER[:7], "Length [mm] rear to rear", *HEADER[8:])
 NO_WIRE = "(no wire)"
 SPARE = "(spare)"
+PIGTAIL = "pigtail"  # the Wire cell of the row of a pin a pigtail lands on (format 5)
+LANDS_HERE = "pigtail lands here"
 RUN = " to "  # between the first and the last pin of a run of spare pins
 NOT_PLUGGED = "not plugged into a unit"
 SPLICE_WORD = "splice"
@@ -156,7 +163,13 @@ def _shield_text(h: Harness, s: ShieldGroup, cid: str) -> str:
     if end is None:
         return f"{s.id} {kind}: {NOT_DEFINED}"
     here, far = (s.end_a, s.end_b) if end == "a" else (s.end_b, s.end_a)
-    return f"{s.id} {kind}: here {END_WORDS.get(here, here)}, far {END_WORDS.get(far, far)}"
+    return f"{s.id} {kind}: here {end_text(here, place_here(h, s, cid))}, far {END_WORDS.get(far, far)}"  # fmt: skip
+
+
+def _landing_row(p_id: str, signal: str, groups: list[ShieldGroup]) -> ProductionRow:
+    """The row of a pin a pigtail lands on (format 5): the groups that land there."""
+    text = "; ".join(f"{s.id} {s.kind.replace('_', ' ')}: {LANDS_HERE}" for s in groups)
+    return ProductionRow(p_id, signal, PIGTAIL, "", "", "", "", "", "", "", text)
 
 
 def _wire_row(project: Project, h: Harness, c: Connector, pin: str, signal: str | None, w: Wire, end: str, depths: EndDepths) -> ProductionRow:  # fmt: skip
@@ -183,7 +196,13 @@ def _plain_row(pin: str, signal: str, wire: str) -> ProductionRow:
     return ProductionRow(pin, signal, wire, "", "", "", "", "", "", "", "")
 
 
-def _rows(project: Project, h: Harness, c: Connector, depths: EndDepths) -> list[ProductionRow]:
+def _rows(
+    project: Project,
+    h: Harness,
+    c: Connector,
+    depths: EndDepths,
+    land: dict[tuple[str, str], list[ShieldGroup]],
+) -> list[ProductionRow]:
     ends: dict[str, list[tuple[Wire, str]]] = {}
     for w in h.wires:
         if w.from_connector == c.id:
@@ -202,14 +221,17 @@ def _rows(project: Project, h: Harness, c: Connector, depths: EndDepths) -> list
 
     for p in c.pins:
         here = sorted(ends.get(p.id, []), key=lambda x: (x[0].id, x[1]))
-        if not here and not p.signal and not p.interface_id:
+        landed = land.get((c.id, p.id), [])
+        if not here and not p.signal and not p.interface_id and not landed:
             run.append(p.id)
             continue
         close_run()
-        if not here:
+        if not here and not landed:
             rows.append(_plain_row(p.id, p.signal or "", NO_WIRE))
         for w, end in here:
             rows.append(_wire_row(project, h, c, p.id, p.signal, w, end, depths))
+        if landed:
+            rows.append(_landing_row(p.id, p.signal or "", landed))
     close_run()
     return rows
 
@@ -221,12 +243,13 @@ def production_blocks(project: Project, h: Harness) -> list[ProductionBlock]:
     plain = [c for c in ordered if c.role != SPLICE_ROLE]
     splices = [c for c in ordered if c.role == SPLICE_ROLE]
     depths = end_depths(project, h)
+    land = landings(h)
     return [
         ProductionBlock(
             c.id,
             c.role == SPLICE_ROLE,
             _heading(project, h, c),
-            tuple(_rows(project, h, c, depths)),
+            tuple(_rows(project, h, c, depths, land)),
         )
         for c in [*plain, *splices]
     ]
@@ -238,7 +261,9 @@ __all__ = [
     "JOIN",
     "NOT_DEFINED",
     "NOT_PLUGGED",
+    "LANDS_HERE",
     "NO_WIRE",
+    "PIGTAIL",
     "PLAN_HEADER",
     "RUN",
     "SPARE",

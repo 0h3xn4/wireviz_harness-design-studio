@@ -44,6 +44,8 @@ BUILD_KINDS = {
     "contacts": "pin-contacts",
     "accessories": "accessories",
     "tools": "part-tools",
+    "cable_ends": "cable-ends",  # format 5
+    "shield_ends": "shield-ends",
 }
 
 
