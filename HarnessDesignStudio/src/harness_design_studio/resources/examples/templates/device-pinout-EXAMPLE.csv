@@ -1,0 +1,10 @@
+Connector,Pin,Signal,Function,Mode,Direction,Level,Current (A),Pin row,Contact size,Termination,Part,Gender,Source,Source version,Source link
+J1,1,TX+,EXAMPLE: telemetry to the computer (+),fixed,OUT,RS422,0.05,1,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,2,TX-,EXAMPLE: telemetry to the computer (-),fixed,OUT,RS422,0.05,1,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,3,RX+,EXAMPLE: commands from the computer (+),fixed,IN,RS422,0.05,1,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,4,RX-,EXAMPLE: commands from the computer (-),fixed,IN,RS422,0.05,1,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,5,,EXAMPLE: a spare pin,,SPARE,,,1,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,6,,EXAMPLE: a spare pin,,SPARE,,,2,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,7,,EXAMPLE: a spare pin,,SPARE,,,2,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,8,,EXAMPLE: a spare pin,,SPARE,,,2,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example
+J1,9,,EXAMPLE: a spare pin,,SPARE,,,2,22,crimp,EX-MICROD-9-F,female,ICD-GYRO EXAMPLE,Issue 1,https://example.org/icd-gyro-example

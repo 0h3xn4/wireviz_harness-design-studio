@@ -1,0 +1,26 @@
+{
+  "description": "The build data of the harnesses: a strip length at each end of every wire, the contact EX-CONTACT-22 with its crimp tool on the device pins in use, sleeving, heat shrink, a label and a backshell on W001, the example pigtail colour code by pin and the Cover of the harness plans. W001 was built and tested: its as-built record says one wire was cut 25 mm too long, out of the tolerance of 10 mm. Look at export --harness-plan, the Cut list and Connectors sheets of the build workbook and asbuilt DIR; the manual pages Enter the build data, Export the harness plans and Record what was built explain it.",
+  "document": {
+    "company": "Example Ltd",
+    "contact": [
+      {
+        "label": "E-mail",
+        "value": "harness-plans@example.org"
+      },
+      {
+        "label": "Phone",
+        "value": "+00 000 000 0000 (EXAMPLE)"
+      }
+    ],
+    "plans": {
+      "W001": {
+        "number": "HP-W001"
+      }
+    },
+    "system": "EX-SAT",
+    "title": "EX-SAT harness plans (EXAMPLE)"
+  },
+  "name": "Build data and as-built (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}

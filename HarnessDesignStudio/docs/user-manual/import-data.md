@@ -2,6 +2,8 @@
 
 This page shows how to bring data you already have into a project: a list of interfaces, your approved parts list, the lengths of the routes and (since 1.7.0) the build data of a technician, always with a preview first.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template imports-from-files` makes a finished example: the devices of `first-steps` and what the import templates hold (the approved parts list with every status read as *Review*, two interfaces, a KiCad netlist, a device pinout, the segment lengths, strip lengths and accessories), each import with [its record](#what-an-import-records); `--template names-and-ports` shows [your team's signal names](#your-teams-signal-names-since-440) renamed at the import.
+
 ## Contents
 
 - [Before you start](#before-you-start)

@@ -2,6 +2,8 @@
 
 This page shows how to read the connector pinout of a device (which signal is on which pin) from a KiCad netlist, so that you do not type it again.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template imports-from-files` makes a finished example: the fixed pins of RW1 read from `wheel-connectors.net` with the options of this page, and the import recorded; `--template names-and-ports` has the project's signal map of `signal-map.csv`, which read the team's names inside a port (`TTC1_TXP` became `TTC1_TX+`).
+
 ## Before you start
 
 - **KiCad** is a program for drawing electronics. Here it is used only for the electronics inside each device. It knows which signal is on which pin of the device's connectors ([glossary: pinout](../GLOSSARY.md)).

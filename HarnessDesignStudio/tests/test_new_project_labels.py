@@ -112,13 +112,30 @@ def test_the_blank_example_is_the_start_of_a_project() -> None:
 # ---- every existing project keeps its labels ----------------------------------------------------
 
 
-@pytest.mark.parametrize("name", [t.name for t in templates.TEMPLATES if t.name != "blank"])
+# the feature example that shows the label format of a new project (design of 5.1.0 section 4.12)
+SHOWS_NEW_FORMAT = "build-data-and-as-built"
+
+
+@pytest.mark.parametrize(
+    "name", [t.name for t in templates.TEMPLATES if t.name not in ("blank", SHOWS_NEW_FORMAT)]
+)
 def test_a_project_from_an_example_keeps_the_standard_format(tmp_path: Path, name: str) -> None:
     folder = tmp_path / name
     project = templates.create_project(folder, name)
     model = model_on_disk(folder)  # lengths-to-the-face sets model.length_reference, no format
     assert model is None or "label_format" not in model["values"], model
     assert label_format.format_of(project) == "standard"
+
+
+def test_the_build_data_example_shows_the_format_of_a_new_project(tmp_path: Path) -> None:
+    folder = tmp_path / "p"
+    project = templates.create_project(folder, SHOWS_NEW_FORMAT)
+    assert model_on_disk(folder) == {
+        "name": "model",
+        "placeholder": False,
+        "values": {"label_format": NEW},
+    }
+    assert label_format.format_of(project) == NEW
 
 
 @pytest.mark.parametrize("name", ["mini3", "sat15", "custom_device"])

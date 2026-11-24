@@ -1,0 +1,131 @@
+{
+  "generator_version": "5.0.0",
+  "input_hash": "274bb4c399369a25e055fa6f75785644d893e30581c88f16c39f303ceeba810d",
+  "next_harness_number": 2,
+  "placeholders_used": [
+    "derating",
+    "emc",
+    "generation",
+    "segmentation",
+    "segregation",
+    "titleblock"
+  ],
+  "provenance": {
+    "connector:W001-P1": [
+      "mating: cable end for OBC1-J01 (OBC1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W001-P2": [
+      "mating: cable end for TTC1-J01 (TTC1); part EX-MICROD-9-F mates with EX-MICROD-9-M"
+    ],
+    "connector:W001-P3": [
+      "mating: cable end for TTC2-J01 (TTC2); part EX-MICROD-9-F mates with EX-MICROD-9-M"
+    ],
+    "gauge:W001-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-003": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-004": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-005": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-006": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-007": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-008": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "harness:W001": [
+      "lengths: service loop is a placeholder (0 used); lengths exclude service loops",
+      "shielding: shield termination is a placeholder (floating used); the grounding concept decides it",
+      "segmentation: IF-001 and IF-002 share a harness because they plug into OBC1-J01; mode per_connector_group; ends X: OBC1-J01, Y: TTC1-J01, TTC2-J01"
+    ],
+    "naming:far_device_names": [
+      "on: a port named after the unit at the other end first"
+    ],
+    "pin:OBC1-J01.1": [
+      "pin-allocation: TX+ of IF-002 uses pin 1, the TX+ of port TTC1 of OBC1-J01; the port named after unit TTC1 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.2": [
+      "pin-allocation: TX- of IF-002 uses pin 2, the TX- of port TTC1 of OBC1-J01; the port named after unit TTC1 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.3": [
+      "pin-allocation: RX+ of IF-002 uses pin 3, the RX+ of port TTC1 of OBC1-J01; the port named after unit TTC1 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.4": [
+      "pin-allocation: RX- of IF-002 uses pin 4, the RX- of port TTC1 of OBC1-J01; the port named after unit TTC1 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.5": [
+      "pin-allocation: TX+ of IF-001 uses pin 5, the TX+ of port TTC2 of OBC1-J01; the port named after unit TTC2 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.6": [
+      "pin-allocation: TX- of IF-001 uses pin 6, the TX- of port TTC2 of OBC1-J01; the port named after unit TTC2 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.7": [
+      "pin-allocation: RX+ of IF-001 uses pin 7, the RX+ of port TTC2 of OBC1-J01; the port named after unit TTC2 at the other end (naming.far_device_names)"
+    ],
+    "pin:OBC1-J01.8": [
+      "pin-allocation: RX- of IF-001 uses pin 8, the RX- of port TTC2 of OBC1-J01; the port named after unit TTC2 at the other end (naming.far_device_names)"
+    ],
+    "pin:TTC1-J01.1": [
+      "pin-allocation: TX+ of IF-002 uses pin 1 because the pinout of TTC1-J01 is fixed by the unit design"
+    ],
+    "pin:TTC1-J01.2": [
+      "pin-allocation: TX- of IF-002 uses pin 2 because the pinout of TTC1-J01 is fixed by the unit design"
+    ],
+    "pin:TTC1-J01.3": [
+      "pin-allocation: RX+ of IF-002 uses pin 3 because the pinout of TTC1-J01 is fixed by the unit design"
+    ],
+    "pin:TTC1-J01.4": [
+      "pin-allocation: RX- of IF-002 uses pin 4 because the pinout of TTC1-J01 is fixed by the unit design"
+    ],
+    "pin:TTC2-J01.1": [
+      "pin-allocation: TX+ of IF-001 uses pin 1 because the pinout of TTC2-J01 is fixed by the unit design"
+    ],
+    "pin:TTC2-J01.2": [
+      "pin-allocation: TX- of IF-001 uses pin 2 because the pinout of TTC2-J01 is fixed by the unit design"
+    ],
+    "pin:TTC2-J01.3": [
+      "pin-allocation: RX+ of IF-001 uses pin 3 because the pinout of TTC2-J01 is fixed by the unit design"
+    ],
+    "pin:TTC2-J01.4": [
+      "pin-allocation: RX- of IF-001 uses pin 4 because the pinout of TTC2-J01 is fixed by the unit design"
+    ],
+    "rules": [
+      "pin-allocation: power-to-signal pin gap is a placeholder (0 used)"
+    ],
+    "wire:W001-001": [
+      "wiring: TX+/RX+ of IF-001 connects OBC1-J01 pin 5 to TTC2-J01 pin 3 (X drives)"
+    ],
+    "wire:W001-002": [
+      "wiring: TX+/RX+ of IF-001 connects TTC2-J01 pin 1 to OBC1-J01 pin 7 (Y drives)"
+    ],
+    "wire:W001-003": [
+      "wiring: TX-/RX- of IF-001 connects OBC1-J01 pin 6 to TTC2-J01 pin 4 (X drives)"
+    ],
+    "wire:W001-004": [
+      "wiring: TX-/RX- of IF-001 connects TTC2-J01 pin 2 to OBC1-J01 pin 8 (Y drives)"
+    ],
+    "wire:W001-005": [
+      "wiring: TX+/RX+ of IF-002 connects OBC1-J01 pin 1 to TTC1-J01 pin 3 (X drives)"
+    ],
+    "wire:W001-006": [
+      "wiring: TX+/RX+ of IF-002 connects TTC1-J01 pin 1 to OBC1-J01 pin 3 (Y drives)"
+    ],
+    "wire:W001-007": [
+      "wiring: TX-/RX- of IF-002 connects OBC1-J01 pin 2 to TTC1-J01 pin 4 (X drives)"
+    ],
+    "wire:W001-008": [
+      "wiring: TX-/RX- of IF-002 connects TTC1-J01 pin 2 to OBC1-J01 pin 4 (Y drives)"
+    ]
+  }
+}
