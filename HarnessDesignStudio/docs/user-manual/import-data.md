@@ -30,6 +30,8 @@ harness-design-studio templates my-templates
 19 files written to my-templates. Start with my-templates/README.md.
 ```
 
+Copying the templates is **command line only** (`harness-design-studio templates FOLDER`); the app has no menu entry for it. Two of them are in the app another way: the review checklist (**Settings > Project**, *Use the template's points*) and the pigtail colour code (**Use the example colour code…** under **Settings > Harness plan**).
+
 (On a 0.1.0 package the command writes 14 files: `design-worksheet.md` is not in the 0.1.0 packages. The three files for the build data, `strip-lengths.csv`, `pin-contacts.csv` and `accessories.csv`, have been in the templates since 1.7.0.)
 
 - Every import shows what it would do. In the app, **File > Import** starts one wizard for six kinds of file (interfaces, approved parts, segment lengths, the ampacity table, a device pinout and a KiCad netlist): choose the file, match the columns, read every row with its reason, then import. On the command line add `--dry-run`: the rows are listed and nothing changes. Run the command again without it to apply.
@@ -40,7 +42,7 @@ harness-design-studio templates my-templates
 
 ## Interfaces from a table (app only)
 
-Importing interfaces works in the app. There is no command for it. (GUI, not run: the steps are described from the program's code. The column names and messages are the program's.)
+Importing interfaces is **editor only**: it works in the app, and there is no command for it. (GUI, not run: the steps are described from the program's code. The column names and messages are the program's.)
 
 1. Open the project. Choose **File > Import > Import interfaces…** (Ctrl+Shift+I), or press Enter on **Interfaces** under **Imports** in the **Project** tab (the Systems engineer role keeps that tab closed: use the menu, or **Show panels**). The **Import data** wizard opens with *Interfaces* chosen. It is the same wizard for the other kinds of file ([other imports](#other-imports)).
 2. Press **Choose file…** and pick a `.csv`, `.tsv`, `.json` or `.xlsx` file. To import text instead, press **Paste table text instead…**: the older window opens, with a box for CSV text. Try `my-templates/interfaces.csv`:
@@ -208,7 +210,7 @@ row 3: OK strip A 6 mm, strip B 5 mm
 Dry run: nothing was changed.
 ```
 
-(The rows of the template are examples with example numbers; `Comment` is not read, and the import says so. The lengths are millimetres; `--unit in` reads a file in inches and shows each converted value.) There is no window for this import in the app; the values have their own fields there. Every case, with its output: [enter the build data](enter-the-build-data.md).
+(The rows of the template are examples with example numbers; `Comment` is not read, and the import says so. The lengths are millimetres; `--unit in` reads a file in inches and shows each converted value.) The import of build data is **command line only** (`harness-design-studio import-build-data DIR FILE`): there is no window for it in the app, where the values have their own fields. Every case, with its output: [enter the build data](enter-the-build-data.md).
 
 ## Other imports
 
@@ -279,7 +281,7 @@ The status of a file that is as it was is `unchanged`. If someone has edited it 
 
 ## Where the library data come from
 
-`harness-design-studio import-parts` records the file name and its SHA-256 checksum as the **source** of the parts library. You can say more, and set the date of the data yourself (the tool does not read the clock for it):
+`harness-design-studio import-parts` records the file name and its SHA-256 checksum as the **source** of the parts library. You can say more, and set the date of the data yourself (the tool does not read the clock for it). This is **command line only** (`library DIR --library-name/--library-version/--library-source/--library-date`, and the same options on `import-parts`); the import wizard of the app records the file name and its checksum only:
 
 ```
 harness-design-studio library wheel-link

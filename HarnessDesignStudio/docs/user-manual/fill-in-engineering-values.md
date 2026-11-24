@@ -186,6 +186,8 @@ Engineering values: 1 of 17 set.
 
 Only values that are still unset are filled; each is printed with the requirement it comes from. The other profile is `ecss-e-st-20-07c`. Applying a profile does not make a design compliant with anything, and it does not fill the current-by-gauge table.
 
+**In the app:** the **Engineering values** window (**Design > Engineering values…**) has no button for a profile; its first lines say so. Apply a profile on the command line as above (command line only), then open the project again (or answer **Reload** when the app says the files changed): the window then shows the values the profile set, still marked as placeholders.
+
 ## Common mistakes
 
 - **Values at the top level of the file.** See [the shape of a config file](#the-shape-of-a-config-file).

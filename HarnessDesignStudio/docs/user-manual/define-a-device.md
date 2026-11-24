@@ -188,7 +188,7 @@ If the pinout names the signals in your team's own words (`TTC1_TXP` for the `TX
 
 ### The current of a pin (since 5.0.0)
 
-A pin of a device connector may state the current through its contact in operation, in amperes, as the device's ICD gives it (format 5; a project of 4.x is upgraded once first, [upgrade a project](upgrade-a-project.md#9-from-format-4-to-format-5-500)). It is the column **Current (A)** of the pin table, shown while a pin of the connector has one (and from the column menu): type `2`, `2 A` or `500 mA`; an empty cell states none. Each change is one undo step. In a pinout sheet the column is *Current* (also *Current (A)*, *Pin current* or *Max current*), or *Current (mA)* in milliamperes; a cell holds a number, or a number followed by `A` or `mA`, above 0 and at most 1000 A. A value read in mA is listed:
+A pin of a device connector may state the current through its contact in operation, in amperes, as the device's ICD gives it (format 5; a project of 4.x is upgraded once first, [upgrade a project](upgrade-a-project.md#9-from-format-4-to-format-5-500)). It is the column **Current (A)** of the pin table, shown while a pin of the connector has one; to show it before the first current is typed, right-click a column heading of the pin table and tick **Current (A)** in the column menu that opens: type `2`, `2 A` or `500 mA`; an empty cell states none. Each change is one undo step. In a pinout sheet the column is *Current* (also *Current (A)*, *Pin current* or *Max current*), or *Current (mA)* in milliamperes; a cell holds a number, or a number followed by `A` or `mA`, above 0 and at most 1000 A. A value read in mA is listed:
 
 ```
 Converted, row 2 (RW1-J01 pin 1): 2500 mA = 2.5 A

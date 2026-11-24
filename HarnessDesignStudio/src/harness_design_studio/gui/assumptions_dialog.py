@@ -7,7 +7,8 @@
 Read-only, selectable text in a fixed-width font: the page that `harness-design-studio settings`
 prints (`core.settings.render`): every setting with the value in force and where it comes from (the
 project, the tool's own default, or not set), the assumptions built into the tool with the settings
-that parameterise them, and the fixed definitions. Opened from **Help > Assumptions**.
+that parameterise them, and the fixed definitions. Opened from **Help > Assumptions**. A line above
+the text says how a setting is changed (a field of the editor, or `settings DIR --set`).
 """
 
 from PySide6.QtCore import Qt
@@ -18,6 +19,7 @@ from harness_design_studio.core.model import Project
 from harness_design_studio.gui import strings
 from harness_design_studio.gui.dialog_base import Dialog
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
+from harness_design_studio.gui.wrap_label import WrapLabel
 
 
 class AssumptionsDialog(Dialog):
@@ -29,6 +31,11 @@ class AssumptionsDialog(Dialog):
         self.setWindowTitle(strings.ASSUMPTIONS_TITLE)
         self.resize(theme.px(820), theme.px(600))
         lay = QVBoxLayout(self)
+        # how a value is changed: the window itself is read-only (feature audit of 5.1.0, F3)
+        self.how = WrapLabel(strings.ASSUMPTIONS_HOW_TO_CHANGE)
+        self.how.setObjectName("assumptions-how-to-change")
+        self.how.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        lay.addWidget(self.how)
         self.text = QPlainTextEdit()
         self.text.setObjectName("assumptions-text")
         self.text.setReadOnly(True)

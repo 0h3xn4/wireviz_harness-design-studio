@@ -17,7 +17,7 @@ A route from "I have just installed it" to "I can use it on my own spacecraft". 
 
 If you have not installed the tool yet, start with [`INSTALL.md`](INSTALL.md).
 
-**Which version do you have?** Steps 3 and 4 use the example `minimal-satellite` and the template `design-worksheet.md`, and the `flatsat` example is mentioned too. These, the wiring-diagram drawing with wire colours and *Edit > Wire colours...* are not in the 0.1.0 packages (see [`CHANGELOG.md`](../CHANGELOG.md)). `harness-design-studio new --list` shows five examples on 1.0.0 and later and three (`blank`, `first-steps`, `small-satellite`) on 0.1.0. With 0.1.0, do step 3 with `small-satellite` and plan on paper in step 4.
+**Which version do you have?** Steps 3 and 4 use the example `minimal-satellite` and the template `design-worksheet.md`, and the `flatsat` example is mentioned too. These, the wiring-diagram drawing with wire colours and *Edit > Wire colours…* are not in the 0.1.0 packages (see [`CHANGELOG.md`](../CHANGELOG.md)). `harness-design-studio new --list` shows five examples on 1.0.0 and later and three (`blank`, `first-steps`, `small-satellite`) on 0.1.0. With 0.1.0, do step 3 with `small-satellite` and plan on paper in step 4.
 
 | Step | You learn | Time | Uses |
 | --- | --- | --- | --- |

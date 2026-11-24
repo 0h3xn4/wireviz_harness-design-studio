@@ -89,7 +89,7 @@ def test_the_layout_keys_keep_what_the_workspaces_had() -> None:
 
 
 def test_the_rail_of_each_role() -> None:
-    assert areas.hidden_in(ELECTRICAL) == ("asbuilt",)  # every area but the as-built records
+    assert areas.hidden_in(ELECTRICAL) == ()  # every area, the as-built records too (5.1.0)
     assert areas.hidden_in(SYSTEMS) == ("home", "drawings", "outputs", "asbuilt", "review")
     assert areas.hidden_in(AIT) == ("model",)
     shown = [k for k in areas.KEYS if k not in areas.hidden_in(SYSTEMS)]

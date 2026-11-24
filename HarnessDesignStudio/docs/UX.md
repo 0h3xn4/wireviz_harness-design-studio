@@ -473,7 +473,7 @@ Milestone E5 of the electrical feedback (decision D-264, proposed; design `docs/
 | --- | --- |
 | Settings > Project | **Segments are measured to** (rear or mating face; `model.length_reference`), with a line that says what the choice does. |
 | Inspector of a cable connector, of a connector or backshell part | **Lengths measured to** (the project's, rear, face) and **Depth (mm)**. |
-| Devices tab | The column **Current (A)** of the pin table (shown while a pin of the connector has one, and from the column menu); the line *Checked by … on … against …*, **Mark as checked…** and **Clear the check**. |
+| Devices tab | The column **Current (A)** of the pin table (shown while a pin of the connector has one, and from the column menu: right-click a column heading); the line *Checked by … on … against …*, **Mark as checked…** and **Clear the check**. |
 | Window *Link connectors*, *Create harness*, *Splices* list | A pin paired again makes a junction, named in the review; *Create harness* asks for the splice part; the column **Pin currents** of each node. |
 | Window *Change group*, Edit wire tab | **Lands on pin** and **Backshell** under each end (also for a group Generate made), **Add a backshell…**; the group line names the places. |
 | Inspector of a shield group | Its harness, kind and wires, and how each end is terminated and where it lands; a pigtail without a place and a place on another connector are marked. Reached from the Problems list. |

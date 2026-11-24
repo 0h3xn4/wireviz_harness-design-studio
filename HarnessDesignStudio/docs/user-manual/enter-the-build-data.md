@@ -45,7 +45,7 @@ harness-design-studio generate wheel-link
 
 ## 1. Strip lengths
 
-**In the app** (GUI, not run): choose **Drawings** on the rail (a Systems engineer's rail does not list it: press Ctrl+2, or Ctrl+K and type *Go to Harness*), select a wire (or several) and open the **Edit wire** tab. It has two fields, **Strip A (mm)** for the From end and **Strip B (mm)** for the To end.
+**In the app** (GUI, not run): choose **Drawings** on the rail (a Systems engineer's rail does not list it: choose **Go > Go to Harness**, or press Ctrl+2), select a wire (or several) and open the **Edit wire** tab. It has two fields, **Strip A (mm)** for the From end and **Strip B (mm)** for the To end.
 
 - For several wires a field that differs between them is empty and says *various*; an empty field clears the value. A decimal comma is accepted.
 - **Apply** sets them together with any other field you touched, as one undo step.
@@ -121,7 +121,7 @@ Imported 2 part(s). Project parts library (version 0), source: contact-parts.csv
 
 **Which pin gets the contact depends on who made the harness.**
 
-- **A harness made by Generate** takes the contact from the pin of the **device**, as it takes the termination and the function. In the app (GUI, not run), open **Model** > **Devices** (Ctrl+6), press **Contact** to show the columns, and fill the new column **Cable contact** (between **Termination** and **Function**): an editable choice of the contact parts of the library. The tooltip says `The contact the cable side uses on this pin. Generate copies it to the cable connector.` To give the same contact to several pins, select them and press **Cable contact…** (also in the context menu); that is one undo step. Pasted headers work as well: `Cable contact`, `Contact part` and `Cable contact part` mean this column, while `Contact` alone still means the contact size.
+- **A harness made by Generate** takes the contact from the pin of the **device**, as it takes the termination and the function. In the app (GUI, not run), open **Model** > **Devices** (Ctrl+6; as an AIT engineer, whose rail does not list **Model**, choose **Go > Go to Devices**, listed in that role since 5.1.0), press **Contact** to show the columns, and fill the new column **Cable contact** (between **Termination** and **Function**): an editable choice of the contact parts of the library. The tooltip says `The contact the cable side uses on this pin. Generate copies it to the cable connector.` To give the same contact to several pins, select them and press **Cable contact…** (also in the context menu); that is one undo step. Pasted headers work as well: `Cable contact`, `Contact part` and `Cable contact part` mean this column, while `Contact` alone still means the contact size.
 - **A harness you made by hand** ([build a harness by hand](build-a-harness-by-hand.md)) has no device pin to copy from. In the **Connectors** tab the pin form has **Contact**, and **Contact for all pins of this connector** gives the chosen contact to every pin of the selected connector.
 
 In the **Connectors** tab of a generated harness the controls are off. They say why: `The contact of a pin of a generated harness is set on the pin of the device, in the Devices tab (column Cable contact). Generate copies it to the cable connector.`

@@ -35,13 +35,13 @@ New version 1.1.0 of W002: done.
 
 `--kind` is required. `revise` is the older name of `new-version` and takes the same options. With `--kind major` the command adds a note: a major version says that the harness is not compatible with its earlier versions, and the harness plan template gives such a harness a new ID instead (TH01 becomes TH02). You can go on; the tool does not enforce it.
 
-**In the app** (GUI, not run): select `W002` in the **Releases** tab (**Versions** on the rail; or the **Harness** tab), press **New version…**, choose **Minor** (none of the three is chosen at the start; each shows the version it gives, *1.0.0 → 1.1.0*), type your name and a comment (at least 10 characters), and press **Start new version**. The window first says what happens (the next version becomes a draft, the released one stays as a baseline) and lists what becomes editable, and what stays locked because another released harness uses it. A refused edit on the diagram or in the Inspector also offers **Start a new version…**. The app says "New version of W002 started; it can be edited again."
+**In the app** (GUI, not run): select `W002` in the **Versions** tab (or the **Harness** tab), press **New version…**, choose **Minor** (none of the three is chosen at the start; each shows the version it gives, *1.0.0 → 1.1.0*), type your name and a comment (at least 10 characters), and press **Start new version**. The window first says what happens (the next version becomes a draft, the released one stays as a baseline) and lists what becomes editable, and what stays locked because another released harness uses it. A refused edit on the diagram or in the Inspector also offers **Start a new version…**. The app says "New version of W002 started; it can be edited again."
 
 Version 1.1.0 is a `draft` that you can edit. Version 1.0.0 and its baseline are kept. If you find out later that the change is only a fix, choose the kind again before the review: `new-version wheel-link W002 --kind patch ...` makes it `1.0.1` and records *version changed* ([choose the kind again](versions.md#choose-the-kind-again)).
 
 ## 2. Make the change
 
-Edit the design as usual. As an example, give the two power signals colours in `config/generation.json` (or use **Edit > Wire colours...**; see [set wire colours](set-wire-colours.md)), then generate. (Wire colours are **not in the 0.1.0 packages**. With a 0.1.0 package, make a different change; the output below then differs.)
+Edit the design as usual. As an example, give the two power signals colours in `config/generation.json` (or use **Edit > Wire colours…**; see [set wire colours](set-wire-colours.md)), then generate. (Wire colours are **not in the 0.1.0 packages**. With a 0.1.0 package, make a different change; the output below then differs.)
 
 ```
 harness-design-studio generate wheel-link
@@ -81,7 +81,7 @@ Comparing before with after: 0 added, 0 removed, 3 changed.
 
 Without `--from` and `--to` the command compares the working design with the latest baseline. The harness lines (approver, status, version) are the release bookkeeping that a new version resets. `--from` and `--to` take a version; an old letter of 2.x is read as its version (`--from A` is `1.0.0`), and the command says so in its first line. The wire lines are your change.
 
-**In the app**: open the **Releases** tab (**Versions** on the rail), pick the harness and use **Compare version … with …** (a baseline, another version or the working design). The differences are grouped by kind with counts, and each row is tinted by the kind of change; added and removed objects say "(did not exist)" and "(removed)". A line says what the released harness locks. **Mark on diagram** marks the changed devices and interfaces on the diagram; **Clear marks** removes the marks. **Changes…** in the **More** menu of the **Harness** tab (also **Design > Show changes of harness…**) opens the window "Changes in W002" with the same marks.
+**In the app**: open the **Versions** tab, pick the harness and use **Compare version … with …** (a baseline, another version or the working design). The differences are grouped by kind with counts, and each row is tinted by the kind of change; added and removed objects say "(did not exist)" and "(removed)". A line says what the released harness locks. **Mark on diagram** marks the changed devices and interfaces on the diagram; **Clear marks** removes the marks. **Changes…** in the **More** menu of the **Harness** tab (also **Design > Show changes of harness…**) opens the window "Changes in W002" with the same marks.
 
 ## 4. Release version 1.1.0
 
@@ -138,7 +138,7 @@ C0003 | W002 | 1.1.0 | new version started | A. Engineer | 2026-10-22 | Add wire
 C0004 | W002 | 1.1.0 | released | A. Engineer | 2026-10-22 | Version 1.1.0 with wire colours [Released on placeholder configuration (...); ...] [...]
 ```
 
-(Long parts of the comment column are shortened here with `...`.) A kind chosen again shows as *version changed*. Add a harness ID (`harness-design-studio log wheel-link W002`) to see one harness. In the app: the timeline of the **Releases** tab, or **Change log…** in the **More** menu of the **Harness** tab (also **Design > Show change log of harness…**). The entries cannot be deleted. The outputs also have them: `system/changelog.csv` and `system/version_report.md`.
+(Long parts of the comment column are shortened here with `...`.) A kind chosen again shows as *version changed*. Add a harness ID (`harness-design-studio log wheel-link W002`) to see one harness. In the app: the timeline of the **Versions** tab, or **Change log…** in the **More** menu of the **Harness** tab (also **Design > Show change log of harness…**). The entries cannot be deleted. The outputs also have them: `system/changelog.csv` and `system/version_report.md`.
 
 ## Compare two copies of a project
 

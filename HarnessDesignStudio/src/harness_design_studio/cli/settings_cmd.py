@@ -12,7 +12,7 @@ from harness_design_studio.core import annotate, configcheck, settings
 from harness_design_studio.core.commands import History, SetConfig
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.io.saver import save_project
-from harness_design_studio.core.model import ConfigFile
+from harness_design_studio.core.model import ConfigFile, default_configs
 
 COMMANDS = ("settings",)
 
@@ -68,7 +68,13 @@ def _set(project, args: argparse.Namespace) -> int:  # type: ignore[no-untyped-d
             value = json.loads(raw)
         except ValueError:
             value = raw  # a bare word
-        cfg = project.config.get(file) or ConfigFile(name=file, placeholder=False, values={})
+        # a value set here never marks a file as reviewed: the file keeps its `placeholder` flag, as
+        # the Engineering values window keeps it; a file the project does not have yet starts as
+        # the starter file does (placeholder, but for naming.json and the optional model.json)
+        starter = default_configs().get(file)
+        cfg = project.config.get(file) or ConfigFile(
+            name=file, placeholder=starter.placeholder if starter else False, values={}
+        )
         History(project).execute(
             f"Set {file}.{key}", [SetConfig(configcheck.with_value(cfg, key, value))]
         )

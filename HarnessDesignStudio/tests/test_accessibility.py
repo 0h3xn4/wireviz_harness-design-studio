@@ -67,7 +67,7 @@ def win(qtbot, tmp_path):  # type: ignore[no-untyped-def]
 
 
 def test_main_window_widgets_have_accessible_names(win) -> None:  # type: ignore[no-untyped-def]
-    for name in win.main_tabs.names():  # Diagram, Harness, Lists, Checks, Releases
+    for name in win.main_tabs.names():  # Diagram, Harness, Lists, Checks, Versions
         win.go_to(name)
         assert unnamed(win) == [], f"main tab {name}"
     win.go_to("diagram")

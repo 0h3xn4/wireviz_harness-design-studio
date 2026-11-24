@@ -199,7 +199,7 @@ def test_palette_finds_every_command(flat) -> None:
         "Reset layout",
         "Go to Diagram",
         "Go to Checks",
-        "Go to Releases",
+        "Go to Versions",
         "Import approved parts…",
         "Import segment lengths…",
         "Import KiCad netlist…",
@@ -911,7 +911,8 @@ def test_cancelling_the_new_project_dialog_changes_nothing(qtbot, tmp_path) -> N
 
 def test_import_submenu_opens_the_wizard_for_each_kind(flat) -> None:
     texts = [a.text() for a in flat.menu_import.actions()]
-    assert texts[0] == strings.A_IMPORT and len(texts) == 6
+    assert texts[0] == strings.A_IMPORT and len(texts) == 7  # the as-built sheet too (5.1.0)
+    assert texts[-1] == strings.A_IMPORT_ASBUILT
     assert any("KiCad netlist" in t for t in texts)
     assert any("device pinout" in t for t in texts)
     seen: list[QDialog] = []

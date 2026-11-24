@@ -126,7 +126,7 @@ def test_choosing_electrical_stores_the_role_and_shows_everything(qtbot, tmp_pat
     assert w.role == "electrical" and w.settings.value("ui/role") == "electrical"
     assert w.act_role_electrical.isChecked() and w.landing() and w.area() == "home"
     assert all(w.rail.buttons[k].isVisibleTo(w.rail) for k in areas.listed_areas("electrical"))
-    assert not w.rail.buttons["asbuilt"].isVisibleTo(w.rail)  # the AIT engineer's page
+    assert w.rail.buttons["asbuilt"].isVisibleTo(w.rail)  # listed since 5.1.0 (owner, 2026-11-24)
     assert w.problem_notices_on()
 
 

@@ -34,7 +34,7 @@ Quick mode changes what the window shows and what it asks. It never changes a pr
 
 | Hidden while Quick mode is on | Where it still is |
 | --- | --- |
-| the rail areas **Next step**, **Checks**, **Drawings**, **Outputs**, **Versions** and **As-built** | the **Go** and **View** menus, Ctrl+K, and the area you have open stays on the rail until you leave it |
+| the rail areas **Next step**, **Checks**, **Drawings**, **Outputs**, **Versions** and **As-built** | the **Go** menu (every area has an entry, **Go to Next step** too since 5.1.0), Ctrl+K, and the area you have open stays on the rail until you leave it |
 | the top bar buttons **Generate**, **Check**, **Release** and **Export…**, the model hash, the version and the status chip | **Design** and **File** menus, Ctrl+K, and the keys Ctrl+G, F5 and Ctrl+E |
 | the problem notices: the **Problems** count, the badges on the diagram, the *out of date* banner (whatever you chose in **Show problem notices**, which comes back when you leave) | **Run checks** (F5) and the **Checks** area still work |
 | the *Checking the design rules* progress in the status bar (the check still runs in the background; one you ask for with Check still shows its progress) and the *N pending* chips of the **Configuration** rows in the project tree | the **Checks** area, which says what is pending, and the tooltip of a **Configuration** row |

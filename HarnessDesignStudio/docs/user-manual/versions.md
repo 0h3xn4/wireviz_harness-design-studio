@@ -41,7 +41,7 @@ harness-design-studio new-version wheel-link W002 --kind minor --by "A. Engineer
 New version 1.1.0 of W002: done.
 ```
 
-`--kind` is required; the tool does not suggest one, because at this point the draft is still the released design. `revise` is the older name of `new-version` and takes the same options. In the app: **New version…** in the **Releases** tab (**Versions** on the rail) or the **Harness** tab, or **Start a new version…** on a banner or in the **Design** menu. The window **New version of W002** lists the three kinds, none chosen, each with the version it gives (*1.0.0 → 1.1.0*); **Start new version** stays off until you choose one. The whole walk-through is on [change a released harness](change-a-released-harness.md).
+`--kind` is required; the tool does not suggest one, because at this point the draft is still the released design. `revise` is the older name of `new-version` and takes the same options. In the app: **New version…** in the **Versions** tab or the **Harness** tab, or **Start a new version…** on a banner or in the **Design** menu. The window **New version of W002** lists the three kinds, none chosen, each with the version it gives (*1.0.0 → 1.1.0*); **Start new version** stays off until you choose one. The whole walk-through is on [change a released harness](change-a-released-harness.md).
 
 A new version must be higher than every baseline of the harness. A step back is refused with `version_not_higher`, also when a merge brought in a higher baseline.
 
@@ -70,7 +70,7 @@ With `--json` both notes are in the list `notes`.
 
 ## Where the version shows
 
-- **Screen:** the top bar (*v1.0.0*, or the lowest and the highest, *v1.0.0-2.1.0*), the **Releases** tab (the column *Version*, **Compare version … with …**), the Inspector (*Version*), the chips of the **Harness** tab, the tooltip of a harness in the project tree, and the lock on a device (*W002 1.0.0*).
+- **Screen:** the top bar (*v1.0.0*, or the lowest and the highest, *v1.0.0-2.1.0*), the **Versions** tab (the column *Version*, **Compare version … with …**), the Inspector (*Version*), the chips of the **Harness** tab, the tooltip of a harness in the project tree, and the lock on a device (*W002 1.0.0*).
 - **Files:** the title block of the drawings (*VERSION*) and their header (`Version 1.1.0  status draft`), *Start here* of the build workbook, `system/changelog.csv` and the *Change log* sheet of `system/system.xlsx` (column *Version*, events *new version started* and *version changed*), `system/version_report.md`, and `system/export.json`.
 - **For scripts:** `system/export.json` and `log --json` write `version`. 3.0.x kept `revision` beside it with the same value; since 4.0.0 it is gone, and `format_version` of `system/export.json` is 2. The expression field `harness.revision` of 3.0.x went at the same time: write `harness.version`. The command `revise` stays as the older name of `new-version`.
 

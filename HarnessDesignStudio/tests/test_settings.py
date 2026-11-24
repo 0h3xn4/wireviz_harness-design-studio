@@ -323,6 +323,33 @@ def test_settings_changes_a_value_and_refuses_one_outside_its_range(
     assert main(["settings", flat, "--set", "model.service_loops_per_wire"]) == 2
 
 
+def test_settings_set_never_marks_a_file_as_reviewed(tmp_path: Path) -> None:
+    """A value set with `settings --set` keeps the `placeholder` flag of its file, as the
+    Engineering values window does (`configcheck.plan_set_value`): a file still to review stays a
+    placeholder, a reviewed one stays reviewed, and a file the project does not have yet starts as
+    its starter file (derating.json a placeholder, the optional model.json not)."""
+    import json as json_lib
+
+    from harness_design_studio.cli.main import main
+
+    folder = tmp_path / "flat"
+    templates.create_project(folder, "flatsat")
+
+    def flag(name: str) -> bool:
+        return bool(json_lib.loads((folder / "config" / f"{name}.json").read_text(encoding="utf-8"))["placeholder"])  # fmt: skip
+
+    assert flag("derating") and not flag("naming")
+    assert main(["settings", str(folder), "--set", "derating.max_voltage_drop_v=0.5"]) == 0
+    assert main(["settings", str(folder), "--set", "naming.release_requires_asbuilt=true"]) == 0
+    assert flag("derating") and not flag("naming")
+    (folder / "config" / "derating.json").unlink()  # a project without the file
+    assert main(["settings", str(folder), "--set", "derating.max_voltage_drop_v=0.5"]) == 0
+    assert flag("derating")
+    assert main(["settings", str(folder), "--set", "model.service_loops_per_wire=0"]) == 0
+    assert not flag("model")
+    assert {n: c.placeholder for n, c in default_configs().items()}["derating"] is True
+
+
 def test_a_project_without_model_json_is_written_as_before(tmp_path: Path) -> None:
     from harness_design_studio.core.io.loader import load_project
 
@@ -334,6 +361,7 @@ def test_a_project_without_model_json_is_written_as_before(tmp_path: Path) -> No
 
 def test_the_assumptions_window_shows_the_page_of_the_settings_command(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
     pytest.importorskip("PySide6")
+    from harness_design_studio.gui import strings as gui_strings
     from harness_design_studio.gui.assumptions_dialog import AssumptionsDialog
     from harness_design_studio.gui.theme import ThemeManager
 
@@ -343,6 +371,9 @@ def test_the_assumptions_window_shows_the_page_of_the_settings_command(qtbot, tm
     assert dialog.text.toPlainText() == settings.render(project)
     assert dialog.text.isReadOnly() and dialog.text.accessibleName()
     assert "A-ROUND-TRIP" in dialog.text.toPlainText()
+    # the window is read-only, so it says how a setting is changed (feature audit of 5.1.0, F3)
+    assert dialog.how.text() == gui_strings.ASSUMPTIONS_HOW_TO_CHANGE
+    assert "settings DIR --set FILE.KEY=VALUE" in dialog.how.text()
 
 
 def test_help_assumptions_opens_the_window(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]

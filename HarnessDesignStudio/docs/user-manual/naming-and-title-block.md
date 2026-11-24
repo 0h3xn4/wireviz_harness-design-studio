@@ -90,7 +90,7 @@ This is the label format `standard`. The setting `model.label_format` chooses `c
 - Both settings are files in the project's `config/` folder. They have the usual shape (`name`, `placeholder`, `values`; see [the shape of a config file](fill-in-engineering-values.md#the-shape-of-a-config-file)).
 - Change them **before** you release anything. IDs are stable once a harness is released.
 - The title block layout is a placeholder: the owner's decision D-15 (the company format) is open. The tool shows a generic title block whose fields you can choose. See [`OPEN_DECISIONS.md`](../OPEN_DECISIONS.md).
-- Edit the files while the project is not open in the app.
+- The editor has no field for the name patterns or the title-block fields. Change them on the command line with `harness-design-studio settings DIR --set` (examples in sections 1 and 2; the command checks the value as the configuration check does), or edit the files by hand. Either way, do it while the project is not open in the app, or answer **Reload** there afterwards.
 - These patterns make the **IDs**. To print other text on the labels, give a wire, a connector or the harness a *label* in the app (since 1.4.0): a wire's and the harness's in the **Edit wire** tab, a box connector's on its card in the **Devices** tab. The ID does not change; `labels.csv` prints the label ([edit a wire](edit-a-wire.md)).
 
 ## 1. Name patterns: `config/naming.json`
@@ -121,15 +121,16 @@ The shipped file:
 
 Add `shield`, `branch` or `segment` to the file if you want to change them. The key `box_connector` is in the file, but the program does not read it: connectors on a device are always named like `OBC1-J01`.
 
-The same file can also hold two settings that are not name patterns and are not in the shipped file (both since 1.9.0): `signal_counterparts`, the words that pair a transmit pin with a receive pin, and `release_distinct_roles`, which asks for three different people as author, checker and person who releases. The command `harness-design-studio config DIR --counterparts` and `--distinct-roles` set them; see [`CONFIG.md`](../CONFIG.md#namingjson).
+The same file can also hold two settings that are not name patterns and are not in the shipped file (both since 1.9.0): `signal_counterparts`, the words that pair a transmit pin with a receive pin, and `release_distinct_roles`, which asks for three different people as author, checker and person who releases. The command `harness-design-studio config DIR --counterparts` and `--distinct-roles` set them (**command line only**: the app has no field for either); see [`CONFIG.md`](../CONFIG.md#namingjson).
 
 Since 4.3.0 it can also hold the project's **review checklist** (`review_checklist`), the list of points a reviewer goes through before a release; no file has it until you set it, with `harness-design-studio config DIR --review-checklist FILE` or under **Settings > Project** ([release a harness](release-a-harness.md#optional-a-review-checklist-and-its-ticks)). The list is not a name pattern and is not read by Generate.
 
 Since 4.4.0 it can also hold two settings of names, both missing until you set them: **`far_device_names`**, which says that a pin or port name such as `TTC1_TX+` names the device at the other end, so Generate gives an interface the port named after its far device and the pairing of a connection reads the device's name off (`harness-design-studio config DIR --far-device-names on`; [generate harnesses](generate-harnesses.md#ports-named-after-the-far-device-since-440)); and **`signal_map`**, a table of your team's signal names and the names of the interface types, which `import-pinout` and `import-netlist` apply (`harness-design-studio config DIR --signal-map FILE`; [import data](import-data.md#your-teams-signal-names-since-440)). **Settings > Project** has the check box *Signal names name the far device* and the section *Signal map*. Neither is a name pattern.
 
-Example. Set `"harness": "HN-{n:02d}"` and generate:
+Example. Set `"harness": "HN-{n:02d}"` (in the file, or with the command below) and generate:
 
 ```
+harness-design-studio settings wheel-link --set 'naming.harness="HN-{n:02d}"'
 harness-design-studio generate wheel-link
 ```
 
@@ -150,6 +151,12 @@ The shipped file lists all ten fields, in order:
 ```
 "fields": ["project", "harness_id", "title", "version", "date",
            "author", "checker", "approver", "sheet", "status"]
+```
+
+On the command line the list is set whole, for example without author, checker, approver and sheet:
+
+```
+harness-design-studio settings wheel-link --set 'titleblock.fields=["project", "harness_id", "title", "version", "date", "status"]'
 ```
 
 Remove a field to hide it (the sheet number too: the output check then does not look for it), or reorder them. A name that is not in the list, a name twice, or anything that is not text is reported as a configuration error (`harness-design-studio config` and `harness-design-studio drc` show it, for example `config/titleblock.json: fields names a field that does not exist ('sheet2'). The fields are: project, harness_id, ...`; `validate` and `check` did not report it when this page was checked, and `generate` stops with the same text, `error: [config_invalid] ...`, and does not save) and the default fields (`project`, `harness_id`, `title`, `version`, `status`, `sheet`) are drawn by `export --drawings` until it is fixed. An empty list also means the default. After a release the title block fields are frozen with the rest of the configuration ([change a released harness](change-a-released-harness.md)). With `["project", "harness_id", "version", "status", "sheet"]` the title block of `HN-01` shows:

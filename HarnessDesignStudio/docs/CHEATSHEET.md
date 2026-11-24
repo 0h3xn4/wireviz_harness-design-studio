@@ -84,7 +84,7 @@ The window: a rail on the left (Next step, Home, Model, Checks, Drawings, Output
 | Ctrl+Shift+I | import interfaces (a table) |
 | Ctrl+G, F5, Ctrl+E | generate harnesses, run the checks, export |
 | Ctrl+I | new interface |
-| Ctrl+1 to Ctrl+6 | the tabs: Diagram, Harness, Lists, Checks, Releases, Devices |
+| Ctrl+1 to Ctrl+6 | the tabs: Diagram, Harness, Lists, Checks, Versions, Devices |
 | Ctrl+7, Ctrl+, | Home (also for the Systems engineer, whose rail does not list it), Settings |
 | Ctrl+Shift+M | show or hide the Problems panel |
 | Ctrl+Shift+H | new harness by hand (Drawings area: then add its connectors in the Connectors tab) |

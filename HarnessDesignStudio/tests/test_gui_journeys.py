@@ -853,3 +853,80 @@ def test_the_part_picker_says_what_each_part_is(win) -> None:  # type: ignore[no
         lab for lab in win.props.findChildren(QLabel) if lab.objectName().startswith("part-info-")
     ]
     assert infos and infos[0].text() == text
+
+
+# ---- the as-built gate of a release (F1 of the feature audit of 5.1.0) ------------------------------
+
+GATE_WHEN = "2026-03-01"
+GATE_COMMENT = "First release of the bench"
+GATE_PLACEHOLDERS = "Practice project: placeholders"
+GATE_PARTS = "Practice project: example parts"
+GATE_ASBUILT = "Bench model, built later"
+
+
+def test_j9_the_release_window_releases_under_the_as_built_gate_as_the_command_line_does(  # type: ignore[no-untyped-def]
+    win, tmp_path
+) -> None:
+    """With `release_requires_asbuilt` on and no as-built records, the Release window asks for the
+    reason (as it does for a loose end) and records it in the release word for word as
+    `release --accept-asbuilt REASON` does; without the reason *Release* stays off and says why."""
+    import shutil
+
+    from harness_design_studio.cli.main import main
+    from harness_design_studio.core import templates
+
+    folder = tmp_path / "p"
+    templates.create_project(folder, "flatsat")
+    assert main(["settings", str(folder), "--set", "naming.release_requires_asbuilt=true"]) == 0
+    assert main(["export", str(folder)]) == 0
+    cli = tmp_path / "cli"
+    shutil.copytree(folder, cli)
+    assert main([
+        "release", str(cli), "W001", "--by", "Ada", "--checker", "Bob", "--comment", GATE_COMMENT,
+        "--date", GATE_WHEN, "--accept-placeholders", GATE_PLACEHOLDERS,
+        "--accept-unapproved-parts", GATE_PARTS, "--accept-asbuilt", GATE_ASBUILT,
+    ]) == 0  # fmt: skip
+    assert win.open_project(folder)
+    win.ctl.today = lambda: GATE_WHEN
+
+    def fill(d) -> None:  # type: ignore[no-untyped-def]
+        assert d.blockers == []  # the as-built gate is asked for below, not listed as a blocker
+        warn = d.findChild(QLabel, "change-asbuilt-warning")
+        assert warn is not None and "W001" in warn.text() and "no as-built records" in warn.text()
+        d.by.setText("Ada")
+        d.checker.setText("Bob")
+        d.comment.setPlainText(GATE_COMMENT)
+        d.placeholder_reason.setText(GATE_PLACEHOLDERS)
+        d.parts_reason.setText(GATE_PARTS)
+        assert not d.ok.isEnabled() and strings.HINT_ASBUILT_REASON in d.missing()
+        assert strings.HINT_ASBUILT_REASON in d.hint.text()
+        d.asbuilt_reason.setText("short")
+        assert not d.ok.isEnabled()
+        d.asbuilt_reason.setText(GATE_ASBUILT)
+        assert d.ok.isEnabled() and d.accepted_asbuilt() == GATE_ASBUILT
+
+    script = DialogScript(win, fill)
+    win.change_flow("release", "W001")
+    assert len(script.seen) == 1
+    project = win.ctl.project
+    assert project.harnesses["W001"].status == "released"
+    expected = load_project(cli).project
+    assert project.baselines["W001.1.0.0"].comment == expected.baselines["W001.1.0.0"].comment
+    assert "[Released although the as-built records of W001 are incomplete (no records); accepted by Ada: Bench model, built later]" in project.baselines["W001.1.0.0"].comment  # fmt: skip
+    assert [e.comment for e in project.changelog.values()] == [e.comment for e in expected.changelog.values()]  # fmt: skip
+
+
+def test_j9_without_the_gate_the_release_window_asks_for_no_as_built_reason(win, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from harness_design_studio.core import templates
+
+    templates.create_project(tmp_path / "p", "flatsat")
+    assert win.open_project(tmp_path / "p")
+    script = DialogScript(win, accept=False)
+    win.change_flow("release", "W001")
+    (d,) = script.seen
+    from harness_design_studio.gui.dialogs import ChangeDialog
+
+    assert isinstance(d, ChangeDialog)
+    assert d.findChild(QLabel, "change-asbuilt-warning") is None
+    assert not d.asbuilt_reason.isVisibleTo(d) and d.accepted_asbuilt() is None
+    assert strings.HINT_ASBUILT_REASON not in d.missing()

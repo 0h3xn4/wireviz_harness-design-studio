@@ -117,6 +117,8 @@ from harness_design_studio.core.validation import plan_notes
 from harness_design_studio.core.vcs.hashing import content_hash
 from harness_design_studio.core.vcs.lockview import field_lock_reason
 from harness_design_studio.core.vcs.release import (
+    asbuilt_gate_on,
+    asbuilt_open,
     kind_again,
     last_baseline,
     loose_ends_of,
@@ -1630,10 +1632,32 @@ class MainWindow(QMainWindow):
         )
         made = link is not None and bool(link.harness_id) and link.harness_id in c.project.harnesses
         self.act_link_show_harness.setEnabled(made)
+        # a disabled entry says why (feature audit of 5.1.0, F10)
+        why = strings.WHY_SELECT_CONNECTION if link is None else ""
+        why = why or (strings.WHY_READ_ONLY if c.read_only else "")
+        for act, tip in (
+            (self.act_link_edit, strings.A_LINK_EDIT_TIP),
+            (self.act_link_rename, strings.A_LINK_RENAME_TIP),
+            (self.act_link_delete, strings.A_LINK_DELETE_TIP),
+        ):
+            act.setToolTip(why or tip)
+        if not why and link is not None:
+            if link.harness_id:
+                why = strings.WHY_LINK_HAS_HARNESS
+            elif not link.pairs:
+                why = strings.WHY_LINK_NO_PAIRS
+        self.act_link_harness.setToolTip(why or strings.A_LINK_HARNESS_TIP)
         self.act_link_show_harness.setToolTip(
-            strings.A_LINK_SHOW_HARNESS_TIP if made else strings.A_LINK_SHOW_HARNESS_NONE
+            strings.A_LINK_SHOW_HARNESS_TIP
+            if made
+            else strings.WHY_SELECT_CONNECTION
+            if link is None
+            else strings.A_LINK_SHOW_HARNESS_NONE
         )
         self.menu_connection.setEnabled(link is not None)
+        self.menu_connection.menuAction().setToolTip(
+            strings.M_CONNECTION_TIP if link is not None else strings.WHY_SELECT_CONNECTION
+        )
 
     # ---- devices: a new device, parts, interface types, pins from a type or an interface -----------
     def add_device_flow(self) -> None:
@@ -2483,6 +2507,10 @@ class MainWindow(QMainWindow):
         self.act_next_pane = a(strings.A_NEXT_PANE, partial(self._cycle, 1), "F6", name="act-next-pane")  # fmt: skip
         self.act_prev_pane = a(strings.A_PREV_PANE, partial(self._cycle, -1), "Shift+F6", name="act-prev-pane")  # fmt: skip
         self.go_actions: dict[str, QAction] = {}
+        # the Next step page in every role's Go menu and in Ctrl+K (5.1.0: a role hides tools, never
+        # places; in Quick mode the rail does not list it)
+        self.act_go_next = a(strings.GO_NEXT, lambda: self.set_area("next"), name="act-go-next")
+        self.act_go_next.setToolTip(strings.GO_NEXT_TIP)
         self.act_go_home = a(
             strings.GO_HOME, lambda: self.set_area("home"), "Ctrl+7", name="act-go-home"
         )
@@ -2799,6 +2827,7 @@ class MainWindow(QMainWindow):
         d.addAction(self.act_plan_settings)
         g = mb.addMenu(strings.M_GO)
         self.menu_go = g
+        g.addAction(self.act_go_next)
         g.addAction(self.act_go_home)
         for act in self.go_actions.values():
             g.addAction(act)
@@ -2822,6 +2851,10 @@ class MainWindow(QMainWindow):
             self.act_about,
         ):
             h.addAction(act)
+        # a disabled entry says why in its tooltip, so every menu shows the tooltips it was given
+        # (an entry with none shows nothing; feature audit of 5.1.0, F10)
+        for menu in mb.findChildren(QMenu):
+            menu.setToolTipsVisible(True)
 
         # the top bar: one full-width row above everything (project, state, where you are, edit,
         # mode, search, the three jobs)
@@ -3177,8 +3210,10 @@ class MainWindow(QMainWindow):
         self.act_undo.setText(strings.UNDO_LABELLED.format(undo_label) if undo_label else strings.UNDO)  # fmt: skip
         self.act_redo.setText(strings.REDO_LABELLED.format(redo_label) if redo_label else strings.REDO)  # fmt: skip
         blocked = h.undo_blocked  # a disabled Undo must say why
-        self.act_undo.setToolTip(blocked or tooltip_text(self.act_undo.text(), "Ctrl+Z"))
-        self.act_redo.setToolTip(tooltip_text(self.act_redo.text(), "Ctrl+Y"))
+        undo = self.act_undo.text() if h.can_undo else strings.UNDO_NOTHING
+        redo = self.act_redo.text() if h.can_redo else strings.REDO_NOTHING
+        self.act_undo.setToolTip(blocked or tooltip_text(undo, "Ctrl+Z"))
+        self.act_redo.setToolTip(tooltip_text(redo, "Ctrl+Y"))
 
     def _quit(self) -> None:
         self.close()
@@ -4125,7 +4160,7 @@ class MainWindow(QMainWindow):
             blockers = release_blockers(
                 project, hid, by="x", comment="x" * 10, when=today, outputs_folder=folder,
                 accept_placeholders="x" * 10, accept_unapproved_parts="x" * 10,
-                accept_loose_ends="x" * 10,
+                accept_loose_ends="x" * 10, accept_asbuilt="x" * 10,
                 check_roles=False,  # the names are asked for in the dialog, which checks them
                 ticked=ticked,
             )  # fmt: skip
@@ -4141,6 +4176,7 @@ class MainWindow(QMainWindow):
                 placeholders=project.placeholder_configs(),
                 unapproved_parts=unapproved_parts(project, project.harnesses[hid]),
                 loose_ends=loose_ends_of(project.harnesses[hid]),
+                asbuilt=self._asbuilt_gate_text(hid),
                 roles_check=(
                     (
                         lambda by, checker: [
@@ -4186,6 +4222,7 @@ class MainWindow(QMainWindow):
                 accept_placeholders=dlg.accepted_placeholders(),
                 accept_unapproved_parts=dlg.accepted_unapproved_parts(),
                 accept_loose_ends=dlg.accepted_loose_ends(),
+                accept_asbuilt=dlg.accepted_asbuilt(),
                 ticked=ticked,
             )
             msg = strings.RELEASE_DONE.format(hid)
@@ -4207,6 +4244,29 @@ class MainWindow(QMainWindow):
                 else strings.NEW_REV_STARTED.format(hid)
             )
         self.ctl.apply_change(plan, msg)
+
+    def _asbuilt_gate_text(self, hid: str) -> str:
+        """What stops the release of `hid` under the gate on as-built records, in words for the
+        Release window ('' when the project does not set `release_requires_asbuilt` or the records
+        are complete and within their tolerances)."""
+        project = self.ctl.project
+        if not asbuilt_gate_on(project):
+            return ""
+        state = asbuilt_open(project, hid)
+        parts: list[str] = []
+        if not state.started:
+            parts.append(strings.ASBUILT_GATE_NONE.format(hid))
+        elif state.incomplete:
+            parts.append(
+                strings.ASBUILT_GATE_MISSING.format(
+                    hid, state.missing, state.stale, state.first_open
+                )
+            )
+        if state.lengths_out:
+            parts.append(
+                strings.ASBUILT_GATE_OUT.format(len(state.lengths_out), hid, state.lengths_out[0])
+            )
+        return strings.ASBUILT_GATE_AND.join(parts)
 
     # ---- change control on "the" harness (menu, shortcut, Ctrl+K) ----------------------------------
     def current_harness(self) -> str | None:
@@ -5380,6 +5440,9 @@ class MainWindow(QMainWindow):
         self.act_review.setEnabled(has and not self.ctl.read_only)
         self.act_history.setEnabled(has)
         self.act_changes.setEnabled(bool(self.ctl.project.baselines))
+        self.act_changes.setToolTip(
+            strings.CHANGES_TIP if self.ctl.project.baselines else strings.CHANGES_NONE_TIP
+        )
         self.act_delete_harness.setEnabled(has and not self.ctl.read_only)
 
     # ---- export, import, new project ----------------------------------------------------------------
@@ -6495,6 +6558,9 @@ class MainWindow(QMainWindow):
         self.mode_guided.setVisible(not quick)
         self.mode_expert.setVisible(not quick)
         self.act_problem_notices.setEnabled(not quick)
+        self.act_problem_notices.setToolTip(
+            strings.A_PROBLEM_NOTICES_QUICK_TIP if quick else strings.A_PROBLEM_NOTICES_TIP
+        )
         self.project_tree.set_quick(quick)  # (no "N pending" chips)
         self._update_jobs()  # (and no automatic "Checking the design rules" progress)
         self._apply_problem_notices()

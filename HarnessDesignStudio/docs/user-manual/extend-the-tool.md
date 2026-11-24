@@ -34,7 +34,7 @@ The examples below are in [`docs/examples/extensions/`](../examples/extensions/R
 harness-design-studio extensions my-design
 ```
 
-Without options it lists what the extensions of the project add: the data files (with their name, version, SHA-256 and whether they are enabled), the plug-ins (with whether they are enabled and trusted, and the state), and the items they register (rules, tables, lookup tables, fields, importers). `--all` lists the built-in items too, so that you see the tool's own rules in the same table. `--json` prints the same as data, and in the editor **Help > Extensions...** shows it.
+Without options it lists what the extensions of the project add: the data files (with their name, version, SHA-256 and whether they are enabled), the plug-ins (with whether they are enabled and trusted, and the state), and the items they register (rules, tables, lookup tables, fields, importers). `--all` lists the built-in items too, so that you see the tool's own rules in the same table. `--json` prints the same as data, and in the editor **Help > Extensions…** shows it.
 
 A project with no `extensions/` folder says so, and nothing is added to the tool.
 
@@ -195,7 +195,7 @@ An installed package can be a plug-in too: it declares an entry point in the gro
 harness-design-studio trust my-design duplicate-signal-wires
 ```
 
-The command shows what the code is (name, version, kinds, file, SHA-256, number of lines) and the sentence about the risk, and asks you to **type the plug-in's name**. `--yes` confirms without asking, for a script. Read the file first: the command does not run it, and neither does anything else until you have trusted it. In the editor, opening a project that enables an untrusted plug-in shows a window with the same facts and a button *Show the code*; **Help > Extensions...** has *Trust...* and *Take back trust* for the selected plug-in.
+The command shows what the code is (name, version, kinds, file, SHA-256, number of lines) and the sentence about the risk, and asks you to **type the plug-in's name**. `--yes` confirms without asking, for a script. Read the file first: the command does not run it, and neither does anything else until you have trusted it. In the editor, opening a project that enables an untrusted plug-in shows a window with the same facts and a button *Show the code*; **Help > Extensions…** has *Trust…* and *Take back trust* for the selected plug-in.
 
 - The trust is kept **in your own settings folder** (`~/.config/harness-design-studio/trusted_plugins.json` on Linux, `%APPDATA%\HarnessDesignStudio\trusted_plugins.json` on Windows), not in the project. A project you clone from someone else cannot say that its code is trusted, and your colleague's trust does not travel to your computer.
 - The trust is tied to the **name and the SHA-256 of the code**. If the file changes by one byte (an edit, a Git merge, an update of a package), the trust is gone: the plug-in is listed as *untrusted* again and is not loaded until you trust the new code.
@@ -203,7 +203,7 @@ The command shows what the code is (name, version, kinds, file, SHA-256, number 
 - `harness-design-studio trust my-design` lists the plug-ins of the project and whether each is trusted.
 - A plug-in that cannot be loaded (an error in the file, a wrong declaration, a name that is already taken) is listed with the reason and is not loaded. It does not stop the tool; the check says in `x-extension-problem` that something enabled was not applied.
 
-A plug-in can also add a reader for a file. `harness-design-studio import-plugin my-design NAME FILE --dry-run` runs it and shows what it would change.
+A plug-in can also add a reader for a file. `harness-design-studio import-plugin my-design NAME FILE --dry-run` runs it and shows what it would change. This is **command line only**: the import wizard of the app (**File > Import**) does not list a plug-in's reader.
 
 ## What an extension changes, and what it leaves alone
 

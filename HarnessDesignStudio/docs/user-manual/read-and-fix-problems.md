@@ -114,7 +114,7 @@ INFO    placeholder_config: Placeholder rule configuration still in use: deratin
 
 The INFO line is normal until an engineer has reviewed the engineering values ([fill in the engineering values](fill-in-engineering-values.md)).
 
-The command line cannot waive a finding. Waivers are made in the app.
+Waiving a warning is **editor only**: the command line cannot waive a finding, so waivers are made in the app (**Waive…** on the card of the warning). An error is accepted on the command line with `deviation` ([override and keep a history](override-and-keep-a-history.md)).
 
 ## 4. Fix one, waive one
 

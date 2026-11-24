@@ -4,7 +4,7 @@ This page shows how to give each signal (power, return, CAN high, ...) a wire co
 
 **Examples** (since 5.1.0): `harness-design-studio new practice --template flatsat` makes a project whose colours come from the signals (`PWR` red, `RTN` black, `CANH` yellow, `CANL` green); `--template splice-by-hand` has the colours red and black set on the wires drawn by hand.
 
-> **Not in the 0.1.0 packages.** *Edit > Wire colours...*, the *Colour* column set from signals and the coloured wiring-diagram drawing are new in 1.0.0. They are not in the 0.1.0 `.deb` and `.tar.gz`. See the [changelog](../../CHANGELOG.md). `harness-design-studio new --list` shows five examples on 1.0.0 and three on 0.1.0.
+> **Not in the 0.1.0 packages.** *Edit > Wire colours…*, the *Colour* column set from signals and the coloured wiring-diagram drawing are new in 1.0.0. They are not in the 0.1.0 `.deb` and `.tar.gz`. See the [changelog](../../CHANGELOG.md). `harness-design-studio new --list` shows five examples on 1.0.0 and three on 0.1.0.
 
 ## Before you start
 
@@ -13,7 +13,7 @@ This page shows how to give each signal (power, return, CAN high, ...) a wire co
 
 ## 1. In the app
 
-1. Choose **Edit > Wire colours...**.
+1. Choose **Edit > Wire colours…**.
 2. The **Wire colours** window lists each signal name of the interface types the project uses (for example `PWR`, `RTN`, `TX+`, `CANH`). Next to each is a list: **no colour**, or one of the colours with its code.
 3. Pick a colour for each signal you want, then press **Save**.
 4. The app says "Wire colours saved. Generate the harnesses to apply them." Saving is one undo step.
@@ -22,9 +22,19 @@ This page shows how to give each signal (power, return, CAN high, ...) a wire co
 
 GUI, not run: the menu name and the texts above are taken from the program's code. The dialog has not been looked at on screen.
 
-## 2. In the project file (also for scripts)
+## 2. On the command line or in the project file (also for scripts)
 
-The setting is the key `wire_colour_by_signal` in `config/generation.json`, inside `values`:
+The setting is the key `wire_colour_by_signal` in `config/generation.json`. On the command line, `settings --set` writes it (the whole table at once; the project should not be open in the app, or answer **Reload** there afterwards):
+
+```
+harness-design-studio settings wheel-link --set 'generation.wire_colour_by_signal={"PWR": "red", "RTN": "black"}'
+```
+
+```
+1 value(s) set.
+```
+
+Or edit the file by hand, inside `values`:
 
 ```
 "wire_colour_by_signal": {

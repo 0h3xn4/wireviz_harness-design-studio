@@ -37,7 +37,7 @@ These are the shortcuts the app defines (read from the program's source, `gui/ma
 | F5 | Run the design rule check now |
 | Ctrl+E | Export... (the Export outputs window) |
 | Ctrl+I | New interface... |
-| Ctrl+1 to Ctrl+6 | The tabs Diagram, Harness, Lists, Checks, Releases, Devices |
+| Ctrl+1 to Ctrl+6 | The tabs Diagram, Harness, Lists, Checks, Versions, Devices |
 | Ctrl+7 and Ctrl+, | Home and Settings (the rail of the Systems engineer role does not list Home, Drawings or Outputs, but Ctrl+7, **Go > Go to Home** and the other **Go** entries open them) |
 | Ctrl+Shift+M | Show or hide the Problems panel at the bottom |
 | Ctrl+Shift+O | Library… (the library window beside the editor: add devices and subsystems of your team's folder, or save to it) |
@@ -188,7 +188,7 @@ Edit the file (`"mode": "per_zone_pair"` inside `"values"`), run `harness-design
 
 ## Wire colours
 
-The tool defines no wire colours. A wire has a colour only if you set one: on one wire in the **Edit wire** tab (Drawings area, new in 1.4.0), in the app with **Edit > Wire colours...** (one colour per signal name such as `PWR`, `RTN`, `CANH`; one undo step), or in `config/generation.json` under `"values"`:
+The tool defines no wire colours. A wire has a colour only if you set one: on one wire in the **Edit wire** tab (Drawings area, new in 1.4.0), in the app with **Edit > Wire colours…** (one colour per signal name such as `PWR`, `RTN`, `CANH`; one undo step), or in `config/generation.json` under `"values"`:
 
 ```
 "wire_colour_by_signal": {"PWR": "red", "RTN": "black"}

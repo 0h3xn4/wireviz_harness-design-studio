@@ -644,6 +644,7 @@ class ChangeDialog(Dialog):
         placeholders: list[str] | None = None,
         unapproved_parts: list[str] | None = None,
         loose_ends: list[str] | None = None,
+        asbuilt: str = "",
         locks: ReleaseLocks | None = None,
         explain: str | None = None,
         unlocks: lock_tree.RevisionUnlocks | None = None,
@@ -669,6 +670,7 @@ class ChangeDialog(Dialog):
         self._placeholders = placeholders or []
         self._unapproved = unapproved_parts or []
         self._loose = loose_ends or []
+        self._asbuilt = asbuilt
         self._ok_text = ok_text
         theme = current_theme()
         lay = QVBoxLayout(self)
@@ -812,6 +814,20 @@ class ChangeDialog(Dialog):
             lay.addWidget(lwarn)
             lay.addWidget(QLabel(strings.LOOSE_REASON))
             lay.addWidget(self.loose_reason)
+        # the project requires complete as-built records (release_requires_asbuilt) and this
+        # harness has none, or a length out of tolerance: released only with a written reason, as
+        # `release --accept-asbuilt REASON` does
+        self.asbuilt_reason = QLineEdit()
+        self.asbuilt_reason.setObjectName("change-asbuilt-reason")
+        self.asbuilt_reason.setAccessibleName(strings.ASBUILT_REASON)
+        self.asbuilt_reason.setToolTip(strings.ASBUILT_REASON_TIP)
+        if self._asbuilt:
+            awarn = QLabel(strings.ASBUILT_GATE_WARNING.format(self._asbuilt))
+            awarn.setWordWrap(True)
+            awarn.setObjectName("change-asbuilt-warning")
+            lay.addWidget(awarn)
+            lay.addWidget(QLabel(strings.ASBUILT_REASON))
+            lay.addWidget(self.asbuilt_reason)
         # why the OK button is disabled, in words (a disabled button alone says nothing)
         self.hint = QLabel()
         self.hint.setObjectName("change-hint")
@@ -826,6 +842,7 @@ class ChangeDialog(Dialog):
         self.placeholder_reason.textChanged.connect(self._validate)
         self.parts_reason.textChanged.connect(self._validate)
         self.loose_reason.textChanged.connect(self._validate)
+        self.asbuilt_reason.textChanged.connect(self._validate)
         self.setMinimumWidth(theme.px(520))
         self._validate()
 
@@ -845,6 +862,7 @@ class ChangeDialog(Dialog):
         unapproved_parts: list[str] | None = None,
         roles_check: Callable[[str, str], list[str]] | None = None,
         loose_ends: list[str] | None = None,
+        asbuilt: str = "",
         note: str = "",
         review_note: Callable[[str], str] | None = None,
         open_review: Callable[[], None] | None = None,
@@ -854,7 +872,9 @@ class ChangeDialog(Dialog):
         the sentences that still stop the release (checked again at every key stroke).
         `review_note(by)` is given when the project has a review checklist: the note of the ticks
         that the release adds to the comment (`vcs.release.review_note`), shown under the comment
-        field; `open_review` closes the dialog and opens the Review page (4.3.0)."""
+        field; `open_review` closes the dialog and opens the Review page (4.3.0). `asbuilt` says
+        what stops the release under the gate on as-built records (empty when nothing does): the
+        dialog then asks for the reason that `release --accept-asbuilt` takes."""
         return cls(
             parent,
             title,
@@ -865,6 +885,7 @@ class ChangeDialog(Dialog):
             placeholders=placeholders,
             unapproved_parts=unapproved_parts,
             loose_ends=loose_ends,
+            asbuilt=asbuilt,
             locks=release_locks(project, harness_id),
             rule_note=strings.ROLES_RELEASE_NOTE if roles_check is not None else "",
             roles_check=roles_check,
@@ -973,6 +994,8 @@ class ChangeDialog(Dialog):
             todo.append(strings.HINT_PARTS_REASON)
         if self._loose and len(self.loose_reason.text().strip()) < strings.COMMENT_MIN:
             todo.append(strings.HINT_LOOSE_REASON)
+        if self._asbuilt and len(self.asbuilt_reason.text().strip()) < strings.COMMENT_MIN:
+            todo.append(strings.HINT_ASBUILT_REASON)
         if self._roles_check is not None:
             by, checker = self.by.text().strip(), self.checker.text().strip()
             todo.extend(t.rstrip(".") for t in self._roles_check(by, checker))
@@ -1020,6 +1043,11 @@ class ChangeDialog(Dialog):
     def accepted_loose_ends(self) -> str | None:
         """The written reason for releasing with a loose cable end (None when there is none)."""
         return self.loose_reason.text().strip() or None if self._loose else None
+
+    def accepted_asbuilt(self) -> str | None:
+        """The written reason for releasing without complete as-built records (None when the
+        project does not require them or nothing is open)."""
+        return self.asbuilt_reason.text().strip() or None if self._asbuilt else None
 
     def accepted_placeholders(self) -> str | None:
         """The written reason for releasing on placeholder values (None when there are none)."""

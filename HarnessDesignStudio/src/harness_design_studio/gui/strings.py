@@ -160,6 +160,8 @@ COMMANDS_TITLE = "Commands"
 COMMANDS_PLACEHOLDER = "Type a command or an ID…"
 UNDO = "Undo"
 REDO = "Redo"
+UNDO_NOTHING = "Nothing to undo yet."
+REDO_NOTHING = "Nothing to redo."
 DELETE = "Delete"
 GUIDED = "Guided"
 EXPERT = "Expert"
@@ -253,8 +255,8 @@ A_COMMANDS = "Search and commands"
 A_GLOSSARY = "Glossary"
 A_SAMPLE = "Open the sample project"
 A_ABOUT = "About"
-A_ASSUMPTIONS = "Assumptions..."
-A_JOURNAL = "Change history..."
+A_ASSUMPTIONS = "Assumptions…"
+A_JOURNAL = "Change history…"
 JOURNAL_TITLE = "Change history"
 HISTORY_FILTER = "Filter: an object, a person, a word of the reason"
 HISTORY_NOTE = (
@@ -279,7 +281,13 @@ HISTORY_COL_REASON = "Reason"
 JOURNAL_STARTED = "The journal is started and saved."
 ASSUMPTIONS_TITLE = "What the tool assumes"
 ASSUMPTIONS_NAME = "Settings, assumptions and definitions"
-A_EXTENSIONS = "Extensions..."
+ASSUMPTIONS_HOW_TO_CHANGE = (
+    "To change a setting: where it has a field, use Settings > Project, Edit > Wire colours… or "
+    "Design > Engineering values…; every other setting is changed on the command line with "
+    "harness-design-studio settings DIR --set FILE.KEY=VALUE (for example --set "
+    "naming.release_requires_asbuilt=true). Then open the project again, or answer Reload."
+)
+A_EXTENSIONS = "Extensions…"
 EXT_TITLE = "Extensions of this project"
 EXT_NAME = "Declarative files, Python plug-ins and registered items"
 EXT_INTRO = (
@@ -307,7 +315,7 @@ EXT_PLUGIN_COLUMNS = (
     "State",
 )
 EXT_ITEM_COLUMNS = ("Kind", "Name", "Source", "Origin", "Version", "SHA-256", "Enabled", "Trusted")
-EXT_TRUST = "Trust..."
+EXT_TRUST = "Trust…"
 EXT_REVOKE = "Take back trust"
 EXT_RELOAD = "Read the folder again"
 EXT_YES = "yes"
@@ -429,6 +437,7 @@ RELEASE_TIP = "Release the selected harness: records a baseline and the change l
 NEW_REV_TIP = "Unlock a released harness by starting its next version (the released one is kept)"
 CHANGES = "Changes…"
 CHANGES_TIP = "Show what changed since a baseline"
+CHANGES_NONE_TIP = "No harness has been released yet, so there is no baseline to compare with."
 HISTORY = "Change log…"
 HISTORY_TIP = "Who changed what, when and why"
 RELEASE_TITLE = "Release {0}"
@@ -503,7 +512,7 @@ DELETE_HARNESS_BODY = "<b>{0}</b> and its {1} wire(s) will be deleted. You can u
 HARNESS_DELETED = "{0} deleted."
 GROUPED_PROBLEMS = "{0}: {1} problems of the same kind"
 
-A_WIRE_COLOURS = "Wire colours..."
+A_WIRE_COLOURS = "Wire colours…"
 WIRE_COLOURS_TITLE = "Wire colours"
 WIRE_COLOURS_HELP = (
     "Pick the colour of the wire for each signal. The wires take the colours the next time you "
@@ -783,7 +792,7 @@ HINT_BLOCKERS = "fix what is listed above first"
 HINT_OK = "Ready: everything needed is filled in."
 COMMENT_MIN = 10
 # releases panel (gui/releases_panel.py)
-REL_ACCESSIBLE = "Releases and change control"
+REL_ACCESSIBLE = "Versions and change control"
 REL_HARNESS = "Harness"
 REL_ALL = "All harnesses"
 REL_HARNESS_ITEM = "{0} — {1} (version {2})"
@@ -1157,7 +1166,14 @@ PENDING_LINK_TIP = "Show the design rules that were not checked because a value 
 PENDING_LINK_NAME = "Pending values"
 # engineering value dialog
 CONFIG_TITLE = "Engineering values"
-CONFIG_INTRO = "These values come from your programme's standard. By default the tool supplies no number itself; the optional standard profiles fill values from a standard, and they stay placeholders until you review them. A value you type here is stored in the project's config files."
+CONFIG_INTRO = (
+    "These values come from your programme's standard. By default the tool supplies no number "
+    "itself; the optional standard profiles fill values from a standard, and they stay "
+    "placeholders until you review them. This window cannot apply a profile: on the command "
+    "line run harness-design-studio config DIR --apply-profile NAME (ecss-q-st-30-11c or "
+    "ecss-e-st-20-07c), then open the project again. A value you type here is stored in the "
+    "project's config files."
+)
 CONFIG_ONLY_MISSING = "Only values that are still missing"
 CONFIG_FILE_GROUP = "config/{}.json"
 CONFIG_PLACEHOLDER_TOGGLE = "Values in this file are placeholders (not reviewed)"
@@ -1237,7 +1253,7 @@ TAB_DIAGRAM = "Diagram"
 TAB_HARNESS = "Harness"
 TAB_LISTS = "Lists"
 TAB_CHECKS = "Checks"
-TAB_RELEASES = "Releases"
+TAB_RELEASES = "Versions"
 TAB_INSPECTOR = "Inspector"
 TAB_PROBLEMS = "Problems"
 TAB_PROJECT = "Project"
@@ -1330,7 +1346,7 @@ A_GO_DIAGRAM = "Go to Diagram"
 A_GO_HARNESS = "Go to Harness"
 A_GO_LISTS = "Go to Lists"
 A_GO_CHECKS = "Go to Checks"
-A_GO_RELEASES = "Go to Releases"
+A_GO_RELEASES = "Go to Versions"
 A_GO_HARNESS_ID = "Go to harness"
 A_VALUES = "Engineering values…"
 A_VALUES_TIP = "Supply the values the design rules are waiting for"
@@ -1977,6 +1993,8 @@ CRUMB_SEPARATOR = "  ›  "
 CRUMBS_NAME = "Where you are"
 TB_REVISION = "v{}"  # the short form of Q32 (D-242), as the harness view chips: Draft · v1.1.0
 TB_REVISION_TIP = "The versions of the harnesses, lowest to highest ({})"
+GO_NEXT = "Go to Next step"
+GO_NEXT_TIP = "Open the Next step page: the one thing to do now, and the steps of the work"
 GO_HOME = "Go to Home"
 GO_SETTINGS = "Go to Settings"
 HOME_TITLE = "Home"
@@ -2708,6 +2726,9 @@ A_PROBLEM_NOTICES_TIP = (
     "The Check button, the Checks, the Problems panel and the read-only, locked and sample "
     "banners always stay."
 )
+A_PROBLEM_NOTICES_QUICK_TIP = (
+    "Quick mode hides the problem notices. Leave Quick mode (View > Quick mode) to choose here."
+)
 SETTINGS_PROBLEM_NOTICES = "Show problem notices"
 SETTINGS_PROBLEM_NOTICES_TIP = (
     "Show the Problems count, the status chips, the badges on the diagram and the out-of-date "
@@ -2986,7 +3007,18 @@ LINK_END_PINS = ("{0} of 1 pin", "{0} of {1} pins")
 LINK_TIP_PATH = "Path"
 A_LINK_SHOW_HARNESS = "Show the harness"
 A_LINK_SHOW_HARNESS_TIP = "Open the harness that was made from this connection in the Harness tab"
-A_LINK_SHOW_HARNESS_NONE = "No harness has been made from this connection yet"
+A_LINK_SHOW_HARNESS_NONE = "No harness has been made from this connection yet."
+# a disabled entry of Edit > Selected connection says why (5.1.0)
+WHY_SELECT_CONNECTION = "Select a connection in the diagram first."
+WHY_LINK_HAS_HARNESS = "A harness has already been made from this connection."
+WHY_LINK_NO_PAIRS = "This connection has no pin pairs yet: edit the pairs first."
+M_CONNECTION_TIP = (
+    "Edit, rename or delete the connection selected in the diagram, or make its harness"
+)
+A_LINK_EDIT_TIP = "Edit the pin pairs of the selected connection"
+A_LINK_RENAME_TIP = "Rename the selected connection"
+A_LINK_HARNESS_TIP = "Make a harness from the pin pairs of the selected connection"
+A_LINK_DELETE_TIP = "Delete the selected connection"
 
 # ---- the library (workshop M4, D-175) ----------------------------------------------------------
 A_LIBRARY = "Library…"
@@ -3492,6 +3524,21 @@ LOOSE_REASON_TIP = (
     "Kept in the change log and the baseline (command line: --accept-loose-ends REASON)."
 )
 HINT_LOOSE_REASON = "write why the loose ends are accepted"
+# the release window under the gate on as-built records (setting naming.release_requires_asbuilt)
+ASBUILT_GATE_WARNING = (
+    "This project requires complete as-built records for a release (the setting "
+    "naming.release_requires_asbuilt), and {}. Record what was built on the As-built page (Go > Go "
+    "to As-built), or release anyway with a written reason, which is kept in the change log."
+)
+ASBUILT_GATE_NONE = "{} has no as-built records"
+ASBUILT_GATE_MISSING = "the as-built records of {} are incomplete: {} value(s) missing, {} stale (first: {})"  # fmt: skip
+ASBUILT_GATE_OUT = "{} as-built length(s) of {} are out of tolerance (first: {})"
+ASBUILT_GATE_AND = " and "
+ASBUILT_REASON = "Reason for releasing without complete as-built records (at least 10 characters)"
+ASBUILT_REASON_TIP = (
+    "Kept in the change log and the baseline (command line: --accept-asbuilt REASON)."
+)
+HINT_ASBUILT_REASON = "write why the release goes ahead without complete as-built records"
 # Edit > Cable ends, and the window that asks which end and which port
 M_CABLE_ENDS = "Cable ends"
 A_LEAVE_LOOSE = "Leave a loose end…"

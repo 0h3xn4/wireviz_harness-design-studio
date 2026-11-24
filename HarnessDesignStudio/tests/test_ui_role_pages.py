@@ -63,7 +63,7 @@ def table(qtbot, tmp_path: Path):
 def test_the_rail_of_each_role_is_the_table_of_the_areas(table) -> None:
     _win, rows = table
     assert rows[SYSTEMS]["rail"] == {"next", "model", "checks", "revisions", "settings"}
-    assert rows[ELECTRICAL]["rail"] == {"next", "home", "model", "checks", "drawings", "outputs", "review", "revisions", "settings"}  # fmt: skip
+    assert rows[ELECTRICAL]["rail"] == set(areas.KEYS)  # every area (As-built too since 5.1.0)
     assert rows[AIT]["rail"] == {"next", "home", "checks", "drawings", "outputs", "asbuilt", "review", "revisions", "settings"}  # fmt: skip
     for role in ROLES:  # the window agrees with the pure table
         assert rows[role]["rail"] == set(areas.listed_areas(role))
@@ -82,7 +82,7 @@ def test_no_page_and_no_menu_entry_is_hidden_in_every_role(table) -> None:
     # every entry a role leaves out is listed by another role
     for role in ROLES:
         left_out = {n for n in areas.hidden_actions_in(role) if not n.startswith("menu:")}
-        assert left_out and left_out <= every_action(win), role
+        assert left_out <= every_action(win), role
         assert not (left_out & rows[role]["menus"]), role
         assert left_out <= union, (role, left_out - union)
 
@@ -92,18 +92,26 @@ def test_each_role_lists_what_it_works_with(table) -> None:
     for name in ("act-add-device", "act-generate", "act-check", "act-export", "act-save", "act-open", "act-library", "act-undo", "act-guide", "act-commands"):  # fmt: skip
         for role in ROLES:
             assert name in rows[role]["menus"], (role, name)
-    assert {"act-go-asbuilt", "act-import-asbuilt", "act-export-asbuilt"} <= rows[AIT]["menus"]
-    for role in (SYSTEMS, ELECTRICAL):
-        assert not ({"act-go-asbuilt", "act-import-asbuilt", "act-export-asbuilt"} & rows[role]["menus"])  # fmt: skip
+    for role in (AIT, ELECTRICAL):
+        assert {"act-go-asbuilt", "act-import-asbuilt", "act-export-asbuilt"} <= rows[role]["menus"]
+    # the Systems engineer leaves out the two files of the sheet, as it leaves out the other imports
+    assert not ({"act-import-asbuilt", "act-export-asbuilt"} & rows[SYSTEMS]["menus"])
+    assert areas.hidden_actions_in(ELECTRICAL) == ()  # the Electrical engineer lists every entry
     for role in ROLES:  # the Review page is in every role's Go menu (REQ-GUI-31)
         assert "act-go-review" in rows[role]["menus"], role
+    # every role's Go menu offers the As-built page, and the AIT engineer's offers the Devices tab
+    # (5.1.0, the owner's instruction of 2026-11-24: no feature hidden from a role's own work)
+    for role in ROLES:
+        assert "act-go-asbuilt" in rows[role]["menus"], role
+        assert "asbuilt" in rows[role]["rail"] or "act-go-asbuilt" in rows[role]["menus"], role
+    assert "act-go-devices" in rows[AIT]["menus"]
     # the Electrical engineer lists everything the old role listed; the AIT engineer leaves out the diagram edits
     gone = (
         rows[ELECTRICAL]["menus"] - rows[AIT]["menus"]
     )  # (the submenu "Connect with an interface type" goes whole)
     named = {n for n in areas.AIT_HIDDEN_ACTIONS if not n.startswith("menu:")}
     assert gone == named | {n for n in gone if n.startswith("menu-connect-")}, gone ^ named
-    assert len(areas.SYSTEMS_HIDDEN_ACTIONS) == 42 and len(areas.AIT_HIDDEN_ACTIONS) == 30
+    assert len(areas.SYSTEMS_HIDDEN_ACTIONS) == 40 and len(areas.AIT_HIDDEN_ACTIONS) == 28
 
 
 def test_what_a_role_leaves_out_is_still_in_the_command_palette(table) -> None:
@@ -174,3 +182,84 @@ def test_the_pending_values_are_said_on_the_next_step_page_in_every_role(qtbot, 
     )  # the old link is off
     win.next_page.pending_button.click()
     assert opened == [1]
+
+
+def disabled_without_reason(win) -> list[str]:
+    """The visible, disabled menu entries (submenus included) whose tooltip gives no reason. A reason
+    is a sentence: the tooltip, without the shortcut in brackets at its end, ends with a full stop
+    (the action's own name, or a tooltip that only says what the entry does, is not a reason)."""
+    out: list[str] = []
+
+    def reason(a: QAction) -> bool:
+        tip = a.toolTip().strip()
+        key = a.shortcut().toString()
+        if key and tip.endswith(f" ({key})"):
+            tip = tip[: -len(key) - 3].strip()
+        return tip.endswith(".") and tip != a.text().replace("&", "")
+
+    def walk(menu: QMenu) -> None:
+        for a in menu.actions():
+            if a.isSeparator() or not a.isVisible():
+                continue
+            if not a.isEnabled() and not reason(a):
+                out.append(f"{a.text()!r} ({a.objectName() or 'submenu'}): {a.toolTip()!r}")
+            if a.menu() is not None:
+                walk(a.menu())
+
+    for top in win.menuBar().actions():
+        walk(top.menu())
+    return out
+
+
+def test_no_visible_disabled_menu_entry_lacks_a_reason(qtbot, tmp_path: Path) -> None:
+    """F10 of the feature audit of 5.1.0: every entry that is off says why in its tooltip, and the
+    menus show the tooltips (a project with harnesses and no release: *Show changes of harness…* is
+    off; nothing is selected: the *Selected connection* submenu is off; nothing to undo)."""
+    win = make_window(tmp_path)
+    qtbot.addWidget(win)
+    assert win.ctl.project.harnesses and not win.ctl.project.baselines
+    for role in ROLES:
+        for quick in (False, True):
+            win.set_role(role)
+            if win.quick_on() != quick:
+                win.act_quick.trigger()
+            QApplication.processEvents()
+            assert disabled_without_reason(win) == [], (role, quick)
+    if win.quick_on():
+        win.act_quick.trigger()
+    assert not win.act_changes.isEnabled() and win.act_changes.toolTip() == strings.CHANGES_NONE_TIP  # fmt: skip
+    assert not win.menu_connection.isEnabled()
+    assert win.menu_connection.menuAction().toolTip() == strings.WHY_SELECT_CONNECTION
+    assert win.act_link_edit.toolTip() == strings.WHY_SELECT_CONNECTION
+    menus = [t.menu() for t in win.menuBar().actions() if t.menu() is not None]
+    while menus:  # every menu of the menu bar and every submenu shows the tooltips
+        menu = menus.pop()
+        assert menu.toolTipsVisible(), menu.title()
+        menus.extend(a.menu() for a in menu.actions() if a.menu() is not None)
+
+
+def test_every_area_has_a_go_entry_in_every_role_with_quick_mode_off_and_on(qtbot, tmp_path: Path) -> None:  # fmt: skip
+    """A role hides tools, never places (the owner's instruction of 2026-11-24): the Go menu of every
+    role lists an entry for every area (the Model: Diagram and Devices), Quick mode or not, each
+    enabled and in the command palette; *Go to Next step* opens the Next step page."""
+    assert set(areas.GO_ACTIONS) == set(areas.KEYS)
+    win = make_window(tmp_path)
+    qtbot.addWidget(win)
+    go_menu = win.menu_go
+    for role in ROLES:
+        for quick in (False, True):
+            win.set_role(role)
+            if win.quick_on() != quick:
+                win.act_quick.trigger()
+            QApplication.processEvents()
+            shown = {a.objectName() for a in go_menu.actions() if a.isVisible()}
+            labels = {e.label for e in win.palette_entries()}
+            for key, names in areas.GO_ACTIONS.items():
+                for name in names:
+                    assert name in shown, (role, quick, key, name)
+                    act = next(a for a in win.findChildren(QAction) if a.objectName() == name)
+                    assert act.isEnabled() and act.text().replace("&", "") in labels, (role, quick, name)  # fmt: skip
+            win.set_area("home")
+            win.act_go_next.trigger()
+            QApplication.processEvents()
+            assert win.area() == "next", (role, quick)

@@ -29,7 +29,7 @@ This page shows how to find out what the tool takes for granted when it makes a 
 harness-design-studio settings wheel-link
 ```
 
-The output has three parts: every setting with its value, then the assumptions built into the tool, then the fixed definitions. In the editor, **Help > Assumptions…** opens the same text in a window (read-only, selectable, with a **Close** button).
+The output has three parts: every setting with its value, then the assumptions built into the tool, then the fixed definitions. In the editor, **Help > Assumptions…** opens the same text in a window (read-only, selectable, with a **Close** button). Its first line says how to change a setting (since 5.1.0): with a field of the editor where the setting has one (**Settings > Project**, **Edit > Wire colours…**, **Design > Engineering values…**), else on the command line with `harness-design-studio settings DIR --set FILE.KEY=VALUE` ([section 3](#3-change-a-setting) below).
 
 ## 2. Read a line
 

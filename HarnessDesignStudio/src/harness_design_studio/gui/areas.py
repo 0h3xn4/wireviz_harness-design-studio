@@ -40,25 +40,42 @@ AREAS: Final[tuple[Area, ...]] = (
 KEYS: Final[tuple[str, ...]] = tuple(a.key for a in AREAS)
 PAGES: Final[tuple[str, ...]] = tuple(a.key for a in AREAS if not a.tabs)  # not backed by a tab
 DEFAULT: Final[str] = "model"
-# What the rail lists for each role (S9). A role is a view, never a permission: the area stays in
-# the View and Go menus, the command palette and the buttons of the Next step page, and the rail lists
-# the one that is open. The Systems engineer role has Next step instead of Home and leaves out the
+# What the rail lists for each role (S9). A role is a view, never a permission, and it hides tools,
+# never places (owner instruction 2026-11-24): every area has an entry in the Go menu of every role
+# (`GO_ACTIONS`), the command palette runs it, and the rail lists the one that is open. The Systems engineer role has Next step instead of Home and leaves out the
 # detail areas (the drawings, the outputs, the as-built records and the Review page of one harness,
 # which its Next step page, the Go menu and the command palette reach; R7 of the design of 4.3.0);
-# the Electrical engineer role lists every area but the as-built records; the AIT role leaves out
-# the Model (the diagram and the devices), which is where the design is edited.
+# the Electrical engineer role lists every area (the as-built records too since 5.1.0, owner
+# instruction 2026-11-24: no feature hidden from the role most people start in); the AIT role leaves
+# out the Model (the diagram and the devices), which is where the design is edited.
 SYSTEMS_HIDDEN: Final[tuple[str, ...]] = ("home", "drawings", "outputs", "asbuilt", "review")
 HIDDEN_AREAS: Final[dict[str, tuple[str, ...]]] = {
     SYSTEMS: SYSTEMS_HIDDEN,
-    ELECTRICAL: ("asbuilt",),
+    ELECTRICAL: (),
     AIT: ("model",),
 }
 # Quick mode (a view setting on top of any role, `ui/quick`) lists three areas whatever the role: the
 # Model (the diagram and the devices), Home (the way to a new or recent project) and Settings. The
 # areas of due diligence (Next step, Checks, Drawings, Outputs, Revisions, As-built) are left out of
-# the rail like a role leaves some out: they stay in the View and Go menus and the command palette,
-# and the rail lists the one that is open.
+# the rail like a role leaves some out: they stay in the Go menu and the command palette, and the
+# rail lists the one that is open.
 QUICK_LISTED: Final[tuple[str, ...]] = ("home", "model", "settings")
+
+
+# The Go menu entry that opens each area (the Model has two, the Diagram and the Devices tab). No
+# role leaves one of them out: a test walks every role, with Quick mode off and on.
+GO_ACTIONS: Final[dict[str, tuple[str, ...]]] = {
+    "next": ("act-go-next",),
+    "home": ("act-go-home",),
+    "model": ("act-go-diagram", "act-go-devices"),
+    "checks": ("act-go-checks",),
+    "drawings": ("act-go-harness",),
+    "outputs": ("act-go-lists",),
+    "asbuilt": ("act-go-asbuilt",),
+    "review": ("act-go-review",),
+    "revisions": ("act-go-releases",),
+    "settings": ("act-go-settings",),
+}
 
 
 # The menu entries the Systems engineer role does not list (Release 1.9, W1). The names are the
@@ -79,16 +96,21 @@ SYSTEMS_HIDDEN_ACTIONS: Final[tuple[str, ...]] = (
     "act-connection-ends", "act-zoom-100", "act-zoom-selection", "act-arrange",
     # Design: revisions of a harness and the engineering values
     "act-revise", "act-changes", "act-history", "act-delete-harness", "act-values",
-    # Go: the detail views and the two lists the side panels hold
-    "act-go-harness", "act-go-lists", "act-go-interfaces", "act-go-units",
+    # Go: the two lists the side panels hold (the Go entries of the areas stay since 5.1.0)
+    "act-go-interfaces", "act-go-units",
 )  # fmt: skip
 
 
-# The as-built entries: the page, the import of a filled-in sheet and the sheet to fill in. Only the
-# AIT role lists them in the menus; the command palette runs them in every role.
+# The as-built entries: the page, the import of a filled-in sheet and the sheet to fill in. Since
+# 5.1.0 (owner instruction 2026-11-24) every role lists *Go to As-built* in its Go menu, as every
+# role lists *Go to Review*; the Systems engineer role leaves out the two files of the sheet, as it
+# leaves out the other imports of lists. The command palette runs all three in every role.
 ASBUILT_ACTIONS: Final[tuple[str, ...]] = ("act-go-asbuilt", "act-import-asbuilt", "act-export-asbuilt")  # fmt: skip
+ASBUILT_FILE_ACTIONS: Final[tuple[str, ...]] = ("act-import-asbuilt", "act-export-asbuilt")
 # What the AIT role does not list: the editing of the diagram (the tools, the alignment, the
-# drawing options of the View menu), the way back to the diagram and the two lists beside it.
+# drawing options of the View menu) and the two lists beside it. *Go to Diagram* and *Go to
+# Devices* stay (owner instruction 2026-11-24: a role hides tools, never places); the AIT engineer
+# enters the contact of each pin of a generated harness on the Devices tab.
 AIT_HIDDEN_ACTIONS: Final[tuple[str, ...]] = (
     "act-select-all", "act-duplicate", "act-redundant", "act-new-interface", "act-add-zone",
     "act-align-left", "act-align-hcenter", "act-align-right", "act-align-top",
@@ -96,11 +118,11 @@ AIT_HIDDEN_ACTIONS: Final[tuple[str, ...]] = (
     "act-distribute-vertical", "menu:align", "menu:distribute", "menu:connect-with-type",
     "act-guided", "act-expert", "act-minimap", "act-legend", "act-snap", "act-labels",
     "act-connection-ends", "act-zoom-100", "act-zoom-selection", "act-arrange",
-    "act-go-diagram", "act-go-devices", "act-go-interfaces", "act-go-units",
+    "act-go-interfaces", "act-go-units",
 )  # fmt: skip
 HIDDEN_ACTIONS: Final[dict[str, tuple[str, ...]]] = {
-    SYSTEMS: (*SYSTEMS_HIDDEN_ACTIONS, *ASBUILT_ACTIONS),
-    ELECTRICAL: ASBUILT_ACTIONS,
+    SYSTEMS: (*SYSTEMS_HIDDEN_ACTIONS, *ASBUILT_FILE_ACTIONS),
+    ELECTRICAL: (),
     AIT: AIT_HIDDEN_ACTIONS,
 }
 
@@ -131,7 +153,7 @@ def hidden_actions_in(role: str) -> tuple[str, ...]:
 
 def hidden_in(role: str, quick: bool = False) -> tuple[str, ...]:
     """The areas the rail does not list for a role (with Quick mode on: for any role, every area
-    but `QUICK_LISTED`). They still exist: the View and Go menus, their keys, the buttons of the
+    but `QUICK_LISTED`). They still exist: the Go menu, their keys, the buttons of the
     Next step page and the command palette reach them, and the rail lists the one that is open."""
     if quick:
         return tuple(a.key for a in AREAS if a.key not in QUICK_LISTED)

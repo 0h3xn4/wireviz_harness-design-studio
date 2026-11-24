@@ -32,13 +32,15 @@ The workshop of October 2026 said the tool is too crowded, that a user feels ove
 |---|---|---|---|
 | Thinks in | devices, the connections between devices, subsystems, the library, the checks | connectors, pinouts, harnesses, wires, the engineering values and the models | the build data, the build sheets, the outputs, the as-built records, the workflow |
 | A project opens on | the **Next step** page | the diagram (**Model**) | the **Next step** page |
-| Rail | Next step, Model, Checks, Versions, Settings | Next step, Home, Model, Checks, Drawings, Outputs, Review, Versions, Settings | Next step, Home, Checks, Drawings, Outputs, As-built, Review, Versions, Settings |
+| Rail | Next step, Model, Checks, Versions, Settings | Next step, Home, Model, Checks, Drawings, Outputs, As-built, Review, Versions, Settings | Next step, Home, Checks, Drawings, Outputs, As-built, Review, Versions, Settings |
 | Side panels (project tree, inspector) | closed until asked for (**Show panels**) | open | open |
 | Minimap, legend, status counts | off | on | on |
 | Tools above the diagram | **Select**, **Connect**, **Add device**, **More** | all of them | all of them |
 | Problem notices | off until you turn them on | on | on |
-| Leaves out of the menus | the engineering entries (42, see below) and the as-built entries | the as-built entries | the editing of the diagram (30 entries) |
-| Needs nothing else | the **Connections** group of the project tree, **File > Library…** and the **Library…** button of the Next step page are there | everything else is there | the **As-built records…** button on the Next step page, **Go > Go to As-built** and **File > Import > Import as-built sheet…** are there |
+| Leaves out of the menus | the engineering entries (40, see below) and the two files of the as-built sheet | nothing | the editing of the diagram (28 entries) |
+| Needs nothing else | the **Connections** group of the project tree, **File > Library…** and the **Library…** button of the Next step page are there | everything else is there | the **As-built records…** button on the Next step page, **Go > Go to As-built**, **File > Import > Import as-built sheet…** and **Go > Go to Devices** (for the cable contact of each pin) are there |
+
+**Since 5.1.0** (the owner's instruction of 2026-11-24: no feature is hidden from a role's own work) the Electrical engineer lists the **As-built** area and its entries, every role has **Go > Go to As-built**, and the AIT engineer has **Go > Go to Devices**, where the cable contact of each pin is entered. A role hides tools, never places: the **Go** menu of every role, Quick mode or not, has an entry for every area, **Go > Go to Next step** included (new in 5.1.0, also in Ctrl+K).
 
 No role locks anything. A role is only what you see first; everything a role leaves out is still in the menus, on its keys and in the command palette (Ctrl+K), and the **Next step** page is reachable in all three (it is the first item of the rail).
 
@@ -77,11 +79,11 @@ A role is a named set of the pages on the rail and the entries of the menus. The
 |---|---|---|---|
 | Next step | listed | listed | listed |
 | Home | `Go > Go to Home` | listed | listed |
-| Model (diagram, devices) | listed | listed | `Go > Go to Diagram` is not listed; Ctrl+1 and the palette reach it |
+| Model (diagram, devices) | listed | listed | `Go > Go to Diagram` (Ctrl+1) and `Go > Go to Devices` (Ctrl+6) |
 | Checks | listed | listed | listed |
-| Drawings | Ctrl+2, the palette | listed | listed |
-| Outputs | Ctrl+3, the palette, the Next step buttons | listed | listed |
-| As-built | `Go > Go to As-built`, the palette | `Go > Go to As-built` is not listed; the palette reaches it | listed |
+| Drawings | `Go > Go to Harness` (Ctrl+2), the palette | listed | listed |
+| Outputs | `Go > Go to Lists` (Ctrl+3), the palette, the Next step buttons | listed | listed |
+| As-built | `Go > Go to As-built`, the palette | listed | listed |
 | Review (since 4.3.0) | **Open the Review page** on the Next step page, `Go > Go to Review`, the palette | listed | listed |
 | Versions | listed | listed | listed |
 | Settings | listed | listed | listed |
@@ -107,7 +109,7 @@ To show less at once, the Systems engineer role starts with these things closed 
 - **After each step you stay where you are (since 1.9).** Adding a device, generating, creating a harness from a connection and adding library devices leave the Systems engineer on the Next step page or the diagram, not in a detail tab.
 - **More** holds the other tools: *Create redundant copy*, *Delete*, *Zoom out*, *Zoom in*, *Fit all*, *Arrange diagram*, and a **Show only** menu (all interfaces, by signal class, by connector, by bundle).
 - **Show panels** (a button in the top bar, and **Show side panels** first in the View menu) opens or closes the project tree and the inspector together. It is only there for the Systems engineer. The project tree has the **Connections** group (see [connect two connectors](connect-two-connectors.md)).
-- **Home, Drawings, Outputs and Review are not listed in the rail**, but they are reachable: **Go > Go to Home** (Ctrl+7); **Go to Harness** (Ctrl+2) and **Go to Lists** (Ctrl+3), which the Systems engineer's **Go** menu does not list since 1.9 but which work on their keys and in the command palette; and the buttons of the Next step page (**Open the Review page**, **Open the Outputs**); the Review page also from **Go > Go to Review**. The area you are in is always listed, and goes from the rail again when you leave it. The library is **File > Library…** (Ctrl+Shift+O), the **Library…** button of the Next step page and the command palette.
+- **Home, Drawings, Outputs and Review are not listed in the rail**, but they are reachable: **Go > Go to Home** (Ctrl+7); **Go > Go to Harness** (Ctrl+2) and **Go > Go to Lists** (Ctrl+3), which the Systems engineer's **Go** menu left out from 1.9 to 5.0 and lists again since 5.1.0; and the buttons of the Next step page (**Open the Review page**, **Open the Outputs**); the Review page also from **Go > Go to Review**. The area you are in is always listed, and goes from the rail again when you leave it. The library is **File > Library…** (Ctrl+Shift+O), the **Library…** button of the Next step page and the command palette.
 - **Show everything**, under the steps of the Next step page, switches to the Electrical engineer role and opens the Model area.
 - Selecting something with the inspector closed shows a short message once per window with a **Show panels** button. Opening a problem from the Problems panel or a check opens the inspector by itself.
 - **Problem notices are off for the Systems engineer.** Without them the window does not show a problem count, a status chip or badges until you ask: press **Check** (F5), open the **Checks** area (**Show the problems** on the Next step page does it) or the Problems panel (Ctrl+Shift+M). To see them anyway, choose **View > Show problem notices**; each role remembers its own choice, so this does not change the Electrical engineer. What says why something cannot be done (read-only, locked, damaged files, the sample project) is not a problem notice and stays. See [read and fix problems](read-and-fix-problems.md#turn-the-problem-notices-off).

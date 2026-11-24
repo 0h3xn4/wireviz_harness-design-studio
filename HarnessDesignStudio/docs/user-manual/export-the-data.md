@@ -118,6 +118,8 @@ By hand, for wire `W001-001` of the `flatsat` example, from one row of `wire_siz
 
 The files above carry no time and no name, on purpose: that is what makes them comparable. A reviewer still wants to know when a set of files was made and by whom. That goes in a file of its own, **written only when you ask**, beside the files and never inside one:
 
+The run record is **command line only** (`--run-record` on `export-data`, `export` and `generate`); the Export window of the app does not write it.
+
 ```
 harness-design-studio export-data wheel-link --out wheel-link-data --run-record --author "A. Engineer"
 harness-design-studio export wheel-link --run-record

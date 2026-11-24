@@ -38,7 +38,7 @@ When the system is described by devices and interfaces, let Generate make the ha
 ## 1. Start with nothing
 
 1. **File > New project…**, choose an empty folder, type a name, keep the example *blank*.
-2. Choose **Drawings** on the rail (Ctrl+2). The Harness tab says *No harnesses yet* and offers **New harness…**. (The Systems engineer's rail does not list Drawings, and that role's **Go** and **Edit** menus leave out **Go to Harness** and **New harness…**; on an empty project its Next step page offers *or make a harness by hand* with the same button, and the keys Ctrl+2 and Ctrl+Shift+H and the command palette, Ctrl+K, still work.)
+2. Choose **Drawings** on the rail (Ctrl+2). The Harness tab says *No harnesses yet* and offers **New harness…**. (The Systems engineer's rail does not list Drawings, and that role's **Edit** menu leaves out **New harness…**; **Go > Go to Harness** opens the area; on an empty project its Next step page offers *or make a harness by hand* with the same button, and the keys Ctrl+2 and Ctrl+Shift+H and the command palette, Ctrl+K, still work.)
 
 ## 2. Make the harness
 
