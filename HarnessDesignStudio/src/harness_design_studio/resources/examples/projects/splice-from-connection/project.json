@@ -2,5 +2,5 @@
   "description": "The connection L1 joins one PWR pin and one RTN pin of PCDU1 to two pins each of OBC1 (two junctions), so its harness W001 gets the splices W001-X1 and W001-X2; the pin currents say 4 A on the trunk and 2 A on each branch. The manual pages Connect two connectors and Splices explain it.",
   "name": "Splice from a connection (EXAMPLE)",
   "schema_version": 5,
-  "tool_version": "5.0.0"
+  "tool_version": "5.1.0"
 }

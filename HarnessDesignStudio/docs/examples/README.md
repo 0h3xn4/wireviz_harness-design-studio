@@ -33,7 +33,7 @@ In the app, **File > New project from an example…** makes a project from any o
 
 ## Which build do you have?
 
-`harness-design-studio --version` prints `harness 5.0.0` for this version (1.0.0 to 5.0.0 list the same five examples; 5.1.0 lists them under the heading `Start:` and adds the group *Feature examples*). If you still have the 0.1.0 packages, you can tell them by the examples they have. Ask the tool:
+`harness-design-studio --version` prints `harness 5.1.0` for this version (1.0.0 to 5.0.0 list the same five examples; 5.1.0 lists them under the heading `Start:` and adds the group *Feature examples*). If you still have the 0.1.0 packages, you can tell them by the examples they have. Ask the tool:
 
 ```
 harness-design-studio new --list

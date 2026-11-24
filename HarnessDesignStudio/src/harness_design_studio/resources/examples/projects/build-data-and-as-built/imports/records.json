@@ -93,7 +93,7 @@
       "rows_read": 20,
       "sha256": "c3b6a52a012112748520f1c656ce9d20b7daad8569036d600364f925d502a42d",
       "source_name": "W001-asbuilt-EXAMPLE.csv",
-      "tool_version": "5.0.0"
+      "tool_version": "5.1.0"
     }
   ]
 }

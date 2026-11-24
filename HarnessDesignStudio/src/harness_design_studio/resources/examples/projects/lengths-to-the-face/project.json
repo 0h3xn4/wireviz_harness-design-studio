@@ -2,5 +2,5 @@
   "description": "The segment lengths of this project run to the mating face of the cable connectors (Settings > Project, Segments are measured to), as a mechanical model gives them; W002-P2 is measured to its rear. The depth of each connector part and of the backshell W001-A1 on W001-P1 is taken off each wire, so a wire length stays a length from rear to rear. The length model adds a cut allowance and the take-up of twisting. Look at the length note, segments.csv and explain DIR W001-001; the manual page Lengths to the face explains it.",
   "name": "Lengths to the face (EXAMPLE)",
   "schema_version": 5,
-  "tool_version": "5.0.0"
+  "tool_version": "5.1.0"
 }
