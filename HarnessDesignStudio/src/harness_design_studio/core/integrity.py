@@ -439,7 +439,9 @@ def _check_parts_and_records(project: Project) -> list[Issue]:
 
 def _check_links(project: Project) -> list[Issue]:
     """Links (M2): both connectors exist and belong to two different devices, every paired pin
-    exists, no pin is paired twice (in the link or in another link), the harness exists."""
+    exists, no pin is paired in two links, the harness exists. Since format 5 a pin may be in
+    several pairs of one link (a junction or a parallel pair, section 6.1 of the design of 5.0.0);
+    a tool of format 4 reads that as `link_pin_reused`."""
     out: list[Issue] = []
     used: dict[tuple[str, str], str] = {}  # (connector, pin) -> the first link that pairs it
     claimed: dict[str, str] = {}  # harness -> the first link that says it made it
@@ -466,7 +468,7 @@ def _check_links(project: Project) -> list[Issue]:
                     out.append(_err("link_pin_missing", f"Link '{link.id}' pairs pin '{pid}' of connector '{cid}', but that pin does not exist. Change the pairing or add the pin.", link.id))  # fmt: skip
                 key = (cid, pid)
                 if key in mine:
-                    out.append(_err("link_pin_reused", f"Link '{link.id}' pairs pin '{pid}' of connector '{cid}' more than once. A pin belongs to one pair.", link.id))  # fmt: skip
+                    pass  # a junction or a parallel pair (format 5): the review of the link judges it
                 elif key in used and used[key] != link.id:
                     out.append(_err("link_pin_reused", f"Pin '{pid}' of connector '{cid}' is paired in link '{used[key]}' and in link '{link.id}'. A pin belongs to one link.", link.id))  # fmt: skip
                 mine.add(key)

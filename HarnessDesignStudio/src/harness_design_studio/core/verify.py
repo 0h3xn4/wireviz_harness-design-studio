@@ -528,12 +528,42 @@ def _expected_signal(x: str | None, y: str | None) -> set[str | None]:
     return {a or b or None}
 
 
+def _joined_through(h: Harness, ca: str, cb: str) -> dict[tuple[str, str], list[str]]:
+    """The pairs (a pin of `ca`, a pin of `cb`) that a net of the harness joins through a splice,
+    each with the splices of its net (format 5, section 6.3 of the design of 5.0.0): every pin of
+    `ca` in such a net with every pin of `cb` in it. Worked out with this module's own nets."""
+    splices = _splices_of(h)
+    out: dict[tuple[str, str], list[str]] = {}
+    if not splices:
+        return out
+    for pins, _ids in splice_nets(h):
+        on = sorted({cid for cid, _pid in pins if cid in splices})
+        if not on:
+            continue
+        xs = sorted(pid for cid, pid in pins if cid == ca)
+        ys = sorted(pid for cid, pid in pins if cid == cb)
+        for x in xs:
+            for y in ys:
+                out.setdefault((x, y), on)
+    return out
+
+
+def _words_and(items: Sequence[str]) -> str:
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
 def link_issues(project: Project) -> list[Issue]:
     """Errors for a harness made from a link that no longer carries what the link pairs: the pins
     through the two cable connectors and the signals must be the link's. Only links that name a
     harness are checked (`Link.harness_id`); a link with no harness has nothing to compare. It
     reads the link, the harness and the device pins as saved, and shares no code with the planner
-    that made the harness."""
+    that made the harness.
+
+    By nets (format 5, section 6.3 of the design of 5.0.0): a wire between a pin of each cable
+    connector counts once for its two pins (so a parallel pair is two wires), and a net that runs
+    through a splice joins each pin of one cable connector in it with each of the other, once,
+    where no wire joins the two directly. The pairs of the link, as a multiset, must be those. A
+    harness without a splice gives the result of 4.4.0, word for word."""
     out: list[Issue] = []
     for link in sorted(project.links.values(), key=lambda x: x.id):
         h = project.harnesses.get(link.harness_id or "")
@@ -564,6 +594,9 @@ def link_issues(project: Project) -> list[Issue]:
                 continue
             found[key] += 1
             wire_of.setdefault(key, []).append(w)
+        through = {k: v for k, v in _joined_through(h, ca or "", cb or "").items() if not found[k]}
+        for key in through:
+            found[key] += 1
         a, b = (project.connectors.get(box) for box in ends)
         pins_a = {p.id: p for p in a.pins} if a is not None else {}
         pins_b = {p.id: p for p in b.pins} if b is not None else {}
@@ -573,13 +606,15 @@ def link_issues(project: Project) -> list[Issue]:
             between = f"pin {key[0]} of {ends[0]} and pin {key[1]} of {ends[1]}"
             if n_want > n_have:
                 text = f"Link {link.id} pairs {where}, but harness {h.id} has no wire between those pins. Add the wire, or change the pairing of the link."  # fmt: skip
+            elif n_have > n_want and key in through:
+                text = f"Harness {h.id} joins {between} through {_words_and(through[key])}, which link {link.id} does not pair."  # fmt: skip
             elif n_have > n_want:
                 ids = ", ".join(w.id for w in wire_of[key])
                 text = f"Harness {h.id} has {'a wire' if n_have == 1 else 'wires'} {ids} between {between}, which link {link.id} does not pair. Remove the wire, or add the pair to the link."  # fmt: skip
             else:
                 if key[0] in pins_a and key[1] in pins_b:
                     ok = _expected_signal(pins_a[key[0]].signal, pins_b[key[1]].signal)
-                    bad = [w for w in wire_of[key] if w.signal not in ok]
+                    bad = [w for w in wire_of.get(key, []) if w.signal not in ok]
                 else:
                     bad = []
                 if not bad:

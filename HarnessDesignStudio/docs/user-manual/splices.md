@@ -24,7 +24,7 @@ This page shows how to join several wires inside a harness with a splice: a powe
 - Each pin of a splice is a **node**. A node joins every wire that ends on it.
 - A **net** is the set of pins that the wires of a harness join, through every splice on the way. The pins of a net that are not on a splice are its **ends**: the points a technician can probe.
 - A splice is a node of the routing tree, like a connector: a segment can end at it, and its wires take their lengths from the segments ([branching harnesses](branching-harnesses.md#branch-points-and-segments)).
-- Generate makes no splice. A splice belongs in a harness you drew ([build a harness by hand](build-a-harness-by-hand.md)), never in one Generate made or one made from a connection: those own their pairs of pins.
+- Generate makes no splice. You place a splice in a harness you drew ([build a harness by hand](build-a-harness-by-hand.md)), never in one Generate made or one made from a connection: those own their pairs of pins. Since 5.0.0 a harness made from a connection gets its splices from the connection itself, one for each junction (one pin paired with several), of the splice part you choose at **Create harness** ([connect two connectors](connect-two-connectors.md#a-junction-one-pin-to-several-since-500)); the outputs below apply to it too.
 
 ## Before you start
 

@@ -1,4 +1,4 @@
-# harness-design-studio 4.4.1 model 77a712dfec15
+# harness-design-studio 4.4.1 model e73ab73cc754
 # harness-design-studio 4.4.1. Provided as is, without warranty. Verify before use.
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare,Current (A)
 DEV1-J01,box,,EX-MICROD-25-F,1,TX+,IF-001,W001-001,no,2
@@ -151,3 +151,53 @@ DEV6-J01,box,,EX-MICROD-25-F,22,,,,yes,
 DEV6-J01,box,,EX-MICROD-25-F,23,,,,yes,
 DEV6-J01,box,,EX-MICROD-25-F,24,,,,yes,
 DEV6-J01,box,,EX-MICROD-25-F,25,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,1,PWR,,W003-002,no,2
+OBC1-J01,box,,EX-MICROD-25-F,2,PWR,,W003-003,no,2
+OBC1-J01,box,,EX-MICROD-25-F,3,PWR,,W003-004,no,2
+OBC1-J01,box,,EX-MICROD-25-F,4,RTN,,W003-006,no,2
+OBC1-J01,box,,EX-MICROD-25-F,5,RTN,,W003-007,no,2
+OBC1-J01,box,,EX-MICROD-25-F,6,RTN,,W003-008,no,2
+OBC1-J01,box,,EX-MICROD-25-F,7,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,8,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,9,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,10,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,11,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,12,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,13,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,14,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,15,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,16,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,17,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,18,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,19,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,20,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,21,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,22,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,23,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,24,,,,yes,
+OBC1-J01,box,,EX-MICROD-25-F,25,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,1,PWR,,W003-001,no,6
+PCDU1-J01,box,,EX-MICROD-25-F,2,RTN,,W003-005,no,6
+PCDU1-J01,box,,EX-MICROD-25-F,3,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,4,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,5,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,6,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,7,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,8,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,9,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,10,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,11,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,12,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,13,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,14,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,15,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,16,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,17,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,18,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,19,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,20,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,21,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,22,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,23,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,24,,,,yes,
+PCDU1-J01,box,,EX-MICROD-25-F,25,,,,yes,

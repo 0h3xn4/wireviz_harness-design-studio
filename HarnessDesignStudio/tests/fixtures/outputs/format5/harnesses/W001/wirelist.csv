@@ -1,4 +1,4 @@
-# harness-design-studio 4.4.1 model 77a712dfec15
+# harness-design-studio 4.4.1 model e73ab73cc754
 # harness-design-studio 4.4.1. Provided as is, without warranty. Verify before use.
 Wire,Signal,Interface,From connector,From pin,To connector,To pin,AWG,Part,Colour,Length (m),Shield group,Locked
 W001-001,TX+/RX+,IF-001,W001-P1,1,W001-P3,3,pending,EX-WIRE-TWISTED-SHIELDED,,2.02,W001-S1,

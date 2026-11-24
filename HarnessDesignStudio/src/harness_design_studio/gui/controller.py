@@ -2016,11 +2016,12 @@ class EditorController(QObject):
         self.select_link(link_id)
         return True
 
-    def create_harness_from_link(self, link_id: str) -> str | None:
+    def create_harness_from_link(self, link_id: str, splice_part: str | None = None) -> str | None:
         """The one button that makes a harness from a connection (one undo step). Returns the
-        harness ID, or None when it was refused."""
+        harness ID, or None when it was refused. A connection with a junction (format 5) needs the
+        splice part the person chose."""
         try:
-            ops, hid = links.plan_create_harness(self.project, link_id)
+            ops, hid = links.plan_create_harness(self.project, link_id, splice_part)
         except (HarnessError, ValidationError) as exc:
             self.message.emit(_plain(exc), False)
             return None

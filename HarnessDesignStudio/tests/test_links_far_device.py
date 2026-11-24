@@ -30,6 +30,7 @@ from harness_design_studio.core.model import (
     evolve,
 )
 from harness_design_studio.core.samples import mini3
+from tests.junction_support import old_review_without_pairs_again, review_as_before
 from tests.reference import links_430 as old
 
 OBC = ["TTC1_TX", "TTC1_RX", "TTC1_PPS", "TTC2_TX", "TTC2_RX", "TTC2_PPS"]
@@ -418,13 +419,14 @@ def test_off_the_proposal_is_the_430_one(data: st.DataObject) -> None:
 def test_off_the_review_is_the_430_one(data: st.DataObject) -> None:
     flag = data.draw(st.sampled_from((None, False)))
     p = data.draw(projects(flag=flag))
-    assert [dataclasses.astuple(f) for f in links.check_links(p)] == [
-        dataclasses.astuple(f) for f in old.check_links(p)
-    ]
+    # a pin in several pairs of one link is a junction since format 5 (tests/junction_support.py)
+    assert review_as_before(links.check_links(p)) == old_review_without_pairs_again(
+        old.check_links(p)
+    )
     for x in p.links.values():
-        assert [dataclasses.astuple(f) for f in links.check_link(p, x)] == [
-            dataclasses.astuple(f) for f in old.check_link(p, x)
-        ]
+        assert review_as_before(links.check_link(p, x)) == old_review_without_pairs_again(
+            old.check_link(p, x)
+        )
 
 
 @settings(max_examples=100, deadline=None)

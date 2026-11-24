@@ -8,7 +8,8 @@
     panel.show_harness(harness)                    # the Harness tab calls it on every refresh
 
 Under the routing: one row per node of each splice (splice, node, part, how its wires are joined,
-the wires on it). It is shown for a harness a person made and for any harness that has a splice.
+the wires on it, and since format 5 the pin currents of its net and whether they add up, a column
+shown while some node has them). It is shown for a harness a person made and for any harness that has a splice.
 *Add splice* places a splice of the part chosen beside it; *Splice this wire* cuts the wire chosen
 in the wire table at the node chosen here; *Delete splice* removes the chosen splice and joins two
 wires on a node back into one. Each is a plan of `core/splices.py` and one undo step; a refusal is
@@ -30,7 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core import splices
+from harness_design_studio.core import currents, splices
 from harness_design_studio.core.commands import Op
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.model import Harness, Project
@@ -43,8 +44,34 @@ from harness_design_studio.gui.wrap_label import FlowRow, WrapLabel, breakable
 # ---- rows (pure, no Qt) ------------------------------------------------------------------------
 
 
-def splice_rows(h: Harness) -> list[dict[str, Any]]:
-    """One row per node of each splice of the harness, by splice ID."""
+def node_currents(project: Project, h: Harness) -> dict[tuple[str, str], str]:
+    """(splice, node) -> the pin currents of the net of the node and whether they add up (format 5,
+    section 6.4 of the design of 5.0.0): `6 A at PCDU1-J01.1; 2 A, 2 A and 2 A at OBC1-J01.1, .2
+    and .3: they add up`. Empty for a project without a pin current, and for a net none of whose
+    pins states one."""
+    if not currents.has_pin_currents(project):
+        return {}
+    out: dict[tuple[str, str], str] = {}
+    for nc in currents.net_currents(project, h):
+        said = currents.currents_text(nc.ends)
+        if not said:
+            continue
+        if nc.status == currents.PARTIAL:
+            text = strings.SP_CURRENTS_PARTIAL.format(said)
+        elif nc.status == currents.UNBALANCED:
+            text = strings.SP_CURRENTS_NOT_ADDING.format(said)
+        else:
+            text = strings.SP_CURRENTS_ADD_UP.format(said)
+        for pin in nc.net.pins:
+            if pin[0] in nc.net.splices:
+                out[pin] = text
+    return out
+
+
+def splice_rows(h: Harness, project: Project | None = None) -> list[dict[str, Any]]:
+    """One row per node of each splice of the harness, by splice ID; with the project, the pin
+    currents of the net of each node (`node_currents`)."""
+    amps = node_currents(project, h) if project is not None else {}
     return [
         {
             "id": f"{sid}.{node}",
@@ -53,6 +80,7 @@ def splice_rows(h: Harness) -> list[dict[str, Any]]:
             "part": part,
             "termination": "" if how == "unspecified" else how,
             "wires": ", ".join(wires) or strings.SP_NO_WIRE,
+            "currents": amps.get((sid, node), ""),
         }
         for sid, node, part, how, wires in splices.node_rows(h)
     ]
@@ -69,7 +97,9 @@ SPLICE_COLUMNS = [
     Column("part", strings.SP_COL_PART, mono=True, width=110),
     Column("termination", strings.SP_COL_TERMINATION, width=80),
     Column("wires", strings.SP_COL_WIRES, mono=True, width=220),
+    Column("currents", strings.SP_COL_CURRENTS, width=320),
 ]
+CURRENTS_COLUMN = len(SPLICE_COLUMNS) - 1
 
 
 class SplicePanel(QWidget):
@@ -159,9 +189,11 @@ class SplicePanel(QWidget):
             self._picked = None
             self._say("")
         self._hid, self._key = h.id, key
-        rows = splice_rows(h)
+        rows = splice_rows(h, self.ctl.project)
         self.model.update_rows(rows)
         self.table.setVisible(bool(rows))
+        # the pin currents of each node's net (format 5): only while some pin states a current
+        self.table.setColumnHidden(CURRENTS_COLUMN, not any(r["currents"] for r in rows))
         parts = splices.splice_parts(self.ctl.project)
         keep = self.part.currentData()
         self.part.blockSignals(True)
@@ -293,4 +325,4 @@ class SplicePanel(QWidget):
         return done
 
 
-__all__ = ["SPLICE_COLUMNS", "SplicePanel", "shows_splices", "splice_rows"]
+__all__ = ["SPLICE_COLUMNS", "SplicePanel", "node_currents", "shows_splices", "splice_rows"]

@@ -97,8 +97,9 @@ def test_a_pair_can_be_changed_added_and_removed(qtbot, tmp_path) -> None:
     dlg.b_pin.setCurrentIndex(dlg.b_pin.findData("4"))  # change it to 1 - 4 (TX+ to RX-)
     dlg.change_pair.click()
     assert dlg.pairs()[0] == ("1", "4")
-    # a pin in two pairs is refused inline, and OK goes off
-    assert not dlg.ok.isEnabled() and "two pairs" in dlg.problem.text()
+    # a pin in two pairs is a junction since format 5: OK stays on and the review names it
+    assert dlg.ok.isEnabled() and not dlg.problem.text()
+    assert "(a junction)" in dlg.review.text()
     dlg.table.selectRow(1)
     dlg.remove_pair.click()
     dlg.table.selectRow(2)

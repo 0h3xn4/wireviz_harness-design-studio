@@ -239,8 +239,16 @@ def case_link_pin_missing(p: Project) -> None:
     _link(p, pairs=[PinPair(a_pin="1", b_pin="99")])
 
 
-def case_link_pin_reused(p: Project) -> None:
-    _link(p, pairs=[PinPair(a_pin="1", b_pin="1"), PinPair(a_pin="1", b_pin="2")])
+def test_a_pin_in_several_pairs_of_one_link_is_no_error_since_format_5() -> None:
+    """A junction and a parallel pair (section 6.1 of the design of 5.0.0): the review of the link
+    judges them (`link_junction`); a tool of format 4 reported `link_pin_reused` here."""
+    for pairs in (
+        [PinPair(a_pin="1", b_pin="1"), PinPair(a_pin="1", b_pin="2")],
+        [PinPair(a_pin="1", b_pin="1"), PinPair(a_pin="1", b_pin="1")],
+    ):
+        p = mini3()
+        _link(p, pairs=pairs)
+        assert "link_pin_reused" not in codes(p)
 
 
 def case_link_pin_reused_across_links(p: Project) -> None:
@@ -264,7 +272,6 @@ def case_link_harness_missing(p: Project) -> None:
 NEGATIVE: list[tuple[str, Callable[[Project], None], str]] = [
     ("dangling_link", case_dangling_link, "dangling_link"),
     ("link_pin_missing", case_link_pin_missing, "link_pin_missing"),
-    ("link_pin_reused", case_link_pin_reused, "link_pin_reused"),
     ("link_pin_reused_across", case_link_pin_reused_across_links, "link_pin_reused"),
     ("link_same_device", case_link_same_device, "link_same_device"),
     ("link_harness_missing", case_link_harness_missing, "unknown_harness"),

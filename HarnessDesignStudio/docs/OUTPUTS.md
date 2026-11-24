@@ -270,7 +270,7 @@ No cell of the *Routing* sheet holds a line break (the sides of a branch point a
 
 ## A splice
 
-A splice (format 3, M6a; design `docs/ait/DESIGN_2.3_BRANCHING.md` section 6.5; [File format](FILE_FORMAT.md#format-3-versions-and-the-fields-of-the-harness-plan-300)) changes the files of its own harness only: every harness without a splice keeps its files byte for byte (`tools.output_hashes --check` and `tools.numbers_snapshot --check` print *identical*; no example holds a splice). A **net** is the set of pins that the wires of a harness join; a node of a splice joins every wire on it, and the pins of the net that are not on a splice are its **ends**.
+A splice (format 3, M6a; design `docs/ait/DESIGN_2.3_BRANCHING.md` section 6.5; [File format](FILE_FORMAT.md#format-3-versions-and-the-fields-of-the-harness-plan-300)) changes the files of its own harness only: every harness without a splice keeps its files byte for byte (`tools.output_hashes --check` and `tools.numbers_snapshot --check` print *identical*; no example holds a splice). A **net** is the set of pins that the wires of a harness join; a node of a splice joins every wire on it, and the pins of the net that are not on a splice are its **ends**. Since 5.0.0 (format 5, part C of `docs/ait/DESIGN_5.0_FORMAT_5.md`) a harness made from a connection with a junction has a splice for each junction ([File format](FILE_FORMAT.md#a-splice-from-a-connection-part-c)), and these outputs apply to it as to a harness drawn by hand; the golden set `format5` holds one (`W003`).
 
 | Output | What a harness with a splice holds |
 | --- | --- |

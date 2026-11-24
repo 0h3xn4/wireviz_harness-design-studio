@@ -4564,3 +4564,23 @@ DV_COL_CURRENT_TIP = (
     "(2, 2 A or 500 mA). The rules judge the contact and the wires of its net with it; empty: not "
     "known, and the interface's current applies."
 )
+
+# ---- 5.0.0 E5, part C: a splice in a harness made from a connection (design of 5.0.0 section 6)
+LINK_REVIEW_INFO = "The connection joins some pins in a junction. You can make it as it is."
+LINK_HARNESS_PREVIEW_SPLICES = (
+    "This adds the harness {name} with {connectors} cable connectors, {splices} splice of "
+    "{part} and {wires} wires, one wire for each pair of {caption} and one from each pin of the "
+    "junction to its splice.",
+    "This adds the harness {name} with {connectors} cable connectors, {splices} splices of "
+    "{part} and {wires} wires, one wire for each pair of {caption} and one from each pin of a "
+    "junction to its splice.",
+)
+LINK_HARNESS_SPLICE_PART = "Splice part"
+LINK_HARNESS_SPLICE_PART_TIP = (
+    "The library part of the splice that joins each junction of the connection (a part of the "
+    "category splice; the program has none of its own)"
+)
+SP_COL_CURRENTS = "Pin currents"
+SP_CURRENTS_ADD_UP = "{0}: they add up"
+SP_CURRENTS_NOT_ADDING = "{0}: they do not add up"
+SP_CURRENTS_PARTIAL = "{0}: not every pin of the net states one"
