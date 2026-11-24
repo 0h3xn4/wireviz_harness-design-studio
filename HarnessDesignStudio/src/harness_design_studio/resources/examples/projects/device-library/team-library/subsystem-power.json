@@ -1,0 +1,519 @@
+{
+  "format": "harness-subsystem-library",
+  "version": 1,
+  "name": "Power",
+  "description": "The power control unit of the team",
+  "notes": "",
+  "devices": [
+    {
+      "unit": {
+        "id": "PCDU1",
+        "name": "Power control unit",
+        "subsystem": "power",
+        "zone": null,
+        "side": "nominal",
+        "mass_relevant": true,
+        "notes": ""
+      },
+      "connectors": [
+        {
+          "id": "PCDU1-J01",
+          "name": "J01",
+          "role": "box",
+          "part_id": "EX-MICROD-9-F",
+          "unit_id": "PCDU1",
+          "gender": "female",
+          "keying": null,
+          "carries": [
+            "power_primary"
+          ],
+          "mates_with": null,
+          "pins": [
+            {
+              "id": "1",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "2",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "3",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "4",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "5",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "6",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "7",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "8",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "9",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            }
+          ],
+          "notes": ""
+        },
+        {
+          "id": "PCDU1-J02",
+          "name": "J02",
+          "role": "box",
+          "part_id": "EX-MICROD-9-F",
+          "unit_id": "PCDU1",
+          "gender": "female",
+          "keying": null,
+          "carries": [
+            "power_primary"
+          ],
+          "mates_with": null,
+          "pins": [
+            {
+              "id": "1",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "2",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "3",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "4",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "5",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "6",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "7",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "8",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "9",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            }
+          ],
+          "notes": ""
+        },
+        {
+          "id": "PCDU1-J03",
+          "name": "J03",
+          "role": "box",
+          "part_id": "EX-MICROD-15-F",
+          "unit_id": "PCDU1",
+          "gender": "female",
+          "keying": null,
+          "carries": [
+            "discrete",
+            "rs422"
+          ],
+          "mates_with": null,
+          "pins": [
+            {
+              "id": "1",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "2",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "3",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "4",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "5",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "6",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "7",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "8",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "9",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "10",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "11",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "12",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "13",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "14",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            },
+            {
+              "id": "15",
+              "signal": null,
+              "contact_size": null,
+              "termination": "unspecified",
+              "locked": false,
+              "interface_id": null,
+              "fixed": false
+            }
+          ],
+          "notes": ""
+        }
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "id": "EX-MICROD-15-F",
+      "category": "connector",
+      "manufacturer": null,
+      "part_number": null,
+      "specification": null,
+      "description": "Micro-D 15-pin, female (example, baseline power and data)",
+      "approval": "pending",
+      "unverified": true,
+      "pin_count": 15,
+      "mates_with": "EX-MICROD-15-M",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "ratings": {},
+      "notes": ""
+    },
+    {
+      "id": "EX-MICROD-15-M",
+      "category": "connector",
+      "manufacturer": null,
+      "part_number": null,
+      "specification": null,
+      "description": "Micro-D 15-pin, male (example, baseline power and data)",
+      "approval": "pending",
+      "unverified": true,
+      "pin_count": 15,
+      "mates_with": "EX-MICROD-15-F",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "ratings": {},
+      "notes": ""
+    },
+    {
+      "id": "EX-MICROD-9-F",
+      "category": "connector",
+      "manufacturer": null,
+      "part_number": null,
+      "specification": null,
+      "description": "Micro-D 9-pin, female (example, baseline power and data)",
+      "approval": "pending",
+      "unverified": true,
+      "pin_count": 9,
+      "mates_with": "EX-MICROD-9-M",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "ratings": {},
+      "notes": ""
+    },
+    {
+      "id": "EX-MICROD-9-M",
+      "category": "connector",
+      "manufacturer": null,
+      "part_number": null,
+      "specification": null,
+      "description": "Micro-D 9-pin, male (example, baseline power and data)",
+      "approval": "pending",
+      "unverified": true,
+      "pin_count": 9,
+      "mates_with": "EX-MICROD-9-F",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "ratings": {},
+      "notes": ""
+    }
+  ],
+  "interface_types": [
+    {
+      "id": "discrete",
+      "name": "Discrete / bilevel",
+      "category": "discrete",
+      "signals": [
+        {
+          "name": "SIG",
+          "direction": "out",
+          "pair": null
+        },
+        {
+          "name": "RTN",
+          "direction": "passive",
+          "pair": null
+        }
+      ],
+      "construction": "single",
+      "impedance_ohm": null,
+      "shielding": "none",
+      "emc_class": null,
+      "default_gauge_awg": null,
+      "unverified": true,
+      "notes": ""
+    },
+    {
+      "id": "power_primary",
+      "name": "Primary power",
+      "category": "power",
+      "signals": [
+        {
+          "name": "PWR",
+          "direction": "passive",
+          "pair": null
+        },
+        {
+          "name": "RTN",
+          "direction": "passive",
+          "pair": null
+        }
+      ],
+      "construction": "twisted_pair",
+      "impedance_ohm": null,
+      "shielding": "none",
+      "emc_class": null,
+      "default_gauge_awg": null,
+      "unverified": true,
+      "notes": ""
+    },
+    {
+      "id": "rs422",
+      "name": "RS-422",
+      "category": "data",
+      "signals": [
+        {
+          "name": "TX+",
+          "direction": "out",
+          "pair": "TX"
+        },
+        {
+          "name": "TX-",
+          "direction": "out",
+          "pair": "TX"
+        },
+        {
+          "name": "RX+",
+          "direction": "in",
+          "pair": "RX"
+        },
+        {
+          "name": "RX-",
+          "direction": "in",
+          "pair": "RX"
+        }
+      ],
+      "construction": "twisted_shielded_pair",
+      "impedance_ohm": null,
+      "shielding": "per_pair",
+      "emc_class": null,
+      "default_gauge_awg": null,
+      "unverified": true,
+      "notes": ""
+    }
+  ],
+  "connections": []
+}

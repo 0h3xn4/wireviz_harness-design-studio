@@ -2,6 +2,8 @@
 
 This page shows how to supply the numbers the tool does not invent (derating factors, wire current ratings, voltage drop, test limits), so that wire gauges get decided and the checks that said "not checked" can run.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template flatsat` makes a generated project with EXAMPLE values, so wire gauges, voltage drops and the current rules show up; `--template overrides-and-deviations` holds the errors `current-over-wire.W002-001` and `voltage-drop.W002-001`, accepted as deviations. Every feature example with *(EXAMPLE)* in its name holds the demo values of the templates, still marked as placeholders ([Examples](examples.md)).
+
 ## Contents
 
 - [Before you start](#before-you-start)

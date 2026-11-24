@@ -77,7 +77,7 @@ def test_the_step_from_3_to_4_is_still_a_step_of_this_tool() -> None:
 
 # The feature example of pin rows (design of 5.1.0, section 4.1) sets a layout on its own EXAMPLE
 # parts; the starter library and every other example still ship none (L3).
-SHOWS_ROW_LAYOUT = {"full-connectors"}
+SHOWS_ROW_LAYOUT = {"full-connectors", "imports-from-files"}  # the latter: as its pinout file says
 
 
 def test_every_fixture_and_example_is_in_the_current_format_without_a_layout() -> None:

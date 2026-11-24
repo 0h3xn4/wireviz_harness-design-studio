@@ -2,6 +2,8 @@
 
 This page shows how to give each signal (power, return, CAN high, ...) a wire colour, so that the wire list and the build workbook show it and the harness drawings (if you export them) draw it. To colour **one wire** only, use the **Edit wire** tab instead ([edit a wire](edit-a-wire.md), since 1.4.0): that wire is locked and keeps its colour whatever the signal rule says.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template flatsat` makes a project whose colours come from the signals (`PWR` red, `RTN` black, `CANH` yellow, `CANL` green); `--template splice-by-hand` has the colours red and black set on the wires drawn by hand.
+
 > **Not in the 0.1.0 packages.** *Edit > Wire colours...*, the *Colour* column set from signals and the coloured wiring-diagram drawing are new in 1.0.0. They are not in the 0.1.0 `.deb` and `.tar.gz`. See the [changelog](../../CHANGELOG.md). `harness-design-studio new --list` shows five examples on 1.0.0 and three on 0.1.0.
 
 ## Before you start

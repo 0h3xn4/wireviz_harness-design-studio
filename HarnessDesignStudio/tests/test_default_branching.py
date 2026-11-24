@@ -48,12 +48,19 @@ TEMPLATE_MODES = {
     "small-satellite": PAIR,
     "flatsat": "per_zone_pair",
     "full-connectors": PAIR,  # one harness per pair of connectors reads easily (design of 5.1.0)
+    "names-and-ports": GROUP,  # OBC1-J01 serves TTC1 and TTC2: one harness that branches
     "splice-by-hand": PAIR,  # no interface: Generate makes nothing, the mode is not used
     "splice-from-connection": PAIR,
     "branching-harness": GROUP,  # the feature: one harness per device connector that serves two
     "loose-cable-end": PAIR,
     "shields-and-ends": PAIR,
     "lengths-to-the-face": PAIR,
+    "released-harness": PAIR,
+    "overrides-and-deviations": PAIR,
+    "device-library": PAIR,
+    "build-data-and-as-built": PAIR,
+    "imports-from-files": PAIR,
+    "extensions": PAIR,
 }
 
 

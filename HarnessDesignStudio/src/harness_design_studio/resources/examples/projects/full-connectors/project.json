@@ -2,5 +2,5 @@
   "description": "A power control unit feeds an on-board computer and a transceiver; the computer talks to the transceiver. Every pin of the six device connectors is fixed and named, so Generate uses them all: no spare pin is left. Each interface is put on its port by hand, because Generate gives the ports of one type in name order.",
   "name": "Full connectors",
   "schema_version": 5,
-  "tool_version": "5.0.0"
+  "tool_version": "5.1.0"
 }

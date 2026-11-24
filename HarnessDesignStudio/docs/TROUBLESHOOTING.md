@@ -60,11 +60,11 @@ bash: line 1: harness-design-studio: command not found
 - **Run from source or pip into a virtual environment (way C):** the environment is not active in this terminal. Run `. .venv/bin/activate` in the folder where you made it.
 - **Nothing installed yet:** start at [`INSTALL.md`](INSTALL.md).
 
-Check with `harness-design-studio --version`; it prints the version, for example `harness 5.0.0`.
+Check with `harness-design-studio --version`; it prints the version, for example `harness 5.1.0`.
 
 ### I am on Windows or a Mac
 
-Version 5.0.0 is supported on **Ubuntu 24.04 or newer, 64-bit x86**, and on **Windows 10 and 11 (64-bit)**, and on nothing else. There are packages for both: see [`INSTALL.md`](INSTALL.md), way A or B for Ubuntu and way D for Windows (decision D-149). The Windows packages are not signed: Windows SmartScreen shows *Windows protected your PC* (**More info**, then **Run anyway**). **macOS was removed in version 1.6.0** (decision D-168): there is no package for it, and nothing is built, tested or supported for it. The releases 1.2.0 to 1.5.0 still carry macOS disk images on GitHub, but they are unmaintained; use them at your own risk. Version 1.1.0 and older run on Ubuntu only. Other Linux distributions and Ubuntu 22.04 and older are not supported. On Ubuntu, check your system with `lsb_release -rs` (must print 24.04 or higher).
+Version 5.1.0 is supported on **Ubuntu 24.04 or newer, 64-bit x86**, and on **Windows 10 and 11 (64-bit)**, and on nothing else. There are packages for both: see [`INSTALL.md`](INSTALL.md), way A or B for Ubuntu and way D for Windows (decision D-149). The Windows packages are not signed: Windows SmartScreen shows *Windows protected your PC* (**More info**, then **Run anyway**). **macOS was removed in version 1.6.0** (decision D-168): there is no package for it, and nothing is built, tested or supported for it. The releases 1.2.0 to 1.5.0 still carry macOS disk images on GitHub, but they are unmaintained; use them at your own risk. Version 1.1.0 and older run on Ubuntu only. Other Linux distributions and Ubuntu 22.04 and older are not supported. On Ubuntu, check your system with `lsb_release -rs` (must print 24.04 or higher).
 
 ### `E: Unable to locate package ./harness-design-studio_...` or `dpkg: dependency problems`
 
@@ -233,10 +233,10 @@ harness-design-studio new x1 --template satellite
 ```
 
 ```
-error: Unknown template 'satellite'. Choose one of: blank, first-steps, minimal-satellite, small-satellite, flatsat, full-connectors, splice-by-hand, splice-from-connection, branching-harness, loose-cable-end, shields-and-ends, lengths-to-the-face.
+error: Unknown template 'satellite'. Choose one of: blank, first-steps, minimal-satellite, small-satellite, flatsat, full-connectors, names-and-ports, splice-by-hand, splice-from-connection, branching-harness, loose-cable-end, shields-and-ends, lengths-to-the-face, released-harness, overrides-and-deviations, device-library, build-data-and-as-built, imports-from-files, extensions.
 ```
 
-Exit code 2. The name after `--template` must be exactly one of the names the message lists. `harness-design-studio new --list` prints them with a one-line description, in two groups: *Start* (the five projects to begin with) and *Feature examples* (since 5.1.0). See [`examples/README.md`](examples/README.md).
+Exit code 2. The name after `--template` must be exactly one of the names the message lists. `harness-design-studio new --list` prints them with a one-line description, in two groups: *Start* (the five projects to begin with) and *Feature examples* (since 5.1.0). See [`examples/README.md`](examples/README.md), and the user manual page [Examples](user-manual/examples.md) for the example of each feature.
 
 ### The same error for `minimal-satellite` or `flatsat`, on the 0.1.0 packages
 

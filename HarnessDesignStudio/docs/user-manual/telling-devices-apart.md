@@ -2,6 +2,8 @@
 
 This page is about what a device looks like on the block diagram. Every device card has a picture of the kind of equipment it is (a battery, a reaction wheel, a computer ...), a colour for the family of that kind and a shape for the badge the picture sits in. By default you do not set any of it: the tool reads it from the name of the device, and you can set the **Kind** by hand when it reads it wrong. The same looks are drawn in the block diagram that `export` writes and in the pictures of **Export diagram**. A project that sets no kind has the same files and the same model hash as before.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template flatsat` makes a bench of 23 flight and ground devices of many kinds; `--template minimal-satellite` makes seven devices of a small spacecraft. [Examples](examples.md) lists the example of each feature.
+
 ## Contents
 
 - [Before you start](#before-you-start)

@@ -1,0 +1,19 @@
+{
+  "name": "naming",
+  "placeholder": false,
+  "values": {
+    "box_connector": "{unit}-J{n:02d}",
+    "cable_connector": "{harness}-P{n}",
+    "far_device_names": true,
+    "harness": "W{n:03d}",
+    "signal_map": {
+      "CAN_H": "CANH",
+      "CAN_L": "CANL",
+      "RXN": "RX-",
+      "RXP": "RX+",
+      "TXN": "TX-",
+      "TXP": "TX+"
+    },
+    "wire": "{harness}-{n:03d}"
+  }
+}

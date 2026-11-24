@@ -2,7 +2,7 @@
 
 This page shows how to make a harness from nothing: no interface, no Generate. You make the harness, add its connectors, and draw its wires. From there it is a harness like any other: it is checked, drawn, listed, reviewed and released.
 
-**Example** (since 5.1.0): `harness-design-studio new practice --template loose-cable-end` makes a finished example of [a cable with a loose end](#a-cable-with-a-loose-end): the Bench cable W002 from the port OBC1-J03 with two loose ends, which `release` holds back until `--accept-loose-ends` gives a reason.
+**Examples** (since 5.1.0): `harness-design-studio new practice --template splice-by-hand` makes a finished harness drawn by hand, *Power Y* (W001): a plug on each of three device connectors and six wires through two splices, with pin directions that fit, so `wire-direction` is quiet; `--template loose-cable-end` makes a finished example of [a cable with a loose end](#a-cable-with-a-loose-end): the Bench cable W002 from the port OBC1-J03 with two loose ends, which `release` holds back until `--accept-loose-ends` gives a reason.
 
 > **Since 1.5.0.** Before, a harness could only come from Generate. The steps in the app are described from the program's code and its tests; the program was not watched on a screen while this page was written.
 

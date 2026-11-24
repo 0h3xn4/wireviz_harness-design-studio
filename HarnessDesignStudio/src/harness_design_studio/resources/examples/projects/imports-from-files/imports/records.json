@@ -1,0 +1,301 @@
+{
+  "imports": [
+    {
+      "columns_read": [
+        {
+          "column": "ID",
+          "field": "id"
+        },
+        {
+          "column": "Harness",
+          "field": "harness"
+        },
+        {
+          "column": "Kind",
+          "field": "kind"
+        },
+        {
+          "column": "Part",
+          "field": "part"
+        },
+        {
+          "column": "Target",
+          "field": "target"
+        },
+        {
+          "column": "Position",
+          "field": "position"
+        },
+        {
+          "column": "Length (mm)",
+          "field": "length_mm"
+        },
+        {
+          "column": "Quantity",
+          "field": "quantity"
+        },
+        {
+          "column": "Note",
+          "field": "note"
+        }
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "accessories:accessories.csv",
+      "kind": "accessories",
+      "rows_read": 2,
+      "sha256": "b78262399f06509f31d59a70564b55ae4eb8178c9b48e50bf07a43adae902fc5",
+      "source_name": "accessories.csv",
+      "tool_version": "5.1.0",
+      "unit": "mm"
+    },
+    {
+      "columns_read": [
+        {
+          "column": "id",
+          "field": "id"
+        },
+        {
+          "column": "type",
+          "field": "type"
+        },
+        {
+          "column": "from",
+          "field": "from"
+        },
+        {
+          "column": "to",
+          "field": "to"
+        },
+        {
+          "column": "redundancy",
+          "field": "redundancy"
+        }
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "interfaces:interfaces.csv",
+      "kind": "interfaces",
+      "rows_read": 2,
+      "sha256": "5ffd2b056c0499b4fad19f7033434b7e2eb83df47f39dd4f7ebe7bad9147af69",
+      "source_name": "interfaces.csv",
+      "tool_version": "5.1.0"
+    },
+    {
+      "columns_read": [
+        {
+          "column": "harness",
+          "field": "harness"
+        },
+        {
+          "column": "segment",
+          "field": "segment"
+        },
+        {
+          "column": "length",
+          "field": "length"
+        }
+      ],
+      "converted_count": 2,
+      "dropped_count": 0,
+      "id": "lengths:segment-lengths.csv",
+      "kind": "lengths",
+      "rows_converted": [
+        {
+          "field": "length",
+          "item": "W001 / W001-L1",
+          "read": "850",
+          "row": 2,
+          "stored": "0.85 m",
+          "unit": "mm"
+        },
+        {
+          "field": "length",
+          "item": "W002 / W002-L1",
+          "read": "900",
+          "row": 3,
+          "stored": "0.9 m",
+          "unit": "mm"
+        }
+      ],
+      "rows_read": 2,
+      "sha256": "117043908312d3e7ba3fa0ca5ab598d6ba831d6a63e0990df7bcf9c5eb514648",
+      "source_name": "segment-lengths.csv",
+      "tool_version": "5.1.0",
+      "unit": "mm",
+      "unit_given": true
+    },
+    {
+      "columns_ignored": [
+        "value"
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "netlist:wheel-connectors.net",
+      "kind": "netlist",
+      "notes": [
+        "KiCad design source: wheel.kicad_sch"
+      ],
+      "pin_types": {
+        "RW1-J01.1": "passive",
+        "RW1-J01.2": "passive",
+        "RW1-J02.1": "passive",
+        "RW1-J02.2": "passive",
+        "RW1-J02.3": "passive",
+        "RW1-J02.4": "passive"
+      },
+      "rows_read": 2,
+      "sha256": "64fa05ae778ca5dd4726db35652ac5ef5fa30611afb98ebd65b757ef8e4618a6",
+      "source_name": "wheel-connectors.net",
+      "tool_version": "5.1.0"
+    },
+    {
+      "columns_read": [
+        {
+          "column": "part number",
+          "field": "part_number"
+        },
+        {
+          "column": "manufacturer",
+          "field": "manufacturer"
+        },
+        {
+          "column": "description",
+          "field": "description"
+        },
+        {
+          "column": "category",
+          "field": "category"
+        },
+        {
+          "column": "pin count",
+          "field": "pin_count"
+        },
+        {
+          "column": "approval status",
+          "field": "approval"
+        }
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "parts:approved-parts.csv",
+      "kind": "parts",
+      "rows_read": 5,
+      "sha256": "b3e2067afea8a4dd0b6157d4f8a43754d396c22a5ff84f7b4650a000a75f388a",
+      "source_name": "approved-parts.csv",
+      "tool_version": "5.1.0"
+    },
+    {
+      "columns_read": [
+        {
+          "column": "Connector",
+          "field": "connector"
+        },
+        {
+          "column": "Pin",
+          "field": "pin"
+        },
+        {
+          "column": "Signal",
+          "field": "signal"
+        },
+        {
+          "column": "Function",
+          "field": "function"
+        },
+        {
+          "column": "Mode",
+          "field": "mode"
+        },
+        {
+          "column": "Direction",
+          "field": "direction"
+        },
+        {
+          "column": "Level",
+          "field": "level"
+        },
+        {
+          "column": "Current (A)",
+          "field": "current"
+        },
+        {
+          "column": "Pin row",
+          "field": "pin_row"
+        },
+        {
+          "column": "Contact size",
+          "field": "contact_size"
+        },
+        {
+          "column": "Termination",
+          "field": "termination"
+        },
+        {
+          "column": "Part",
+          "field": "part"
+        },
+        {
+          "column": "Gender",
+          "field": "gender"
+        },
+        {
+          "column": "Source",
+          "field": "source_doc"
+        },
+        {
+          "column": "Source version",
+          "field": "source_version"
+        },
+        {
+          "column": "Source link",
+          "field": "source_link"
+        }
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "pinout:device-pinout-EXAMPLE.csv",
+      "kind": "pinout",
+      "notes": [
+        "Row layouts set: GYRO1-J01.",
+        "The rows are stored on GYRO1-J01 only; to use them for every connector of part EX-MICROD-9-F, choose Use for every connector of this part in the Devices tab, or run `pin-rows --connector GYRO1-J01 --to-part`."
+      ],
+      "rows_read": 9,
+      "sha256": "928d38fa2b19d4b961f6f8cdb36d883cdc5d51c3517fc6ff136f76dcc82bec51",
+      "source_name": "device-pinout-EXAMPLE.csv",
+      "tool_version": "5.1.0"
+    },
+    {
+      "columns_ignored": [
+        "Comment"
+      ],
+      "columns_read": [
+        {
+          "column": "Harness",
+          "field": "harness"
+        },
+        {
+          "column": "Wire",
+          "field": "wire"
+        },
+        {
+          "column": "Strip A (mm)",
+          "field": "strip_a_mm"
+        },
+        {
+          "column": "Strip B (mm)",
+          "field": "strip_b_mm"
+        }
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "strip-lengths:strip-lengths.csv",
+      "kind": "strip-lengths",
+      "rows_read": 2,
+      "sha256": "4d5035702483cc5f19639b1b7d3c6612b51f7a104fda6692ff409c3165bb4d05",
+      "source_name": "strip-lengths.csv",
+      "tool_version": "5.1.0",
+      "unit": "mm"
+    }
+  ]
+}

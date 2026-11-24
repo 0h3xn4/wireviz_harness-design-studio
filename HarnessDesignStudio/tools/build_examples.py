@@ -293,6 +293,10 @@ def build(target: Path = TARGET) -> None:
         try:
             save_project(make(), fresh)
             write_gitattributes(fresh)  # as `new` does
+            beside = feature_examples.BESIDE.get(name)
+            for rel, data in (beside() if beside else {}).items():  # what `new` copies (part C)
+                (fresh / rel).parent.mkdir(parents=True, exist_ok=True)
+                (fresh / rel).write_bytes(data)
             for stray in fresh.rglob("*.bak"):
                 stray.unlink()
             if folder.exists():

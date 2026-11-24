@@ -1,0 +1,6 @@
+{
+  "description": "The devices come from the device library team-library/ inside the project (named in device-libraries.json): OBC1 checked by Reviewer 1 against ICD-OBC EXAMPLE Issue 2 and saved back to the library with its check, TTC1 with its copy TTC1-R, and PCDU1 from the subsystem file Power. The team changed a pin function of TTC1 in the library after it was added, so update-device DIR TTC1 shows the difference and takes it with --apply. TTC1-R is on the redundant chain and OBC1 talks to both transceivers: that cross-strap is waived with its reason. Look at libraries DIR --devices and the Review page; the manual page Use the library explains it.",
+  "name": "Device library",
+  "schema_version": 5,
+  "tool_version": "5.1.0"
+}

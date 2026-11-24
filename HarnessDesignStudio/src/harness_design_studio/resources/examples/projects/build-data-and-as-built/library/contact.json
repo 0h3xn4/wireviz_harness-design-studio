@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "approval": "pending",
+      "category": "contact",
+      "description": "Crimp contact for AWG 22 to 26 (EXAMPLE ONLY: not a real part)",
+      "id": "EX-CONTACT-22",
+      "manufacturer": "Example Co.",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "mates_with": null,
+      "notes": "",
+      "part_number": "EX-CONTACT-22",
+      "pin_count": null,
+      "ratings": {},
+      "specification": null,
+      "tool": "EXAMPLE crimp tool, setting 4",
+      "unverified": true
+    }
+  ]
+}

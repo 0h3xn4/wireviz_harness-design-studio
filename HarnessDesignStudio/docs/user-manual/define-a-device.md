@@ -2,6 +2,8 @@
 
 This page shows how to define a device of your own down to each pin: its connectors, the name or number of every pin, the signal on it, and which interface uses which pins. You can do it by hand in the **Devices** tab, or load the pinout from a spreadsheet.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template full-connectors` makes three devices whose six nine-way connectors have a fixed, named signal on every pin, with the ports `MAIN`, `KA` and `SURV` on the power connectors and each interface put on its port; `--template splice-from-connection` states [the current of a pin](#the-current-of-a-pin-since-500) (4 A on each pin of PCDU1-J01, 2 A on each of the four pins of OBC1-J01 that share the line); `--template names-and-ports` makes a finished example of [ports named after a device](#ports-named-after-a-device-since-440): OBC1-J01 holds the ports TTC1 and TTC2, each used by the interface to that device, and the pinouts were read in the team's words through the project's signal map; `--template imports-from-files` makes the device GYRO1 from the pinout template `device-pinout-EXAMPLE.csv` ([take the pinout from a spreadsheet](#take-the-pinout-from-a-spreadsheet)).
+
 ## Contents
 
 - [Before you start](#before-you-start)
@@ -211,7 +213,7 @@ harness-design-studio export-pinout wheel-link --device GYRO1
 ```
 
 ```
-# harness-design-studio 5.0.0 model <hash>
+# harness-design-studio 5.1.0 model <hash>
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare
 GYRO1-J01,box,,EX-MICROD-9-F,A1,PWR,,,no
 GYRO1-J01,box,,EX-MICROD-9-F,A2,RTN,,,no

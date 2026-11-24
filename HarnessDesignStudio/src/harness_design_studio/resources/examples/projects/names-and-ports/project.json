@@ -1,0 +1,6 @@
+{
+  "description": "OBC1-J01 holds two RS-422 ports, TTC1_... on pins 1 to 4 and TTC2_... on pins 5 to 8, named after the devices at their other ends. The interface to TTC2 was made first (IF-001), yet it uses the pins of TTC2, because the setting Signal names name the far device is on. The pinouts were read in the team's words (TXP, TXN, RXP, RXN) and the project's signal map renamed them; imports DIR lists each rename. Look at the pin table of OBC1-J01, explain DIR IF-001 and config DIR; the manual pages Define a device and Connect two connectors explain it.",
+  "name": "Names and ports",
+  "schema_version": 5,
+  "tool_version": "5.1.0"
+}

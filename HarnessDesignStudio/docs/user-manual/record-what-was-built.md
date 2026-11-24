@@ -2,6 +2,8 @@
 
 This page shows how a technician writes down what was really built and measured (serial and lot numbers, the cut and strip lengths, the crimp tool, who built and who inspected, the result of each test), how those records are read into the project, compared with the design and the test limits, and printed in an as-built report. Use it at the bench, when the harness has been built and tested, and for a review of what was built.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template build-data-and-as-built` makes a finished example: the record of W001 read from an EXAMPLE sheet, with an EXAMPLE cut-length tolerance of 10 mm that one wire is out of (25 mm too long), so `asbuilt` names one value out of its limit and ends with exit code 1.
+
 > **New in the transparency work, stage S9 (decisions D-191, D-193; requirement R6).** The build workbook used to be write-only: what was typed into it was never read back. The records are kept in a new optional file, `asbuilt/records.json`. A project that has none is saved, hashed and exported byte for byte as before. **The tool never says that a harness passed and never signs anything off:** a value is *within its limit*, *out of its limit*, *not compared* or *missing*, and a value that is out of its limit stays so until a person records something else. The steps in the app are described from the program's texts and its tests; the program was not watched on a screen while this page was written. The commands were run, and the output is what they printed.
 
 ## Contents

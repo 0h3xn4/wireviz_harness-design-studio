@@ -2,6 +2,8 @@
 
 Since 3.0.0 a harness has a **version** of three numbers, MAJOR.MINOR.PATCH: `1.0.0`, `1.1.0`, `2.0.0`. This page says what the numbers mean, how the next version is chosen, what the tool says about the choice, and what became of the revision letters of 2.x.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template released-harness` makes a finished example: W002 has the baseline `W002.1.0.0` and is the draft of its minor version 1.1.0.
+
 ## Contents
 
 - [The three numbers](#the-three-numbers)

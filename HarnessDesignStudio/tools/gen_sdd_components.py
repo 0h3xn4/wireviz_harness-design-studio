@@ -30,7 +30,10 @@ def package() -> str:
 def modules(pkg: str) -> dict[str, Path]:
     """Component id (path inside the package, no suffix, slash separated) -> file."""
     out = {}
+    examples = SRC / pkg / "resources" / "examples"
     for p in sorted((SRC / pkg).rglob("*.py")):
+        if p.is_relative_to(examples):
+            continue  # an example plug-in: data that `new` copies into a project, not a module
         rel = p.relative_to(SRC / pkg).with_suffix("")
         out["/".join(rel.parts)] = p
     return out

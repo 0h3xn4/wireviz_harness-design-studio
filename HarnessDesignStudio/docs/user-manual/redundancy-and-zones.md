@@ -2,6 +2,8 @@
 
 This page shows how to add a backup (redundant) chain to a design, what the tool does about links between the main and the backup chain, and how zones (lanes) work.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template small-satellite` makes 14 devices with nominal and redundant chains; `--template flatsat` makes a bench on lanes, generated one harness per pair of zones (`per_zone_pair`). [Examples](examples.md) lists the example of each feature.
+
 ## Before you start
 
 - You have a project with devices and links ([draw the design](draw-the-design.md)). The examples below use `first-steps`.

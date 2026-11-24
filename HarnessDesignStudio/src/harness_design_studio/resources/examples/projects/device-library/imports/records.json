@@ -1,0 +1,47 @@
+{
+  "imports": [
+    {
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "devices:OBC1.device.json",
+      "kind": "devices",
+      "notes": [
+        "Library: team-library",
+        "Library file: OBC1.device.json",
+        "Library: not a Git repository"
+      ],
+      "rows_read": 1,
+      "sha256": "aed2a5211c3e628583f5123966a6c978bcdd40db7559f08bcc50163106b24014",
+      "source_name": "OBC1.device.json",
+      "source_path": "team-library/OBC1.device.json",
+      "tool_version": "5.1.0"
+    },
+    {
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "devices:TTC1.device.json",
+      "kind": "devices",
+      "notes": [
+        "Library: team-library",
+        "Library file: TTC1.device.json",
+        "Library: not a Git repository"
+      ],
+      "rows_read": 1,
+      "sha256": "6f342ab9845db62b438c706020f6eabfb47b99877ec548894ad3ad67a55e4c94",
+      "source_name": "TTC1.device.json",
+      "source_path": "team-library/TTC1.device.json",
+      "tool_version": "5.1.0"
+    },
+    {
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "subsystem:subsystem-power.json",
+      "kind": "subsystem",
+      "rows_read": 1,
+      "sha256": "dcafbc49bd5d698bf19050f01433b8700dfea4a064b2ef649f7a5d5a67454cc6",
+      "source_name": "subsystem-power.json",
+      "source_path": "team-library/subsystem-power.json",
+      "tool_version": "5.1.0"
+    }
+  ]
+}

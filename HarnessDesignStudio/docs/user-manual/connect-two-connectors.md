@@ -2,6 +2,8 @@
 
 This page shows how to join a connector of one device to a connector of another, pin by pin, starting from the names you gave the pins. The program proposes which pins go together, you look at the pairs and change them, and the program reviews the result and makes a harness only when you ask it to.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template splice-from-connection` makes a finished example: the connection L1 joins pin 1 of PCDU1-J01 to pins 1 and 2 of OBC1-J01, and pin 2 to pins 3 and 4 (two junctions), L2 the four data pins by name; the harness W001 made from L1 carries the splices W001-X1 and W001-X2 ([splices](splices.md)), and `system/connections.csv` lists the pairs.
+
 > **New in 1.8.0.** This is milestone M2 of the workshop feedback (decision D-173); picking up a cable at a port is from 1.16.0. Connecting by interface type, as before, is still there ([draw the design](draw-the-design.md), step 3). The steps in the app are described from the program's code and its tests; the program was not watched on a screen while this page was written.
 
 ## Contents

@@ -386,3 +386,65 @@ def test_the_guide_converter_leaves_code_alone_and_quotes_link_targets() -> None
     assert inline("a *b* and `c*d* e`") == "a <em>b</em> and <code>c*d* e</code>"
     assert inline('[x](a"onmouseover="y)') == '<a href="a&quot;onmouseover=&quot;y">x</a>'
     assert inline("[`code`](u.md)") == '<a href="u.md"><code>code</code></a>'
+
+
+# ---- the examples in the user manual (design of 5.1.0 sections 3 and 11, part F, REQ-EX-02) ----
+
+MANUAL = ROOT / "docs" / "user-manual"
+# the pages whose feature no example can show (section 3.2): `migrate` needs an older format, and
+# the page for safety, quality and IT is not about a project
+NO_EXAMPLE = frozenset({"README.md", "examples.md", "upgrade-a-project.md", "use-hds-in-your-organisation.md"})  # fmt: skip
+
+
+def _example_line(page: Path) -> str:
+    """The line *Example* under the title and introduction of a manual page ("" when none)."""
+    head = page.read_text(encoding="utf-8").split("\n## ", 1)[0]
+    return next((ln for ln in head.splitlines() if ln.startswith(("**Example** (", "**Examples** ("))), "")  # fmt: skip
+
+
+def test_every_manual_page_names_an_example_that_exists() -> None:
+    """Part F: one line under the title of each manual page names the example of its feature
+    (`--template NAME`); every name is an example `new --list` shows, and every feature example
+    is named on at least one page."""
+    from harness_design_studio.core import templates
+
+    names = {t.name for t in templates.TEMPLATES}
+    named: set[str] = set()
+    for page in sorted(MANUAL.glob("*.md")):
+        line = _example_line(page)
+        if page.name in NO_EXAMPLE:
+            assert not line, page.name
+            continue
+        assert line, f"{page.name} has no line *Example* under its title"
+        found = set(re.findall(r"--template ([\w-]+)", line))
+        assert found and found <= names, (page.name, sorted(found - names))
+        named |= found
+    assert {t.name for t in templates.in_group(templates.FEATURE)} <= named
+
+
+def test_the_examples_page_names_every_example_and_a_page_for_every_feature() -> None:
+    """REQ-EX-02: the page Examples lists the feature examples in the order of `new --list`, each
+    with a manual page, and its table of every feature names, for each, examples that exist (or
+    says *every example*) and a manual page; every manual page but the index is linked from it."""
+    from harness_design_studio.core import templates
+
+    text = (MANUAL / "examples.md").read_text(encoding="utf-8")
+    names = {t.name for t in templates.TEMPLATES}
+    groups = text.split("\n## ")
+    two = next(g for g in groups if g.startswith("The two groups"))
+    listed = re.findall(r"^\| `([\w-]+)` \|", two, re.M)
+    assert listed == [t.name for t in templates.TEMPLATES]  # Start, then the feature examples
+    features = next(g for g in groups if g.startswith("Every feature and its example"))
+    rows = [r for r in features.splitlines() if r.startswith("| ") and not r.startswith(("| Feature", "| ---"))]  # fmt: skip
+    assert len(rows) >= 45
+    for row in rows:
+        _, example, page = (c.strip() for c in row.strip("|").split(" | "))
+        shown = set(re.findall(r"`([\w-]+)`", example)) & names
+        assert shown or example.startswith("every example"), row
+        assert re.search(r"\]\((?:[\w-]+\.md|\.\./[\w/.-]+)\)", page), row
+    linked = set(re.findall(r"\]\(([\w-]+\.md)\)", text))
+    pages = {p.name for p in MANUAL.glob("*.md")} - {"README.md", "examples.md"}
+    assert pages <= linked, sorted(pages - linked)
+    index = (MANUAL / "README.md").read_text(encoding="utf-8")
+    assert "(examples.md)" in index
+    assert "(user-manual/examples.md)" in (ROOT / "docs" / "README.md").read_text(encoding="utf-8")

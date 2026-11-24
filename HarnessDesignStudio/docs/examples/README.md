@@ -1,6 +1,6 @@
 # Examples
 
-This page describes the five example projects and the 19 template files that ship with Harness Design Studio, with the real output of each, so that you can pick one and know what to expect.
+This page describes the five example projects of the group *Start* and the 22 template files that ship with Harness Design Studio, with the real output of each, so that you can pick one and know what to expect. Since 5.1.0 the tool also ships 14 small feature examples, one feature each: they are listed [below](#feature-examples), and the user manual page [Examples](../user-manual/examples.md) names the example of every feature.
 
 ## Contents
 
@@ -12,8 +12,9 @@ This page describes the five example projects and the 19 template files that shi
 - [minimal-satellite](#minimal-satellite)
 - [small-satellite](#small-satellite)
 - [flatsat](#flatsat)
+- [Feature examples](#feature-examples)
 - [Does every example run?](#does-every-example-run)
-- [The 19 template files](#the-19-template-files)
+- [The 22 template files](#the-22-template-files)
 - [WireViz examples in this repository](#wireviz-examples-in-this-repository)
 
 Every command below was run with the tool (version `1.17.0`) in an empty folder, one project per example, and the output is pasted as printed. The names `my-blank`, `my-first-steps` and so on are the folder names used in the commands; use your own.
@@ -32,13 +33,13 @@ In the app, **File > New project from an example…** makes a project from any o
 
 ## Which build do you have?
 
-`harness-design-studio --version` prints `harness 5.0.0` for this version (1.0.0 and later list the same five examples). If you still have the 0.1.0 packages, you can tell them by the examples they have. Ask the tool:
+`harness-design-studio --version` prints `harness 5.1.0` for this version (1.0.0 to 5.0.0 list the same five examples; 5.1.0 lists them under the heading `Start:` and adds the group *Feature examples*). If you still have the 0.1.0 packages, you can tell them by the examples they have. Ask the tool:
 
 ```
 harness-design-studio new --list
 ```
 
-Version **1.0.0** and every later version list five:
+Version **1.0.0** to **5.0.0** list five (5.1.0 lists the same five lines, with the names padded to a wider column, under `Start:`):
 
 ```
 blank              An empty project: starter parts and interface types, no devices.
@@ -219,6 +220,29 @@ Open: 0 error(s), 28 warning(s), 47 note(s). Waived: 0.
 
 `harness-design-studio export my-flatsat` writes `95 files written to my-flatsat/outputs (model <hash>).` The figures in [`FLATSAT_EXAMPLE.md`](../FLATSAT_EXAMPLE.md) (23 devices, 44 interfaces, 8 harnesses, 103 wires, and per harness 18, 26, 2, 22, 7, 16, 8 and 4 wires; 329.6 m of wire and 2.25 kg with margin in `outputs/system/mass_length.csv`) agree with the files this run produced. `generate` reports `8 unchanged` because nothing needs to be made. **Next:** open it in the app and click `PDU2`: only its links stay in colour.
 
+## Feature examples
+
+Since 5.1.0, `harness-design-studio new --list` shows a second group, *Feature examples*: 14 small projects of two to four devices, one feature each, in the order of the user manual. Every one is shipped as its builder makes it (generated where it has an interface), and on a copy made by `new`, `check` gives 0 errors and 0 warnings, `generate` has nothing to do, `drc` has no open error and `verify --outputs` checks the outputs of `export` with 0 errors. Their numbers and parts are EXAMPLE data (a title with a number ends with *(EXAMPLE)*); what each page asks you to look at is in the line *Example* under the title of that page, and every feature is in the table of the user manual page [Examples](../user-manual/examples.md).
+
+| Example | Title | Page |
+| --- | --- | --- |
+| `full-connectors` | Full connectors | [define a device](../user-manual/define-a-device.md), [pin rows of a connector](../user-manual/pin-rows-of-a-connector.md) |
+| `names-and-ports` | Names and ports | [define a device](../user-manual/define-a-device.md) |
+| `splice-by-hand` | Splice by hand (EXAMPLE) | [splices](../user-manual/splices.md) |
+| `splice-from-connection` | Splice from a connection (EXAMPLE) | [connect two connectors](../user-manual/connect-two-connectors.md), [splices](../user-manual/splices.md) |
+| `branching-harness` | Branching harness (EXAMPLE) | [branching harnesses](../user-manual/branching-harnesses.md) |
+| `loose-cable-end` | Loose cable end (EXAMPLE) | [build a harness by hand](../user-manual/build-a-harness-by-hand.md) |
+| `shields-and-ends` | Shields and their ends (EXAMPLE) | [enter the build data](../user-manual/enter-the-build-data.md) |
+| `lengths-to-the-face` | Lengths to the face (EXAMPLE) | [lengths to the face](../user-manual/lengths-to-the-face.md) |
+| `released-harness` | Released harness (EXAMPLE) | [release a harness](../user-manual/release-a-harness.md), [versions](../user-manual/versions.md) |
+| `overrides-and-deviations` | Overrides and deviations (EXAMPLE) | [override a value and keep a history](../user-manual/override-and-keep-a-history.md) |
+| `device-library` | Device library | [use the library](../user-manual/use-the-library.md) |
+| `build-data-and-as-built` | Build data and as-built (EXAMPLE) | [enter the build data](../user-manual/enter-the-build-data.md), [record what was built](../user-manual/record-what-was-built.md) |
+| `imports-from-files` | Imports from files (EXAMPLE) | [import data](../user-manual/import-data.md) |
+| `extensions` | Extensions (EXAMPLE) | [extend the tool](../user-manual/extend-the-tool.md) |
+
+`tests/test_e2e_510.py` runs every feature example through `new`, `check`, `generate`, `drc`, `export` and `verify --outputs`, and the commands its page names.
+
 ## Does every example run?
 
 Every example was run through `new`, `validate`, `generate` (where it is not already generated), `drc`, `export` and `verify --outputs`, one after the other, with version 1.17.0. All steps ended with exit code 0 and `0 error(s)`, except one that is expected: `blank` has no harnesses, so `export` and `verify --outputs` refuse (exit code 1, see above). `blank`, `first-steps` and `small-satellite` were also run (`new`, `generate`, `drc`, `export`, `verify --outputs`) from the source of the `v0.1.0` tag and ended the same way (the counts of harnesses, wires and findings as above; the hashes differ; 0.1.0 wrote the drawings and no build workbook).
@@ -233,7 +257,7 @@ Every example was run through `new`, `validate`, `generate` (where it is not alr
 
 The file counts are those of `export` without `--drawings` (a build workbook for every harness, no harness drawings). This is new in 1.7.0: with 1.6.0 and earlier, `export` wrote the drawings and no build workbook, and the counts were 38, 137, 280 and 112. With `export --drawings` the counts are 40, 148, 304 and 120 (the old count plus one build workbook for each harness: 2, 11, 24 and 8). `verify --outputs` ends with 0 errors in both cases.
 
-## The 19 template files
+## The 22 template files
 
 `harness-design-studio templates my-templates` copies the import templates, scripts and checklists to a folder that must not exist yet:
 
@@ -242,7 +266,7 @@ harness-design-studio templates my-templates
 ```
 
 ```
-19 files written to my-templates. Start with my-templates/README.md.
+22 files written to my-templates. Start with my-templates/README.md.
 ```
 
 The files are written for the `first-steps` example, so you can try each one before using your own data. The full description of each is in the [templates README](../../src/harness_design_studio/resources/examples/templates/README.md) (which is also `my-templates/README.md`); this is the list, with the build that has it. The columns of the CSV files are in [`IMPORTS.md`](../IMPORTS.md).
@@ -268,8 +292,11 @@ The files are written for the `first-steps` example, so you can try each one bef
 | 17 | `pin-contacts.csv` | two example rows: the contact part and crimp tool of a pin of a harness made by hand | `harness-design-studio import-build-data` | **no, new in 1.7.0** |
 | 18 | `accessories.csv` | two example rows: sleeving and heat shrink of a harness | `harness-design-studio import-build-data` | **no, new in 1.7.0** |
 | 19 | `ci/gitattributes` | the `.gitattributes` that `harness-design-studio new` writes into a new project: Git treats `generated/generation.json` as binary, and `harness-design-studio merge-fix DIR` resolves a merge that stopped on it; for a project made before 1.9 | copy to `DIR/.gitattributes` (named `gitattributes` here so that it is not hidden) | **no, new in 1.9.0** |
+| 20 | `splice-parts-EXAMPLE.csv` | one example row: a splice part with one node, for a splice in a harness you drew; not a real part | `harness-design-studio import-parts` | **no, new in 3.0.0** |
+| 21 | `pigtail-colour-code-EXAMPLE.csv` | an example only: a colour for each pin 1 to 37 of a micro-D pigtail, for the colour code of the harness plans; not a standard and not a supplier's table | taken on purpose as the colour code `example` ([export the harness plans](../user-manual/export-the-harness-plans.md)) | **no, new in 3.0.0** |
+| 22 | `device-pinout-EXAMPLE.csv` | example rows: the pinout of the one connector of a made-up gyroscope `GYRO1`, with every column `import-pinout` reads; the feature example `imports-from-files` is made from it | `harness-design-studio import-pinout` | **no, new in 5.1.0** |
 
-The three build data files (16 to 18) are new in 1.7.0; their rows are examples with example numbers, to replace with your own, and `pin-contacts.csv` names contact parts (`EX-CONTACT-22`) that the starter library does not hold: import the parts first ([enter the build data](../user-manual/enter-the-build-data.md)). On the 0.1.0 packages the command writes 14 files (no `design-worksheet.md`). The demo values and `ampacity-DEMO-ONLY.csv` are **not from any standard and not engineering data**; the files stay marked as placeholders. See [`PLACEHOLDERS.md`](../PLACEHOLDERS.md).
+The three files 20 to 22 hold example rows with example numbers too (their names say *EXAMPLE*). The three build data files (16 to 18) are new in 1.7.0; their rows are examples with example numbers, to replace with your own, and `pin-contacts.csv` names contact parts (`EX-CONTACT-22`) that the starter library does not hold: import the parts first ([enter the build data](../user-manual/enter-the-build-data.md)). On the 0.1.0 packages the command writes 14 files (no `design-worksheet.md`). The demo values and `ampacity-DEMO-ONLY.csv` are **not from any standard and not engineering data**; the files stay marked as placeholders. See [`PLACEHOLDERS.md`](../PLACEHOLDERS.md).
 
 ## WireViz examples in this repository
 

@@ -234,7 +234,11 @@ def qt_component(app: Path, dists: list[Component]) -> Component | None:
         return None
     version = next((d.version for d in dists if _norm(d.name).startswith("pyside6")), UNKNOWN)
     modules = sorted({re.sub(r"^(lib)?Qt6|\.so.*|\.dll$", "", p.name) for p in libs})
-    plugins = sorted(p for p in app.rglob("*") if p.is_file() and "/plugins/" in p.as_posix())
+    plugins = sorted(  # Qt's plugins only: a project's `extensions/plugins/` is not Qt
+        p
+        for p in app.rglob("*")
+        if p.is_file() and re.search(r"/PySide6/(.*/)?plugins/", p.as_posix())
+    )
     texts = {
         n: _read(app / "LICENSES" / n)
         for n in ("LGPL-3.txt", "GPL-3.txt")
