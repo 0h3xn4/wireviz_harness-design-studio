@@ -547,6 +547,7 @@
   },
   "TemplateInfo": {
    "fields": {
+    "group": "str",
     "name": "str",
     "summary": "str",
     "title": "str"

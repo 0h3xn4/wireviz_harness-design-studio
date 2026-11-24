@@ -26,39 +26,71 @@ class TemplateError(HarnessError):
     """A template cannot be used (unknown name, folder not empty, files missing)."""
 
 
+START = "start"  # the group of the five projects of 1.0.0, listed first: where a newcomer begins
+FEATURE = "feature"  # the group of the small projects that show one feature each (design of 5.1.0)
+GROUPS = (START, FEATURE)  # in the order of `new --list`, the New project dialog and the record
+
+
 @dataclass(frozen=True)
 class TemplateInfo:
     name: str
     title: str
     summary: str
+    group: str  # one of GROUPS
 
 
-# Names and one-line descriptions; the folders are built by tools/build_examples.py.
+# The one list of the examples: name, title (the project name of the shipped folder), the line of
+# `new --list` and the group, in the order of the list. The folders are built by
+# tools/build_examples.py, which reads the titles from here.
 TEMPLATES = (
     TemplateInfo(
-        "blank", "My project", "An empty project: starter parts and interface types, no devices."
+        "blank",
+        "My project",
+        "An empty project: starter parts and interface types, no devices.",
+        START,
     ),
     TemplateInfo(
         "first-steps",
         "First steps: reaction wheel link",
         "Three devices, a power link and an RS-422 link. Nothing is generated yet: start here.",
+        START,
     ),
     TemplateInfo(
         "minimal-satellite",
         "Minimal satellite",
         "Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.",
+        START,
     ),
     TemplateInfo(
         "small-satellite",
         "Small satellite (reference)",
         "14 devices with nominal and redundant chains. Generate it to see a realistic system.",
+        START,
     ),
     TemplateInfo(
         "flatsat",
         "Flatsat (EXAMPLE numbers, not engineering data)",
         "A complete bench: 23 flight and ground devices, generated, with example numbers.",
+        START,
+    ),
+    TemplateInfo(
+        "full-connectors",
+        "Full connectors",
+        "Three devices whose connectors have a signal on every pin: fixed pinouts, ports and pin "
+        "rows; generated.",
+        FEATURE,
     ),
 )
+
+
+def template_info(name: str) -> TemplateInfo | None:
+    """The listed example of that name, or None."""
+    return next((t for t in TEMPLATES if t.name == name), None)
+
+
+def in_group(group: str) -> tuple[TemplateInfo, ...]:
+    """The examples of one group, in the order of the list."""
+    return tuple(t for t in TEMPLATES if t.group == group)
 
 
 def _usable(dest: Path) -> bool:

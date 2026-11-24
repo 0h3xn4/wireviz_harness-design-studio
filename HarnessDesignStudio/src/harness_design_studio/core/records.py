@@ -392,9 +392,15 @@ class TemplateInfo:
     name: str
     title: str
     summary: str
+    group: str  # "start" (the five projects to begin with) or "feature" (one feature each)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "title": self.title, "summary": self.summary}
+        return {
+            "name": self.name,
+            "title": self.title,
+            "summary": self.summary,
+            "group": self.group,
+        }
 
 
 @dataclass(frozen=True)
@@ -615,7 +621,7 @@ def rule_infos() -> list[RuleInfo]:
 def template_infos() -> list[TemplateInfo]:
     from harness_design_studio.core.templates import TEMPLATES
 
-    return [TemplateInfo(t.name, t.title, t.summary) for t in TEMPLATES]
+    return [TemplateInfo(t.name, t.title, t.summary, t.group) for t in TEMPLATES]
 
 
 # ---- the change journal, overrides and deviations (S4) -------------------------------------------

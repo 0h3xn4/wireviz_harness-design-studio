@@ -195,3 +195,27 @@ def test_a_table_without_rows_shows_its_empty_state_and_a_filter_says_no_match(q
 
 def test_the_interface_and_plan_tables_have_an_empty_state(draft) -> None:
     assert hasattr(draft.interface_table.view, "empty_state")
+
+
+def test_home_lists_the_start_group_and_one_line_for_the_feature_examples(draft) -> None:
+    """Design of 5.1.0, T9: the rows of the group Start (but the empty project), then one line."""
+    from harness_design_studio.core import templates
+
+    starts = [t.name for t in templates.in_group(templates.START) if t.name != "blank"]
+    assert list(draft.home_page.example_buttons) == starts
+    count = len(templates.in_group(templates.FEATURE))
+    line = draft.home_page.features_line
+    assert not line.isHidden() and not draft.home_page.features_button.isHidden()
+    want = strings.HOME_FEATURES_ONE if count == 1 else strings.HOME_FEATURES.format(count)
+    assert line.text() == want
+    shown: list[str] = []
+
+    def run(dlg) -> int:
+        shown.append(dlg.template())
+        return 0  # Cancel
+
+    draft.run_dialog = run
+    draft.home_page.features_button.click()
+    assert shown == [templates.in_group(templates.FEATURE)[0].name]
+    draft.act_new_example.trigger()
+    assert shown[-1] == "first-steps"  # New project from an example still ticks first-steps

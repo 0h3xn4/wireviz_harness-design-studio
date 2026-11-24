@@ -47,6 +47,7 @@ TEMPLATE_MODES = {
     "minimal-satellite": PAIR,
     "small-satellite": PAIR,
     "flatsat": "per_zone_pair",
+    "full-connectors": PAIR,  # one harness per pair of connectors reads easily (design of 5.1.0)
 }
 
 

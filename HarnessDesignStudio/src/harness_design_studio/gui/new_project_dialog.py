@@ -33,7 +33,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from harness_design_studio.core.templates import TEMPLATES, TemplateInfo
+from harness_design_studio.core.templates import (
+    FEATURE,
+    GROUPS,
+    START,
+    TEMPLATES,
+    TemplateInfo,
+    in_group,
+)
 from harness_design_studio.gui import icons, strings
 from harness_design_studio.gui.dialog_base import Dialog
 from harness_design_studio.gui.theme import ThemeManager, mark_mono
@@ -101,6 +108,10 @@ def template_title(info: TemplateInfo) -> str:
     return strings.NP_EMPTY_TITLE if info.name == BLANK else info.title
 
 
+GROUP_TITLES = {START: strings.NP_GROUP_START, FEATURE: strings.NP_GROUP_FEATURE}
+GROUP_NAMES = {START: strings.NP_GROUP_START_NAME, FEATURE: strings.NP_GROUP_FEATURE_NAME}
+
+
 class NewProjectDialog(Dialog):
     """Folder, name and starting point of a new project, checked as you type."""
 
@@ -159,15 +170,34 @@ class NewProjectDialog(Dialog):
         self.templates.setAccessibleName(strings.NP_TEMPLATE_NAME)
         self.templates.setToolTip(strings.NP_TEMPLATE_TIP)
         self.templates.setEditTriggers(QListView.EditTrigger.NoEditTriggers)
-        self.templates.setMinimumHeight(theme.px(130))
         self.model = QStandardItemModel(self.templates)
-        for info in TEMPLATES:
-            item = QStandardItem(template_title(info))
-            item.setData(info.name, Qt.ItemDataRole.UserRole)
-            item.setToolTip(info.summary)
-            item.setEditable(False)
-            self.model.appendRow(item)
+        # a heading row per group (design of 5.1.0 section 6): not selectable, so the arrow keys
+        # pass over it, with a name of its own for a screen reader; the examples under it
+        self.headings: dict[str, QStandardItem] = {}
+        for group in GROUPS:
+            members = in_group(group)
+            if not members:
+                continue
+            heading = QStandardItem(GROUP_TITLES[group])
+            heading.setFlags(Qt.ItemFlag.NoItemFlags)
+            heading.setData(GROUP_NAMES[group], Qt.ItemDataRole.AccessibleTextRole)
+            heading.setData(theme.font("base", bold=True), Qt.ItemDataRole.FontRole)
+            self.model.appendRow(heading)
+            self.headings[group] = heading
+            for info in members:
+                item = QStandardItem(template_title(info))
+                item.setData(info.name, Qt.ItemDataRole.UserRole)
+                item.setToolTip(info.summary)
+                item.setEditable(False)
+                self.model.appendRow(item)
         self.templates.setModel(self.model)
+        # tall enough for the group Start and the heading of the next one without a scroll bar
+        shown = 2 + len(in_group(START)) if len(self.headings) > 1 else self.model.rowCount()
+        rows = sum(
+            self.templates.sizeHintForRow(r) for r in range(min(shown, self.model.rowCount()))
+        )
+        frame = 2 * self.templates.frameWidth() + theme.space(4)
+        self.templates.setMinimumHeight(max(theme.px(130), rows + frame))
         self.summary = QLabel()
         self.summary.setObjectName("new-template-summary")
         self.summary.setWordWrap(True)
@@ -246,7 +276,15 @@ class NewProjectDialog(Dialog):
 
     def template(self) -> str:
         index = self.templates.currentIndex()
-        return str(index.data(Qt.ItemDataRole.UserRole)) if index.isValid() else BLANK
+        name = index.data(Qt.ItemDataRole.UserRole) if index.isValid() else None
+        return str(name) if name else BLANK
+
+    def template_names(self) -> list[str]:
+        """The examples in the order of the list, without the group headings."""
+        names = (
+            self.model.item(r).data(Qt.ItemDataRole.UserRole) for r in range(self.model.rowCount())
+        )
+        return [str(n) for n in names if n]
 
     def _template_changed(self, index: QModelIndex, _previous: QModelIndex | None = None) -> None:
         info = next((t for t in TEMPLATES if t.name == index.data(Qt.ItemDataRole.UserRole)), None)

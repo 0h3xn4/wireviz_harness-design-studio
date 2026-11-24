@@ -1,0 +1,612 @@
+{
+  "connectors": [
+    {
+      "carries": [
+        "power_primary",
+        "power_secondary",
+        "heater",
+        "ground"
+      ],
+      "gender": "male",
+      "id": "OBC1-J01",
+      "keying": null,
+      "mates_with": null,
+      "name": "J01",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "1",
+          "interface_id": "IF-001",
+          "locked": true,
+          "signal": "MAIN_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "2",
+          "interface_id": "IF-002",
+          "locked": true,
+          "signal": "KA_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "3",
+          "interface_id": "IF-003",
+          "locked": true,
+          "signal": "SURV_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "4",
+          "interface_id": "IF-004",
+          "locked": true,
+          "signal": "HTR+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "5",
+          "interface_id": "IF-005",
+          "locked": true,
+          "signal": "GND",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "6",
+          "interface_id": "IF-001",
+          "locked": true,
+          "signal": "MAIN_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "7",
+          "interface_id": "IF-002",
+          "locked": true,
+          "signal": "KA_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "8",
+          "interface_id": "IF-003",
+          "locked": true,
+          "signal": "SURV_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "9",
+          "interface_id": "IF-004",
+          "locked": true,
+          "signal": "HTR-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "OBC1"
+    },
+    {
+      "carries": [
+        "rs422",
+        "can",
+        "discrete",
+        "ground"
+      ],
+      "gender": "female",
+      "id": "OBC1-J02",
+      "keying": null,
+      "mates_with": null,
+      "name": "J02",
+      "notes": "",
+      "part_id": "EX-MICROD-9-F",
+      "pins": [
+        {
+          "contact_size": null,
+          "direction": "out",
+          "fixed": true,
+          "id": "1",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "TX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "direction": "out",
+          "fixed": true,
+          "id": "2",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "TX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "direction": "in",
+          "fixed": true,
+          "id": "3",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "RX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "direction": "in",
+          "fixed": true,
+          "id": "4",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "RX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "5",
+          "interface_id": "IF-014",
+          "locked": true,
+          "signal": "GND",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "6",
+          "interface_id": "IF-012",
+          "locked": true,
+          "signal": "CANH",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "7",
+          "interface_id": "IF-012",
+          "locked": true,
+          "signal": "CANL",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "8",
+          "interface_id": "IF-013",
+          "locked": true,
+          "signal": "SIG",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "9",
+          "interface_id": "IF-013",
+          "locked": true,
+          "signal": "RTN",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "OBC1"
+    },
+    {
+      "carries": [
+        "power_primary",
+        "power_secondary",
+        "heater",
+        "ground"
+      ],
+      "gender": "female",
+      "id": "PCDU1-J01",
+      "keying": "A",
+      "mates_with": null,
+      "name": "J01",
+      "notes": "",
+      "part_id": "EX-MICROD-9-F",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "1",
+          "interface_id": "IF-001",
+          "locked": true,
+          "signal": "MAIN_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "2",
+          "interface_id": "IF-002",
+          "locked": true,
+          "signal": "KA_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "3",
+          "interface_id": "IF-003",
+          "locked": true,
+          "signal": "SURV_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "4",
+          "interface_id": "IF-004",
+          "locked": true,
+          "signal": "HTR+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "5",
+          "interface_id": "IF-005",
+          "locked": true,
+          "signal": "GND",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "6",
+          "interface_id": "IF-001",
+          "locked": true,
+          "signal": "MAIN_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "7",
+          "interface_id": "IF-002",
+          "locked": true,
+          "signal": "KA_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "8",
+          "interface_id": "IF-003",
+          "locked": true,
+          "signal": "SURV_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "9",
+          "interface_id": "IF-004",
+          "locked": true,
+          "signal": "HTR-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "PCDU1"
+    },
+    {
+      "carries": [
+        "power_primary",
+        "power_secondary",
+        "heater",
+        "ground"
+      ],
+      "gender": "female",
+      "id": "PCDU1-J02",
+      "keying": "B",
+      "mates_with": null,
+      "name": "J02",
+      "notes": "",
+      "part_id": "EX-MICROD-9-F",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "1",
+          "interface_id": "IF-006",
+          "locked": true,
+          "signal": "MAIN_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "2",
+          "interface_id": "IF-007",
+          "locked": true,
+          "signal": "KA_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "3",
+          "interface_id": "IF-008",
+          "locked": true,
+          "signal": "SURV_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "4",
+          "interface_id": "IF-009",
+          "locked": true,
+          "signal": "HTR+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "5",
+          "interface_id": "IF-010",
+          "locked": true,
+          "signal": "GND",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "6",
+          "interface_id": "IF-006",
+          "locked": true,
+          "signal": "MAIN_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "7",
+          "interface_id": "IF-007",
+          "locked": true,
+          "signal": "KA_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "8",
+          "interface_id": "IF-008",
+          "locked": true,
+          "signal": "SURV_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "9",
+          "interface_id": "IF-009",
+          "locked": true,
+          "signal": "HTR-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "PCDU1"
+    },
+    {
+      "carries": [
+        "power_primary",
+        "power_secondary",
+        "heater",
+        "ground"
+      ],
+      "gender": "male",
+      "id": "TTC1-J01",
+      "keying": "A",
+      "mates_with": null,
+      "name": "J01",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "1",
+          "interface_id": "IF-006",
+          "locked": true,
+          "signal": "MAIN_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "2",
+          "interface_id": "IF-007",
+          "locked": true,
+          "signal": "KA_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "3",
+          "interface_id": "IF-008",
+          "locked": true,
+          "signal": "SURV_PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "4",
+          "interface_id": "IF-009",
+          "locked": true,
+          "signal": "HTR+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "5",
+          "interface_id": "IF-010",
+          "locked": true,
+          "signal": "GND",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "6",
+          "interface_id": "IF-006",
+          "locked": true,
+          "signal": "MAIN_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "7",
+          "interface_id": "IF-007",
+          "locked": true,
+          "signal": "KA_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "8",
+          "interface_id": "IF-008",
+          "locked": true,
+          "signal": "SURV_RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "9",
+          "interface_id": "IF-009",
+          "locked": true,
+          "signal": "HTR-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "TTC1"
+    },
+    {
+      "carries": [
+        "rs422",
+        "can",
+        "discrete",
+        "ground"
+      ],
+      "gender": "male",
+      "id": "TTC1-J02",
+      "keying": "B",
+      "mates_with": null,
+      "name": "J02",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "direction": "in",
+          "fixed": true,
+          "id": "1",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "TX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "direction": "in",
+          "fixed": true,
+          "id": "2",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "TX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "direction": "out",
+          "fixed": true,
+          "id": "3",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "RX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "direction": "out",
+          "fixed": true,
+          "id": "4",
+          "interface_id": "IF-011",
+          "locked": true,
+          "signal": "RX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "5",
+          "interface_id": "IF-014",
+          "locked": true,
+          "signal": "GND",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "6",
+          "interface_id": "IF-012",
+          "locked": true,
+          "signal": "CANH",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "7",
+          "interface_id": "IF-012",
+          "locked": true,
+          "signal": "CANL",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "8",
+          "interface_id": "IF-013",
+          "locked": true,
+          "signal": "SIG",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "9",
+          "interface_id": "IF-013",
+          "locked": true,
+          "signal": "RTN",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "TTC1"
+    }
+  ]
+}
