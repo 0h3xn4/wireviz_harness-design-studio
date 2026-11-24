@@ -222,6 +222,7 @@ def test_splice_by_hand_draws_a_power_y_through_two_splices() -> None:
     assert sorted(s.length_m or 0.0 for s in h.segments) == [0.02, 0.4, 0.6, 0.8]
     for uid, want in (("PCDU1", "out"), ("OBC1", "in"), ("TTC1", "in")):
         pins = p.connectors[f"{uid}-J01"].pins
+        assert len(pins) == 9  # the whole nine-way connector, not only the two pins in use
         assert [(x.signal, x.direction) for x in pins[:2]] == [("PWR", want), ("RTN", want)]
         assert all(not x.signal for x in pins[2:])  # the other pins have no name
 
@@ -313,3 +314,15 @@ def test_splice_from_connection_writes_the_currents_and_the_connections(tmp_path
     ]  # fmt: skip
     via = {r["Wire"]: r["Via"] for r in _table(out / "harnesses" / "W001" / "wirelist.csv")}
     assert set(via.values()) == {"W001-X1", "W001-X2"}
+
+
+@pytest.mark.parametrize("name", FEATURES)
+def test_every_device_connector_has_all_the_pins_of_its_part(name: str) -> None:
+    """A feature example shows whole connectors: a box connector holds every pin its part has,
+    named or not (a pasted pinout must not cut it down to the pins in use)."""
+    p = load_project(PROJECTS / name).project
+    for cid, c in sorted(p.connectors.items()):
+        part = p.parts.get(c.part_id) if c.part_id else None
+        if part is None or part.pin_count is None:
+            continue
+        assert len(c.pins) == part.pin_count, (cid, len(c.pins), part.pin_count)

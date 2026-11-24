@@ -49,6 +49,51 @@
           "locked": false,
           "signal": "RTN",
           "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
         }
       ],
       "role": "box",
@@ -99,6 +144,51 @@
           "locked": false,
           "signal": "RX-",
           "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
         }
       ],
       "role": "box",
@@ -132,6 +222,69 @@
           "interface_id": null,
           "locked": false,
           "signal": "RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
           "termination": "unspecified"
         }
       ],
@@ -182,6 +335,51 @@
           "interface_id": null,
           "locked": false,
           "signal": "RX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
           "termination": "unspecified"
         }
       ],
