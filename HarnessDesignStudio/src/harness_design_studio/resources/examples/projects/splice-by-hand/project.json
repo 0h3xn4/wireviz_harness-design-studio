@@ -2,5 +2,5 @@
   "description": "One power output of PCDU1 feeds OBC1 and TTC1 through a harness drawn by hand: the PWR wires meet in the splice W001-X1 and the RTN wires in W001-X2. Look at the Splices list of the Harness tab and the column Via of the wire list; the manual page Splices explains each step.",
   "name": "Splice by hand (EXAMPLE)",
   "schema_version": 5,
-  "tool_version": "5.0.0"
+  "tool_version": "5.1.0"
 }

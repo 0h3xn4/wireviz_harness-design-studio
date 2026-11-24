@@ -100,7 +100,7 @@
       "rows_read": 9,
       "sha256": "6d650e745d8db175df9f54e5867b85b726e81aa689b9f91f899d47c2be537993",
       "source_name": "OBC1-pinout.csv",
-      "tool_version": "5.0.0"
+      "tool_version": "5.1.0"
     },
     {
       "columns_read": [
@@ -170,7 +170,7 @@
       "rows_read": 9,
       "sha256": "7c7ca9c9e5582be881f5a877b6abc0e900a0f8f0e8cc327cb475c5568ce1d1d5",
       "source_name": "TTC1-pinout.csv",
-      "tool_version": "5.0.0"
+      "tool_version": "5.1.0"
     },
     {
       "columns_read": [
@@ -240,7 +240,7 @@
       "rows_read": 9,
       "sha256": "7c7ca9c9e5582be881f5a877b6abc0e900a0f8f0e8cc327cb475c5568ce1d1d5",
       "source_name": "TTC2-pinout.csv",
-      "tool_version": "5.0.0"
+      "tool_version": "5.1.0"
     }
   ]
 }

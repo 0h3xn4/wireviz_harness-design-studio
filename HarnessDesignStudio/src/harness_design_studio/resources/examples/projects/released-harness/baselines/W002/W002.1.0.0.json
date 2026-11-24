@@ -1,7 +1,7 @@
 {
   "by": "Releaser 1",
   "comment": "First release of the power harness of RW1 (EXAMPLE) [Released on placeholder configuration (derating, emc, generation, segmentation, segregation, titleblock); accepted by Releaser 1: EXAMPLE values for learning] [Released with parts that are not approved (EX-MICROD-9-M, EX-WIRE-SINGLE); accepted by Releaser 1: EXAMPLE parts for learning] [Review checklist (26 points, list 8b3d7a5b), recorded by Releaser 1: ticked 1-20; not ticked 21 (Drawing: connectors, pins and signals match the device do...), 22 (Wire list, pinouts and BOM agree with the drawing.), 23 (Mass and length tables look plausible.), 24 (Test tables list the limits your programme requires.), 25 (The release comment says what this version is for, and th...) and 1 more]",
-  "content_hash": "6de898393c55a9896fb4c551b77e93d9fc4d0c01247bc9f1d916d523d498bd34",
+  "content_hash": "c3f8bceaee3f1425a85fac4fb248c18193d882fb95c7d7e2dc17766ceef8f8e7",
   "harness_id": "W002",
   "id": "W002.1.0.0",
   "released_on": "2026-01-15",

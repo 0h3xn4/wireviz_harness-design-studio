@@ -2,5 +2,5 @@
   "description": "The devices of first-steps, and everything else read from the import templates that harness-design-studio templates FOLDER copies: the approved parts list (every status read as not decided yet), two interfaces, the KiCad netlist of RW1, the project's signal map, the pinout of GYRO1 (a new device), and after Generate the segment lengths, strip lengths and accessories. Look at imports DIR (the record of each file) and the fixed pins of RW1 and GYRO1; the manual pages Import data and Import KiCad pinouts explain it.",
   "name": "Imports from files (EXAMPLE)",
   "schema_version": 5,
-  "tool_version": "5.0.0"
+  "tool_version": "5.1.0"
 }
