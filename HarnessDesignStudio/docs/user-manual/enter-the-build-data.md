@@ -2,6 +2,8 @@
 
 This page shows how to enter what a technician needs to build a harness and the model does not get from the design: the strip length at each end of a wire, the contact on each pin and the crimp tool for it, and the sleeving, heat shrink, labels and backshells; it shows how to do it in the app and from a file, and what the build workbook then shows.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template shields-and-ends` makes a finished example of [shield ends](#3a-cable-ends-and-shield-ends-since-500): an EXAMPLE grounding concept, backshells of the EXAMPLE part EX-BACKSHELL-MICROD, a pigtail on a pin, a pigtail on the lug of a backshell, 360 degree bonds in backshells, and one end left without a place.
+
 > **Since 1.7.0.** The build data is part of 1.7.0 (decision D-170). A project made by 1.6.0 or earlier opens as it is and keeps byte-identical files and outputs until you enter one of these values. The steps in the app are described from the program's texts and its tests; the program was not watched on a screen while this page was written. The commands were run, and the output is what they printed.
 
 ## Contents

@@ -233,7 +233,7 @@ harness-design-studio new x1 --template satellite
 ```
 
 ```
-error: Unknown template 'satellite'. Choose one of: blank, first-steps, minimal-satellite, small-satellite, flatsat, full-connectors, splice-by-hand, splice-from-connection.
+error: Unknown template 'satellite'. Choose one of: blank, first-steps, minimal-satellite, small-satellite, flatsat, full-connectors, splice-by-hand, splice-from-connection, branching-harness, loose-cable-end, shields-and-ends, lengths-to-the-face.
 ```
 
 Exit code 2. The name after `--template` must be exactly one of the names the message lists. `harness-design-studio new --list` prints them with a one-line description, in two groups: *Start* (the five projects to begin with) and *Feature examples* (since 5.1.0). See [`examples/README.md`](examples/README.md).

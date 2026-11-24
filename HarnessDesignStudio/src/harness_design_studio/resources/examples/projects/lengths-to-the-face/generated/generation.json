@@ -1,0 +1,106 @@
+{
+  "generator_version": "5.0.0",
+  "input_hash": "f069a631298126973b48da9cd49224bf4a4f48945018b970700136baa52e3ff8",
+  "next_harness_number": 3,
+  "placeholders_used": [
+    "derating",
+    "emc",
+    "generation",
+    "model",
+    "segmentation",
+    "segregation",
+    "titleblock"
+  ],
+  "provenance": {
+    "connector:W001-P1": [
+      "mating: cable end for PCDU1-J01 (PCDU1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W001-P2": [
+      "mating: cable end for RW1-J01 (RW1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W002-P1": [
+      "mating: cable end for PCDU1-J03 (PCDU1); part EX-MICROD-15-M mates with EX-MICROD-15-F"
+    ],
+    "connector:W002-P2": [
+      "mating: cable end for RW1-J02 (RW1); part EX-MICROD-21-M mates with EX-MICROD-21-F"
+    ],
+    "gauge:W001-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-003": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-004": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "harness:W001": [
+      "segmentation: IF-001 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "harness:W002": [
+      "segmentation: IF-002 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "pin:PCDU1-J01.1": [
+      "pin-allocation: PWR of IF-001 (power and return grouped)"
+    ],
+    "pin:PCDU1-J01.2": [
+      "pin-allocation: RTN of IF-001 (power and return grouped)"
+    ],
+    "pin:PCDU1-J03.1": [
+      "pin-allocation: TX+ of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:PCDU1-J03.2": [
+      "pin-allocation: TX- of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:PCDU1-J03.3": [
+      "pin-allocation: RX+ of IF-002 (pair RX on adjacent pins)"
+    ],
+    "pin:PCDU1-J03.4": [
+      "pin-allocation: RX- of IF-002 (pair RX on adjacent pins)"
+    ],
+    "pin:RW1-J01.1": [
+      "pin-allocation: PWR of IF-001 (power and return grouped)"
+    ],
+    "pin:RW1-J01.2": [
+      "pin-allocation: RTN of IF-001 (power and return grouped)"
+    ],
+    "pin:RW1-J02.1": [
+      "pin-allocation: TX+ of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:RW1-J02.2": [
+      "pin-allocation: TX- of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:RW1-J02.3": [
+      "pin-allocation: RX+ of IF-002 (pair RX on adjacent pins)"
+    ],
+    "pin:RW1-J02.4": [
+      "pin-allocation: RX- of IF-002 (pair RX on adjacent pins)"
+    ],
+    "wire:W001-001": [
+      "wiring: PWR of IF-001 connects PCDU1-J01 pin 1 to RW1-J01 pin 1 (X drives)"
+    ],
+    "wire:W001-002": [
+      "wiring: RTN of IF-001 connects PCDU1-J01 pin 2 to RW1-J01 pin 2 (X drives)"
+    ],
+    "wire:W002-001": [
+      "wiring: TX+/RX+ of IF-002 connects PCDU1-J03 pin 1 to RW1-J02 pin 3 (X drives)"
+    ],
+    "wire:W002-002": [
+      "wiring: TX+/RX+ of IF-002 connects RW1-J02 pin 1 to PCDU1-J03 pin 3 (Y drives)"
+    ],
+    "wire:W002-003": [
+      "wiring: TX-/RX- of IF-002 connects PCDU1-J03 pin 2 to RW1-J02 pin 4 (X drives)"
+    ],
+    "wire:W002-004": [
+      "wiring: TX-/RX- of IF-002 connects RW1-J02 pin 2 to PCDU1-J03 pin 4 (Y drives)"
+    ]
+  }
+}

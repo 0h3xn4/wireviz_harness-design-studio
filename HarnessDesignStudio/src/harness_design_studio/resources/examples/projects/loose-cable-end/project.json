@@ -1,0 +1,6 @@
+{
+  "description": "PCDU1 feeds OBC1 through the generated harness W001. W002, the Bench cable, is drawn by hand from the test port OBC1-J03: its TM wires end in the loose end W002-P2, and a leg of the TC wires ends in the loose end W002-P3 behind the branch point. Look at the loose ends in the tree and the Inspector (Plug into...), Edit > Cable ends, and release DIR W002, which asks for --accept-loose-ends; the manual page Build a harness by hand explains it.",
+  "name": "Loose cable end (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}

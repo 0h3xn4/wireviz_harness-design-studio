@@ -1,0 +1,6 @@
+{
+  "description": "One power connector of PCDU1 feeds OBC1 and TRX1, and one data connector of OBC1 talks to TRX1 and RW1. Generate (segmentation per connector group) makes one harness for each of the two connectors, and each branches at a branch point. Look at the Routing table of the Harness tab and at routing DIR W002; the manual page Branching harnesses explains it.",
+  "name": "Branching harness (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}

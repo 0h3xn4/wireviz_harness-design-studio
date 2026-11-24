@@ -1,0 +1,6 @@
+{
+  "description": "The EXAMPLE grounding concept ends each shield by a pigtail at end A and bonds it all round in a backshell at end B. W001-S1 lands its pigtail on pin 5 (the shield contact) of W001-P1, W001-S2 on the lug of the backshell W001-A1 of W001-P2; the ends B are bonded in the backshells. End A of W002-S2 is left without a place, so check names it. Look at Change group..., the shield cell of the Production sheet and check DIR; the manual page Enter the build data (3a) explains it.",
+  "name": "Shields and their ends (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}

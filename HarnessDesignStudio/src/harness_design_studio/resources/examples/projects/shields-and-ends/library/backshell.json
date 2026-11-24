@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "approval": "pending",
+      "category": "backshell",
+      "depth_mm": 30.0,
+      "description": "Backshell for a Micro-D, with a shield lug (EXAMPLE ONLY: not a real part)",
+      "id": "EX-BACKSHELL-MICROD",
+      "manufacturer": "Example Co.",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "mates_with": null,
+      "notes": "",
+      "part_number": "EX-BACKSHELL-MICROD",
+      "pin_count": null,
+      "ratings": {},
+      "specification": null,
+      "unverified": true
+    }
+  ]
+}
