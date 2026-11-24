@@ -2,6 +2,8 @@
 
 This page shows how to start a project and draw its devices and the interfaces between them in the app, the part of the work that only you can do.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template first-steps` makes the project this page draws (three devices, a power link and an RS-422 link); `--template minimal-satellite` makes a small spacecraft of seven devices to adapt. [Examples](examples.md) lists the example of each feature.
+
 ## Contents
 
 - [Before you start](#before-you-start)
@@ -30,7 +32,7 @@ You can start in the app or on the command line. The result is the same: a folde
 
 **In the app**
 
-1. Choose **File > New project from an example…** and pick an example (the list is the same as `harness-design-studio new --list`). Or choose **File > New project…** for an empty project.
+1. Choose **File > New project from an example…** and pick an example (the list is the same as `harness-design-studio new --list`, under the headings **Start** and **Feature examples**). Or choose **File > New project…** for an empty project.
 2. Choose an **empty folder**, then type a project name.
 3. To open a project you made earlier: **File > Open project…** (Ctrl+O), or press **Open** beside it in the **Recent projects** of the **Home** page (Ctrl+7; as a Systems engineer Home is not in the rail, but Ctrl+7 and **Go > Go to Home** open it).
 
@@ -43,11 +45,27 @@ harness-design-studio new --list
 ```
 
 ```
-blank              An empty project: starter parts and interface types, no devices.
-first-steps        Three devices, a power link and an RS-422 link. Nothing is generated yet: start here.
-minimal-satellite  Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.
-small-satellite    14 devices with nominal and redundant chains. Generate it to see a realistic system.
-flatsat            A complete bench: 23 flight and ground devices, generated, with example numbers.
+Start:
+blank                     An empty project: starter parts and interface types, no devices.
+first-steps               Three devices, a power link and an RS-422 link. Nothing is generated yet: start here.
+minimal-satellite         Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.
+small-satellite           14 devices with nominal and redundant chains. Generate it to see a realistic system.
+flatsat                   A complete bench: 23 flight and ground devices, generated, with example numbers.
+Feature examples (small projects, one feature each; the manual page Examples lists them):
+full-connectors           Three devices whose connectors have a signal on every pin: fixed pinouts, ports and pin rows; generated.
+names-and-ports           OBC1 talks to TTC1 and TTC2 on one connector; its ports are named after them, and a signal map reads the team's words.
+splice-by-hand            A power line drawn by hand from one output to two devices through two splices of an EXAMPLE part.
+splice-from-connection    A connection that joins one pin to two (a junction), with pin currents; its harness carries the splices.
+branching-harness         Four devices; Generate makes harnesses that branch where one connector serves two devices.
+loose-cable-end           A cable from a port with its far end loose, and a leg added to it; a release asks for a reason.
+shields-and-ends          A grounding concept, shield groups, pigtails landed on pins and 360-degree ends on backshells.
+lengths-to-the-face       Segments measured to the mating face; the depth of each connector and backshell is taken off each wire.
+released-harness          A harness reviewed and released with a checklist, then its next version started: diff, log and the version report.
+overrides-and-deviations  A value set by hand with its reason, a warning waived and two errors accepted as deviations.
+device-library            Devices taken from a library folder in the project: one copy, one checked, one the library has changed.
+build-data-and-as-built   Strip lengths, contacts, accessories, a pin colour code and a Cover for the plans; then a record of what was built.
+imports-from-files        first-steps built from the import templates: parts, lengths, build data, a netlist and a pinout, each import recorded.
+extensions                A rule and a table in data files, and a Python plug-in that stays off until you trust it.
 ```
 
 ```
@@ -66,7 +84,8 @@ Then open the `wheel-link` folder with **File > Open project…**. You cannot br
 | `blank` | A real design. Starter parts and 17 interface types, no devices. |
 | `first-steps` | Learning. Three devices, a power link and an RS-422 link (a data link between two devices). |
 | `small-satellite` | Seeing a realistic system with redundancy. 14 devices. |
-| `minimal-satellite`, `flatsat` | A small spacecraft and a complete test bench. **Not in the 0.1.0 packages** (see the [changelog](../../CHANGELOG.md)). `harness-design-studio new --list` shows five examples on 1.0.0 and three on 0.1.0. |
+| `minimal-satellite`, `flatsat` | A small spacecraft and a complete test bench. **Not in the 0.1.0 packages** (see the [changelog](../../CHANGELOG.md)). `harness-design-studio new --list` shows five examples on 1.0.0 to 5.0.0 and three on 0.1.0. |
+| the 14 feature examples (since 5.1.0) | Seeing one feature finished: a splice, full connectors, a release, a device library ... [Examples](examples.md) lists the example of each feature. |
 
 The app also has **File > Open the sample project**. That is example data. Save a copy (**Save a copy…** in the banner) before you change anything.
 

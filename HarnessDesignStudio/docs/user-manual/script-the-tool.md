@@ -2,6 +2,8 @@
 
 This page shows how to run the tool from a script: with `--json` on the commands, when you work in a shell, and with the Python interface (`harness_design_studio.api`), when you work in Python. Both give the numbers the editor gives, as data you can count, compare and keep.
 
+**Example** (since 5.1.0): every example will do; `harness-design-studio new practice --template first-steps` makes the project of this page, and `new --list --json` gives every example with its group (`start` or `feature`). [Examples](examples.md) lists the example of each feature.
+
 ## Contents
 
 - [Before you start](#before-you-start)

@@ -24,7 +24,7 @@ An offline desktop tool for designing the electrical harnesses of a spacecraft: 
 
 ![A bench of 23 flight and ground devices joined by links; the legend at the bottom left of the diagram explains the pictures](HarnessDesignStudio/docs/img/flatsat-overview.png)
 
-*The `flatsat` example, one of the five projects that come with the tool.*
+*The `flatsat` example, one of the 19 example projects that come with the tool ([Examples](HarnessDesignStudio/docs/user-manual/examples.md) lists the one for each feature).*
 
 ![The whole window (picture taken with version 1.3.0) with the flatsat example: navigation rail on the left, project tree, diagram, inspector, and the steps Generate, Check and Release in the top bar](HarnessDesignStudio/docs/ui/screenshots/after/01-diagram-selected-1440x900_light.png)
 

@@ -15,7 +15,9 @@ COMMANDS = ("new", "templates", "schema")
 # the heading line of each group of `new --list` (`core.templates.GROUPS`)
 GROUP_HEADINGS = {
     templates.START: "Start:",
-    templates.FEATURE: "Feature examples (small projects, one feature each):",
+    templates.FEATURE: (
+        "Feature examples (small projects, one feature each; the manual page Examples lists them):"
+    ),
 }
 
 

@@ -2,6 +2,8 @@
 
 This page shows how to turn your devices and links into harnesses (connectors, pins and wires), check the result, and read why the tool made each choice.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template first-steps` makes a project to generate yourself (one harness per pair of connectors, `per_connector_pair`); `--template flatsat` is shipped generated (`per_zone_pair`); `--template branching-harness` is generated with `per_connector_group`, the start of a new project, so its two harnesses branch at W001-B1 and W002-B2 ([branching harnesses](branching-harnesses.md)).
+
 ## Contents
 
 - [Before you start](#before-you-start)

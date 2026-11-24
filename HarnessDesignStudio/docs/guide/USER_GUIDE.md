@@ -46,7 +46,7 @@ No network access is needed or used. On a minimal Ubuntu the app may need a few 
 
 ## 3. Start from an example
 
-The tool ships five practice projects (examples). List them and create one in a new folder:
+The tool ships five practice projects (examples) in the group *Start*, and since 5.1.0 a second group, *Feature examples*: 14 small projects that show one feature each. List them and create one in a new folder:
 
 ```
 harness-design-studio new --list
@@ -55,7 +55,7 @@ harness-design-studio new wheel-link --template first-steps
 
 Then **File > Open project…** and pick the folder. You cannot break anything: it is your own copy. As a Systems engineer the editor opens it on the **Next step** page (section 5); as an Electrical engineer it stays where the window was. Press **Model** in the rail on the left to see the diagram.
 
-Version 1.0.0 has five examples. If `harness-design-studio new --list` shows only `blank`, `first-steps` and `small-satellite`, you have the 0.1.0 packages, which have those three; `minimal-satellite`, `flatsat` and the wire colours of section 7 came with 1.0.0.
+Versions 1.0.0 to 5.0.0 have the five examples of the group *Start*. If `harness-design-studio new --list` shows only `blank`, `first-steps` and `small-satellite`, you have the 0.1.0 packages, which have those three; `minimal-satellite`, `flatsat` and the wire colours of section 7 came with 1.0.0.
 
 | Example | What it is |
 | --- | --- |
@@ -64,6 +64,10 @@ Version 1.0.0 has five examples. If `harness-design-studio new --list` shows onl
 | `minimal-satellite` | Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it. |
 | `small-satellite` | 14 devices with nominal and redundant chains. Generate it to see a realistic system. |
 | `flatsat` | A complete bench: 23 flight and ground devices, generated, with example numbers. |
+
+**Feature examples** (since 5.1.0). Each is a small finished project of two to four devices that shows one feature, with EXAMPLE numbers and parts that are not engineering data: `full-connectors` (a signal on every pin), `names-and-ports`, `splice-by-hand`, `splice-from-connection`, `branching-harness`, `loose-cable-end`, `shields-and-ends`, `lengths-to-the-face`, `released-harness`, `overrides-and-deviations`, `device-library`, `build-data-and-as-built`, `imports-from-files` and `extensions`.
+
+In the app, **File > New project from an example…** lists them under the heading **Feature examples**, and **Home** ends with the line *14 feature examples, one per feature* and the button **Show the feature examples…**. Which example shows which feature is on the manual page `docs/user-manual/examples.md` in the repository.
 
 `harness-design-studio templates my-templates` copies templates for your own data: CSV files for interfaces, parts and lengths, a KiCad netlist, a CI script and a review checklist. The demo engineering values in it are for learning only.
 

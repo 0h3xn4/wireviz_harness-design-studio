@@ -2,6 +2,8 @@
 
 This page shows how to tell the tool where the pins of a connector sit on its face: the rows of the insert, for example a 21-pin Micro-D with the row 1 to 11 and, under it, the row 12 to 21. It says where the rows are kept, how to enter them in the editor, on the command line and from a pinout sheet, what the checks and the rule of power and return pins then say, and what the written files show.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template full-connectors` makes a finished example: the rows 1 to 5 over 6 to 9 on the parts `EX-MICROD-9-F` and `EX-MICROD-9-M`, so each of the six device connectors reads its rows from its part; `pin-rows practice --connector OBC1-J01` shows them, and `system/box_pinouts.csv` gives *Pin row* 1 or 2 on each of the 54 pins.
+
 > **New in 4.0.0** (format 4, decision D-251, [`DESIGN_4.0_ROW_LAYOUT.md`](../ait/DESIGN_4.0_ROW_LAYOUT.md)). A project of 3.x is upgraded once first ([upgrade a project](upgrade-a-project.md#8-from-format-3-to-format-4-400)). What each written file holds for the rows is in [`OUTPUTS.md`](../OUTPUTS.md#a-row-layout); the keys of the files are in [`FILE_FORMAT.md`](../FILE_FORMAT.md#format-4-the-row-layout-of-a-connector-400).
 
 ## Contents

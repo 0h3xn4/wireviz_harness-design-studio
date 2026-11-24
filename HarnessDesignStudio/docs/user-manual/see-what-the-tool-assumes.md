@@ -2,6 +2,8 @@
 
 This page shows how to find out what the tool takes for granted when it makes a number: the values it reads from your project, the choices that are built into it, and where each one comes from. Use it before you rely on a result, and in a review when someone asks *why is this number what it is?*
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template lengths-to-the-face` makes a finished example of a selectable model: the length model `path_loops_allowance_twist` with an EXAMPLE cut allowance (0.03 m) and take-up of twisting (0.02), which `settings practice` lists with where each value comes from.
+
 ## Contents
 
 - [Before you start](#before-you-start)

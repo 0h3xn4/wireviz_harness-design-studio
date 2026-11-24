@@ -18,6 +18,7 @@ This manual has one page for each job you do with Harness Design Studio, written
 | see the whole work in one table: what each step uses and makes, what I can look at and change, where my project stands | [Follow the workflow](follow-the-workflow.md) |
 | make a quick block diagram of a set-up, with no checks and no paperwork, and save it as a picture | [Make a block diagram in five minutes](quick-diagram.md) |
 | start a project and draw devices and links | [Draw the design](draw-the-design.md) |
+| open a small finished project that shows one feature (a splice, full connectors, a release, a device library ...), or find which example shows a feature | [Examples: one project per feature](examples.md) |
 | join a connector of one device to a connector of another, pin by pin, from the names on the pins, and check the result | [Connect two connectors](connect-two-connectors.md) |
 | understand the pictures and colours of the devices on the diagram, and what makes a device look like a battery or a wheel | [Telling devices apart](telling-devices-apart.md) |
 | add a backup chain, or put devices in other lanes | [Redundancy and zones](redundancy-and-zones.md) |
@@ -99,6 +100,7 @@ The numbers follow the order of the work. The first page is the one the editor s
 25. [Record what was built](record-what-was-built.md): the as-built sheet, `export-asbuilt`, `import-asbuilt`, `asbuilt`, the as-built report; what is missing and what is out of its limit. New in S9.
 26. [Upgrade a project](upgrade-a-project.md): the editor's question, `migrate --dry-run` and `migrate`, the backup folder `.migration-backup-v1/`, what changes in the folder, what versions 1.x do with an upgraded project, and how to go back. New in 2.0.0rc1; the step from format 2 to format 3 (3.0.0, section 7) and from format 3 to format 4 (4.0.0, section 8) and from format 4 to format 5 (5.0.0, section 9).
 27. [Using HDS in your organisation](use-hds-in-your-organisation.md): for safety, quality and IT: what is AI-written, what the tool checks itself, what you must verify, no claim of compliance, the offline evidence, signatures and the licence. New in 2.0.1.
+28. [Examples: one project per feature](examples.md): every feature with the example project that shows it and its page, the groups *Start* and *Feature examples*, `new FOLDER --template NAME`, the window *New project* and Home, and why the EXAMPLE values and parts are not engineering data. New in 5.1.0.
 
 ## How to read the pages
 
@@ -135,6 +137,6 @@ The numbers follow the order of the work. The first page is the one the editor s
 
 ## If you are new
 
-Do the 45-minute tutorial first: [`GETTING_STARTED.md`](../GETTING_STARTED.md). The route from beginner to release is in [`LEARNING_PATH.md`](../LEARNING_PATH.md). The words are in [`CONCEPTS.md`](../CONCEPTS.md) and the [glossary](../GLOSSARY.md). The app also has a built-in user guide (**F1**), the same text as [`guide/USER_GUIDE.md`](../guide/USER_GUIDE.md). If you only want a quick picture of a set-up, with no checks and no paperwork, do [Make a block diagram in five minutes](quick-diagram.md) instead.
+Do the 45-minute tutorial first: [`GETTING_STARTED.md`](../GETTING_STARTED.md). The route from beginner to release is in [`LEARNING_PATH.md`](../LEARNING_PATH.md). The words are in [`CONCEPTS.md`](../CONCEPTS.md) and the [glossary](../GLOSSARY.md). The app also has a built-in user guide (**F1**), the same text as [`guide/USER_GUIDE.md`](../guide/USER_GUIDE.md). To see a feature finished before you make it yourself, open its example: [Examples](examples.md) lists one for each feature. If you only want a quick picture of a set-up, with no checks and no paperwork, do [Make a block diagram in five minutes](quick-diagram.md) instead.
 
 Next: [Choose your role](choose-your-role.md), [Draw the design](draw-the-design.md), [Generate harnesses](generate-harnesses.md)
