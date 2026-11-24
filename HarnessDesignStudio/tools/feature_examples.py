@@ -76,7 +76,7 @@ def _connector(
         if currents and pin in currents:
             row["current_a"] = currents[pin]
         rows.append(row)
-    history.execute(f"pinout of {cid}", devices.ops_paste_rows(p, cid, rows, replace=True))
+    history.execute(f"pinout of {cid}", devices.ops_paste_rows(p, cid, rows, replace=False))
     return cid
 
 
