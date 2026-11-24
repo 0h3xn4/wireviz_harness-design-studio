@@ -75,6 +75,11 @@ def test_the_step_from_3_to_4_is_still_a_step_of_this_tool() -> None:
     assert layout.HASH_SCHEMA_VERSION == 1  # the hash is of the design, never of the format
 
 
+# The feature example of pin rows (design of 5.1.0, section 4.1) sets a layout on its own EXAMPLE
+# parts; the starter library and every other example still ship none (L3).
+SHOWS_ROW_LAYOUT = {"full-connectors"}
+
+
 def test_every_fixture_and_example_is_in_the_current_format_without_a_layout() -> None:
     examples = examples_path()
     assert examples is not None
@@ -84,8 +89,11 @@ def test_every_fixture_and_example_is_in_the_current_format_without_a_layout() -
     for root in sorted(roots):
         doc = json.loads((root / "project.json").read_text(encoding="utf-8"))
         assert doc.get("schema_version") == OLD_FIXTURES.get(root.name, SCHEMA_VERSION), root
-        for path in root.rglob("*.json"):
-            assert LAYOUT not in path.read_bytes(), path  # the starter parts ship no layout (L3)
+        found = [path for path in root.rglob("*.json") if LAYOUT in path.read_bytes()]
+        if root.parent.name == "projects" and root.name in SHOWS_ROW_LAYOUT:
+            assert found, root  # the example of pin rows keeps its layout
+        else:
+            assert not found, found  # the starter parts ship no layout (L3)
 
 
 # ---- the step on the files -------------------------------------------------------------------------------
