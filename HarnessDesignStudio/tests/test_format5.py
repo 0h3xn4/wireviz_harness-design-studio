@@ -98,6 +98,13 @@ def test_this_tool_writes_format_5_and_has_a_step_for_every_older_format() -> No
     assert layout.HASH_SCHEMA_VERSION == 1  # the hash is of the design, never of the format
 
 
+# The feature examples of 5.1.0 that show a field of format 5 (design of 5.1.0, section 4), with the
+# keys of format 5 each one holds; every other example and every fixture holds none.
+FORMAT5_EXAMPLES: dict[str, set[str]] = {
+    "splice-from-connection": {"current_a"},
+}
+
+
 def test_every_fixture_and_every_shipped_example_is_in_format_5_without_a_new_key() -> None:
     examples = examples_path()
     assert examples is not None
@@ -108,7 +115,12 @@ def test_every_fixture_and_every_shipped_example_is_in_format_5_without_a_new_ke
         doc = json.loads((root / "project.json").read_text(encoding="utf-8"))
         assert doc.get("schema_version") == OLD_FIXTURES.get(root.name, 5), root
         files = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*.json")}
-        assert new_keys_in(files) == {}, root
+        found = new_keys_in(files)
+        if root.parent.name == "projects" and root.name in FORMAT5_EXAMPLES:
+            keys = set().union(*found.values()) if found else set()
+            assert keys == FORMAT5_EXAMPLES[root.name], root  # the fields it is there to show
+        else:
+            assert found == {}, root
 
 
 # ---- the step on the files -------------------------------------------------------------------------------
