@@ -239,3 +239,22 @@ def test_explain_json_has_the_shape_of_a_derivation(
         :6
     ] == pytest.approx([0.54, 1.08, 1.62, 2.7, 3.78, 5.4])
     assert next(i for i in g["inputs"] if i["name"] == "Current carried")["unit"] == "A"
+
+
+def test_a_wire_drawn_by_hand_without_an_interface_is_not_sent_to_the_interface_current() -> None:
+    """A wire of a harness made from a connection has no interface and is never sized (F5 of the
+    design of 5.0.0): its gauge explanation does not ask for an interface current (design of 5.1.0,
+    section 15, item 3), even when its pins state currents (`splice-from-connection`)."""
+    from harness_design_studio.core.io.loader import load_project
+    from harness_design_studio.resources import examples_path
+
+    root = examples_path()
+    assert root is not None
+    project = load_project(root / "projects" / "splice-from-connection").project
+    for wid in ("W001-001", "W001-002"):
+        d = _gauge(project, wid)
+        names = {i.name: i for i in d.inputs}
+        search = names["Gauge the search gives now"]
+        assert search.value == "not decided", wid
+        assert search.source == "drawn wires are not sized; set the gauge", search.source
+        assert "interface current" not in render(d)

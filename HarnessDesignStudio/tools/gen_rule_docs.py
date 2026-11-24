@@ -35,7 +35,7 @@ LOGICAL = [
     (
         "isolated",
         "info",
-        "A device has no interfaces.",
+        "A device has no interface, connection or harness.",
         "It will not appear in any harness.",
         "Connect it, or ignore.",
     ),

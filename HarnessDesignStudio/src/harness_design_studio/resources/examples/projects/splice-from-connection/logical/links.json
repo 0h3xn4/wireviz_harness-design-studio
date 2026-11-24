@@ -1,0 +1,54 @@
+{
+  "links": [
+    {
+      "a_connector": "PCDU1-J01",
+      "b_connector": "OBC1-J01",
+      "harness_id": "W001",
+      "id": "L1",
+      "name": "Power of OBC1",
+      "pairs": [
+        {
+          "a_pin": "1",
+          "b_pin": "1"
+        },
+        {
+          "a_pin": "1",
+          "b_pin": "2"
+        },
+        {
+          "a_pin": "2",
+          "b_pin": "3"
+        },
+        {
+          "a_pin": "2",
+          "b_pin": "4"
+        }
+      ]
+    },
+    {
+      "a_connector": "PCDU1-J02",
+      "b_connector": "OBC1-J02",
+      "harness_id": "W002",
+      "id": "L2",
+      "name": "Data of OBC1",
+      "pairs": [
+        {
+          "a_pin": "1",
+          "b_pin": "3"
+        },
+        {
+          "a_pin": "2",
+          "b_pin": "4"
+        },
+        {
+          "a_pin": "3",
+          "b_pin": "1"
+        },
+        {
+          "a_pin": "4",
+          "b_pin": "2"
+        }
+      ]
+    }
+  ]
+}

@@ -775,9 +775,18 @@ def _see_unit(project: Project, oid: str) -> list[Input]:
             for cid in (link.a_connector, link.b_connector)
         )
     )
+    harnesses = sorted(
+        h.id
+        for h in project.harnesses.values()
+        if any(
+            (box := project.connectors.get(c.mates_with or "")) is not None and box.unit_id == oid
+            for c in h.connectors
+        )
+    )
     return [
         Input("Interfaces of the device", _names(ifaces), "", f"device {oid}"),
         Input("Connections of the device", _names(links), "", f"device {oid}"),
+        Input("Harnesses that plug into the device", _names(harnesses), "", f"device {oid}"),
     ]
 
 
@@ -943,7 +952,7 @@ INFO: dict[str, RuleInfo] = {
     "cross-strap": RuleInfo(YES_NO, "the side (nominal or redundant) of the two devices of an interface", observe=_see_ends),
     "no-connector": RuleInfo(YES_NO, "each end of an interface with a chosen connector", ("A-CONNECTOR-CHOICE",), observe=_see_ends),
     "unconfirmed": RuleInfo(YES_NO, "the connector of each end of an interface with 'chosen by a person' (a tool choice is not confirmed)", ("A-CONNECTOR-CHOICE",), observe=_see_ends),
-    "isolated": RuleInfo(YES_NO, "each device with the interfaces and connections that join it to another", observe=_see_unit),
+    "isolated": RuleInfo(YES_NO, "each device with the interfaces, connections and harnesses that join it to another", observe=_see_unit),
 }  # fmt: skip
 
 
