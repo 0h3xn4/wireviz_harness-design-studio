@@ -115,3 +115,22 @@ def test_the_committed_notices_carry_the_source_offer_of_the_tool() -> None:
     """THIRD_PARTY_NOTICES.txt in the repository says where the source is, as the packages do."""
     committed = (ROOT / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
     assert tp.SOURCE_OFFER in committed
+
+
+def test_only_the_qt_plugins_under_pyside6_belong_to_qt(tmp_path: Path) -> None:
+    """A folder named `plugins` elsewhere (the example project `extensions` ships one) is not Qt."""
+    app = _fake_package(tmp_path)
+    qt_plugin = app / "_internal" / "PySide6" / "Qt" / "plugins" / "platforms" / "libqxcb.so"
+    qt_plugin.parent.mkdir(parents=True)
+    qt_plugin.write_bytes(b"x")
+    example = "harness_design_studio/resources/examples/projects/extensions/extensions/plugins"
+    own = app / "_internal" / example / "duplicate-signal-wires.py"
+    own.parent.mkdir(parents=True)
+    own.write_text("# an example plug-in of a project, shipped as data\n")
+    win_plugin = app / "_internal" / "PySide6" / "plugins" / "iconengines" / "qsvgicon.dll"
+    win_plugin.parent.mkdir(parents=True)  # where the Windows package keeps them
+    win_plugin.write_bytes(b"x")
+    qt = next(c for c in tp.inventory(app, "linux") if c.name.startswith("Qt ("))
+    assert "_internal/PySide6/Qt/plugins/platforms/libqxcb.so" in qt.files
+    assert "_internal/PySide6/plugins/iconengines/qsvgicon.dll" in qt.files
+    assert not [f for f in qt.files if "duplicate-signal-wires" in f]
