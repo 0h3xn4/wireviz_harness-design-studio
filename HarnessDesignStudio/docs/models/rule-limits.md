@@ -92,7 +92,7 @@ The table is written from the code (`python -m tools.gen_rule_limit_docs`), so a
 | `cross-strap` | yes/no check | the side (nominal or redundant) of the two devices of an interface | `rule-check` |
 | `no-connector` | yes/no check | each end of an interface with a chosen connector | `rule-check` |
 | `unconfirmed` | yes/no check | the connector of each end of an interface with 'chosen by a person' (a tool choice is not confirmed) | `rule-check` |
-| `isolated` | yes/no check | each device with the interfaces and connections that join it to another | `rule-check` |
+| `isolated` | yes/no check | each device with the interfaces, connections and harnesses that join it to another | `rule-check` |
 
 <!-- rule-table:end -->
 

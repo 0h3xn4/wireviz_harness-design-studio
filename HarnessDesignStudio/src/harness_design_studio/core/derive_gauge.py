@@ -69,7 +69,10 @@ def _by_hand(project: Project, h: Harness, w: Wire) -> Derivation | None:
         )
     else:
         return None
-    alt, why = generated_alternative(project, h, w, "gauge_awg")
+    if w.manual and not w.interface_id:  # no interface: Generate never sizes it (F5 of 5.0.0)
+        alt, why = None, "drawn wires are not sized; set the gauge"
+    else:
+        alt, why = generated_alternative(project, h, w, "gauge_awg")
     inputs = [
         Input("Gauge on the wire", w.gauge_awg, "AWG", source),
         Input(

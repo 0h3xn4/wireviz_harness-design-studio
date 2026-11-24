@@ -1,0 +1,22 @@
+{
+  "units": [
+    {
+      "id": "OBC1",
+      "mass_relevant": true,
+      "name": "On-board computer",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "general",
+      "zone": "panel-B"
+    },
+    {
+      "id": "PCDU1",
+      "mass_relevant": true,
+      "name": "Power control unit",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "general",
+      "zone": "panel-A"
+    }
+  ]
+}

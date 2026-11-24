@@ -80,6 +80,20 @@ TEMPLATES = (
         "rows; generated.",
         FEATURE,
     ),
+    TemplateInfo(
+        "splice-by-hand",
+        "Splice by hand (EXAMPLE)",
+        "A power line drawn by hand from one output to two devices through two splices of an "
+        "EXAMPLE part.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "splice-from-connection",
+        "Splice from a connection (EXAMPLE)",
+        "A connection that joins one pin to two (a junction), with pin currents; its harness "
+        "carries the splices.",
+        FEATURE,
+    ),
 )
 
 

@@ -1,0 +1,192 @@
+{
+  "connectors": [
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "OBC1-J01",
+      "keying": null,
+      "mates_with": null,
+      "name": "J01",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "current_a": 2.0,
+          "fixed": true,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": "PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "current_a": 2.0,
+          "fixed": true,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": "PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "current_a": 2.0,
+          "fixed": true,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RTN",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "current_a": 2.0,
+          "fixed": true,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RTN",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "OBC1"
+    },
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "OBC1-J02",
+      "keying": null,
+      "mates_with": null,
+      "name": "J02",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RX-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "OBC1"
+    },
+    {
+      "carries": [],
+      "gender": "female",
+      "id": "PCDU1-J01",
+      "keying": null,
+      "mates_with": null,
+      "name": "J01",
+      "notes": "",
+      "part_id": "EX-DSUB-9-F",
+      "pins": [
+        {
+          "contact_size": null,
+          "current_a": 4.0,
+          "fixed": true,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": "PWR",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "current_a": 4.0,
+          "fixed": true,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RTN",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "PCDU1"
+    },
+    {
+      "carries": [],
+      "gender": "female",
+      "id": "PCDU1-J02",
+      "keying": null,
+      "mates_with": null,
+      "name": "J02",
+      "notes": "",
+      "part_id": "EX-MICROD-9-F",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TX-",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RX+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": true,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": "RX-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "box",
+      "unit_id": "PCDU1"
+    }
+  ]
+}

@@ -102,6 +102,19 @@ def _nominal_end(project: Project, interface_id: str) -> str | None:
     return None
 
 
+def _plugged_units(project: Project) -> set[str]:
+    """The devices a cable connector of a harness plugs into (`mates_with`): a harness drawn by hand
+    or a cable with a loose end puts them in a harness plan, though no interface or connection
+    names them (part E of the design of 5.1.0)."""
+    out: set[str] = set()
+    for h in project.harnesses.values():
+        for c in h.connectors:
+            box = project.connectors.get(c.mates_with or "")
+            if box is not None and box.unit_id:
+                out.add(box.unit_id)
+    return out
+
+
 def find(project: Project) -> list[Finding]:
     """All findings, waived ones included (with `waiver` set), sorted by severity then ID."""
     out: list[Finding] = []
@@ -146,6 +159,7 @@ def find(project: Project) -> list[Finding]:
             c = project.connectors.get(cid)
             if c is not None and c.unit_id:
                 connected.add(c.unit_id)
+    connected.update(_plugged_units(project))  # a harness drawn by hand joins them too (5.1.0)
     for u in project.units.values():
         if u.id not in connected:
             out.append(

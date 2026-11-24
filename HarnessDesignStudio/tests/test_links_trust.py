@@ -266,6 +266,7 @@ def test_one_heater_wire_alone_is_still_reported():
 def test_a_device_joined_only_by_a_link_is_not_isolated():
     p = pinout_project()
     p.interfaces.clear()  # nothing but the link may join them
+    p.harnesses.clear()  # a harness that plugs into a device joins it too (5.1.0, part E)
     before = {f.object_id for f in checks.find(p) if f.rule == "isolated"}
     ops, _ = plan_add_link(p, "OBC-J01", "RW1-J02")
     apply_ops(p, ops)

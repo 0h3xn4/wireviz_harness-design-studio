@@ -1,0 +1,20 @@
+{
+  "parts": [
+    {
+      "approval": "pending",
+      "category": "splice",
+      "description": "Crimp splice, one node (EXAMPLE ONLY: not a real part)",
+      "id": "EX-SPLICE-1",
+      "manufacturer": "Example Co.",
+      "mass_g": null,
+      "mass_per_m_g": null,
+      "mates_with": null,
+      "notes": "",
+      "part_number": "EX-SPLICE-1",
+      "pin_count": 1,
+      "ratings": {},
+      "specification": null,
+      "unverified": true
+    }
+  ]
+}
