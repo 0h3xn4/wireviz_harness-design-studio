@@ -2,6 +2,8 @@
 
 This page shows how to keep a project in Git, how to check it after a merge, and how to run the whole build in a script or on a build server (CI, continuous integration: a server that runs your checks on every push).
 
+**Example** (since 5.1.0): every example will do; `harness-design-studio new practice --template first-steps` writes the project with its `.gitattributes`, and `check practice` ends with exit code 0 on every example. [Examples](examples.md) lists the example of each feature.
+
 ## Contents
 
 - [Before you start](#before-you-start)

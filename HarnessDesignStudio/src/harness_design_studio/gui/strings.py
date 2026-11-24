@@ -4713,7 +4713,10 @@ INS_SG_END_TIP = "How the end is terminated and where it lands; Change group… 
 NP_GROUP_START = "Start"
 NP_GROUP_START_NAME = "Group: Start, the projects to begin with"
 NP_GROUP_FEATURE = "Feature examples"
-NP_GROUP_FEATURE_NAME = "Group: Feature examples, small projects that show one feature each"
+NP_GROUP_FEATURE_NAME = (
+    "Group: Feature examples, small projects that show one feature each; the user manual page "
+    "Examples lists them"
+)
 HOME_FEATURES = "{0} feature examples, one per feature: File > New project from an example…"
 HOME_FEATURES_ONE = (
     "1 feature example, a small project that shows one feature: File > New project from an example…"

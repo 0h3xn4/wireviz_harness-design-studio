@@ -2,6 +2,8 @@
 
 This page is for the person who wants a clear block diagram of a set-up (a test bench, a flatsat, a meeting sketch) and has no use for the checks, the harness plans and the paperwork that the rest of the tool offers. It uses **Quick mode**, a short layout you can switch on in any role, and ends with a picture you can paste into a slide or a document.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template first-steps` (three devices, two interfaces) and `--template minimal-satellite` (seven devices) are devices and interfaces with nothing generated: a quick diagram, ready for **Export diagram**. [Examples](examples.md) lists the example of each feature.
+
 ## Contents
 
 - [Before you start](#before-you-start)

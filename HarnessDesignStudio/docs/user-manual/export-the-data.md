@@ -2,6 +2,8 @@
 
 This page shows how to write every intermediate and final result of a design as files a spreadsheet or a script can read, and how a colleague can check a number from those files alone, without the tool and without your project. Use it for a review, for a trade study, or when someone asks *show me how you got that gauge*.
 
+**Example** (since 5.1.0): every example will do; `harness-design-studio new practice --template flatsat` makes a project that is shipped generated, so `export-data` has a harness to write at once. [Examples](examples.md) lists the example of each feature.
+
 ## Contents
 
 - [Before you start](#before-you-start)

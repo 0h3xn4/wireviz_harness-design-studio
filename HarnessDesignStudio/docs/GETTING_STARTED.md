@@ -27,7 +27,7 @@ You can follow the steps in the **app**, on the **command line**, or both. The c
 
 ## Part 1: create a practice project
 
-The tool ships five examples to start from, and since 5.1.0 a second group of small feature examples that show one feature each. List them:
+The tool ships five examples to start from, and since 5.1.0 a second group of 14 small feature examples that show one feature each. The user manual page [Examples](user-manual/examples.md) names the feature example of every feature. List them:
 
 ```
 harness-design-studio new --list
@@ -40,7 +40,7 @@ first-steps               Three devices, a power link and an RS-422 link. Nothin
 minimal-satellite         Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.
 small-satellite           14 devices with nominal and redundant chains. Generate it to see a realistic system.
 flatsat                   A complete bench: 23 flight and ground devices, generated, with example numbers.
-Feature examples (small projects, one feature each):
+Feature examples (small projects, one feature each; the manual page Examples lists them):
 full-connectors           Three devices whose connectors have a signal on every pin: fixed pinouts, ports and pin rows; generated.
 names-and-ports           OBC1 talks to TTC1 and TTC2 on one connector; its ports are named after them, and a signal map reads the team's words.
 splice-by-hand            A power line drawn by hand from one output to two devices through two splices of an EXAMPLE part.
@@ -57,7 +57,7 @@ imports-from-files        first-steps built from the import templates: parts, le
 extensions                A rule and a table in data files, and a Python plug-in that stays off until you trust it.
 ```
 
-**Which version do you have?** This tutorial is written for 1.17.0. The commands work the same on 1.7.0, 1.6.0 and earlier, except that `export` there writes the harness drawings and no build workbook (Part 6); the window is the one of 1.3.0 and later, and the Next step page is new in 1.7.0 and the roles (Systems engineer and Electrical engineer from 1.8.0, AIT engineer from 1.12.0) are newer still, so the app steps and the picture look different in 1.7.0 and earlier (1.2.0 and earlier had tabs along the top). The five examples, the `design-worksheet.md` template, the wiring-diagram drawing with wire colours and *Edit > Wire colours...* are not in the 0.1.0 packages (see [`CHANGELOG.md`](../CHANGELOG.md)): check with the command above, 1.0.0 lists five examples, 0.1.0 lists three (`blank`, `first-steps` and `small-satellite`). With a 0.1.0 package the tutorial still works from `first-steps`, but the drawings and the optional colour step differ.
+**Which version do you have?** This tutorial is written for 1.17.0. The commands work the same on 1.7.0, 1.6.0 and earlier, except that `export` there writes the harness drawings and no build workbook (Part 6); the window is the one of 1.3.0 and later, and the Next step page is new in 1.7.0 and the roles (Systems engineer and Electrical engineer from 1.8.0, AIT engineer from 1.12.0) are newer still, so the app steps and the picture look different in 1.7.0 and earlier (1.2.0 and earlier had tabs along the top). The five examples, the `design-worksheet.md` template, the wiring-diagram drawing with wire colours and *Edit > Wire colours...* are not in the 0.1.0 packages (see [`CHANGELOG.md`](../CHANGELOG.md)): check with the command above, 1.0.0 to 5.0.0 list five examples (5.1.0 adds the group *Feature examples*), 0.1.0 lists three (`blank`, `first-steps` and `small-satellite`). With a 0.1.0 package the tutorial still works from `first-steps`, but the drawings and the optional colour step differ.
 
 Create a practice project from `first-steps`. Pick a folder that does not exist yet:
 

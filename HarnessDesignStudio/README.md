@@ -62,7 +62,7 @@ That is the whole idea. The full tutorial with the output of every command is [`
 | fix a problem | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md), [`docs/FAQ.md`](docs/FAQ.md) |
 | see what each step uses and makes, or record what was built and measured | [`docs/user-manual/follow-the-workflow.md`](docs/user-manual/follow-the-workflow.md), [`docs/user-manual/record-what-was-built.md`](docs/user-manual/record-what-was-built.md), [`docs/models/asbuilt.md`](docs/models/asbuilt.md) |
 | supply engineering values or review | [`docs/CONFIG.md`](docs/CONFIG.md), [`docs/PLACEHOLDERS.md`](docs/PLACEHOLDERS.md), [`docs/RULES.md`](docs/RULES.md), [`docs/OUTPUTS.md`](docs/OUTPUTS.md) |
-| see the other examples and templates | [`docs/examples/README.md`](docs/examples/README.md) (`harness-design-studio new --list`; five projects); the CSV and script templates: `harness-design-studio templates my-templates` |
+| see the other examples and templates | [`docs/examples/README.md`](docs/examples/README.md) (`harness-design-studio new --list`; the five projects of the group *Start*), the example of each feature: [`docs/user-manual/examples.md`](docs/user-manual/examples.md) (since 5.1.0, 14 feature examples); the CSV and script templates: `harness-design-studio templates my-templates` |
 | see what changed | [`CHANGELOG.md`](CHANGELOG.md), [`docs/STATUS.md`](docs/STATUS.md) |
 
 A project is a folder of small JSON files; put it in Git ([`docs/FILE_FORMAT.md`](docs/FILE_FORMAT.md)). Every document is listed in [`docs/README.md`](docs/README.md) and [`../docs/INDEX.md`](../docs/INDEX.md).

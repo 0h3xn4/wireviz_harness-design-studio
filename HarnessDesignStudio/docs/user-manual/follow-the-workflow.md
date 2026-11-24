@@ -2,6 +2,8 @@
 
 This page shows the whole work of the tool in one table: the nine steps from the devices to the as-built records, what each step **uses** and **makes** (project files, configuration, output files), the intermediate results you can look at and, where the tool allows it, change, and how to see where your own project stands. Use it when you want to know why an output is out of date, which file a step reads, or where a number you want to check was made.
 
+**Example** (since 5.1.0): every example will do; `harness-design-studio new practice --template flatsat` makes a project that is shipped generated and `--template first-steps` one that is not, so `workflow practice` shows two different places in the work. [Examples](examples.md) lists the example of each feature.
+
 > **New in the transparency work, stage S9 (decisions D-191, D-193; requirement R6).** The table below is made from one place in the program, `core/workflow.py`; the Next step page, the command `workflow` and the function `api.get_workflow` read the same place. A test fails if this page and the program disagree, or if a step names a file, an output, a table or a command that the tool does not have.
 
 ## Contents
