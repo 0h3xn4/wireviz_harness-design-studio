@@ -1,0 +1,342 @@
+{
+  "approver": null,
+  "author": null,
+  "branch_points": [
+    {
+      "id": "W002-B1",
+      "name": "Branch 1"
+    }
+  ],
+  "checker": null,
+  "connectors": [
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W002-P1",
+      "keying": null,
+      "mates_with": "OBC1-J03",
+      "name": "P1",
+      "notes": "",
+      "part_id": "EX-MICROD-15-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "10",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "11",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "12",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "13",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "14",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "15",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "unspecified",
+      "id": "W002-P2",
+      "keying": null,
+      "mates_with": null,
+      "name": "P2",
+      "notes": "",
+      "part_id": "TBD-CONNECTOR",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TM+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TM-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "loose",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "unspecified",
+      "id": "W002-P3",
+      "keying": null,
+      "mates_with": null,
+      "name": "P3",
+      "notes": "",
+      "part_id": "TBD-CONNECTOR",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TC+",
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": "TC-",
+          "termination": "unspecified"
+        }
+      ],
+      "role": "loose",
+      "unit_id": null
+    }
+  ],
+  "generated": false,
+  "group_key": "",
+  "id": "W002",
+  "interfaces": [],
+  "name": "Bench cable",
+  "notes": "",
+  "released_on": null,
+  "segments": [
+    {
+      "from_node": "W002-P1",
+      "id": "W002-L1",
+      "length_m": 0.3,
+      "to_node": "W002-B1"
+    },
+    {
+      "from_node": "W002-B1",
+      "id": "W002-L2",
+      "length_m": 1.5,
+      "to_node": "W002-P2"
+    },
+    {
+      "from_node": "W002-B1",
+      "id": "W002-L3",
+      "length_m": 1.5,
+      "to_node": "W002-P3"
+    }
+  ],
+  "shields": [
+    {
+      "end_a": "floating",
+      "end_b": "floating",
+      "id": "W002-S1",
+      "kind": "twisted_pair",
+      "manual": true,
+      "wire_ids": [
+        "W002-001",
+        "W002-002"
+      ]
+    },
+    {
+      "end_a": "floating",
+      "end_b": "floating",
+      "id": "W002-S2",
+      "kind": "twisted_pair",
+      "manual": true,
+      "wire_ids": [
+        "W002-003",
+        "W002-004"
+      ]
+    }
+  ],
+  "splices": [],
+  "status": "draft",
+  "version": "1.0.0",
+  "wires": [
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "1",
+      "gauge_awg": 24,
+      "id": "W002-001",
+      "interface_id": null,
+      "length_m": null,
+      "locked": true,
+      "manual": true,
+      "part_id": null,
+      "signal": "TM+",
+      "to_connector": "W002-P2",
+      "to_pin": "1"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "2",
+      "gauge_awg": 24,
+      "id": "W002-002",
+      "interface_id": null,
+      "length_m": null,
+      "locked": true,
+      "manual": true,
+      "part_id": null,
+      "signal": "TM-",
+      "to_connector": "W002-P2",
+      "to_pin": "2"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "3",
+      "gauge_awg": 24,
+      "id": "W002-003",
+      "interface_id": null,
+      "length_m": null,
+      "locked": true,
+      "manual": true,
+      "part_id": null,
+      "signal": "TC+",
+      "to_connector": "W002-P3",
+      "to_pin": "3"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "4",
+      "gauge_awg": 24,
+      "id": "W002-004",
+      "interface_id": null,
+      "length_m": null,
+      "locked": true,
+      "manual": true,
+      "part_id": null,
+      "signal": "TC-",
+      "to_connector": "W002-P3",
+      "to_pin": "4"
+    }
+  ]
+}

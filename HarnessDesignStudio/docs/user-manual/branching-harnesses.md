@@ -2,6 +2,8 @@
 
 This page shows how to make a harness that **branches**: one cable assembly with more than two connectors, where the wires leave the main bundle at a branch point. Generate can make one for you, and you can draw one by hand. The page also says how the lengths are measured, what the written files show, and what an older version of the tool does with such a project.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template branching-harness` makes a finished example: four devices whose two harnesses Generate made branch at W001-B1 and W002-B2, with EXAMPLE segment lengths; `--template loose-cable-end` makes a cable drawn by hand with a new leg and a branch point.
+
 > **New in 2.3.0 (not released yet).** Branching harnesses are decision D-243 ([the design](../ait/DESIGN_2.3_BRANCHING.md)). The command lines were run, and their output is real; the [worked example](#a-worked-example-on-the-command-line) is the end-to-end test of 2.3.0 (`tests/test_e2e_branching.py`). The steps in the app are described from the program's code and its tests; nobody has watched them on a real screen yet (GUI, not run). The file format does not change.
 
 ## Contents

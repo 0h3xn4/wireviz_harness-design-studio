@@ -15,6 +15,9 @@ from collections.abc import Callable, Mapping, Sequence
 
 from harness_design_studio.core import (
     branching,
+    build_data,
+    configcheck,
+    connector_edit,
     devices,
     drc,
     edit,
@@ -219,6 +222,16 @@ def _demo_values(history: History, p: Project) -> None:
     history.execute("EXAMPLE values", ops)
 
 
+def _setting(
+    history: History, p: Project, file: str, key: str, value: object, *, placeholder: bool = False
+) -> None:
+    """One value of a settings file, as `settings DIR --set FILE.KEY=VALUE` sets it (a file the
+    project has no copy of yet starts empty; `placeholder` marks a new file that holds an EXAMPLE
+    number)."""
+    cfg = p.config.get(file) or ConfigFile(name=file, placeholder=placeholder, values={})
+    history.execute(f"set {file}.{key}", [SetConfig(configcheck.with_value(cfg, key, value))])
+
+
 def _metres_between(
     history: History, p: Project, hid: str, legs: Sequence[tuple[str, str, float]]
 ) -> None:
@@ -369,8 +382,297 @@ def _splice_from_connection() -> Project:
     return p
 
 
+# ---- branching-harness: one connector, two devices (section 4.5) -------------------------------
+
+# EXAMPLE segment lengths in metres: from each harness's branch point to its three connectors
+_BRANCH_METRES = {
+    "W001-L1": 0.5, "W001-L2": 0.3, "W001-L3": 0.6,
+    "W002-L1": 0.4, "W002-L2": 0.7, "W002-L3": 0.5,
+}  # fmt: skip
+# (type, from connector, to connector, name); both connectors named, so no `unconfirmed`
+_BRANCH_LINKS = (
+    ("power_primary", "PCDU1-J01", "OBC1-J02", "Power of OBC1"),
+    ("power_primary", "PCDU1-J01", "TRX1-J01", "Power of TRX1"),
+    ("rs422", "OBC1-J03", "TRX1-J02", "Telecommands and telemetry"),
+    ("rs422", "OBC1-J03", "RW1-J02", "Wheel commands"),
+)
+
+
+def _units(history: History, p: Project, placed: Sequence[tuple[str, int, float]]) -> list[str]:
+    """Devices from the starter device kinds (*Add device* of the diagram), placed in lanes."""
+    made = []
+    for kind, lane, y in placed:
+        ops, uid = edit.ops_add_unit(p, kind, edit.lane_x(lane), y)
+        history.execute(f"add unit {kind}", ops)
+        made.append(uid)
+    return made
+
+
+def _segment_lengths(history: History, p: Project, metres: Mapping[str, float]) -> None:
+    """EXAMPLE lengths of segments (segment ID -> metres), entered as a person types them in the
+    Routing table; Generate keeps them on a harness it made."""
+    done = []
+    for h in sorted(p.harnesses.values(), key=lambda x: x.id):
+        for s in h.segments:
+            if s.id in metres:
+                history.execute(
+                    f"length of {s.id}",
+                    branching.plan_set_segment_length(p, h.id, s.id, metres[s.id]),
+                )
+                done.append(s.id)
+    assert sorted(done) == sorted(metres), (done, metres)  # every length has its segment
+
+
+def _branching_harness() -> Project:
+    """Four devices; PCDU1-J01 feeds OBC1 and TRX1, OBC1-J03 talks to TRX1 and RW1. With the
+    segmentation per_connector_group Generate makes one harness per device connector that serves
+    two devices, and it branches at a branch point."""
+    p = new_project(_title("branching-harness"))
+    p.meta = evolve(
+        p.meta,
+        description="One power connector of PCDU1 feeds OBC1 and TRX1, and one data connector of "
+        "OBC1 talks to TRX1 and RW1. Generate (segmentation per connector group) makes one "
+        "harness for each of the two connectors, and each branches at a branch point. Look at the "
+        "Routing table of the Harness tab and at routing DIR W002; the manual page Branching "
+        "harnesses explains it.",
+    )
+    history = History(p)
+    _setting(history, p, "segmentation", "mode", "per_connector_group")
+    _units(history, p, (("power", 0, 40.0), ("computer", 0, 280.0), ("transceiver", 1, 40.0), ("actuator", 1, 280.0)))  # fmt: skip
+    for type_id, a, b, what in _BRANCH_LINKS:
+        ua, ub = p.connectors[a].unit_id, p.connectors[b].unit_id
+        assert ua is not None and ub is not None
+        ops, _iid = edit.ops_add_interface(p, type_id, ua, ub, a, b, name=what)
+        history.execute(f"add interface {what}", ops)
+    generate_project(p)
+    _segment_lengths(history, p, _BRANCH_METRES)
+    generate_project(p)
+    _no_errors("branching-harness", p)
+    return p
+
+
+# ---- loose-cable-end: a cable with nothing on its far end yet (section 4.6) ---------------------
+
+# The test port of OBC1 (OBC1-J03, a 15-way Micro-D): telemetry and telecommand pairs
+_TEST_PORT = (("1", "TM+"), ("2", "TM-"), ("3", "TC+"), ("4", "TC-"))
+# EXAMPLE lengths (metres): from the port to the branch point, and on to each loose end
+_BENCH_METRES = {"W002-L1": 0.3, "W002-L2": 1.5, "W002-L3": 1.5}
+
+
+def _loose_cable_end() -> Project:
+    """OBC1 and PCDU1 with one power interface, generated (W001), and a cable drawn by hand from
+    the test port OBC1-J03 whose far end is loose (W002), with a second leg of the TC pins that
+    ends loose too."""
+    p = new_project(_title("loose-cable-end"))
+    p.meta = evolve(
+        p.meta,
+        description="PCDU1 feeds OBC1 through the generated harness W001. W002, the Bench cable, "
+        "is drawn by hand from the test port OBC1-J03: its TM wires end in the loose end W002-P2, "
+        "and a leg of the TC wires ends in the loose end W002-P3 behind the branch point. Look at "
+        "the loose ends in the tree and the Inspector (Plug into...), Edit > Cable ends, and "
+        "release DIR W002, which asks for --accept-loose-ends; the manual page Build a harness by "
+        "hand explains it.",
+    )
+    history = History(p)
+    pcdu, obc = _units(history, p, (("power", 0, 40.0), ("computer", 1, 40.0)))
+    ops, _iid = edit.ops_add_interface(
+        p, "power_primary", pcdu, obc, f"{pcdu}-J01", f"{obc}-J02", name="Power of OBC1"
+    )
+    history.execute("add interface", ops)
+    port = f"{obc}-J03"
+    rows = [{"pin": pin, "signal": signal, "mode": "fixed"} for pin, signal in _TEST_PORT]
+    history.execute(f"pinout of {port}", devices.ops_paste_rows(p, port, rows))  # 15 pins stay
+    generate_project(p)
+    cable = manual_harness.plan_cable_from_port(p, port, name="Bench cable", pin_ids=["1", "2"])
+    history.execute("cable from the port", cable.ops)
+    leg = branching.plan_add_leg(p, cable.harness_id, port, ["3", "4"])
+    history.execute("a new leg", leg.ops)
+    h = p.harnesses[cable.harness_id]
+    for pins in (("1", "2"), ("3", "4")):  # each pair twisted, as its names ask
+        ids = [w.id for w in h.wires if w.from_pin in pins]
+        history.execute(f"twist {ids}", wires.plan_group_wires(p, ids, "twisted_pair"))
+    # EXAMPLE gauge and lengths of the bench cable, so that only its loose ends stop a release
+    ids = [w.id for w in h.wires]
+    history.execute("gauge of the bench cable", wires.plan_wire_edit(p, ids, {"gauge_awg": 24}))
+    _segment_lengths(history, p, _BENCH_METRES)
+    _no_errors("loose-cable-end", p)
+    return p
+
+
+# ---- shields-and-ends: where a shield lands (section 4.7) ---------------------------------------
+
+BACKSHELL_PART = "EX-BACKSHELL-MICROD"
+BACKSHELL_DEPTH_MM = 30.0  # EXAMPLE: what the backshell adds behind the rear of the connector
+
+
+def _backshell_part(history: History, p: Project) -> None:
+    """The EXAMPLE backshell part, unverified and not approved, in the template's own library, with
+    an EXAMPLE depth (the Inspector's *Depth (mm)*). The starter library has no backshell part."""
+    part = Part(
+        id=BACKSHELL_PART,
+        category="backshell",
+        manufacturer="Example Co.",
+        part_number=BACKSHELL_PART,
+        description="Backshell for a Micro-D, with a shield lug (EXAMPLE ONLY: not a real part)",
+        unverified=True,
+    )
+    history.execute(f"add part {BACKSHELL_PART}", [Put("parts", part)])
+    history.execute(
+        f"depth of {BACKSHELL_PART}",
+        build_data.plan_set_part_depth(p, BACKSHELL_PART, BACKSHELL_DEPTH_MM),
+    )
+
+
+def _backshell(history: History, p: Project, hid: str, aid: str, target: str) -> None:
+    """A backshell of the EXAMPLE part on a cable connector (the Accessories tab)."""
+    shell = {"id": aid, "kind": "backshell", "part_id": BACKSHELL_PART, "target": target}
+    history.execute(f"backshell {aid}", build_data.plan_set_accessory(p, hid, shell))
+
+
+def _grounding(history: History, p: Project, end_a: str, end_b: str) -> None:
+    """The EXAMPLE grounding concept: how end A and end B of every generated shield end."""
+    _setting(history, p, "generation", "shield_end_a", end_a)
+    _setting(history, p, "generation", "shield_end_b", end_b)
+
+
+# Each device connector: the pairs on pins 1 to 4 and the shield contact on pin 5 (role shield),
+# pins 6 to 9 free
+_RS422_SHIELDED = (("1", "TX+"), ("2", "TX-"), ("3", "RX+"), ("4", "RX-"), ("5", "SHLD"))
+_CAN_SHIELDED = (("1", "CANH"), ("2", "CANL"), ("5", "SHLD"))
+_TALKS = {"TX+": "out", "TX-": "out", "RX+": "in", "RX-": "in"}
+
+
+def _shielded_connector(
+    history: History,
+    p: Project,
+    uid: str,
+    part: str,
+    carries: Sequence[str],
+    pins: Sequence[tuple[str, str]],
+    keying: str | None,
+) -> str:
+    """A box connector whose named pins are fixed, the pin SHLD with the role shield."""
+    ops, cid = devices.ops_add_connector(p, uid, part_id=part, keying=keying, carries=carries)
+    history.execute(f"add connector {cid}", ops)
+    rows = []
+    for pin, signal in pins:
+        row = {"pin": pin, "signal": signal, "mode": "fixed"}
+        if signal == "SHLD":
+            row["role"] = "shield"
+        if signal in _TALKS:
+            row["direction"] = _TALKS[signal]
+        rows.append(row)
+    history.execute(f"pinout of {cid}", devices.ops_paste_rows(p, cid, rows))
+    return cid
+
+
+def _shields_and_ends() -> Project:
+    """OBC1 talks to TTC1 (RS-422, two shielded pairs) and to RW1 (CAN, a twisted pair under an
+    overall shield); the EXAMPLE grounding concept ends every shield by a pigtail at end A and a
+    360 degree backshell at end B, and each end says where it lands, but one."""
+    p = new_project(_title("shields-and-ends"))
+    p.meta = evolve(
+        p.meta,
+        description="The EXAMPLE grounding concept ends each shield by a pigtail at end A and "
+        "bonds it all round in a backshell at end B. W001-S1 lands its pigtail on pin 5 (the "
+        "shield contact) of W001-P1, W001-S2 on the lug of the backshell W001-A1 of W001-P2; the "
+        "ends B are bonded in the backshells. End A of W002-S2 is left without a place, so check "
+        "names it. Look at Change group..., the shield cell of the Production sheet and check "
+        "DIR; the manual page Enter the build data (3a) explains it.",
+    )
+    history = History(p)
+    _demo_values(history, p)
+    _grounding(history, p, "pigtail", "backshell_360")
+    _backshell_part(history, p)
+    _device(history, p, "OBC1", "On-board computer", 0, 40.0)
+    _device(history, p, "TTC1", "Transceiver", 1, 40.0)
+    _device(history, p, "RW1", "Reaction wheel", 1, 300.0)
+    links = (  # the two connectors of OBC1 are keyed A and B, so they cannot be swapped
+        ("rs422", "Telecommands and telemetry", "TTC1", _RS422_SHIELDED, "A"),
+        ("can", "Wheel bus", "RW1", _CAN_SHIELDED, "B"),
+    )
+    for type_id, what, far, pins, key in links:
+        near = _shielded_connector(history, p, "OBC1", "EX-MICROD-9-F", (type_id,), pins, key)
+        other = _shielded_connector(history, p, far, "EX-MICROD-9-M", (type_id,), pins, None)
+        ops, _iid = edit.ops_add_interface(p, type_id, "OBC1", far, near, other, name=what)
+        history.execute(f"add interface {what}", ops)
+    generate_project(p)
+    # W001 (RS-422): the TX pair has end A at W001-P1, the RX pair at W001-P2 (end A is the `from`
+    # end of the lowest wire of a group); a backshell on each connector
+    _backshell(history, p, "W001", "W001-A1", "W001-P2")
+    _backshell(history, p, "W001", "W001-A2", "W001-P1")
+    _backshell(history, p, "W002", "W002-A1", "W002-P2")
+    for group, end, pin, shell in (
+        ("W001-S1", "A", "5", None),  # a pigtail to the shield contact
+        ("W001-S1", "B", None, "W001-A1"),  # a 360 degree bond in the backshell
+        ("W001-S2", "A", None, "W001-A1"),  # a pigtail to the lug of the backshell
+        ("W001-S2", "B", None, "W001-A2"),
+        ("W002-S2", "B", None, "W002-A1"),  # end A of W002-S2 is left without a place
+    ):
+        history.execute(
+            f"place of {group} end {end}",
+            wires.plan_set_shield_place(p, group, end, pin=pin, backshell=shell),
+        )
+    _no_errors("shields-and-ends", p)
+    return p
+
+
+# ---- lengths-to-the-face: lengths measured from the mating face (section 4.8) -------------------
+
+# EXAMPLE depths of the cable connector parts in use, from the mating face back to the rear (mm)
+_DEPTHS_MM = {"EX-MICROD-9-M": 18.0, "EX-MICROD-15-M": 19.0, "EX-MICROD-21-M": 20.0}
+# EXAMPLE segment lengths (metres), as measured in a mechanical model: to the mating faces
+_FACE_METRES = {"W001-L1": 1.2, "W002-L1": 0.9}
+
+
+def _lengths_to_the_face() -> Project:
+    """PCDU1 and RW1 joined by a power interface (W001) and an RS-422 interface (W002); the
+    segments run to the mating face of each cable connector but W002-P2, and the depth of each
+    connector part and of the backshell on W001-P1 is taken off each wire."""
+    p = new_project(_title("lengths-to-the-face"))
+    p.meta = evolve(
+        p.meta,
+        description="The segment lengths of this project run to the mating face of the cable "
+        "connectors (Settings > Project, Segments are measured to), as a mechanical model gives "
+        "them; W002-P2 is measured to its rear. The depth of each connector part and of the "
+        "backshell W001-A1 on W001-P1 is taken off each wire, so a wire length stays a length "
+        "from rear to rear. The length model adds a cut allowance and the take-up of twisting. "
+        "Look at the length note, segments.csv and explain DIR W001-001; the manual page Lengths "
+        "to the face explains it.",
+    )
+    history = History(p)
+    _demo_values(history, p)
+    _setting(history, p, "model", "length_reference", "face", placeholder=True)
+    _setting(history, p, "model", "length_model", "path_loops_allowance_twist", placeholder=True)
+    _setting(history, p, "model", "cut_allowance_m", 0.03, placeholder=True)  # EXAMPLE
+    _setting(history, p, "model", "twist_takeup_fraction", 0.02, placeholder=True)  # EXAMPLE
+    _backshell_part(history, p)
+    for part, mm in _DEPTHS_MM.items():
+        history.execute(f"depth of {part}", build_data.plan_set_part_depth(p, part, mm))
+    pcdu, rw = _units(history, p, (("power", 0, 40.0), ("actuator", 1, 40.0)))
+    for type_id, a, b, what in (  # Generate numbers the power harness W001, the RS-422 W002
+        ("power_primary", f"{pcdu}-J01", f"{rw}-J01", "Power of RW1"),
+        ("rs422", f"{pcdu}-J03", f"{rw}-J02", "Wheel housekeeping"),
+    ):
+        ops, _iid = edit.ops_add_interface(p, type_id, pcdu, rw, a, b, name=what)
+        history.execute(f"add interface {what}", ops)
+    generate_project(p)
+    _backshell(history, p, "W001", "W001-A1", "W001-P1")
+    history.execute(
+        "W002-P2 to its rear", connector_edit.plan_set_length_to(p, "W002", "W002-P2", "rear")
+    )
+    _segment_lengths(history, p, _FACE_METRES)
+    generate_project(p)
+    _no_errors("lengths-to-the-face", p)
+    return p
+
+
 BUILDERS: dict[str, Callable[[], Project]] = {
     "full-connectors": _full_connectors,
     "splice-by-hand": _splice_by_hand,
     "splice-from-connection": _splice_from_connection,
+    "branching-harness": _branching_harness,
+    "loose-cable-end": _loose_cable_end,
+    "shields-and-ends": _shields_and_ends,
+    "lengths-to-the-face": _lengths_to_the_face,
 }

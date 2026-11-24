@@ -94,6 +94,34 @@ TEMPLATES = (
         "carries the splices.",
         FEATURE,
     ),
+    TemplateInfo(
+        "branching-harness",
+        "Branching harness (EXAMPLE)",
+        "Four devices; Generate makes harnesses that branch where one connector serves two "
+        "devices.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "loose-cable-end",
+        "Loose cable end (EXAMPLE)",
+        "A cable from a port with its far end loose, and a leg added to it; a release asks for a "
+        "reason.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "shields-and-ends",
+        "Shields and their ends (EXAMPLE)",
+        "A grounding concept, shield groups, pigtails landed on pins and 360-degree ends on "
+        "backshells.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "lengths-to-the-face",
+        "Lengths to the face (EXAMPLE)",
+        "Segments measured to the mating face; the depth of each connector and backshell is "
+        "taken off each wire.",
+        FEATURE,
+    ),
 )
 
 

@@ -1,0 +1,10 @@
+{
+  "name": "model",
+  "placeholder": true,
+  "values": {
+    "cut_allowance_m": 0.03,
+    "length_model": "path_loops_allowance_twist",
+    "length_reference": "face",
+    "twist_takeup_fraction": 0.02
+  }
+}

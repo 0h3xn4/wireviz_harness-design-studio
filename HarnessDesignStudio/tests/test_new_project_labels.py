@@ -116,7 +116,8 @@ def test_the_blank_example_is_the_start_of_a_project() -> None:
 def test_a_project_from_an_example_keeps_the_standard_format(tmp_path: Path, name: str) -> None:
     folder = tmp_path / name
     project = templates.create_project(folder, name)
-    assert model_on_disk(folder) is None
+    model = model_on_disk(folder)  # lengths-to-the-face sets model.length_reference, no format
+    assert model is None or "label_format" not in model["values"], model
     assert label_format.format_of(project) == "standard"
 
 
