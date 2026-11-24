@@ -17,7 +17,10 @@ unreviewed placeholder, locked). The end of a cable drawn by hand (kind `cable_e
 connector of a harness: M4c) shows its harness, the harness's origin, whether it is plugged in or
 an open end, and the fields to name it, give it a connector part, plug it in or unplug it; a
 harness shows its origin (interfaces, a connection, or drawn by hand). A branch point (kind
-`branch_point`, 2.3.0) shows its name, its harness and each of its segments with its length. The
+`branch_point`, 2.3.0) shows its name, its harness and each of its segments with its length. A
+shield group (kind `shield_group`, 5.0.0, design of 5.0.0 section 7.5) shows its harness, kind and
+wires and how each end is terminated and where it lands (a pigtail without a place, and a place
+that names another connector than the one at its end, are marked). The
 **Why** tab is a
 `WhyPanel`. The **Problems** tab hosts the
 `ProblemsPanel` that is handed in; this module does not touch it.
@@ -54,10 +57,17 @@ from harness_design_studio.core.connector_edit import plan_set_length_to
 from harness_design_studio.core.devices import connector_parts_to_choose
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.generate.lengths import length_reference
-from harness_design_studio.core.model import BranchPoint, Harness, Project
+from harness_design_studio.core.model import BranchPoint, Harness, Project, ShieldGroup
 from harness_design_studio.core.model.library import DEPTH_CATEGORIES
 from harness_design_studio.core.model.physical import LOOSE_ROLE
 from harness_design_studio.core.origin import harness_link, harness_origin
+from harness_design_studio.core.shield_ends import (
+    ENDS,
+    end_connector,
+    end_text,
+    kind_of_end,
+    place_of,
+)
 from harness_design_studio.core.usedby import KINDS as USED_KINDS
 from harness_design_studio.core.usedby import Use, used_by
 from harness_design_studio.core.vcs.lockview import (
@@ -79,7 +89,9 @@ from harness_design_studio.gui.theme import ThemeManager, mark_mono
 from harness_design_studio.gui.why_panel import WhyPanel
 
 TABS = ("inspector", "why", "problems")
-FACT_KINDS = ("harness", "part", "interface_type", "config", "cable_end", "branch_point")
+FACT_KINDS = (
+    "harness", "part", "interface_type", "config", "cable_end", "branch_point", "shield_group",
+)  # fmt: skip
 MAX_TABLE_ROWS = 4
 
 
@@ -390,6 +402,53 @@ def _branch_point_facts(p: Project, oid: str) -> list[dict[str, Any]]:
     return rows
 
 
+def shield_group_of(p: Project, oid: str) -> tuple[Harness, ShieldGroup] | None:
+    """(harness, shield group) of a shield group ID, or None."""
+    for h in p.harnesses.values():
+        for s in h.shields:
+            if s.id == oid:
+                return h, s
+    return None
+
+
+def _shield_group_facts(p: Project, oid: str) -> list[dict[str, Any]]:
+    """A shield group (format 5, design of 5.0.0 section 7.5): its harness, kind and wires, and
+    for each end how it is terminated and where it lands, in the words of the outputs (*pigtail
+    to pin 9 at W001-P1*). A pigtail without a place is marked pending (the info
+    `shield_place_not_stated`), a place that names another connector than the one at its end a
+    warning (`shield_end_moved`); a twisted pair has no shield, so no end."""
+    found = shield_group_of(p, oid)
+    if found is None:
+        return []
+    h, s = found
+    rows = [
+        _fact(strings.INS_FACT_HARNESS, f"{h.id} · {h.name}"),
+        _fact(strings.INS_SG_GROUP_KIND, s.kind.replace("_", " ")),
+        _fact(strings.INS_SG_WIRES, ", ".join(s.wire_ids)),
+    ]
+    if s.kind == "twisted_pair":
+        return rows
+    for end in ENDS:
+        kind, place, here = kind_of_end(s, end), place_of(s, end), end_connector(h, s, end)
+        at = here or strings.GD_NO_CONNECTOR
+        label = strings.INS_SG_END.format(end.upper())
+        if place is not None and here is not None and place.connector != here:
+            rows.append(
+                _fact(label, strings.INS_SG_END_AT.format(end_text(kind, place), at),
+                      strings.INS_SG_MOVED.format(place.connector), "warning",
+                      strings.INS_SG_MOVED_TIP)
+            )  # fmt: skip
+        elif place is None and kind == "pigtail":
+            rows.append(
+                _fact(label, strings.INS_SG_END_AT.format(end_text(kind, None), at),
+                      strings.INS_SG_NOT_STATED, "pending", strings.INS_SG_NOT_STATED_TIP)
+            )  # fmt: skip
+        else:
+            text = strings.INS_SG_END_AT.format(end_text(kind, place), at)
+            rows.append(_fact(label, text, tip=strings.INS_SG_END_TIP))
+    return rows
+
+
 _FACTS: dict[str, Callable[[Project, str], list[dict[str, Any]]]] = {
     "harness": _harness_facts,
     "part": _part_facts,
@@ -397,6 +456,7 @@ _FACTS: dict[str, Callable[[Project, str], list[dict[str, Any]]]] = {
     "config": _config_facts,
     "cable_end": _cable_end_facts,
     "branch_point": _branch_point_facts,
+    "shield_group": _shield_group_facts,
 }
 
 
@@ -412,6 +472,8 @@ def facts_for(project: Project, kind: str, object_id: str) -> list[dict[str, Any
         return _cable_end_facts(project, object_id)
     if kind == "branch_point":
         return _branch_point_facts(project, object_id)
+    if kind == "shield_group":
+        return _shield_group_facts(project, object_id)
     if kind not in exists or object_id not in exists[kind]:
         return []
     return _FACTS[kind](project, object_id)
@@ -735,6 +797,8 @@ class Inspector(QWidget):
             return cable_ends.connector_of(project, oid) is not None
         if kind == "branch_point":
             return branch_point_of(project, oid) is not None
+        if kind == "shield_group":
+            return shield_group_of(project, oid) is not None
         tables: dict[str, Mapping[str, Any]] = {
             "unit": project.units,
             "interface": project.interfaces,

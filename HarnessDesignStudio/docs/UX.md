@@ -465,4 +465,25 @@ The interaction rules of section 6 apply as before: an addition is one undo step
 
 ![The library window](img/library-window.png)
 
+## 21. The fields of format 5 (new in 5.0.0)
+
+Milestone E5 of the electrical feedback (decision D-264, proposed; design `docs/ait/DESIGN_5.0_FORMAT_5.md` sections 4.5, 5, 6.4, 7.5, 8.5 and 18; REQ-GUI-33): where a length is measured to, a current per pin, a splice from a connection, where a shield end lands and the checked state of a device.
+
+| Where | What is new |
+| --- | --- |
+| Settings > Project | **Segments are measured to** (rear or mating face; `model.length_reference`), with a line that says what the choice does. |
+| Inspector of a cable connector, of a connector or backshell part | **Lengths measured to** (the project's, rear, face) and **Depth (mm)**. |
+| Devices tab | The column **Current (A)** of the pin table (shown while a pin of the connector has one, and from the column menu); the line *Checked by … on … against …*, **Mark as checked…** and **Clear the check**. |
+| Window *Link connectors*, *Create harness*, *Splices* list | A pin paired again makes a junction, named in the review; *Create harness* asks for the splice part; the column **Pin currents** of each node. |
+| Window *Change group*, Edit wire tab | **Lands on pin** and **Backshell** under each end (also for a group Generate made), **Add a backshell…**; the group line names the places. |
+| Inspector of a shield group | Its harness, kind and wires, and how each end is terminated and where it lands; a pigtail without a place and a place on another connector are marked. Reached from the Problems list. |
+| Problems list | The infos *the currents of a net were not worked out*, *where the pigtail lands is not stated* and *a junction* as Info rows with their own sentence (the junction under *Connections*); a click on a missing depth opens the cable connector's Inspector, on a stale check the Devices tab, on a shield group its harness and its Inspector. |
+| Library window | The column **Checked** and **Mark as checked…**. |
+
+The interaction rules of section 6 apply as before: a change is one undo step, a released harness or a read-only project refuses with the reason, a mistake is said inline, and nothing is invented (no depth, current, place or check is filled in by the tool).
+
+![The Devices tab with a pin current and a checked device](ux/qt/31-devices-current-and-check.png)
+
+![The window Change group with where the shield ends land](ux/qt/32-change-group-places.png)
+
 Next: [`DESIGN.md`](DESIGN.md), [`ux-audit.md`](ux-audit.md), [`usability/README.md`](usability/README.md)

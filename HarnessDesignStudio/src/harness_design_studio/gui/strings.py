@@ -1632,6 +1632,7 @@ INS_FACT_KIND = {
     "interface_type": "Interface type",
     "config": "Configuration",
     "branch_point": "Branch point",
+    "shield_group": "Shield group",  # (5.0.0, design of 5.0.0 section 7.5)
 }
 INS_FACT_LABELS = {
     "name": "Name",
@@ -4650,3 +4651,59 @@ LIB_CHECK_NONE = (
     "Choose a device of the library that this project follows to mark the project's device as "
     "checked; save it to the library to share the check"
 )
+
+# ---- 5.0.0 E5, pull request 7: the rest of the editor (design of 5.0.0 sections 4.5, 5.3, 6.1,
+# 7.3, 7.5, 8.3 and 18): Settings > Project, the Problems list, the Inspector of a shield group
+SETTINGS_LENGTH_REFERENCE = "Segments are measured to"
+SETTINGS_LENGTH_REFERENCE_TEXT = (
+    "Where a routing segment ends at a cable connector (config/model.json, length_reference): "
+    "its rear, where the wires leave the body or backshell, or its mating face. A cable "
+    "connector may say otherwise in the Inspector (Lengths measured to)."
+)
+SETTINGS_LENGTH_REFERENCE_TIP = "Choose where the segments end at a cable connector (one undo step)"
+SETTINGS_LENGTH_REFERENCE_CHOICES = {"rear": "rear", "face": "mating face"}
+SETTINGS_LENGTH_REFERENCE_ABOUT = {
+    "rear": "Lengths run from the rear of each cable connector, as in every project before 5.0.0.",
+    "face": (
+        "Lengths run to the mating face: the depth of the connector part and its backshells "
+        "(Depth (mm) of the part) is taken off each wire, and a face end without a depth leaves "
+        "its wires without a length."
+    ),
+}
+SETTINGS_LENGTH_REFERENCE_UNKNOWN = "{0}: a choice of a newer version of the tool."
+STEP_SET_LENGTH_REFERENCE = "Segments measured to the {0}"
+LENGTH_REFERENCE_SET = "The segments are now measured to the {0} of each cable connector."
+# the Problems list: the infos of check that are no finding of a rule (design of 5.0.0 sections
+# 5.3, 6.1 and 7.3), shown as Info rows as the note of the row layouts is
+PROBLEMS_NOTE_WHY = {
+    "current_not_worked_out": (
+        "A note of the check of the pin currents: the wires of this net form a loop, or parallel "
+        "wires that differ, so their currents were not worked out and the current rules did not "
+        "judge them. It stops nothing."
+    ),
+    "shield_place_not_stated": (
+        "A note of the check of the shield ends: where this pigtail lands, on a pin or a "
+        "backshell, is not stated, so the Production sheet says only pigtail. Say it with Change "
+        "group… in the Edit wire tab. It stops nothing."
+    ),
+    "link_junction": (
+        "A note of the review of the connection: a pin is joined to several pins, and the "
+        "harness made from the connection joins them in a splice of the part you choose. It "
+        "stops nothing."
+    ),
+}
+# the Inspector of a shield group (design of 5.0.0 section 7.5)
+INS_SG_GROUP_KIND = "Kind"
+INS_SG_WIRES = "Wires"
+INS_SG_END = "End {0}"
+INS_SG_END_AT = "{0} at {1}"
+INS_SG_NOT_STATED = "where it lands is not stated"
+INS_SG_NOT_STATED_TIP = (
+    "Say on which pin or backshell the pigtail lands with Change group… in the Edit wire tab"
+)
+INS_SG_MOVED = "names {0}"
+INS_SG_MOVED_TIP = (
+    "The place names another connector than the one at this end (the lowest wire of the group "
+    "changed). State the place again with Change group… in the Edit wire tab."
+)
+INS_SG_END_TIP = "How the end is terminated and where it lands; Change group… in the Edit wire tab"
