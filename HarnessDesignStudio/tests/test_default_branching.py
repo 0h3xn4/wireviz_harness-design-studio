@@ -54,6 +54,8 @@ TEMPLATE_MODES = {
     "loose-cable-end": PAIR,
     "shields-and-ends": PAIR,
     "lengths-to-the-face": PAIR,
+    "released-harness": PAIR,
+    "overrides-and-deviations": PAIR,
 }
 
 

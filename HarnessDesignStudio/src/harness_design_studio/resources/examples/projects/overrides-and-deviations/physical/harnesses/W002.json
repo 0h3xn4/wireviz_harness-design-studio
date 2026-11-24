@@ -1,0 +1,263 @@
+{
+  "approver": null,
+  "author": null,
+  "branch_points": [],
+  "checker": null,
+  "connectors": [
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W002-P1",
+      "keying": null,
+      "mates_with": "OBC1-J02",
+      "name": "P1",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W002-P2",
+      "keying": null,
+      "mates_with": "PCDU1-J02",
+      "name": "P2",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    }
+  ],
+  "generated": true,
+  "group_key": "cp|nominal|OBC1-J02|PCDU1-J02",
+  "id": "W002",
+  "interfaces": [
+    "IF-003"
+  ],
+  "name": "OBC1-J02 to PCDU1-J02 (power)",
+  "notes": "",
+  "released_on": null,
+  "segments": [
+    {
+      "from_node": "W002-P1",
+      "id": "W002-L1",
+      "length_m": 2.0,
+      "to_node": "W002-P2"
+    }
+  ],
+  "shields": [
+    {
+      "end_a": "backshell_360",
+      "end_b": "backshell_360",
+      "id": "W002-S1",
+      "kind": "twisted_pair",
+      "wire_ids": [
+        "W002-001",
+        "W002-002"
+      ]
+    }
+  ],
+  "splices": [],
+  "status": "draft",
+  "version": "1.0.0",
+  "wires": [
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "1",
+      "gauge_awg": 24,
+      "id": "W002-001",
+      "interface_id": "IF-003",
+      "length_m": 2.1,
+      "locked": true,
+      "overrides": {
+        "gauge_awg": "EXAMPLE: the thinner wire of a bench cable"
+      },
+      "part_id": "EX-WIRE-SINGLE",
+      "signal": "PWR",
+      "to_connector": "W002-P2",
+      "to_pin": "1"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "2",
+      "gauge_awg": 22,
+      "id": "W002-002",
+      "interface_id": "IF-003",
+      "length_m": 2.1,
+      "locked": false,
+      "part_id": "EX-WIRE-SINGLE",
+      "signal": "RTN",
+      "to_connector": "W002-P2",
+      "to_pin": "2"
+    }
+  ]
+}

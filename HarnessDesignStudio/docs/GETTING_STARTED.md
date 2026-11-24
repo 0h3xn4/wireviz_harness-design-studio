@@ -35,19 +35,21 @@ harness-design-studio new --list
 
 ```
 Start:
-blank                   An empty project: starter parts and interface types, no devices.
-first-steps             Three devices, a power link and an RS-422 link. Nothing is generated yet: start here.
-minimal-satellite       Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.
-small-satellite         14 devices with nominal and redundant chains. Generate it to see a realistic system.
-flatsat                 A complete bench: 23 flight and ground devices, generated, with example numbers.
+blank                     An empty project: starter parts and interface types, no devices.
+first-steps               Three devices, a power link and an RS-422 link. Nothing is generated yet: start here.
+minimal-satellite         Seven devices, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.
+small-satellite           14 devices with nominal and redundant chains. Generate it to see a realistic system.
+flatsat                   A complete bench: 23 flight and ground devices, generated, with example numbers.
 Feature examples (small projects, one feature each):
-full-connectors         Three devices whose connectors have a signal on every pin: fixed pinouts, ports and pin rows; generated.
-splice-by-hand          A power line drawn by hand from one output to two devices through two splices of an EXAMPLE part.
-splice-from-connection  A connection that joins one pin to two (a junction), with pin currents; its harness carries the splices.
-branching-harness       Four devices; Generate makes harnesses that branch where one connector serves two devices.
-loose-cable-end         A cable from a port with its far end loose, and a leg added to it; a release asks for a reason.
-shields-and-ends        A grounding concept, shield groups, pigtails landed on pins and 360-degree ends on backshells.
-lengths-to-the-face     Segments measured to the mating face; the depth of each connector and backshell is taken off each wire.
+full-connectors           Three devices whose connectors have a signal on every pin: fixed pinouts, ports and pin rows; generated.
+splice-by-hand            A power line drawn by hand from one output to two devices through two splices of an EXAMPLE part.
+splice-from-connection    A connection that joins one pin to two (a junction), with pin currents; its harness carries the splices.
+branching-harness         Four devices; Generate makes harnesses that branch where one connector serves two devices.
+loose-cable-end           A cable from a port with its far end loose, and a leg added to it; a release asks for a reason.
+shields-and-ends          A grounding concept, shield groups, pigtails landed on pins and 360-degree ends on backshells.
+lengths-to-the-face       Segments measured to the mating face; the depth of each connector and backshell is taken off each wire.
+released-harness          A harness reviewed and released with a checklist, then its next version started: diff, log and the version report.
+overrides-and-deviations  A value set by hand with its reason, a warning waived and two errors accepted as deviations.
 ```
 
 **Which version do you have?** This tutorial is written for 1.17.0. The commands work the same on 1.7.0, 1.6.0 and earlier, except that `export` there writes the harness drawings and no build workbook (Part 6); the window is the one of 1.3.0 and later, and the Next step page is new in 1.7.0 and the roles (Systems engineer and Electrical engineer from 1.8.0, AIT engineer from 1.12.0) are newer still, so the app steps and the picture look different in 1.7.0 and earlier (1.2.0 and earlier had tabs along the top). The five examples, the `design-worksheet.md` template, the wiring-diagram drawing with wire colours and *Edit > Wire colours...* are not in the 0.1.0 packages (see [`CHANGELOG.md`](../CHANGELOG.md)): check with the command above, 1.0.0 lists five examples, 0.1.0 lists three (`blank`, `first-steps` and `small-satellite`). With a 0.1.0 package the tutorial still works from `first-steps`, but the drawings and the optional colour step differ.

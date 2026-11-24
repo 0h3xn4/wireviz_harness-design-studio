@@ -122,6 +122,20 @@ TEMPLATES = (
         "taken off each wire.",
         FEATURE,
     ),
+    TemplateInfo(
+        "released-harness",
+        "Released harness (EXAMPLE)",
+        "A harness reviewed and released with a checklist, then its next version started: diff, "
+        "log and the version report.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "overrides-and-deviations",
+        "Overrides and deviations (EXAMPLE)",
+        "A value set by hand with its reason, a warning waived and two errors accepted as "
+        "deviations.",
+        FEATURE,
+    ),
 )
 
 

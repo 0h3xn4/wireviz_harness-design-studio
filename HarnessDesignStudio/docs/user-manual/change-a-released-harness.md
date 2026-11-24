@@ -2,6 +2,8 @@
 
 This page shows how to change a harness after it was released, by starting a new version, and how to see what changed and who changed it. What the three numbers of a version mean, and what became of the revision letters of 2.x, is on the page [Versions](versions.md).
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template released-harness` makes a finished example: W002 released as version 1.0.0, then its minor version 1.1.0 started with one change (the length of W002-L1), so `log` and `diff` show the history and the change.
+
 ## Contents
 
 - [Before you start](#before-you-start)

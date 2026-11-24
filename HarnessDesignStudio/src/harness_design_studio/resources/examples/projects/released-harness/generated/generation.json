@@ -1,0 +1,111 @@
+{
+  "generator_version": "5.0.0",
+  "input_hash": "3af9c50738de81e4ea12846a2cc5ee33f3cb27254680c413e28122691b856492",
+  "next_harness_number": 3,
+  "placeholders_used": [
+    "derating",
+    "emc",
+    "generation",
+    "segmentation",
+    "segregation",
+    "titleblock"
+  ],
+  "provenance": {
+    "connector:W001-P1": [
+      "mating: cable end for OBC1-J01 (OBC1); part EX-MICROD-25-M mates with EX-MICROD-25-F"
+    ],
+    "connector:W001-P2": [
+      "mating: cable end for RW1-J02 (RW1); part EX-MICROD-21-M mates with EX-MICROD-21-F"
+    ],
+    "connector:W002-P1": [
+      "mating: cable end for PCDU1-J01 (PCDU1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W002-P2": [
+      "mating: cable end for RW1-J01 (RW1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "gauge:W001-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-003": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-004": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-001": [
+      "wire-sizing: ampacity: AWG 22 carries 2.16 A derated (factor 0.72) for 2 A",
+      "wire-sizing: voltage drop: AWG 22 gives 0.23248 V over 2 conductor(s), limit 0.5 V",
+      "contact-check: not done for PCDU1-J01 (contact rating or derating factor is a placeholder)",
+      "contact-check: not done for RW1-J01 (contact rating or derating factor is a placeholder)"
+    ],
+    "gauge:W002-002": [
+      "wire-sizing: ampacity: AWG 22 carries 2.16 A derated (factor 0.72) for 2 A",
+      "wire-sizing: voltage drop: AWG 22 gives 0.23248 V over 2 conductor(s), limit 0.5 V",
+      "contact-check: not done for PCDU1-J01 (contact rating or derating factor is a placeholder)",
+      "contact-check: not done for RW1-J01 (contact rating or derating factor is a placeholder)"
+    ],
+    "harness:W001": [
+      "segmentation: IF-002 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "harness:W002": [
+      "segmentation: IF-001 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "pin:OBC1-J01.1": [
+      "pin-allocation: TX+ of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:OBC1-J01.2": [
+      "pin-allocation: TX- of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:OBC1-J01.3": [
+      "pin-allocation: RX+ of IF-002 (pair RX on adjacent pins)"
+    ],
+    "pin:OBC1-J01.4": [
+      "pin-allocation: RX- of IF-002 (pair RX on adjacent pins)"
+    ],
+    "pin:PCDU1-J01.1": [
+      "pin-allocation: PWR of IF-001 (power and return grouped)"
+    ],
+    "pin:PCDU1-J01.2": [
+      "pin-allocation: RTN of IF-001 (power and return grouped)"
+    ],
+    "pin:RW1-J01.1": [
+      "pin-allocation: PWR of IF-001 (power and return grouped)"
+    ],
+    "pin:RW1-J01.2": [
+      "pin-allocation: RTN of IF-001 (power and return grouped)"
+    ],
+    "pin:RW1-J02.1": [
+      "pin-allocation: TX+ of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:RW1-J02.2": [
+      "pin-allocation: TX- of IF-002 (pair TX on adjacent pins)"
+    ],
+    "pin:RW1-J02.3": [
+      "pin-allocation: RX+ of IF-002 (pair RX on adjacent pins)"
+    ],
+    "pin:RW1-J02.4": [
+      "pin-allocation: RX- of IF-002 (pair RX on adjacent pins)"
+    ],
+    "wire:W001-001": [
+      "wiring: TX+/RX+ of IF-002 connects OBC1-J01 pin 1 to RW1-J02 pin 3 (X drives)"
+    ],
+    "wire:W001-002": [
+      "wiring: TX+/RX+ of IF-002 connects RW1-J02 pin 1 to OBC1-J01 pin 3 (Y drives)"
+    ],
+    "wire:W001-003": [
+      "wiring: TX-/RX- of IF-002 connects OBC1-J01 pin 2 to RW1-J02 pin 4 (X drives)"
+    ],
+    "wire:W001-004": [
+      "wiring: TX-/RX- of IF-002 connects RW1-J02 pin 2 to OBC1-J01 pin 4 (Y drives)"
+    ],
+    "wire:W002-001": [
+      "wiring: PWR of IF-001 connects PCDU1-J01 pin 1 to RW1-J01 pin 1 (X drives)"
+    ],
+    "wire:W002-002": [
+      "wiring: RTN of IF-001 connects PCDU1-J01 pin 2 to RW1-J01 pin 2 (X drives)"
+    ]
+  }
+}
