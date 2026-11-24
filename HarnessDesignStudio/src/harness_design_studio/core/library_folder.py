@@ -81,6 +81,10 @@ class LibraryEntry:
     pins: int = 0
     connections: int = 0
     subsystem: str = ""  # the subsystem a device was saved with, for the search
+    # the checked state of a device as the file holds it (format 5, design of 5.0.0 section 8.5):
+    # *Checked by … on … against …*, with *; changed since the check* when the file's device is
+    # not what was checked, or *not checked*; empty for a subsystem
+    checked: str = ""
 
 
 @dataclass(frozen=True)
@@ -353,9 +357,26 @@ def _device_entries(rel: str, data: dict[str, Any]) -> tuple[list[LibraryEntry],
                 sum(len(c.get("pins", [])) for c in conns),
                 0,
                 str(unit.get("subsystem", "")),
+                _checked_words(rec),
             )
         )
     return out, problems
+
+
+def _checked_words(rec: dict[str, Any]) -> str:
+    """The checked state of the device of a library record, in the words of the Devices tab."""
+    from harness_design_studio.core import device_check as dc
+    from harness_design_studio.core.model import Connector, Unit
+
+    try:
+        unit = Unit.model_validate(rec.get("unit", {}))
+        conns = [Connector.model_validate(c) for c in rec.get("connectors", [])]
+    except ValueError:  # (a ValidationError) the record is listed, its check is not judged
+        return dc.NOT_CHECKED
+    if unit.checked is None:
+        return dc.NOT_CHECKED
+    same = unit.checked.sha256 == dc.device_sha256(unit, conns)
+    return dc.state_text(unit.checked, dc.CHECKED if same else dc.CHANGED)
 
 
 def _subsystem_entry(rel: str, data: dict[str, Any]) -> LibraryEntry:

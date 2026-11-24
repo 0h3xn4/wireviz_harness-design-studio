@@ -345,14 +345,18 @@ def _device_content(extra_pin_key: str | None = None) -> dict[str, Any]:
 
 def test_only_the_keys_that_came_make_a_file_version_4() -> None:
     """Pull request 1 makes the rule; the keys come with their readers (pull requests 2, 3, 6):
-    `depth_mm` of a part with pull request 2, `current_a` of a pin with pull request 3."""
-    assert frozenset({"depth_mm", "current_a"}) == device_library.FORMAT5_KEYS
+    `depth_mm` of a part with pull request 2, `current_a` of a pin with pull request 3, `checked`
+    of a device with pull request 6."""
+    assert frozenset({"depth_mm", "current_a", "checked"}) == device_library.FORMAT5_KEYS
     assert device_library.VERSION == 4 and device_library.FORMAT4_VERSION == 3
     assert subsystem_library.VERSION == 3 and subsystem_library.FORMAT4_VERSION == 2
     assert device_library.content_version(_device_content()) == 1
     assert device_library.content_version(_device_content("current_a")) == 4
     assert subsystem_library.content_version(_device_content("current_a")) == 3
-    assert device_library.content_version(_device_content("checked")) == 1  # not a key yet
+    checked = _device_content()
+    checked["devices"][0]["unit"]["checked"] = {"by": "A. Example", "on": "2026-11-23"}
+    assert device_library.content_version(checked) == 4  # a device's check (pull request 6)
+    assert subsystem_library.content_version(checked) == 3
 
 
 @pytest.mark.parametrize("where", ["unit", "connector", "pin", "part"])

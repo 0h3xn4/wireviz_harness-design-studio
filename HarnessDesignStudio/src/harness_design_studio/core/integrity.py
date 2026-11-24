@@ -744,6 +744,23 @@ def shield_place_issues(project: Project) -> list[Issue]:
     return out
 
 
+def device_check_issues(project: Project) -> list[Issue]:
+    """The check of a checked device (format 5, design of 5.0.0 section 8.3): `device_check_stale`,
+    a warning (so `model-inconsistent` in the DRC, which does not block a release), when what a
+    check covers (`device_check.checked_sha256`) changed since the device was checked. The check
+    stays as it is: the record of who checked what is kept, marked stale. A project without a
+    checked device has none."""
+    from .device_check import CHANGED, check_state
+
+    out: list[Issue] = []
+    for uid in sorted(project.units):
+        check = project.units[uid].checked
+        if check is None or check_state(project, uid) != CHANGED:
+            continue
+        out.append(_warn("device_check_stale", f"{uid} was checked by {check.by} on {check.on} against {check.icd}; its connectors or pins changed since. Check it again (device-checked), or see what changed (the journal, update-device).", uid))  # fmt: skip
+    return out
+
+
 # The collections whose keys must differ only by more than upper/lower case, with the word the
 # message uses for them.
 _CASEFOLD_KINDS = (
@@ -801,6 +818,7 @@ def check_integrity(project: Project) -> list[Issue]:
     out.extend(length_issues(project))
     out.extend(current_issues(project))
     out.extend(shield_place_issues(project))
+    out.extend(device_check_issues(project))
     return out
 
 

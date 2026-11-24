@@ -32,7 +32,7 @@ The examples show the form of each command with example names. They do not all w
 - Team use with Git: [`merge-fix`](#harness-design-studio-merge-fix)
 - Bring in data: [`config`](#harness-design-studio-config), [`library`](#harness-design-studio-library), [`import-parts`](#harness-design-studio-import-parts), [`import-lengths`](#harness-design-studio-import-lengths), [`import-netlist`](#harness-design-studio-import-netlist), [`import-pinout`](#harness-design-studio-import-pinout), [`pin-rows`](#harness-design-studio-pin-rows), [`import-devices`](#harness-design-studio-import-devices), [`import-subsystem`](#harness-design-studio-import-subsystem), [`import-build-data`](#harness-design-studio-import-build-data), [`imports`](#harness-design-studio-imports)
 - Write data out: [`export-pinout`](#harness-design-studio-export-pinout), [`export-devices`](#harness-design-studio-export-devices), [`export-subsystem`](#harness-design-studio-export-subsystem)
-- Device library: [`libraries`](#harness-design-studio-libraries), [`add-device`](#harness-design-studio-add-device), [`update-device`](#harness-design-studio-update-device), [`save-device`](#harness-design-studio-save-device)
+- Device library: [`libraries`](#harness-design-studio-libraries), [`add-device`](#harness-design-studio-add-device), [`update-device`](#harness-design-studio-update-device), [`save-device`](#harness-design-studio-save-device), [`device-checked`](#harness-design-studio-device-checked)
 - Record what was built: [`export-asbuilt`](#harness-design-studio-export-asbuilt), [`import-asbuilt`](#harness-design-studio-import-asbuilt), [`asbuilt`](#harness-design-studio-asbuilt)
 - Review, release and change: [`review`](#harness-design-studio-review), [`release`](#harness-design-studio-release), [`new-version`](#harness-design-studio-new-version), [`revise`](#harness-design-studio-revise), [`diff`](#harness-design-studio-diff), [`log`](#harness-design-studio-log), [`compare`](#harness-design-studio-compare)
 - Extend the tool: [`extensions`](#harness-design-studio-extensions), [`trust`](#harness-design-studio-trust), [`import-plugin`](#harness-design-studio-import-plugin)
@@ -77,6 +77,7 @@ Every command that has a result in data form takes `--json`. The usual text line
 | `add-device` | `ok`, `dry_run`, `changed`, `devices`, `sources`, `records`, `notes`, `skipped`, `taken` |
 | `update-device` | `ok`, `apply`, `check`, `differ`, `changed`, `devices` |
 | `save-device` | `ok`, `device`, `library`, `file`, `changed`, `record`, `notes` |
+| `device-checked` | `ok`, `device`, `changed`, `checked`, `icd_from_connectors` |
 | `import-subsystem --show` | `ok`, `name`, `description`, `devices`, `connectors`, `connections`, `device_list` |
 | `export-pinout` | `ok`, `device`, `pin_rows`, `columns`, `rows`, `written` |
 | `export-devices` | `ok`, `devices`, `connectors`, `notes` |
@@ -461,7 +462,7 @@ harness-design-studio export my-design --run-record --author "A. Engineer"
 
 ### harness-design-studio export-data
 
-Write the numbers behind the outputs to FOLDER as open data. For each result a JSON file (with a format number, the tool version, the model hash, the columns with their units and the rows) and a CSV file with the same rows and the unit in each heading: wire_sizing (current, gauge and its cross-section in mm², ampacity, the derating factors, the bundle size, the limit, the length, the voltage drop and its limit and margin, the part), segmentation_groups and segmentation_interfaces, pin_allocation, rule_results (actual, limit, margin, verdict), readiness, lengths (with the basis of each), mass and mass_wires, bom and bom_contributions, findings, test_limits and settings (every setting in force with its value, unit and origin); also configuration.json (the configuration files as the tool used them, with their placeholder flags) and provenance.json (tool version, model hash, the files imported, and a hash of every other file written). No file holds a time, a user name or a path, so the same design written twice gives the same bytes. With --run-record, run_record.json is written beside them (time, operator, tool version): it is not part of the set. The project is not changed. `--json` prints the list of files.
+Write the numbers behind the outputs to FOLDER as open data. For each result a JSON file (with a format number, the tool version, the model hash, the columns with their units and the rows) and a CSV file with the same rows and the unit in each heading: wire_sizing (current, gauge and its cross-section in mm², ampacity, the derating factors, the bundle size, the limit, the length, the voltage drop and its limit and margin, the part), segmentation_groups and segmentation_interfaces, pin_allocation, rule_results (actual, limit, margin, verdict), readiness, lengths (with the basis of each), mass and mass_wires, bom and bom_contributions, findings, test_limits, settings (every setting in force with its value, unit and origin) and devices (who checked each device, when, against which ICD, and whether it changed since); also configuration.json (the configuration files as the tool used them, with their placeholder flags) and provenance.json (tool version, model hash, the files imported, and a hash of every other file written). No file holds a time, a user name or a path, so the same design written twice gives the same bytes. With --run-record, run_record.json is written beside them (time, operator, tool version): it is not part of the set. The project is not changed. `--json` prints the list of files.
 
 `harness-design-studio export-data project [options]`
 
@@ -935,7 +936,7 @@ harness-design-studio add-device my-design PCDU00 --library ../acme-device-libra
 
 ### harness-design-studio update-device
 
-Compare the devices that follow a device library with the library: one row per changed field (device, connector, pin, field, in this project, in the library, and the released harness that locks it), what the change would touch (interfaces, wires and links on pins that go, drafts to generate again) and the notes. Without --apply nothing is changed. With --apply the library's version is taken, all or nothing per device and its copies, as one undo step each: the library-owned fields change (the connectors and pins, kind, mass relevance, notes), the project's own stay (name, subsystem, zone, side, the place, and on each pin the interface, the lock and an allocated signal), missing parts and interface types are added, and the import record is replaced. A change that a released harness locks, a pin that a link pairs, or a part of another category or pin count refuses that device; the message names it, and nothing of it is changed. Without NAME every device that follows a library is compared.
+Compare the devices that follow a device library with the library: one row per changed field (device, connector, pin, field, in this project, in the library, and the released harness that locks it), what the change would touch (interfaces, wires and links on pins that go, drafts to generate again) and the notes. Without --apply nothing is changed. With --apply the library's version is taken, all or nothing per device and its copies, as one undo step each: the library-owned fields change (the connectors and pins, kind, mass relevance, notes, the check), the project's own stay (name, subsystem, zone, side, the place, and on each pin the interface, the lock and an allocated signal), missing parts and interface types are added, and the import record is replaced. A change that a released harness locks, a pin that a link pairs, or a part of another category or pin count refuses that device; the message names it, and nothing of it is changed. Without NAME every device that follows a library is compared.
 
 `harness-design-studio update-device project [NAME] [options]`
 
@@ -980,6 +981,30 @@ Examples:
 harness-design-studio save-device my-design PCDU00
 harness-design-studio save-device my-design PCDU00 --library ../acme-device-library
 harness-design-studio save-device my-design PCDU00 --replace --json
+```
+
+### harness-design-studio device-checked
+
+Record that a person checked a device against its ICD: who (--by, required: no name is taken from Git or the computer), the day (--date, default today), the ICD and its version (--icd), and the SHA-256 of what was checked (the device's kind and mass relevance, and its box connectors and pins as the library holds them; not the notes or labels). Without --icd the ICD its connectors name is taken, while every box connector names the same document and version. The check is stored with the device (format 5), save-device carries it to the library, and update-device brings the library's. When the device changes later, check says device_check_stale; the check stays until it is made again or cleared. Anyone may mark a device checked. A release does not lock it. One undo step, in the journal. --clear takes the check away.
+
+`harness-design-studio device-checked project DEVICE [options]`
+
+| Argument | Meaning |
+| --- | --- |
+| `project` | project folder |
+| `DEVICE` | the device, for example TTC1 |
+| `--by NAME` | who checked it (required) |
+| `--icd TEXT` | the ICD and its version it was checked against (default: the one its connectors name) |
+| `--date YYYY-MM-DD` | the day (default: today) |
+| `--clear` | take the check away: not checked |
+| `--json` | print the result as one JSON document instead of text (same exit code; no time, user name or absolute path in it) |
+
+Examples:
+
+```
+harness-design-studio device-checked my-design TTC1 --by "A. Example"
+harness-design-studio device-checked my-design TTC1 --by "A. Example" --icd "ICD-TTC Issue 3" --date 2026-11-23
+harness-design-studio device-checked my-design TTC1 --clear --json
 ```
 
 ## Record what was built

@@ -7,7 +7,16 @@ from .generation import GenerationRecord
 from .imports import ImportRecord
 from .journal import Journal, JournalEntry, JournalError
 from .library import PART_CATEGORIES, LibraryInfo, Part
-from .logical import Endpoint, InterfaceInstance, InterfaceType, Link, PinPair, SignalDef, Unit
+from .logical import (
+    DeviceCheck,
+    Endpoint,
+    InterfaceInstance,
+    InterfaceType,
+    Link,
+    PinPair,
+    SignalDef,
+    Unit,
+)
 from .physical import (
     Accessory,
     BranchPoint,
@@ -58,6 +67,7 @@ __all__ = [
     "RowLayout",
     "DiagramMark",
     "mark_is_along",
+    "DeviceCheck",
     "Endpoint",
     "GenerationRecord",
     "Entity",

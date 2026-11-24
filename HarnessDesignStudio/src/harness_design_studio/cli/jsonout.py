@@ -94,6 +94,9 @@ SHAPES: dict[str, tuple[str, ...]] = {
     ),
     "update-device": ("ok", "apply", "check", "differ", "changed", "devices"),
     "save-device": ("ok", "device", "library", "file", "changed", "record", "notes"),
+    # the check of a device (format 5): `checked` holds by, on, icd, sha256 and its `state`
+    # (checked, changed since the check), or null; `icd_from_connectors` when --icd was left out
+    "device-checked": ("ok", "device", "changed", "checked", "icd_from_connectors"),
     "import-subsystem --show": (
         "ok", "name", "description", "devices", "connectors", "connections", "device_list",
     ),

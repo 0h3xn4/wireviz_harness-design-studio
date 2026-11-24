@@ -68,7 +68,11 @@ def input_hash(project: Project) -> str:
         boxes.append(d)
     generated = [h for h in project.harnesses.values() if h.generated]
     payload: dict[str, Any] = {
-        "units": dump(project.units.values()),
+        # the check of a device (format 5, design of 5.0.0 section 8.3) is not read by Generate
+        "units": [
+            u.model_dump(mode="json", exclude={"checked"})
+            for u in sorted(project.units.values(), key=lambda x: x.id)
+        ],
         "interfaces": dump(project.interfaces.values()),
         "interface_types": dump(project.interface_types.values()),
         # the library part of a loose end is added by the first cable a person draws out of a port;

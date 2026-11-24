@@ -24,6 +24,7 @@ then the rows). The tables are:
     findings                  every finding with the numbers of its rule when it has them
     test_limits               per test of the test sheet: the limit and the voltage
     settings                  every setting in force: value, unit, origin
+    devices                   per device: checked by, on, against which ICD, and the state
 
 and three files of their own: `configuration.json` (the configuration files as the tool used them,
 with their placeholder flags), `provenance.json` (the tool, the design, the library, the imported
@@ -818,6 +819,37 @@ def settings_table(project: Project) -> DataTable:
     )  # fmt: skip
 
 
+# ---- the checked state of the devices (format 5, design of 5.0.0 section 8.5) ----------------
+
+DEVICES = (
+    Col("device", "Device"),
+    Col("checked_by", "Checked by", "", "who checked the device against its ICD"),
+    Col("checked_on", "Checked on", "", "the day, YYYY-MM-DD"),
+    Col("checked_against", "Checked against", "", "the ICD and its version"),
+    Col("check", "Check", "", "checked, changed since the check, or not checked"),
+)
+
+
+def devices_table(project: Project) -> DataTable:
+    """One row for each device: who checked it, when, against which ICD, and whether it changed
+    since (`core/device_check.py`); empty cells for a device that is not checked."""
+    from harness_design_studio.core.device_check import check_state
+
+    rows = []
+    for uid in sorted(project.units):
+        check = project.units[uid].checked
+        rows.append({
+            "device": uid, "checked_by": check.by if check else "",
+            "checked_on": check.on if check else "", "checked_against": check.icd if check else "",
+            "check": check_state(project, uid),
+        })  # fmt: skip
+    return DataTable(
+        "devices", "Checked devices",
+        "One row for each device: who checked it against which ICD and when, and whether it "
+        "changed since.", DEVICES, rows,
+    )  # fmt: skip
+
+
 def configuration_bytes(project: Project) -> bytes:
     """`configuration.json`: the configuration files as the tool used them."""
     doc = {
@@ -906,6 +938,7 @@ def all_tables(project: Project) -> list[DataTable]:
         found[1],
         test_limits_table(project),
         settings_table(project),
+        devices_table(project),
     ]
 
 

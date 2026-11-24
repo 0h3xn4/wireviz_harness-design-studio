@@ -65,11 +65,25 @@ pigtail to backshell W002-A1*, pin 9 of W001-P1 gets a row *pigtail*, the *Conne
 *pigtail of W001-S1; pigtail of W001-S5* under *Goes to*, the drawings name the pins and the
 backshells at the ends, and `export.json` holds `at_a` and `at_b`.
 
+Part E (pull request 6) adds the checked state of a device (`Unit.checked`):
+
+- PCDU1-J01 names its ICD (`source_doc` ICD-PCDU, `source_version` Issue 2), and PCDU1 is marked
+  checked by A. Example on 2026-11-23 against the ICD its connector names, after every other
+  change: the check is current;
+- OBC1 is marked checked by A. Example on 2026-11-20 against ICD-OBC Issue 1 before its pins get
+  their currents: what was checked changed since, so `check` says `device_check_stale` (a
+  finding of `model-inconsistent`).
+
+The Review sheet of each harness gets a row *Device* for each device it plugs into (*Checked by
+… against …*, *…; changed since the check* or *not checked*), and `export.json` holds the two
+checks.
+
 The depths, ratings and currents are made up (no real part is shipped, D-12). The later pull requests of the design add
 their data to this project. The golden set `tests/fixtures/outputs/format5*` is made from it.
 """
 
 from harness_design_studio.core.commands import apply_ops
+from harness_design_studio.core.device_check import plan_set_device_checked
 from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.links import plan_add_link, plan_create_harness
 from harness_design_studio.core.model import (
@@ -206,6 +220,32 @@ def _with_shield_places(p: Project) -> None:
         apply_ops(p, plan_set_shield_place(p, gid, end, pin=pin, backshell=backshell))
 
 
+# part E: who checked, on which day, against which ICD (None: the ICD its connectors name)
+CHECKED_BY = "A. Example"
+PCDU_ICD = ("ICD-PCDU", "Issue 2")
+OBC_CHECK = ("2026-11-20", "ICD-OBC Issue 1")
+PCDU_CHECK_ON = "2026-11-23"
+
+
+def _with_obc_check(p: Project) -> None:
+    """Part E: OBC1 checked before its pins get their currents (so its check goes stale)."""
+    on, icd = OBC_CHECK
+    apply_ops(p, plan_set_device_checked(p, "OBC1", by=CHECKED_BY, on=on, icd=icd).ops)
+
+
+def _with_pcdu_source(p: Project) -> None:
+    """Part E: PCDU1-J01 names its ICD (before Generate, which reads the box connectors)."""
+    doc, version = PCDU_ICD
+    c = p.connectors["PCDU1-J01"]
+    p.connectors["PCDU1-J01"] = evolve(c, source_doc=doc, source_version=version)
+
+
+def _with_pcdu_check(p: Project) -> None:
+    """Part E: PCDU1 is checked against the ICD its connector names, after every other change (a
+    check is not read by Generate, so the outputs stay current)."""
+    apply_ops(p, plan_set_device_checked(p, "PCDU1", by=CHECKED_BY, on=PCDU_CHECK_ON).ops)
+
+
 def format5_project() -> Project:
     from tests.test_outputs_routing import branching_project
 
@@ -213,6 +253,8 @@ def format5_project() -> Project:
     _with_loop(p, 0.1)
     _with_grounding(p)
     _with_junction_devices(p)
+    _with_pcdu_source(p)
+    _with_obc_check(p)
     _with_currents(p)
     for hid in ("W001", "W002"):
         h = p.harnesses[hid]
@@ -243,6 +285,7 @@ def format5_project() -> Project:
     generate_project(p)
     _with_shield_places(p)
     _with_junction_harness(p)
+    _with_pcdu_check(p)
     return p
 
 

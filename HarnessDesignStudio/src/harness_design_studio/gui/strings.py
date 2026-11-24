@@ -4606,3 +4606,47 @@ GD_ADD_BACKSHELL = "Add a backshell…"
 GD_NO_CONNECTOR = "no connector"
 WIRE_GROUP_PLACE = "end {0} {1}"
 ACC_PLACES_CLEARED = "{0} is deleted, and the place of {1} no longer names it."
+
+# ---- 5.0.0 E5, part E: the checked state of a device (design of 5.0.0 sections 8.2 and 8.5)
+DV_CHECK_MARK = "Mark as checked…"
+DV_CHECK_MARK_TIP = (
+    "Record that you checked this device against its ICD: who, the day and the ICD. The check "
+    "goes stale when the device changes; save the device to its library to share it."
+)
+DV_CHECK_CLEAR = "Clear the check"
+DV_CHECK_CLEAR_TIP = "Take the check away: the device is not checked"
+DV_CHECK_NAME = "Checked state of the device"
+DV_CHECK_STALE_TIP = (
+    "Its connectors or pins changed since the check. Check it again, or see what changed in the "
+    "journal and in Review of the library."
+)
+CK_TITLE = "Mark {0} as checked"
+CK_INTRO = (
+    "Record that a person checked {0} against its ICD. The check covers the kind of the device "
+    "and its connectors and pins as the library holds them, not its notes or labels; when they "
+    "change, the check is marked as changed since."
+)
+CK_BY = "Checked by"
+CK_BY_TIP = "The name of the person who checked the device (no name is taken from the computer)"
+CK_ON = "On"
+CK_ON_TIP = "The day of the check, YYYY-MM-DD"
+CK_ICD = "Against ICD"
+CK_ICD_TIP = "The ICD and its version the device was checked against, for example ICD-TTC Issue 3"
+CK_ICD_PROPOSED = "Proposed from its connectors: {0}"
+CK_ICD_NONE = "Its connectors do not name one ICD and version: name it."
+CK_NEED_BY = "Say who checked the device."
+CK_NEED_ICD = "Name the ICD the device was checked against."
+CK_OK = "Mark as checked"
+STEP_DEVICE_CHECKED = "Mark {0} as checked"
+STEP_DEVICE_CHECK_CLEARED = "Clear the check of {0}"
+DEVICE_CHECKED_DONE = "{0} is marked as checked."
+DEVICE_CHECK_CLEARED = "The check of {0} is cleared."
+LIB_COLUMN_CHECKED = "Checked"
+LIB_CHECK_TIP = (
+    "Whether the library's device was checked against its ICD, by whom and when; changed since "
+    "the check when its connectors or pins changed after it"
+)
+LIB_CHECK_NONE = (
+    "Choose a device of the library that this project follows to mark the project's device as "
+    "checked; save it to the library to share the check"
+)

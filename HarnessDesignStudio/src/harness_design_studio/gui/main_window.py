@@ -9,6 +9,7 @@ import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import date
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -147,6 +148,7 @@ from harness_design_studio.gui.controller import (
 from harness_design_studio.gui.devices_dialogs import (
     AssignDialog,
     ContactDialog,
+    DeviceCheckDialog,
     FillDialog,
     LibraryDialog,
     NewDeviceDialog,
@@ -1200,6 +1202,8 @@ class MainWindow(QMainWindow):
             widget.newPartRequested.connect(self.new_part_flow)
             widget.newTypeRequested.connect(self.new_type_flow)
             widget.rowsRequested.connect(lambda cid: self.pin_rows_flow("connector", cid))
+            widget.checkRequested.connect(self.device_check_flow)
+            widget.checkClearRequested.connect(self.ctl.clear_device_checked)
             return True
         if isinstance(widget, ProjectTree):
             widget.selectionRequested.connect(self._tree_selected)
@@ -1774,6 +1778,23 @@ class MainWindow(QMainWindow):
         target = {"part": object_id} if kind == "part" else {"connector": object_id}
         return self.ctl.set_row_layout(layout, **target)
 
+    def device_check_flow(self, unit_id: str) -> bool:
+        """*Mark as checked…* of a device (the Devices tab and the Library window; format 5, design
+        of 5.0.0 section 8.2): who, the day (today proposed) and the ICD (proposed from the
+        connectors), then one undo step through `device_check.plan_set_device_checked`. False
+        when nothing changed."""
+        if self.ctl.read_only:
+            self.ctl.refuse_read_only()
+            return False
+        p = self.ctl.project
+        if unit_id not in p.units:
+            return False
+        dlg = DeviceCheckDialog(self, self.theme, p, unit_id, date.today().isoformat())
+        if self.run_dialog(dlg) != QDialog.DialogCode.Accepted:
+            return False
+        by, on, icd = dlg.values()
+        return self.ctl.set_device_checked(unit_id, by, on, icd)
+
     def show_connector(self, object_id: str) -> None:
         """Show of a row layout check (design of 4.0.0 section 9): a device connector in the
         Devices tab, a cable connector or a part in the Inspector (the cable connector's harness
@@ -1891,6 +1912,7 @@ class MainWindow(QMainWindow):
             win.copier = self._copy_link
             win.folderChangeRequested.connect(self.choose_library_folder_flow)
             win.libraryWritten.connect(lambda: self.library_links.refresh())
+            win.checkRequested.connect(self.device_check_flow)
             self.library_window = win
         win.show()
         win.raise_()

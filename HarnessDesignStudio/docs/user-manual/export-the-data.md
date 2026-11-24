@@ -26,7 +26,7 @@ harness-design-studio export-data wheel-link --out wheel-link-data
 ```
 
 ```
-35 data files written to wheel-link-data (model <hash>).
+37 data files written to wheel-link-data (model <hash>).
 ```
 
 The folder gets a pair of files, `NAME.json` and `NAME.csv`, for each result, and three files of their own:
@@ -46,6 +46,7 @@ The folder gets a pair of files, `NAME.json` and `NAME.csv`, for each result, an
 | `test_limits` | a test of the test sheet, with its limit and test voltage |
 | `parts` | a part of the library: masses, conductors, approval, ratings |
 | `settings` | a setting in force: its value, unit and origin (the project, the tool's own default, or not set); when a wire has an override, a row `overrides.wires` counts them |
+| `devices` | a device: who checked it against its ICD (*Checked by*), the day (*Checked on*), the ICD and its version (*Checked against*) and whether it changed since (*Check*: checked, changed since the check, not checked; since 5.0.0) |
 
 | File | What it is |
 | --- | --- |
@@ -59,7 +60,7 @@ Every JSON file starts with `format` (1), the table name, `tool_version`, `model
 
 With `--json` the command prints the list of files instead of the line of text. From Python: `api.export_data(folder, out)`.
 
-**From the Export window.** The window **Export** (Ctrl+E) has the check box **Include the open data (JSON and CSV of every result)**, off until you tick it and remembered after that. With it ticked, the export also writes the same files as `export-data` into the folder `data/` of the outputs folder (`outputs/data/`), with the same bytes the command writes for the same design; the result list says *Open data: 34 files in …/outputs/data*. They are not part of the manifest, the self-check (`verify --outputs`) does not read the folder, and the other outputs are the same bytes with the box ticked or not. Unticking the box later leaves the files of the earlier export where they are (their `provenance.json` names the design they were made from); the run record (`--run-record`) is a command-line option only.
+**From the Export window.** The window **Export** (Ctrl+E) has the check box **Include the open data (JSON and CSV of every result)**, off until you tick it and remembered after that. With it ticked, the export also writes the same files as `export-data` into the folder `data/` of the outputs folder (`outputs/data/`), with the same bytes the command writes for the same design; the result list says *Open data: 36 files in …/outputs/data*. They are not part of the manifest, the self-check (`verify --outputs`) does not read the folder, and the other outputs are the same bytes with the box ticked or not. Unticking the box later leaves the files of the earlier export where they are (their `provenance.json` names the design they were made from); the run record (`--run-record`) is a command-line option only.
 
 ## 2. Read the files in a spreadsheet
 

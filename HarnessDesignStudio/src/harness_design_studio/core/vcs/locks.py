@@ -27,7 +27,9 @@ from .snapshot import (
 
 _META = {"status", "version", "checker", "approver", "released_on"}
 COSMETIC_INTERFACE_FIELDS = {"name", "notes", "requirement_id"}  # may change after release
-COSMETIC_UNIT_FIELDS = {"name", "notes", "zone", "kind"}  # may change after release
+# may change after release; `checked` (format 5, design of 5.0.0 section 8.3): a release does not
+# lock the checked state of a device
+COSMETIC_UNIT_FIELDS = {"name", "notes", "zone", "kind", "checked"}
 COSMETIC_PART_FIELDS = {"notes", "row_layout"}  # may change after release (the rows: D-251)
 COSMETIC_TYPE_FIELDS = {"name", "notes"}  # may change after release
 

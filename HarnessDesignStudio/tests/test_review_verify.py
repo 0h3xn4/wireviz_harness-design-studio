@@ -58,6 +58,7 @@ NOT_IMPORTED = (
     f"{PKG}.outputs.production",
     f"{PKG}.outputs.harness_plan",
     f"{PKG}.vcs.release",
+    f"{PKG}.device_check",  # the check of a device (format 5): the verifier has its own copy
     f"{PKG}.vcs.snapshot",
     f"{PKG}.links",
 )
