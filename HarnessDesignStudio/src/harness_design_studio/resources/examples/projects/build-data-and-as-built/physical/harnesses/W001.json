@@ -1,0 +1,646 @@
+{
+  "accessories": [
+    {
+      "id": "ACC-001",
+      "kind": "sleeving",
+      "length_mm": null,
+      "note": "",
+      "part_id": null,
+      "position": "whole wire",
+      "quantity": 1,
+      "target": "W001-001"
+    },
+    {
+      "id": "ACC-002",
+      "kind": "heat_shrink",
+      "length_mm": 30.0,
+      "note": "",
+      "part_id": null,
+      "position": "50 mm from the end of the connector",
+      "quantity": 2,
+      "target": "W001-P1"
+    },
+    {
+      "id": "ACC-003",
+      "kind": "label",
+      "length_mm": null,
+      "note": "",
+      "part_id": null,
+      "position": "100 mm from the end of the connector",
+      "quantity": 1,
+      "target": "W001-P2"
+    },
+    {
+      "id": "ACC-004",
+      "kind": "backshell",
+      "length_mm": null,
+      "note": "",
+      "part_id": null,
+      "position": null,
+      "quantity": 1,
+      "target": "W001-P1"
+    }
+  ],
+  "approver": null,
+  "author": null,
+  "branch_points": [],
+  "checker": null,
+  "connectors": [
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W001-P1",
+      "keying": null,
+      "mates_with": "OBC1-J01",
+      "name": "P1",
+      "notes": "",
+      "part_id": "EX-MICROD-25-M",
+      "pins": [
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "10",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "11",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "12",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "13",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "14",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "15",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "16",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "17",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "18",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "19",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "20",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "21",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "22",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "23",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "24",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "25",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W001-P2",
+      "keying": null,
+      "mates_with": "RW1-J02",
+      "name": "P2",
+      "notes": "",
+      "part_id": "EX-MICROD-21-M",
+      "pins": [
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "5",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "6",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "7",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "8",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "9",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "10",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "11",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "12",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "13",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "14",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "15",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "16",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "17",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "18",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "19",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "20",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_part": "EX-CONTACT-22",
+          "contact_size": null,
+          "fixed": false,
+          "id": "21",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    }
+  ],
+  "generated": true,
+  "group_key": "cp|nominal|OBC1-J01|RW1-J02",
+  "id": "W001",
+  "interfaces": [
+    "IF-002"
+  ],
+  "name": "OBC1-J01 to RW1-J02",
+  "notes": "",
+  "released_on": null,
+  "segments": [
+    {
+      "from_node": "W001-P1",
+      "id": "W001-L1",
+      "length_m": 0.85,
+      "to_node": "W001-P2"
+    }
+  ],
+  "shields": [
+    {
+      "end_a": "backshell_360",
+      "end_b": "backshell_360",
+      "id": "W001-S1",
+      "kind": "shielded_pair",
+      "wire_ids": [
+        "W001-001",
+        "W001-003"
+      ]
+    },
+    {
+      "end_a": "backshell_360",
+      "end_b": "backshell_360",
+      "id": "W001-S2",
+      "kind": "shielded_pair",
+      "wire_ids": [
+        "W001-002",
+        "W001-004"
+      ]
+    }
+  ],
+  "splices": [],
+  "status": "draft",
+  "version": "1.0.0",
+  "wires": [
+    {
+      "colour": null,
+      "from_connector": "W001-P1",
+      "from_pin": "1",
+      "gauge_awg": null,
+      "id": "W001-001",
+      "interface_id": "IF-002",
+      "length_m": 0.95,
+      "locked": false,
+      "part_id": "EX-WIRE-TWISTED-SHIELDED",
+      "signal": "TX+/RX+",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "to_connector": "W001-P2",
+      "to_pin": "3"
+    },
+    {
+      "colour": null,
+      "from_connector": "W001-P2",
+      "from_pin": "1",
+      "gauge_awg": null,
+      "id": "W001-002",
+      "interface_id": "IF-002",
+      "length_m": 0.95,
+      "locked": false,
+      "part_id": "EX-WIRE-TWISTED-SHIELDED",
+      "signal": "TX+/RX+",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "to_connector": "W001-P1",
+      "to_pin": "3"
+    },
+    {
+      "colour": null,
+      "from_connector": "W001-P1",
+      "from_pin": "2",
+      "gauge_awg": null,
+      "id": "W001-003",
+      "interface_id": "IF-002",
+      "length_m": 0.95,
+      "locked": false,
+      "part_id": "EX-WIRE-TWISTED-SHIELDED",
+      "signal": "TX-/RX-",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "to_connector": "W001-P2",
+      "to_pin": "4"
+    },
+    {
+      "colour": null,
+      "from_connector": "W001-P2",
+      "from_pin": "2",
+      "gauge_awg": null,
+      "id": "W001-004",
+      "interface_id": "IF-002",
+      "length_m": 0.95,
+      "locked": false,
+      "part_id": "EX-WIRE-TWISTED-SHIELDED",
+      "signal": "TX-/RX-",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "to_connector": "W001-P1",
+      "to_pin": "4"
+    }
+  ]
+}

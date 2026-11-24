@@ -1,0 +1,178 @@
+{
+  "asbuilt": [
+    {
+      "built_by": "Technician 1",
+      "harness_id": "W001",
+      "id": "harness:W001:W001",
+      "inspected_by": "Inspector 1",
+      "kind": "harness",
+      "serial_numbers": [
+        "EX-W001-0001"
+      ],
+      "subject": "W001"
+    },
+    {
+      "harness_id": "W001",
+      "id": "part:W001:EX-MICROD-21-M",
+      "kind": "part",
+      "lot": "EX-LOT-1",
+      "subject": "EX-MICROD-21-M"
+    },
+    {
+      "harness_id": "W001",
+      "id": "part:W001:EX-MICROD-25-M",
+      "kind": "part",
+      "lot": "EX-LOT-1",
+      "subject": "EX-MICROD-25-M"
+    },
+    {
+      "harness_id": "W001",
+      "id": "part:W001:EX-WIRE-TWISTED-SHIELDED",
+      "kind": "part",
+      "lot": "EX-LOT-1",
+      "subject": "EX-WIRE-TWISTED-SHIELDED"
+    },
+    {
+      "continuity_ohm": 0.08,
+      "harness_id": "W001",
+      "id": "test:W001:T001",
+      "kind": "test",
+      "result": "pass",
+      "subject": "T001",
+      "test_type": "continuity",
+      "tested": "W001-001"
+    },
+    {
+      "continuity_ohm": 0.08,
+      "harness_id": "W001",
+      "id": "test:W001:T002",
+      "kind": "test",
+      "result": "pass",
+      "subject": "T002",
+      "test_type": "continuity",
+      "tested": "W001-002"
+    },
+    {
+      "continuity_ohm": 0.08,
+      "harness_id": "W001",
+      "id": "test:W001:T003",
+      "kind": "test",
+      "result": "pass",
+      "subject": "T003",
+      "test_type": "continuity",
+      "tested": "W001-003"
+    },
+    {
+      "continuity_ohm": 0.08,
+      "harness_id": "W001",
+      "id": "test:W001:T004",
+      "kind": "test",
+      "result": "pass",
+      "subject": "T004",
+      "test_type": "continuity",
+      "tested": "W001-004"
+    },
+    {
+      "harness_id": "W001",
+      "id": "test:W001:T005",
+      "isolation_mohm": 550.0,
+      "kind": "test",
+      "result": "pass",
+      "subject": "T005",
+      "test_type": "isolation",
+      "test_voltage_v": 100.0,
+      "tested": "W001-001"
+    },
+    {
+      "harness_id": "W001",
+      "id": "test:W001:T006",
+      "isolation_mohm": 550.0,
+      "kind": "test",
+      "result": "pass",
+      "subject": "T006",
+      "test_type": "isolation",
+      "test_voltage_v": 100.0,
+      "tested": "W001-002"
+    },
+    {
+      "harness_id": "W001",
+      "id": "test:W001:T007",
+      "isolation_mohm": 550.0,
+      "kind": "test",
+      "result": "pass",
+      "subject": "T007",
+      "test_type": "isolation",
+      "test_voltage_v": 100.0,
+      "tested": "W001-003"
+    },
+    {
+      "harness_id": "W001",
+      "id": "test:W001:T008",
+      "isolation_mohm": 550.0,
+      "kind": "test",
+      "result": "pass",
+      "subject": "T008",
+      "test_type": "isolation",
+      "test_voltage_v": 100.0,
+      "tested": "W001-004"
+    },
+    {
+      "harness_id": "W001",
+      "id": "test:W001:T009",
+      "isolation_mohm": 550.0,
+      "kind": "test",
+      "result": "pass",
+      "subject": "T009",
+      "test_type": "isolation",
+      "test_voltage_v": 100.0,
+      "tested": "W001-001;W001-003"
+    },
+    {
+      "harness_id": "W001",
+      "id": "test:W001:T010",
+      "isolation_mohm": 550.0,
+      "kind": "test",
+      "result": "pass",
+      "subject": "T010",
+      "test_type": "isolation",
+      "test_voltage_v": 100.0,
+      "tested": "W001-002;W001-004"
+    },
+    {
+      "cut_length_m": 0.975,
+      "harness_id": "W001",
+      "id": "wire:W001:W001-001",
+      "kind": "wire",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "subject": "W001-001"
+    },
+    {
+      "cut_length_m": 0.95,
+      "harness_id": "W001",
+      "id": "wire:W001:W001-002",
+      "kind": "wire",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "subject": "W001-002"
+    },
+    {
+      "cut_length_m": 0.95,
+      "harness_id": "W001",
+      "id": "wire:W001:W001-003",
+      "kind": "wire",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "subject": "W001-003"
+    },
+    {
+      "cut_length_m": 0.95,
+      "harness_id": "W001",
+      "id": "wire:W001:W001-004",
+      "kind": "wire",
+      "strip_a_mm": 6.0,
+      "strip_b_mm": 5.0,
+      "subject": "W001-004"
+    }
+  ]
+}

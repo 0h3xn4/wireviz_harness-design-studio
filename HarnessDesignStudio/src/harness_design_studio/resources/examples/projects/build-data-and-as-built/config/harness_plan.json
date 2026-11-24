@@ -1,0 +1,57 @@
+{
+  "name": "harness_plan",
+  "placeholder": false,
+  "values": {
+    "colour_codes": [
+      {
+        "example": true,
+        "name": "example",
+        "parts": [
+          "EX-MICROD-9-M",
+          "EX-MICROD-21-M",
+          "EX-MICROD-25-M"
+        ],
+        "pins": {
+          "1": "Black",
+          "10": "White",
+          "11": "Wh / Black",
+          "12": "Wh / Brown",
+          "13": "Wh / Red",
+          "14": "Wh / Orange",
+          "15": "Wh / Yellow",
+          "16": "Wh / Green",
+          "17": "Wh / Blue",
+          "18": "Wh / Violet",
+          "19": "Wh / Grey",
+          "2": "Brown",
+          "20": "Wh / Bl / Brown",
+          "21": "Wh / Bl / Red",
+          "22": "Wh / Bl / Orange",
+          "23": "Wh / Bl / Yellow",
+          "24": "Wh / Bl / Green",
+          "25": "Wh / Bl / Blue",
+          "26": "Wh / Bl / Violet",
+          "27": "Wh / Bl / Grey",
+          "28": "Wh / Brw / Red",
+          "29": "Wh / Brw / Orange",
+          "3": "Red",
+          "30": "Wh / Brw / Yellow",
+          "31": "Wh / Brw / Green",
+          "32": "Wh / Brw / Blue",
+          "33": "Wh / Brw / Violet",
+          "34": "Wh / Brw / Grey",
+          "35": "Wh / Red / Orange",
+          "36": "Wh / Red / Yellow",
+          "37": "Wh / Red / Green",
+          "4": "Orange",
+          "5": "Yellow",
+          "6": "Green",
+          "7": "Blue",
+          "8": "Violet",
+          "9": "Grey"
+        }
+      }
+    ],
+    "colour_rule": "pin_code"
+  }
+}

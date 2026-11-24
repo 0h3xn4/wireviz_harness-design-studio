@@ -2,6 +2,8 @@
 
 This page shows how to write the build workbook and the lists of a design (wire lists, pinouts, parts list, test tables, labels, block diagram) into the project's `outputs` folder, how to build a harness from the workbook, how to add the PDF drawings, and how to check that the files are current. The build data a technician needs (strip lengths, contacts, crimp tools, accessories) is entered first: [enter the build data](enter-the-build-data.md).
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template build-data-and-as-built` makes a finished example whose build workbook shows the build data: strip lengths on every wire, the contact EX-CONTACT-22 with its crimp tool, and sleeving, heat shrink, a label and a backshell on W001.
+
 > **Since 1.7.0.** The build workbook (`<ID>_build.xlsx`) and the option `--drawings` are part of 1.7.0 (decision D-169). In 1.6.0 and earlier, `export` always wrote the PDF drawings and there was no build workbook; see the [changelog](../../CHANGELOG.md). The strip lengths, contacts, crimp tools and accessories in the workbook are from 1.7.0 too (decision D-170).
 
 ## Contents

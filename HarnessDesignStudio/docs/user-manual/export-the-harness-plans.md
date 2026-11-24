@@ -2,6 +2,8 @@
 
 This page shows how to write the harness plan of each harness, a spreadsheet in the layout of the users' harness plan template, from the command line and in the editor, and how to fill in what its Cover shows.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template build-data-and-as-built` makes a finished example: the Cover filled in (system code, title, company, two contact lines and the document number of W001) and the ends coloured [by pin number](#4-colour-the-ends-by-pin-number) with the example colour code; `harness-design-studio export practice --harness-plan` writes the plans.
+
 > **New in 3.0.0** (format 3, decision D-242, [`DESIGN_3.0_HARNESS_PLAN.md`](../ait/DESIGN_3.0_HARNESS_PLAN.md)). What each sheet holds is in [`OUTPUTS.md`](../OUTPUTS.md#harness-plan).
 
 ## Contents

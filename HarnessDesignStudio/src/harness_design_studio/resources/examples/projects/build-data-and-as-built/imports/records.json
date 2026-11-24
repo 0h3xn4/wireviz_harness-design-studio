@@ -1,0 +1,99 @@
+{
+  "imports": [
+    {
+      "columns_read": [
+        {
+          "column": "Kind",
+          "field": "kind"
+        },
+        {
+          "column": "Harness",
+          "field": "harness"
+        },
+        {
+          "column": "Item",
+          "field": "item"
+        },
+        {
+          "column": "Serial number",
+          "field": "serial_numbers"
+        },
+        {
+          "column": "Lot",
+          "field": "lot"
+        },
+        {
+          "column": "Cut length (m)",
+          "field": "cut_length_m"
+        },
+        {
+          "column": "Strip A (mm)",
+          "field": "strip_a_mm"
+        },
+        {
+          "column": "Strip B (mm)",
+          "field": "strip_b_mm"
+        },
+        {
+          "column": "Crimp tool",
+          "field": "crimp_tool"
+        },
+        {
+          "column": "Crimp tool calibration ID",
+          "field": "crimp_tool_calibration_id"
+        },
+        {
+          "column": "Built by",
+          "field": "built_by"
+        },
+        {
+          "column": "Inspected by",
+          "field": "inspected_by"
+        },
+        {
+          "column": "Test type",
+          "field": "test_type"
+        },
+        {
+          "column": "Tested",
+          "field": "tested"
+        },
+        {
+          "column": "Result",
+          "field": "result"
+        },
+        {
+          "column": "Continuity (ohm)",
+          "field": "continuity_ohm"
+        },
+        {
+          "column": "Isolation (Mohm)",
+          "field": "isolation_mohm"
+        },
+        {
+          "column": "Test voltage (V)",
+          "field": "test_voltage_v"
+        },
+        {
+          "column": "Notes",
+          "field": "notes"
+        },
+        {
+          "column": "Non-conformance",
+          "field": "nonconformance"
+        }
+      ],
+      "converted_count": 0,
+      "dropped_count": 0,
+      "id": "asbuilt:W001-asbuilt-EXAMPLE.csv",
+      "kind": "asbuilt",
+      "notes": [
+        "2 row(s) had no as-built value in them and were left out."
+      ],
+      "rows_read": 20,
+      "sha256": "c3b6a52a012112748520f1c656ce9d20b7daad8569036d600364f925d502a42d",
+      "source_name": "W001-asbuilt-EXAMPLE.csv",
+      "tool_version": "5.0.0"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "model",
+  "placeholder": false,
+  "values": {
+    "label_format": "harness_device_connector"
+  }
+}

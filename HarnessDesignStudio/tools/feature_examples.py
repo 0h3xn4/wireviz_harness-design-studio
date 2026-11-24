@@ -17,23 +17,36 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from harness_design_studio.core import (
+    asbuilt,
     branching,
     build_data,
+    build_data_import,
     checks,
     configcheck,
     connector_edit,
     devices,
+    document,
     drc,
     edit,
+    import_reports,
+    kicad,
+    library_import,
     links,
     manual_harness,
+    pinout_import,
+    plan_config,
     review,
     row_layout_edit,
+    signal_map,
     splices,
     wires,
 )
+from harness_design_studio.core import imports as imports_table
 from harness_design_studio.core.commands import History, Op, Put, SetConfig
+from harness_design_studio.core.generate import lengths
 from harness_design_studio.core.generate.engine import generate_project
+from harness_design_studio.core.import_record import ImportReport, file_sha256, record_ops
+from harness_design_studio.core.imports import read_table_sheet
 from harness_design_studio.core.model import Part, Project, RowLayout, evolve
 from harness_design_studio.core.model.config import ConfigFile
 from harness_design_studio.core.outputs.build import build_outputs, write_outputs
@@ -192,6 +205,122 @@ def _full_connectors() -> Project:
                 history.execute(f"port of {iid} on {cid}", _on_port(p, cid, port, iid))
     generate_project(p)
     _no_errors("full-connectors", p)
+    return p
+
+
+# ---- imports, made by the functions the import commands call --------------------------------------
+
+
+def _write_table(folder: Path, name: str, rows: Sequence[Sequence[str]]) -> Path:
+    """A table as a team hands it over, written into a scratch folder (CSV, `\\n` line ends), so
+    that an import reads a file and records its name and SHA-256 (the same bytes each build)."""
+    path = folder / name
+    with path.open("w", newline="", encoding="utf-8") as f:
+        csv.writer(f, lineterminator="\n").writerows(rows)
+    return path
+
+
+def _recorded(
+    history: History, p: Project, label: str, ops: list[Op], report: ImportReport
+) -> None:
+    """The changes of an import and its import record (`imports/records.json`) as one step, as the
+    import commands save them."""
+    history.execute(label, [*ops, *record_ops(p, report.record())])
+
+
+def _import_pinout(
+    history: History,
+    p: Project,
+    path: Path,
+    unit_id: str,
+    *,
+    new_device: str | None = None,
+) -> None:
+    """`import-pinout DIR FILE --device UNIT [--new-device NAME]`: the pinout read through the
+    project's signal map, a row that is refused stops the build."""
+    table, sheet = pinout_import.read_pinout_table(path)
+    mapping = pinout_import.guess_mapping(table[0])
+    plan = pinout_import.plan_pinout_import(
+        p, table, mapping, unit_id=unit_id, new_unit_name=new_device
+    )
+    if plan.bad_count or not plan.ops:
+        raise SystemExit(f"{path.name}: {[r.message for r in plan.rows if not r.ok]}")
+    report = import_reports.pinout_report(path, None, table, mapping, plan, sheet=sheet)
+    _recorded(history, p, plan.label, plan.ops, report)
+
+
+# ---- names-and-ports: the far device in the pin name (section 4.2) -------------------------------
+
+# The pinouts in the team's words (TXP for TX+ ...), as the ICDs of the three devices give them;
+# the project's signal map (the import template `signal-map.csv`) renames them at the import, also
+# inside a port (TTC1_TXP becomes TTC1_TX+). Pin 9 of OBC1-J01 and pin 5 of each TTC are spares.
+_TEAM_WORDS = ("TXP", "TXN", "RXP", "RXN")
+_PINOUT_HEADING = ("Connector", "Pin", "Signal", "Mode", "Direction", "Part")
+
+
+def _team_pinout(part: str, signals: Sequence[str], out: Sequence[str]) -> list[list[str]]:
+    """The rows of one nine-way connector J1: the signals on pins 1 onwards (fixed, a direction
+    `OUT` for the names in `out`, else `IN`), the next pin a spare, the rest without a name."""
+    rows = [list(_PINOUT_HEADING)]
+    for n in range(1, 10):
+        if n <= len(signals):
+            name = signals[n - 1]
+            word = "OUT" if name.split("_")[-1] in out else "IN"
+            rows.append(["J1", str(n), name, "fixed", word, part])
+        elif n == len(signals) + 1:
+            rows.append(["J1", str(n), "", "", "SPARE", part])
+        else:
+            rows.append(["J1", str(n), "", "", "", part])
+    return rows
+
+
+def _names_and_ports() -> Project:
+    """OBC1 talks RS-422 to TTC1 and TTC2 through one connector whose ports are named after them;
+    the pinouts are read in the team's words through the project's signal map, and Generate gives
+    each interface the port named after the device at its other end (`naming.far_device_names`)."""
+    p = new_project(_title("names-and-ports"))
+    p.meta = evolve(
+        p.meta,
+        description="OBC1-J01 holds two RS-422 ports, TTC1_... on pins 1 to 4 and TTC2_... on "
+        "pins 5 to 8, named after the devices at their other ends. The interface to TTC2 was "
+        "made first (IF-001), yet it uses the pins of TTC2, because the setting Signal names "
+        "name the far device is on. The pinouts were read in the team's words (TXP, TXN, RXP, "
+        "RXN) and the project's signal map renamed them; imports DIR lists each rename. Look at "
+        "the pin table of OBC1-J01, explain DIR IF-001 and config DIR; the manual pages Define a "
+        "device and Connect two connectors explain it.",
+    )
+    history = History(p)
+    # one connector serves two devices: one harness that branches (as a new project starts)
+    _setting(history, p, "segmentation", "mode", "per_connector_group")
+    root = examples_path()
+    assert root is not None
+    team = signal_map.read_file(root / "templates" / "signal-map.csv")
+    # `config DIR --signal-map signal-map.csv --far-device-names on`; each plan is made on the
+    # project as the step before left it, since both change config/naming.json
+    plan = configcheck.plan_set_signal_map(p, team)
+    assert plan.ok, plan.error
+    history.execute("signal map", plan.ops)
+    plan = configcheck.plan_set_far_device_names(p, True)
+    assert plan.ok, plan.error
+    history.execute("far device names", plan.ops)
+    _device(history, p, "OBC1", "On-board computer", 0, 40.0)
+    _device(history, p, "TTC1", "Transceiver 1", 1, 40.0)
+    _device(history, p, "TTC2", "Transceiver 2", 1, 280.0)
+    ports = [f"{far}_{word}" for far in ("TTC1", "TTC2") for word in _TEAM_WORDS]
+    with tempfile.TemporaryDirectory() as scratch:
+        folder = Path(scratch)
+        for uid, part, signals in (
+            ("OBC1", "EX-MICROD-9-F", ports),
+            ("TTC1", "EX-MICROD-9-M", list(_TEAM_WORDS)),
+            ("TTC2", "EX-MICROD-9-M", list(_TEAM_WORDS)),
+        ):
+            rows = _team_pinout(part, signals, out=("TXP", "TXN"))
+            _import_pinout(history, p, _write_table(folder, f"{uid}-pinout.csv", rows), uid)
+    for far in ("TTC2", "TTC1"):  # the interface to TTC2 first: IF-001 (the run of 4.4.0)
+        ops, _iid = edit.ops_add_interface(p, "rs422", "OBC1", far, "OBC1-J01", f"{far}-J01")
+        history.execute(f"add interface to {far}", ops)
+    generate_project(p)
+    _no_errors("names-and-ports", p)
     return p
 
 
@@ -838,8 +967,265 @@ def _overrides_and_deviations() -> Project:
     return p
 
 
+# ---- build-data-and-as-built: from the design to the bench (section 4.12) ----------------------
+
+CONTACT_PART = "EX-CONTACT-22"
+CONTACT_TOOL = "EXAMPLE crimp tool, setting 4"
+_STRIP_MM = (6.0, 5.0)  # EXAMPLE strip lengths at the From and the To end of every wire
+_CUT_TOLERANCE_MM = 10.0  # EXAMPLE: how far a cut length may differ from the design
+_CUT_TOO_LONG_M = 0.025  # EXAMPLE: the one wire that was cut 25 mm too long
+# the plug parts Generate chooses for the devices of first-steps: the example colour code is theirs
+_MICRO_D_PLUGS = ("EX-MICROD-9-M", "EX-MICROD-21-M", "EX-MICROD-25-M")
+_TITLE_BLOCK = ("project", "harness_id", "title", "version", "date", "author", "checker", "approver", "status")  # fmt: skip
+# EXAMPLE accessories of W001 (sleeving, heat shrink, a label and a backshell), as the Accessories
+# tab or the import template accessories.csv enters them
+_ACCESSORIES = (
+    {"id": "ACC-001", "kind": "sleeving", "target": "W001-001", "position": "whole wire"},
+    {"id": "ACC-002", "kind": "heat_shrink", "target": "W001-P1", "length_mm": 30, "quantity": 2,
+     "position": "50 mm from the end of the connector"},
+    {"id": "ACC-003", "kind": "label", "target": "W001-P2", "position": "100 mm from the end of the connector"},
+    {"id": "ACC-004", "kind": "backshell", "target": "W001-P1"},
+)  # fmt: skip
+
+
+def _contact_part(history: History, p: Project) -> None:
+    """The EXAMPLE contact part (the contact the import template `pin-contacts.csv` names),
+    unverified and not approved, with an EXAMPLE crimp tool; the starter library has no contact
+    part."""
+    part = Part(
+        id=CONTACT_PART,
+        category="contact",
+        manufacturer="Example Co.",
+        part_number=CONTACT_PART,
+        description="Crimp contact for AWG 22 to 26 (EXAMPLE ONLY: not a real part)",
+        unverified=True,
+    )
+    history.execute(f"add part {CONTACT_PART}", [Put("parts", part)])
+    history.execute(
+        f"crimp tool of {CONTACT_PART}",
+        build_data.plan_set_part_tool(p, CONTACT_PART, CONTACT_TOOL),
+    )
+
+
+def _asbuilt_sheet(p: Project, harness_id: str) -> list[list[str]]:
+    """The as-built sheet of one harness (`export-asbuilt`) as a technician fills it in: a serial
+    number, who built and who inspected it (role names), the lot of each part, the crimp tool of
+    each pin, every wire cut to its designed length but one, which is 25 mm too long, the strip
+    lengths as designed, and every test with its result and an EXAMPLE continuity or isolation
+    value within its limit."""
+    rows = asbuilt.template_rows(p, harness_id)
+    head = rows[0]
+    col = {name: head.index(name) for name in head}
+    long_one = f"{harness_id}-001"
+    for row in rows[1:]:
+        kind, item = row[col["Kind"]], row[col["Item"]]
+        if kind == "harness":
+            row[col["Serial number"]] = f"EX-{harness_id}-0001"
+            row[col["Built by"]], row[col["Inspected by"]] = "Technician 1", "Inspector 1"
+        elif kind == "part":
+            row[col["Lot"]] = "EX-LOT-1"
+        elif kind == "pin":
+            row[col["Crimp tool"]] = CONTACT_TOOL
+            row[col["Crimp tool calibration ID"]] = "EX-CAL-1"
+        elif kind == "wire":
+            designed = float(row[col["Designed length (m)"]])
+            built = designed + (_CUT_TOO_LONG_M if item == long_one else 0.0)
+            row[col["Cut length (m)"]] = f"{built:.3f}"
+            row[col["Strip A (mm)"]] = row[col["Designed strip A (mm)"]]
+            row[col["Strip B (mm)"]] = row[col["Designed strip B (mm)"]]
+        elif kind == "test":
+            row[col["Result"]] = "pass"
+            if row[col["Test type"]] == "continuity":
+                row[col["Continuity (ohm)"]] = "0.08"  # EXAMPLE, at most 0.5 ohm
+            else:
+                row[col["Isolation (Mohm)"]] = "550"  # EXAMPLE, at least 100 Mohm
+                row[col["Test voltage (V)"]] = "100"
+    return rows
+
+
+def _build_data_and_as_built() -> Project:
+    """The devices of first-steps with the EXAMPLE values and lengths, the label format of a new
+    project and a title block without the sheet number; the build data of W001 and W002 (strip
+    lengths, the EXAMPLE contact with its crimp tool, accessories, the example colour code by pin
+    and the Cover of the plans), and a record of W001 as it was built."""
+    p = new_project(_title("build-data-and-as-built"))
+    p.meta = evolve(
+        p.meta,
+        description="The build data of the harnesses: a strip length at each end of every wire, "
+        "the contact EX-CONTACT-22 with its crimp tool on the device pins in use, sleeving, heat "
+        "shrink, a label and a backshell on W001, the example pigtail colour code by pin and the "
+        "Cover of the harness plans. W001 was built and tested: its as-built record says one "
+        "wire was cut 25 mm too long, out of the tolerance of 10 mm. Look at export --harness-plan, "
+        "the Cut list and Connectors sheets of the build workbook and asbuilt DIR; the manual "
+        "pages Enter the build data, Export the harness plans and Record what was built explain "
+        "it.",
+    )
+    history = History(p)
+    _demo_values(history, p)
+    _setting(history, p, "model", "label_format", "harness_device_connector")  # a new project's
+    _setting(history, p, "titleblock", "fields", list(_TITLE_BLOCK))  # the sheet number hidden
+    _setting(history, p, "generation", "asbuilt_cut_tolerance_mm", _CUT_TOLERANCE_MM)
+    _contact_part(history, p)
+    _first_steps_devices(history, p)
+    for cid in ("PCDU1-J01", "RW1-J01", "OBC1-J01", "RW1-J02"):  # the column Cable contact
+        pins = [pin.id for pin in p.connectors[cid].pins]
+        history.execute(f"contacts of {cid}", devices.ops_set_contacts(p, cid, pins, CONTACT_PART))
+    generate_project(p)
+    _segment_lengths(history, p, _template_lengths())
+    generate_project(p)
+    for hid in sorted(p.harnesses):
+        history.execute(
+            f"strip lengths of {hid}",
+            build_data.plan_set_strip_all(p, hid, strip_a_mm=_STRIP_MM[0], strip_b_mm=_STRIP_MM[1]),
+        )
+    for accessory in _ACCESSORIES:
+        history.execute(
+            f"accessory {accessory['id']}", build_data.plan_set_accessory(p, "W001", accessory)
+        )
+    history.execute("example colour code", plan_config.plan_example_code(p, _MICRO_D_PLUGS))
+    history.execute(
+        document.document_label(None),
+        document.plan_document_edit(
+            p,
+            fields={"system": "EX-SAT", "title": "EX-SAT harness plans (EXAMPLE)", "company": "Example Ltd"},
+            contact=[("E-mail", "harness-plans@example.org"), ("Phone", "+00 000 000 0000 (EXAMPLE)")],
+        ),
+    )  # fmt: skip
+    history.execute(
+        document.document_label("W001"),
+        document.plan_document_edit(p, harness="W001", fields={"number": "HP-W001"}),
+    )
+    with tempfile.TemporaryDirectory() as scratch:
+        sheet = _write_table(Path(scratch), "W001-asbuilt-EXAMPLE.csv", _asbuilt_sheet(p, "W001"))
+        read = asbuilt.read_import(p, sheet, None)
+        if read.plan.bad_count or not read.ops:
+            raise SystemExit(f"{sheet.name}: {[r.message for r in read.plan.rows if not r.ok]}")
+        history.execute("Import as-built records", read.ops)
+    _no_errors("build-data-and-as-built", p)
+    return p
+
+
+# ---- imports-from-files: a project made from files (section 4.13) -------------------------------
+
+PINOUT_TEMPLATE = "device-pinout-EXAMPLE.csv"
+# what each approval status of approved-parts.csv means here: every one is "not decided yet", so
+# no part of an example reads as approved (T12, D-129); the page Import data shows --approved
+_ALL_REVIEW = ("Approved", "Review", "Rejected")
+# the options of templates/README.md for wheel-connectors.net
+_WHEEL_CONNECTORS = {"J1": "RW1-J01", "J2": "RW1-J02"}
+
+
+def _import_parts(history: History, p: Project, path: Path) -> None:
+    """`import-parts DIR FILE --pending Approved --pending Review --pending Rejected`."""
+    table, sheet = read_table_sheet(path)
+    mapping = library_import.guess_mapping(table[0])
+    plan = library_import.plan_parts_import(
+        p, table, mapping, approved=[], pending=list(_ALL_REVIEW), rejected=[]
+    )
+    if plan.ok_count != len(plan.rows):
+        raise SystemExit(f"{path.name}: {[r.message for r in plan.rows if not r.ok]}")
+    report = import_reports.parts_report(
+        path, None, p, table, mapping, plan, mass_unit="g", unit_given=False, sheet=sheet
+    )
+    source = f"{path.name} (sha256 {file_sha256(path)[:12]})"  # as the command names the source
+    ops = [*plan.ops, *library_import.library_ops(p, name=None, version=None, source=source, date=None)]  # fmt: skip
+    _recorded(history, p, "Import parts", ops, report)
+
+
+def _import_interfaces(history: History, p: Project, path: Path) -> list[str]:
+    """*File > Import > Interfaces…* (the app only): the interfaces of the file, by their IDs."""
+    table, sheet = read_table_sheet(path)
+    mapping = imports_table.guess_mapping(table[0])
+    plan = imports_table.plan_interface_import(p, table, mapping)
+    if plan.error_count:
+        raise SystemExit(f"{path.name}: {[r.message for r in plan.rows if not r.ok]}")
+    report = import_reports.interfaces_report(path, None, table, mapping, plan, sheet=sheet)
+    _recorded(history, p, "Import interfaces", plan.ops, report)
+    return [r.values[0] for r in plan.rows]
+
+
+def _import_netlist(history: History, p: Project, path: Path, unit_id: str) -> None:
+    """`import-netlist DIR FILE --device UNIT --prefix J --connector J1=... --connector J2=...`."""
+    netlist = kicad.read_netlist(path)
+    plan = kicad.plan_netlist_import(
+        p, netlist, unit_id, prefix="J", connector_ids=_WHEEL_CONNECTORS
+    )
+    if plan.ok_count != len(plan.rows) or not plan.ops:
+        raise SystemExit(f"{path.name}: {[r.message for r in plan.rows if not r.ok]}")
+    report = import_reports.netlist_report(path, None, netlist, plan)
+    _recorded(history, p, "Import connector pinouts from KiCad", plan.ops, report)
+
+
+def _import_lengths(history: History, p: Project, path: Path) -> None:
+    """`import-lengths DIR FILE --unit mm`."""
+    table, sheet = read_table_sheet(path)
+    plan = lengths.plan_length_import(p, table, scale=lengths.LENGTH_UNITS_M["mm"])
+    if not all(r.ok for r in plan.rows):
+        raise SystemExit(f"{path.name}: {[r.message for r in plan.rows if not r.ok]}")
+    report = import_reports.lengths_report(path, None, table, plan, unit="mm", unit_given=True, sheet=sheet)  # fmt: skip
+    _recorded(history, p, "Import segment lengths", plan.ops, report)
+
+
+def _import_build_data(history: History, p: Project, path: Path) -> None:
+    """`import-build-data DIR FILE` (strip lengths, accessories ...: the kind from the headings)."""
+    table, sheet = read_table_sheet(path)
+    plan = build_data_import.plan_build_data_import(p, table, unit="mm")
+    if plan.counts()["refused"] or not plan.ops:
+        raise SystemExit(f"{path.name}: {[r.message for r in plan.rows if not r.ok]}")
+    report = import_reports.build_data_report(path, None, table, plan, unit="mm", unit_given=False, sheet=sheet)  # fmt: skip
+    _recorded(history, p, plan.label, plan.ops, report)
+
+
+def _imports_from_files() -> Project:
+    """The devices of first-steps, then every import template of `templates FOLDER` that fits: the
+    parts, two interfaces, the KiCad netlist of RW1, the signal map, the pinout of a fourth device
+    GYRO1 (a new device), and after Generate the segment lengths, strip lengths and accessories;
+    each import keeps its record in `imports/records.json`."""
+    p = new_project(_title("imports-from-files"))
+    p.meta = evolve(
+        p.meta,
+        description="The devices of first-steps, and everything else read from the import "
+        "templates that harness-design-studio templates FOLDER copies: the approved parts list "
+        "(every status read as not decided yet), two interfaces, the KiCad netlist of RW1, the "
+        "project's signal map, the pinout of GYRO1 (a new device), and after Generate the "
+        "segment lengths, strip lengths and accessories. Look at imports DIR (the record of each "
+        "file) and the fixed pins of RW1 and GYRO1; the manual pages Import data and Import "
+        "KiCad pinouts explain it.",
+    )
+    history = History(p)
+    root = examples_path()
+    assert root is not None
+    files = root / "templates"
+    _first_steps_devices(history, p)
+    _import_parts(history, p, files / "approved-parts.csv")
+    for iid in _import_interfaces(history, p, files / "interfaces.csv"):
+        history.execute(f"confirm {iid}", edit.ops_confirm_interface(p, iid))  # the tool's choice
+    # both power outputs of PCDU1 are in use now: keyed A and B, so they cannot be swapped
+    for cid, key in (("PCDU1-J01", "A"), ("PCDU1-J02", "B")):
+        history.execute(f"keying of {cid}", devices.ops_update_connector(p, cid, keying=key))
+    _import_netlist(history, p, files / "wheel-connectors.net", "RW1")
+    plan = configcheck.plan_set_signal_map(p, signal_map.read_file(files / "signal-map.csv"))
+    assert plan.ok, plan.error
+    history.execute("signal map", plan.ops)  # `config DIR --signal-map signal-map.csv`
+    _import_pinout(history, p, files / PINOUT_TEMPLATE, "GYRO1", new_device="Gyroscope")
+    # the RS-422 connectors of OBC1 are in use: one more for the gyroscope (the Devices tab), of a
+    # part no other connector of OBC1 has, so that it cannot be swapped with one
+    ops, port = devices.ops_add_connector(p, "OBC1", part_id="EX-MICROD-9-M", carries=("rs422",))
+    history.execute(f"add connector {port}", ops)
+    ops, _iid = edit.ops_add_interface(p, "rs422", "OBC1", "GYRO1", port, "GYRO1-J01", name="Gyroscope data")  # fmt: skip
+    history.execute("add interface Gyroscope data", ops)
+    generate_project(p)
+    _import_lengths(history, p, files / "segment-lengths.csv")
+    generate_project(p)
+    for name in ("strip-lengths.csv", "accessories.csv"):
+        _import_build_data(history, p, files / name)
+    _no_errors("imports-from-files", p)
+    return p
+
+
 BUILDERS: dict[str, Callable[[], Project]] = {
     "full-connectors": _full_connectors,
+    "names-and-ports": _names_and_ports,
     "splice-by-hand": _splice_by_hand,
     "splice-from-connection": _splice_from_connection,
     "branching-harness": _branching_harness,
@@ -848,4 +1234,6 @@ BUILDERS: dict[str, Callable[[], Project]] = {
     "lengths-to-the-face": _lengths_to_the_face,
     "released-harness": _released_harness,
     "overrides-and-deviations": _overrides_and_deviations,
+    "build-data-and-as-built": _build_data_and_as_built,
+    "imports-from-files": _imports_from_files,
 }

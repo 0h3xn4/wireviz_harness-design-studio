@@ -22,15 +22,20 @@ from harness_design_studio.cli.main import main
 from harness_design_studio.core import (
     build_data,
     checks,
+    configcheck,
     currents,
+    devices,
     drc,
     integrity,
+    label_format,
     links,
     manual_harness,
     review,
     shield_ends,
+    signal_map,
     splices,
     templates,
+    verify,
     wires,
 )
 from harness_design_studio.core.commands import History, Put, SetConfig, apply_ops
@@ -40,6 +45,7 @@ from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.errors import TransactionError
 from harness_design_studio.core.generate import lengths
 from harness_design_studio.core.generate.engine import generate_project
+from harness_design_studio.core.import_record import file_sha256
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.model import evolve
 from harness_design_studio.core.samples import new_project
@@ -56,6 +62,7 @@ BASELINE = frozenset({"part-unapproved", "unchecked-config"})
 # The open findings beyond the baseline that the page of each template names (section 4).
 NAMED: dict[str, frozenset[str]] = {
     "full-connectors": frozenset(),
+    "names-and-ports": frozenset(),
     "splice-by-hand": frozenset(),  # no `isolated` since part E (section 4.3)
     "splice-from-connection": frozenset(),
     "branching-harness": frozenset(),
@@ -65,6 +72,8 @@ NAMED: dict[str, frozenset[str]] = {
     "released-harness": frozenset(),
     # the waived connector-lookalike and the two deviations are accepted, not open (section 4.10)
     "overrides-and-deviations": frozenset(),
+    "build-data-and-as-built": frozenset(),  # the value out of its limit is not a design rule's
+    "imports-from-files": frozenset(),
 }
 
 
@@ -102,10 +111,20 @@ def test_every_example_opens_and_check_finds_no_error(
 
 def _carries_numbers(name: str) -> bool:
     """An engineering number in a template: a config value other than a new project's, a length,
-    a current or a voltage (design of 5.1.0, T6)."""
+    a current or a voltage (design of 5.1.0, T6). The words of `config/naming.json` (the patterns,
+    the far-device names, the signal map, the review checklist) and the segmentation mode are
+    choices, not numbers."""
     p = load_project(PROJECTS / name).project
     fresh = new_project("x").config
-    if any(key not in fresh or c.values != fresh[key].values for key, c in p.config.items()):
+    words = {"naming": set(p.config["naming"].values), "segmentation": {"mode"}}
+
+    def numbers(key: str, values: dict[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in values.items() if k not in words.get(key, set())}
+
+    if any(
+        key not in fresh or numbers(key, c.values) != numbers(key, fresh[key].values)
+        for key, c in p.config.items()
+    ):
         return True
     if any(s.length_m is not None for h in p.harnesses.values() for s in h.segments):
         return True
@@ -753,3 +772,258 @@ def test_overrides_and_deviations_drc_shows_two_deviations_and_exits_0(
     out = _exported(tmp_path, "overrides-and-deviations")
     flags = {r["Wire"]: (r["Locked"], r["Overrides"]) for r in _table(out / "harnesses" / "W002" / "wirelist.csv")}  # fmt: skip
     assert flags == {"W002-001": ("yes", f"gauge_awg: {OVERRIDE_REASON}"), "W002-002": ("", "")}
+
+
+# ---- names-and-ports (section 4.2) --------------------------------------------------------------
+
+TEAM_RENAMES = {"TXP": "TX+", "TXN": "TX-", "RXP": "RX+", "RXN": "RX-"}
+
+
+def _obc_ports(p: Any) -> dict[str, tuple[str | None, str | None]]:
+    return {x.id: (x.signal, x.interface_id) for x in p.connectors["OBC1-J01"].pins}
+
+
+def test_names_and_ports_gives_each_interface_the_port_of_its_far_device() -> None:
+    p = load_project(PROJECTS / "names-and-ports").project
+    assert sorted(p.units) == ["OBC1", "TTC1", "TTC2"]
+    naming = p.config["naming"].values
+    assert naming["far_device_names"] is True
+    assert naming["signal_map"] == signal_map.read_file(TEMPLATE_FILES / "signal-map.csv")
+    far = {i.id: [e.unit_id for e in i.endpoints] for i in p.interfaces.values()}
+    assert far == {"IF-001": ["OBC1", "TTC2"], "IF-002": ["OBC1", "TTC1"]}  # TTC2 made first
+    assert all(not e.auto for i in p.interfaces.values() for e in i.endpoints)
+    want: dict[str, tuple[str | None, str | None]] = {
+        str(n): (f"TTC1_{s}", "IF-002") for n, s in enumerate(("TX+", "TX-", "RX+", "RX-"), 1)
+    }
+    want |= {str(n + 4): (f"TTC2_{s}", "IF-001") for n, s in enumerate(("TX+", "TX-", "RX+", "RX-"), 1)}  # fmt: skip
+    want["9"] = (None, None)
+    assert _obc_ports(p) == want
+    assert p.connectors["OBC1-J01"].pins[8].role == "spare"
+    for uid, iid in (("TTC1", "IF-002"), ("TTC2", "IF-001")):
+        pins = p.connectors[f"{uid}-J01"].pins
+        assert [(x.signal, x.interface_id) for x in pins[:4]] == [(s, iid) for s in ("TX+", "TX-", "RX+", "RX-")]  # fmt: skip
+        assert pins[4].role == "spare" and not any(x.signal for x in pins[4:])
+    assert p.config["segmentation"].values["mode"] == "per_connector_group"
+    [h] = p.harnesses.values()  # one plug on OBC1-J01, branching to TTC1 and TTC2
+    assert {c.mates_with for c in h.connectors} == {"OBC1-J01", "TTC1-J01", "TTC2-J01"}
+    assert len(h.branch_points) == 1 and len(h.wires) == 8
+
+
+def test_names_and_ports_records_what_the_signal_map_renamed() -> None:
+    p = load_project(PROJECTS / "names-and-ports").project
+    records = p.import_records
+    assert sorted(records) == [f"pinout:{u}-pinout.csv" for u in ("OBC1", "TTC1", "TTC2")]
+    renamed = {
+        (r.source_name, c.item, c.read, c.stored)
+        for r in records.values()
+        for c in r.rows_converted
+        if c.unit == signal_map.UNIT
+    }
+    for n, (team, signal) in enumerate(TEAM_RENAMES.items(), 1):
+        for far, pin in (("TTC1", n), ("TTC2", n + 4)):  # inside a port: TTC1_TXP is TTC1_TX+
+            assert ("OBC1-pinout.csv", f"OBC1-J01 pin {pin}", f"{far}_{team}", f"{far}_{signal}") in renamed  # fmt: skip
+            assert (f"{far}-pinout.csv", f"{far}-J01 pin {n}", team, signal) in renamed
+    assert len(renamed) == 16 and all(r.source_path is None for r in records.values())
+
+
+def test_names_and_ports_without_the_setting_takes_the_ports_in_name_order() -> None:
+    """The lesson of the template on a copy: with the setting off, the pins freed and Generate run
+    again, IF-001 (to TTC2) takes the first port in name order, TTC1's; with the setting on again,
+    `verify` names the mismatch."""
+    p = load_project(PROJECTS / "names-and-ports").project
+    history = History(p)
+    history.execute("off", configcheck.plan_set_far_device_names(p, False).ops)
+    generate_project(p)
+    assert _obc_ports(p)["1"] == ("TTC1_TX+", "IF-002")  # turning it off moves no pin
+    history.execute("unassign", devices.ops_unassign_pins(p, "OBC1-J01", [str(n) for n in range(1, 9)]))  # fmt: skip
+    generate_project(p)
+    assert _obc_ports(p)["1"] == ("TTC1_TX+", "IF-001") and _obc_ports(p)["5"] == ("TTC2_TX+", "IF-002")  # fmt: skip
+    history.execute("on", configcheck.plan_set_far_device_names(p, True).ops)
+    found = [i for i in verify.verify_project(p).issues if i.code == "port_far_device"]
+    assert {i.severity for i in found} == {"error"}
+    assert any("Interface IF-001 goes to unit TTC2 but uses port TTC1 of OBC1-J01" in i.message for i in found)  # fmt: skip
+
+
+# ---- build-data-and-as-built (section 4.12) -----------------------------------------------------
+
+
+def test_build_data_and_as_built_holds_the_build_data() -> None:
+    p = load_project(PROJECTS / "build-data-and-as-built").project
+    assert sorted(p.units) == ["OBC1", "PCDU1", "RW1"] and sorted(p.harnesses) == ["W001", "W002"]
+    assert label_format.format_of(p) == "harness_device_connector"  # the format of a new project
+    assert "sheet" not in p.config["titleblock"].values["fields"]
+    contact = p.parts["EX-CONTACT-22"]
+    assert (contact.category, contact.unverified, contact.tool) == ("contact", True, "EXAMPLE crimp tool, setting 4")  # fmt: skip
+    assert "EXAMPLE ONLY: not a real part" in (contact.description or "")
+    assert all(x.approval != "approved" for x in p.parts.values())  # nothing approved (T5)
+    for cid in ("PCDU1-J01", "RW1-J01", "OBC1-J01", "RW1-J02"):  # the column Cable contact
+        assert {x.contact_part for x in p.connectors[cid].pins} == {"EX-CONTACT-22"}, cid
+    for h in p.harnesses.values():
+        assert {(w.strip_a_mm, w.strip_b_mm) for w in h.wires} == {(6.0, 5.0)}, h.id
+        for c in h.connectors:  # Generate takes the contact from the device's pin
+            used = {pin for w in h.wires for end, pin in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin)) if end == c.id}  # fmt: skip
+            assert {x.contact_part for x in c.pins if x.id in used} == {"EX-CONTACT-22"}, c.id
+    kinds = {a.id: (a.kind, a.target) for a in p.harnesses["W001"].accessories}
+    assert kinds == {
+        "ACC-001": ("sleeving", "W001-001"),
+        "ACC-002": ("heat_shrink", "W001-P1"),
+        "ACC-003": ("label", "W001-P2"),
+        "ACC-004": ("backshell", "W001-P1"),
+    }
+    plan = p.config["harness_plan"].values
+    assert plan["colour_rule"] == "pin_code"
+    [code] = plan["colour_codes"]
+    assert code["example"] is True and code["name"] == "example"
+    assert code == templates.example_colour_code(code["parts"])  # the template's table, marked
+    cable_parts = {c.part_id for h in p.harnesses.values() for c in h.connectors}
+    assert cable_parts <= set(code["parts"])
+    doc = p.meta.document
+    assert doc is not None and (doc.system, doc.company) == ("EX-SAT", "Example Ltd")
+    assert len(doc.contact) == 2 and doc.plans["W001"].number == "HP-W001"
+    assert p.config["generation"].values["asbuilt_cut_tolerance_mm"] == 10.0
+    assert p.config["generation"].placeholder  # the EXAMPLE values stay a placeholder
+
+
+def test_build_data_and_as_built_ships_a_record_with_one_value_out_of_its_limit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = load_project(PROJECTS / "build-data-and-as-built").project
+    assert {r.harness_id for r in p.asbuilt.values()} == {"W001"}
+    cut = {r.subject: r.cut_length_m for r in p.asbuilt.values() if r.kind == "wire"}
+    assert sorted(cut) == ["W001-001", "W001-002", "W001-003", "W001-004"]
+    [record] = p.import_records.values()
+    assert (record.kind, record.source_name, record.source_path) == ("asbuilt", "W001-asbuilt-EXAMPLE.csv", None)  # fmt: skip
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "build-data-and-as-built", "--no-journal"]) == 0
+    doc = run(capsys, "asbuilt", str(folder), rc=1)  # a value out of its limit: exit code 1
+    assert (doc["out_of_limit"], doc["missing"], doc["records"]) == (1, 0, len(p.asbuilt))
+    [w1, w2] = doc["harnesses"]
+    assert (w1["harness"], w1["complete"], w2["harness"], w2["started"]) == ("W001", True, "W002", False)  # fmt: skip
+    [out] = [line for line in doc["lines"] if line["status"] == "out of limit"]
+    assert (out["kind"], out["subject"], out["field"]) == ("wire", "W001-001", "cut length (m)")
+    assert (out["actual"], out["designed"]) == (0.975, 0.95)  # 25 mm too long, 10 mm allowed
+    assert capsys.readouterr().out == ""
+    assert main(["asbuilt", str(folder)]) == 1
+    said = capsys.readouterr().out
+    assert "OUT OF LIMIT: W001 wire W001-001: cut length (m)" in said and "OUT OF TOLERANCE by 15 mm" in said  # fmt: skip
+
+
+def test_build_data_and_as_built_writes_the_plans_and_the_labels(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "build-data-and-as-built", "--no-journal"]) == 0
+    capsys.readouterr()
+    assert main(["check", str(folder)]) == 0
+    assert "plan_colour_example" in capsys.readouterr().out  # the note of an example code
+    doc = run(capsys, "export", str(folder), "--harness-plan")
+    assert sorted(doc["harness_plans"]) == ["harnesses/W001/W001_plan.ods", "harnesses/W002/W002_plan.ods"]  # fmt: skip
+    verify = run(capsys, "verify", str(folder), "--outputs")
+    assert not [i for i in verify["issues"] if i["severity"] == "error"], verify["issues"]
+    labels = {r["Label"]: r["Text"] for r in _table(folder / "outputs" / "harnesses" / "W001" / "labels.csv")}  # fmt: skip
+    assert labels["W001-P1"] == "W001:OBC1:J01" and labels["W001-P2"] == "W001:RW1:J02"
+
+
+# ---- imports-from-files (section 4.13) ----------------------------------------------------------
+
+TEMPLATE_FILES = EXAMPLES / "templates"
+# the import templates the example reads, by the kind of their record
+IMPORTED = {
+    "parts": "approved-parts.csv",
+    "interfaces": "interfaces.csv",
+    "netlist": "wheel-connectors.net",
+    "pinout": "device-pinout-EXAMPLE.csv",
+    "lengths": "segment-lengths.csv",
+    "strip-lengths": "strip-lengths.csv",
+    "accessories": "accessories.csv",
+}
+
+
+def test_imports_from_files_records_every_import() -> None:
+    p = load_project(PROJECTS / "imports-from-files").project
+    records: dict[str, Any] = {r.kind: r for r in p.import_records.values()}
+    assert sorted(records) == sorted(IMPORTED) and len(p.import_records) == len(IMPORTED)
+    for kind, name in IMPORTED.items():
+        r = records[kind]
+        assert (r.source_name, r.source_path, r.dropped_count) == (name, None, 0), kind
+        assert r.sha256 == file_sha256(TEMPLATE_FILES / name), kind  # the shipped file itself
+    assert records["parts"].rows_read == 5 and records["pinout"].rows_read == 9
+    assert [c.stored for c in records["lengths"].rows_converted] == ["0.85 m", "0.9 m"]
+    assert p.library_info.source == f"approved-parts.csv (sha256 {records['parts'].sha256[:12]})"
+
+
+def test_imports_from_files_reads_every_approval_status_as_not_decided() -> None:
+    """T12, D-129: the template file says Approved, Review and Rejected; the example reads them all
+    as not decided yet, so no part of an example reads as approved."""
+    p = load_project(PROJECTS / "imports-from-files").project
+    with (TEMPLATE_FILES / "approved-parts.csv").open(newline="", encoding="utf-8") as f:
+        listed = {row["part number"]: row["approval status"] for row in csv.DictReader(f)}
+    assert set(listed.values()) == {"Approved", "Review", "Rejected"}
+    assert {pid: p.parts[pid].approval for pid in listed} == dict.fromkeys(listed, "pending")
+    assert all(x.approval != "approved" for x in p.parts.values())
+
+
+def test_imports_from_files_holds_what_the_files_say() -> None:
+    p = load_project(PROJECTS / "imports-from-files").project
+    assert sorted(p.units) == ["GYRO1", "OBC1", "PCDU1", "RW1"]
+    assert p.config["naming"].values["signal_map"] == signal_map.read_file(TEMPLATE_FILES / "signal-map.csv")  # fmt: skip
+    assert {"IF-010", "IF-011"} <= set(p.interfaces)  # interfaces.csv, the tool's choice confirmed
+    assert all(not e.auto for i in p.interfaces.values() for e in i.endpoints)
+    assert {c: p.connectors[c].keying for c in ("PCDU1-J01", "PCDU1-J02")} == {"PCDU1-J01": "A", "PCDU1-J02": "B"}  # fmt: skip
+    fixed = {c: [(x.id, x.signal) for x in p.connectors[c].pins if x.fixed] for c in ("RW1-J01", "RW1-J02")}  # fmt: skip
+    assert fixed == {
+        "RW1-J01": [("1", "PWR"), ("2", "RTN")],
+        "RW1-J02": [("1", "TX+"), ("2", "TX-"), ("3", "RX+"), ("4", "RX-")],
+    }  # the KiCad netlist
+    gyro = p.connectors["GYRO1-J01"]  # device-pinout-EXAMPLE.csv
+    assert (gyro.part_id, gyro.source_doc, gyro.source_version) == ("EX-MICROD-9-F", "ICD-GYRO EXAMPLE", "Issue 1")  # fmt: skip
+    assert [(x.signal, x.direction, x.level, x.current_a) for x in gyro.pins[:4]] == [
+        ("TX+", "out", "RS422", 0.05), ("TX-", "out", "RS422", 0.05),
+        ("RX+", "in", "RS422", 0.05), ("RX-", "in", "RS422", 0.05),
+    ]  # fmt: skip
+    assert [x.role for x in gyro.pins[4:]] == ["spare"] * 5
+    assert gyro.row_layout is not None and gyro.row_layout.rows == [["1", "2", "3", "4", "5"], ["6", "7", "8", "9"]]  # fmt: skip
+    assert all(x.interface_id for x in gyro.pins[:4])
+    lengths_of = {s.id: s.length_m for h in p.harnesses.values() for s in h.segments}
+    assert (lengths_of["W001-L1"], lengths_of["W002-L1"]) == (0.85, 0.9)  # segment-lengths.csv
+    w1 = p.harnesses["W001"]
+    strips = {w.id: (w.strip_a_mm, w.strip_b_mm) for w in w1.wires if w.strip_a_mm is not None}
+    assert strips == {"W001-001": (6.0, 6.0), "W001-002": (6.0, 5.0)}  # strip-lengths.csv
+    assert {a.id: (a.kind, a.target) for a in w1.accessories} == {
+        "ACC-001": ("sleeving", "W001-001"),
+        "ACC-002": ("heat_shrink", "W001-P1"),
+    }  # accessories.csv
+
+
+def test_imports_from_files_sources_are_the_files_templates_copies(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder, copied = tmp_path / "p", tmp_path / "templates"
+    assert main(["new", str(folder), "--template", "imports-from-files", "--no-journal"]) == 0
+    assert main(["templates", str(copied)]) == 0
+    sources = [arg for name in IMPORTED.values() for arg in ("--source", str(copied / name))]
+    doc = run(capsys, "imports", str(folder), *sources)
+    assert doc["count"] == len(IMPORTED) and doc["sources_changed"] == 0
+    assert {i["status"] for i in doc["imports"]} == {"unchanged"}
+
+
+def test_the_pinout_template_imports_into_a_new_project(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The new import template (part D): every row is read, nothing is left out or refused."""
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--no-journal"]) == 0
+    template = TEMPLATE_FILES / "device-pinout-EXAMPLE.csv"
+    args = ("import-pinout", str(folder), str(template), "--device", "GYRO1", "--new-device", "Gyroscope")  # fmt: skip
+    doc = run(capsys, *args)
+    assert doc["changed"] and doc["pins"] == 9 and not doc["warnings"] and not doc["unmatched_signals"]  # fmt: skip
+    assert doc["connectors"] == [{"connector": "GYRO1-J01", "action": "added", "pins": 9}]
+    record = doc["import"]
+    assert record["record_written"] and record["dropped_count"] == 0
+    assert "columns_ignored" not in record or not record["columns_ignored"]
+    with template.open(newline="", encoding="utf-8") as f:
+        heading = next(csv.reader(f))
+    assert [c["column"] for c in record["columns_read"]] == heading  # every column is read
+    p = load_project(folder).project
+    assert len(p.connectors["GYRO1-J01"].pins) == p.parts["EX-MICROD-9-F"].pin_count == 9
+    assert run(capsys, "check", str(folder))["errors"] == 0

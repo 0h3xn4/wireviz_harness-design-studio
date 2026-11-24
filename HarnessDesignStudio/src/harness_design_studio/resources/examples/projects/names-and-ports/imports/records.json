@@ -1,0 +1,246 @@
+{
+  "imports": [
+    {
+      "columns_read": [
+        {
+          "column": "Connector",
+          "field": "connector"
+        },
+        {
+          "column": "Pin",
+          "field": "pin"
+        },
+        {
+          "column": "Signal",
+          "field": "signal"
+        },
+        {
+          "column": "Mode",
+          "field": "mode"
+        },
+        {
+          "column": "Direction",
+          "field": "direction"
+        },
+        {
+          "column": "Part",
+          "field": "part"
+        }
+      ],
+      "converted_count": 8,
+      "dropped_count": 0,
+      "id": "pinout:OBC1-pinout.csv",
+      "kind": "pinout",
+      "rows_converted": [
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 1",
+          "read": "TTC1_TXP",
+          "row": 2,
+          "stored": "TTC1_TX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 2",
+          "read": "TTC1_TXN",
+          "row": 3,
+          "stored": "TTC1_TX-",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 3",
+          "read": "TTC1_RXP",
+          "row": 4,
+          "stored": "TTC1_RX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 4",
+          "read": "TTC1_RXN",
+          "row": 5,
+          "stored": "TTC1_RX-",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 5",
+          "read": "TTC2_TXP",
+          "row": 6,
+          "stored": "TTC2_TX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 6",
+          "read": "TTC2_TXN",
+          "row": 7,
+          "stored": "TTC2_TX-",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 7",
+          "read": "TTC2_RXP",
+          "row": 8,
+          "stored": "TTC2_RX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "OBC1-J01 pin 8",
+          "read": "TTC2_RXN",
+          "row": 9,
+          "stored": "TTC2_RX-",
+          "unit": "signal map"
+        }
+      ],
+      "rows_read": 9,
+      "sha256": "6d650e745d8db175df9f54e5867b85b726e81aa689b9f91f899d47c2be537993",
+      "source_name": "OBC1-pinout.csv",
+      "tool_version": "5.0.0"
+    },
+    {
+      "columns_read": [
+        {
+          "column": "Connector",
+          "field": "connector"
+        },
+        {
+          "column": "Pin",
+          "field": "pin"
+        },
+        {
+          "column": "Signal",
+          "field": "signal"
+        },
+        {
+          "column": "Mode",
+          "field": "mode"
+        },
+        {
+          "column": "Direction",
+          "field": "direction"
+        },
+        {
+          "column": "Part",
+          "field": "part"
+        }
+      ],
+      "converted_count": 4,
+      "dropped_count": 0,
+      "id": "pinout:TTC1-pinout.csv",
+      "kind": "pinout",
+      "rows_converted": [
+        {
+          "field": "signal",
+          "item": "TTC1-J01 pin 1",
+          "read": "TXP",
+          "row": 2,
+          "stored": "TX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "TTC1-J01 pin 2",
+          "read": "TXN",
+          "row": 3,
+          "stored": "TX-",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "TTC1-J01 pin 3",
+          "read": "RXP",
+          "row": 4,
+          "stored": "RX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "TTC1-J01 pin 4",
+          "read": "RXN",
+          "row": 5,
+          "stored": "RX-",
+          "unit": "signal map"
+        }
+      ],
+      "rows_read": 9,
+      "sha256": "7c7ca9c9e5582be881f5a877b6abc0e900a0f8f0e8cc327cb475c5568ce1d1d5",
+      "source_name": "TTC1-pinout.csv",
+      "tool_version": "5.0.0"
+    },
+    {
+      "columns_read": [
+        {
+          "column": "Connector",
+          "field": "connector"
+        },
+        {
+          "column": "Pin",
+          "field": "pin"
+        },
+        {
+          "column": "Signal",
+          "field": "signal"
+        },
+        {
+          "column": "Mode",
+          "field": "mode"
+        },
+        {
+          "column": "Direction",
+          "field": "direction"
+        },
+        {
+          "column": "Part",
+          "field": "part"
+        }
+      ],
+      "converted_count": 4,
+      "dropped_count": 0,
+      "id": "pinout:TTC2-pinout.csv",
+      "kind": "pinout",
+      "rows_converted": [
+        {
+          "field": "signal",
+          "item": "TTC2-J01 pin 1",
+          "read": "TXP",
+          "row": 2,
+          "stored": "TX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "TTC2-J01 pin 2",
+          "read": "TXN",
+          "row": 3,
+          "stored": "TX-",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "TTC2-J01 pin 3",
+          "read": "RXP",
+          "row": 4,
+          "stored": "RX+",
+          "unit": "signal map"
+        },
+        {
+          "field": "signal",
+          "item": "TTC2-J01 pin 4",
+          "read": "RXN",
+          "row": 5,
+          "stored": "RX-",
+          "unit": "signal map"
+        }
+      ],
+      "rows_read": 9,
+      "sha256": "7c7ca9c9e5582be881f5a877b6abc0e900a0f8f0e8cc327cb475c5568ce1d1d5",
+      "source_name": "TTC2-pinout.csv",
+      "tool_version": "5.0.0"
+    }
+  ]
+}

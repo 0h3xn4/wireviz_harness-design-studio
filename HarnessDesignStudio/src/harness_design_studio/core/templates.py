@@ -81,6 +81,13 @@ TEMPLATES = (
         FEATURE,
     ),
     TemplateInfo(
+        "names-and-ports",
+        "Names and ports",
+        "OBC1 talks to TTC1 and TTC2 on one connector; its ports are named after them, and a "
+        "signal map reads the team's words.",
+        FEATURE,
+    ),
+    TemplateInfo(
         "splice-by-hand",
         "Splice by hand (EXAMPLE)",
         "A power line drawn by hand from one output to two devices through two splices of an "
@@ -134,6 +141,20 @@ TEMPLATES = (
         "Overrides and deviations (EXAMPLE)",
         "A value set by hand with its reason, a warning waived and two errors accepted as "
         "deviations.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "build-data-and-as-built",
+        "Build data and as-built (EXAMPLE)",
+        "Strip lengths, contacts, accessories, a pin colour code and a Cover for the plans; then a "
+        "record of what was built.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "imports-from-files",
+        "Imports from files (EXAMPLE)",
+        "first-steps built from the import templates: parts, lengths, build data, a netlist and a "
+        "pinout, each import recorded.",
         FEATURE,
     ),
 )

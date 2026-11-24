@@ -1,0 +1,22 @@
+{
+  "units": [
+    {
+      "id": "GYRO1",
+      "mass_relevant": true,
+      "name": "Gyroscope",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "aocs",
+      "zone": "panel-B"
+    },
+    {
+      "id": "RW1",
+      "mass_relevant": true,
+      "name": "Actuator (wheel) 1",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "aocs",
+      "zone": "panel-B"
+    }
+  ]
+}
