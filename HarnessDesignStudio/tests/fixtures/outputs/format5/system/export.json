@@ -1958,7 +1958,7 @@
  "format_version": 2,
  "generator": {
   "name": "harness-design-studio",
-  "version": "4.4.1"
+  "version": "5.0.0"
  },
  "harnesses": [
   {
@@ -5205,7 +5205,7 @@
    ]
   }
  ],
- "model_hash": "58a59cd57d0a917c365ca43f3f65d4c67ee88808cc331be8c6f9f4e83758799b",
+ "model_hash": "443d601bca1c3cbf2f1e59a6a91880694d5286f95284f541979019f380c354d0",
  "parts": [
   {
    "approval": "pending",

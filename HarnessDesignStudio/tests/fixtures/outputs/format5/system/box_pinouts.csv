@@ -1,5 +1,5 @@
-# harness-design-studio 4.4.1 model 58a59cd57d0a
-# harness-design-studio 4.4.1. Provided as is, without warranty. Verify before use.
+# harness-design-studio 5.0.0 model 443d601bca1c
+# harness-design-studio 5.0.0. Provided as is, without warranty. Verify before use.
 Connector,Role,Mates with,Part,Pin,Signal,Interface,Wires,Spare,Current (A)
 DEV1-J01,box,,EX-MICROD-25-F,1,TX+,IF-001,W001-001,no,2
 DEV1-J01,box,,EX-MICROD-25-F,2,TX-,IF-001,W001-003,no,
