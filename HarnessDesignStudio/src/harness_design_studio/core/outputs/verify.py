@@ -82,6 +82,7 @@ from .verify_production import (
     _end_depths,
     _face_ends,
     _from_rear,
+    _landings,
     _length_lines,
     production_rows,
 )
@@ -2237,6 +2238,7 @@ def _build_connectors(
     plain = sorted(c.id for c in h.connectors if not _splice(c))
     if len(titles) != (1 if splices else 0) or order != [*plain, *splices]:
         r.error("out_build", f"{what} (Connectors) does not list the connectors and then the splices in a block of their own.", h.id)  # fmt: skip
+    land = _landings(h)  # format 5: a pin a pigtail lands on says so under Goes to
     for c in h.connectors:
         pins = blocks[c.id]
         if [row[0] for row in pins] != [p.id for p in c.pins]:
@@ -2244,11 +2246,16 @@ def _build_connectors(
             continue
         for row, p in zip(pins, c.pins, strict=True):
             want = attached.get((c.id, p.id), set())
+            pigtails = ["pigtail of " + gid for gid in land.get((c.id, p.id), [])]
             listed = set(filter(None, row[3].split("; "))) - {"(spare)", "(no wire)"}
-            spare = not want and not p.interface_id and not p.signal
+            spare = not want and not p.interface_id and not p.signal and not pigtails
             marker = "(spare)" if spare else "(no wire)"
             if listed != want or (not want and row[3] != marker):
                 r.error("out_build", f"Pin {c.id}.{p.id} lists the wrong wires in the build workbook.", c.id)  # fmt: skip
+                break
+            said = [x for x in row[6].split("; ") if x.startswith("pigtail of ")]
+            if said != pigtails:
+                r.error("out_build", f"Pin {c.id}.{p.id} does not say which pigtail lands on it in the build workbook.", c.id)  # fmt: skip
                 break
             if _splice(c):  # a node takes no contact; the tool is the splice part's
                 part = project.parts.get(c.part_id)

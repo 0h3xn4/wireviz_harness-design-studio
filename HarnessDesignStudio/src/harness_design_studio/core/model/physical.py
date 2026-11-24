@@ -265,8 +265,37 @@ class Wire(SparseEntity):
         return self
 
 
+class ShieldEndPlace(SparseEntity):
+    """Where one end of a shield group lands (format 5, design of 5.0.0 sections 3.1 and 7.1): the
+    cable connector at that end, the pin of it a pigtail lands on, and the backshell (an accessory
+    of kind `backshell` on that connector) a 360 degree bond or a pigtail's lug is made in. The
+    connector is stored with the pin, because the ends of a group follow its lowest wire ID and
+    can swap; a swap is then found (`check`: `shield_end_moved`). Set by a person only."""
+
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"pin", "backshell"})
+
+    connector: Id
+    pin: PinId | None = None
+    backshell: Id | None = None  # the ID of an accessory of the harness
+
+    @model_validator(mode="after")
+    def _lands_somewhere(self) -> ShieldEndPlace:
+        if self.pin is None and self.backshell is None:
+            raise ValueError(
+                f"the place of a shield end at {self.connector} names a pin, a backshell or both"
+            )
+        return self
+
+
+# The ends of a shield group, the place of each, and the end it belongs to: ("a", at_a, end_a) ...
+SHIELD_PLACE_KEYS: tuple[tuple[str, str, str], ...] = (
+    ("a", "at_a", "end_a"),
+    ("b", "at_b", "end_b"),
+)
+
+
 class ShieldGroup(SparseEntity):
-    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"manual"})
+    OMIT_WHEN_DEFAULT: ClassVar[frozenset[str]] = frozenset({"manual", "at_a", "at_b"})
 
     id: Id
     kind: ShieldKind
@@ -274,6 +303,33 @@ class ShieldGroup(SparseEntity):
     end_a: ShieldEnd = "floating"
     end_b: ShieldEnd = "floating"
     manual: bool = False  # made by a person (twisted, shielded or overall); generation keeps it
+    # Where end A and end B land (format 5, design of 5.0.0 section 7): None is *not stated*. Set by
+    # a person only; Generate keeps the place of an unchanged group and never fills one (F10).
+    at_a: ShieldEndPlace | None = None
+    at_b: ShieldEndPlace | None = None
+
+    @model_validator(mode="after")
+    def _places_fit_the_ends(self) -> ShieldGroup:
+        """The rules of the file (design of 5.0.0 section 3.2, rule 4): no place on a twisted pair
+        (it has no shield); none on a floating end; a pin only for a pigtail; a backshell only for a
+        360 degree bond or a pigtail."""
+        for which, key, end_key in SHIELD_PLACE_KEYS:
+            place: ShieldEndPlace | None = getattr(self, key)
+            if place is None:
+                continue
+            end: str = getattr(self, end_key)
+            label = which.upper()
+            if self.kind == "twisted_pair":
+                raise ValueError(
+                    f"a twisted pair has no shield, so {self.id} has no place of a shield end"
+                )
+            if end == "floating":
+                raise ValueError(f"end {label} of {self.id} is floating, so it has no place")
+            if place.pin is not None and end != "pigtail":
+                raise ValueError(
+                    f"only a pigtail lands on a pin; end {label} of {self.id} is {end}"
+                )
+        return self
 
 
 class Splice(Entity):

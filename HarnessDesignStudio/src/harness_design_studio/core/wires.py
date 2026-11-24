@@ -11,6 +11,7 @@ person draws between two pins.
     ops = plan_delete_wire(project, "W001-0099")           # only a wire that a person drew
     ops = plan_bulk_wire_edit(project, "W001", {"gauge_awg": 22})      # all wires of a harness
     ops = plan_regroup(project, "S001", kind="shielded_pair", end_a="pigtail")   # a group of yours
+    ops = plan_set_shield_place(project, "W001-S2", "A", pin="9")   # where a pigtail lands
 
 Wires are generated, and generation puts them back the way the design says. A person's choice
 stays when it is typed here: gauge, type, colour and length lock the wire (`Wire.locked`, which
@@ -34,7 +35,7 @@ from pydantic import ValidationError
 from .commands import Op, Put
 from .edit import EditError
 from .integrity import ends_apart
-from .model import Harness, Project, ShieldGroup, Wire
+from .model import Accessory, Harness, Project, ShieldEndPlace, ShieldGroup, Wire
 from .model.base import evolve
 from .model.physical import COAX_SHIELD_END, OVERRIDABLE
 
@@ -719,7 +720,7 @@ def plan_regroup(
         apart = ends_apart(h, [by_id[wid] for wid in ids])
         if apart is not None:
             raise EditError(apart)
-    new = evolve(
+    new = _with_ends(
         s,
         kind=new_kind,
         wire_ids=sorted(ids),
@@ -750,8 +751,10 @@ def plan_set_group_ends(
     changed: dict[str, dict[str, ShieldGroup]] = {}
     for gid in ids:
         h, s = _manual_group(project, gid)
-        new = evolve(
+        new = _with_ends(
             s,
+            kind=s.kind,
+            wire_ids=s.wire_ids,
             end_a=s.end_a if end_a is None else _end(end_a, "A"),
             end_b=s.end_b if end_b is None else _end(end_b, "B"),
         )
@@ -767,6 +770,169 @@ def plan_set_group_ends(
         )
         for hid, news in sorted(changed.items())
     ]
+
+
+def _kept_place(place: ShieldEndPlace | None, kind: str, end: str) -> ShieldEndPlace | None:
+    """What stays of the place of an end of a group whose kind or end changed (design of 5.0.0
+    section 7.2): nothing on a twisted pair or a floating end; no pin on a 360 degree backshell
+    (and nothing when the place named only a pin)."""
+    if place is None or kind == "twisted_pair" or end == "floating":
+        return None
+    if end == "backshell_360" and place.pin is not None:
+        return evolve(place, pin=None) if place.backshell is not None else None
+    return place
+
+
+def _with_ends(
+    s: ShieldGroup, *, kind: str, wire_ids: Sequence[str], end_a: str, end_b: str
+) -> ShieldGroup:
+    """The group with this kind, these wires and these ends, and the places that still fit them."""
+    return evolve(
+        s,
+        kind=kind,
+        wire_ids=list(wire_ids),
+        end_a=end_a,
+        end_b=end_b,
+        at_a=_kept_place(s.at_a, kind, end_a),
+        at_b=_kept_place(s.at_b, kind, end_b),
+    )
+
+
+# ---- where a shield end lands (format 5, design of 5.0.0 section 7) ----------------------------
+
+# `backshell=NEW_BACKSHELL` adds a backshell (an accessory of kind `backshell`, no part yet) to the
+# connector of the end and lands the end on it, in the same step (the window *Change group*)
+NEW_BACKSHELL = "+"
+_END_KEYS = {"a": "a", "b": "b"}
+
+
+def shield_end_key(end: str) -> str:
+    """`"a"` or `"b"` for an end written A, B, a or b; an EditError for anything else."""
+    key = _END_KEYS.get(str(end).strip().casefold())
+    if key is None:
+        raise EditError(f"The end of a shield group is A or B, not '{end}'.")
+    return key
+
+
+def _any_group(project: Project, group_id: str) -> tuple[Harness, ShieldGroup]:
+    """The harness and the group, a person's or Generate's, if its place may change: it exists
+    and the harness is not released."""
+    owner = next(
+        ((h, s) for h in project.harnesses.values() for s in h.shields if s.id == group_id), None
+    )
+    if owner is None:
+        raise EditError(f"Group '{group_id}' does not exist.")
+    h, s = owner
+    if h.status == "released":
+        raise EditError(released_text(h))
+    return h, s
+
+
+def _placed(
+    h: Harness, s: ShieldGroup, end: str, pin: str | None, backshell: str | None
+) -> tuple[ShieldGroup, list[Accessory]]:
+    """The group with the place of `end` ("a" or "b") set to `pin` and `backshell` (both None
+    clears it), and the backshell accessory to add when `backshell` is `NEW_BACKSHELL`."""
+    from .shield_ends import end_connector
+
+    key, label = f"at_{end}", end.upper()
+    if pin is None and backshell is None:
+        return evolve(s, **{key: None}), []
+    if s.kind == "twisted_pair":
+        raise EditError(f"{s.id} is a twisted pair: it has no shield, so its ends land nowhere.")
+    kind = s.end_a if end == "a" else s.end_b
+    if kind == "floating":
+        raise EditError(
+            f"End {label} of {s.id} is floating, so it lands nowhere. Make it a pigtail or a 360 "
+            "degree backshell first."
+        )
+    cid = end_connector(h, s, "a" if end == "a" else "b")
+    c = next((x for x in h.connectors if x.id == cid), None)
+    if cid is None or c is None:
+        raise EditError(f"{s.id} has no wire in {h.id}, so its ends are at no connector.")
+    if pin is not None:
+        if kind != "pigtail":
+            raise EditError(
+                f"End {label} of {s.id} is a 360 degree backshell: only a pigtail lands on a pin."
+            )
+        if pin not in {p.id for p in c.pins}:
+            raise EditError(f"{cid} has no pin '{pin}'.")
+    added: list[Accessory] = []
+    if backshell == NEW_BACKSHELL:
+        from .build_data import plan_next_accessory_id
+
+        backshell = plan_next_accessory_id(h)
+        added.append(Accessory(id=backshell, kind="backshell", target=cid))
+    elif backshell is not None:
+        shell = next((a for a in h.accessories if a.id == backshell), None)
+        if shell is None or shell.kind != "backshell" or shell.target != cid:
+            raise EditError(
+                f"'{backshell}' is not a backshell on {cid}. Add a backshell to {cid} first "
+                "(Accessories)."
+            )
+    try:
+        place = ShieldEndPlace(connector=cid, pin=pin, backshell=backshell)
+        return evolve(s, **{key: place}), added
+    except ValidationError as exc:
+        raise EditError(str(exc.errors()[0].get("msg", exc)).removeprefix("Value error, ")) from exc
+
+
+def plan_set_shield_place(
+    project: Project,
+    group_id: str,
+    end: str,
+    *,
+    pin: str | None = None,
+    backshell: str | None = None,
+) -> list[Op]:
+    """Ops that say where end `end` (A or B) of a shield group lands (design of 5.0.0 section
+    7.2): the pin of the connector at that end a pigtail lands on (`pin`), the backshell on it
+    (`backshell`, the ID of an accessory of kind backshell on that connector, or `NEW_BACKSHELL`
+    to add one), or both; neither clears the place. The connector is the one at the end
+    (`shield_ends.end_connector`). A group Generate made may get a place too: the grounding
+    concept decides the kind of end, not where it lands. Refused: a released harness, a twisted
+    pair, a floating end, a pin on a 360 degree backshell, a pin the connector lacks and a
+    backshell that is not on it. Nothing changed: no ops."""
+    h, s = _any_group(project, group_id)
+    new, added = _placed(h, s, shield_end_key(end), pin, backshell)
+    if new == s and not added:
+        return []
+    shields = [new if x.id == group_id else x for x in h.shields]
+    return [Put("harnesses", evolve(h, shields=shields, accessories=[*h.accessories, *added]))]
+
+
+def plan_change_group(
+    project: Project,
+    group_id: str,
+    *,
+    kind: str | None = None,
+    wire_ids: Iterable[str] | None = None,
+    end_a: str | None = None,
+    end_b: str | None = None,
+    places: Mapping[str, tuple[str | None, str | None]] | None = None,
+) -> list[Op]:
+    """The change of the window *Change group*, as one `Put`: the kind, wires and ends of a group a
+    person made (`plan_regroup`; a group Generate made takes none of them), then the place of each
+    end in `places` (end -> (pin, backshell), as `plan_set_shield_place`). Nothing changed: no
+    ops."""
+    h, s = _any_group(project, group_id)
+    group = s
+    if any(x is not None for x in (kind, wire_ids, end_a, end_b)):
+        ops = plan_regroup(
+            project, group_id, kind=kind, wire_ids=wire_ids, end_a=end_a, end_b=end_b
+        )
+        put = ops[0] if ops else None
+        if isinstance(put, Put) and isinstance(put.obj, Harness):
+            group = next(x for x in put.obj.shields if x.id == group_id)
+    added: list[Accessory] = []
+    for end, (pin, backshell) in sorted((places or {}).items()):
+        work = evolve(h, accessories=[*h.accessories, *added])
+        group, more = _placed(work, group, shield_end_key(end), pin, backshell)
+        added += more
+    if group == s and not added:
+        return []
+    shields = [group if x.id == group_id else x for x in h.shields]
+    return [Put("harnesses", evolve(h, shields=shields, accessories=[*h.accessories, *added]))]
 
 
 # ---- the same change on many wires --------------------------------------------------------------

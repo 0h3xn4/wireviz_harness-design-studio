@@ -10,7 +10,10 @@
     dlg = ChangeGroupDialog(parent, theme, project, "W001-S3")
 
 Both only plan: they read the project and offer `ops()` (planned by `core/wires.py`:
-`plan_bulk_wire_edit`, `plan_regroup`), and the caller runs them as one undo step. A mistake is said
+`plan_bulk_wire_edit`, `plan_change_group`), and the caller runs them as one undo step. *Change
+group* also says where each shield end lands (format 5, design of 5.0.0 section 7.5): the pin a
+pigtail lands on and the backshell, for a group Generate made too (its kind, wires and ends are
+read-only there). A mistake is said
 in a line under the fields, in words, and the button stays off until the plan is valid; nothing is
 ever changed by the window itself.
 """
@@ -36,12 +39,14 @@ from PySide6.QtWidgets import (
 from harness_design_studio.core.commands import Op
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.model import Project
+from harness_design_studio.core.shield_ends import end_connector
 from harness_design_studio.core.wirecolours import COLOURS
 from harness_design_studio.core.wires import (
     GROUP_KINDS,
+    NEW_BACKSHELL,
     bulk_targets,
     plan_bulk_wire_edit,
-    plan_regroup,
+    plan_change_group,
     signals_of,
     wire_part_choices,
     wires_changed,
@@ -246,7 +251,8 @@ _WORDS = {
 
 
 class ChangeGroupDialog(Dialog):
-    """*Change group…*: the kind, the wires and the shield ends of a group that you made."""
+    """*Change group…*: the kind, the wires and the shield ends of a group that you made, and where
+    each shield end lands (the pin and the backshell, also of a group Generate made)."""
 
     def __init__(
         self, parent: QWidget | None, theme: ThemeManager, project: Project, group_id: str
@@ -257,13 +263,14 @@ class ChangeGroupDialog(Dialog):
             (h, s) for h in project.harnesses.values() for s in h.shields if s.id == group_id
         )
         self._ops: list[Op] = []
+        self.manual = s.manual
         title = strings.GD_TITLE.format(group_id)
         self.setObjectName("change-group-dialog")
         self.setWindowTitle(title)
         self.setAccessibleName(title)
         self.setMinimumWidth(theme.px(420))
         lay = QVBoxLayout(self)
-        intro = QLabel(strings.GD_INTRO)
+        intro = QLabel(strings.GD_INTRO if s.manual else strings.GD_INTRO_GENERATED)
         intro.setWordWrap(True)
         intro.setProperty("muted", True)
         lay.addWidget(intro)
@@ -294,13 +301,46 @@ class ChangeGroupDialog(Dialog):
                 Qt.CheckState.Checked if w.id in s.wire_ids else Qt.CheckState.Unchecked
             )
             self.wires.addItem(item)
-        for widget, name, text, tip in (
-            (self.kind, "group-kind", strings.GD_KIND, strings.GD_KIND_TIP),
-            (self.end_a, "group-end-a", strings.GD_END_A, strings.GD_END_A_TIP),
-            (self.end_b, "group-end-b", strings.GD_END_B, strings.GD_END_B_TIP),
+        # where each end lands: the pins of the connector at that end and its backshells
+        self.pins: dict[str, QComboBox] = {}
+        self.shells: dict[str, QComboBox] = {}
+        rows: list[tuple[QWidget, str, str, str]] = [
+            (self.kind, "group-kind", strings.GD_KIND, strings.GD_KIND_TIP)
+        ]
+        for end, box, text, tip in (
+            ("a", self.end_a, strings.GD_END_A, strings.GD_END_A_TIP),
+            ("b", self.end_b, strings.GD_END_B, strings.GD_END_B_TIP),
         ):
+            rows.append((box, f"group-end-{end}", text, tip))
+            cid = end_connector(h, s, "a" if end == "a" else "b")
+            where = cid or strings.GD_NO_CONNECTOR
+            place = s.at_a if end == "a" else s.at_b
+            plug = next((c for c in h.connectors if c.id == cid), None)
+            pin = QComboBox()
+            pin.addItem(strings.GD_NOT_STATED, "")
+            for p in plug.pins if plug is not None else []:
+                pin.addItem(f"{p.id}  {p.signal or ''}".rstrip(), p.id)
+            pin.setCurrentIndex(max(0, pin.findData(place.pin if place and place.pin else "")))
+            shell = QComboBox()
+            shell.addItem(strings.GD_NOT_STATED, "")
+            for a in sorted(h.accessories, key=lambda x: x.id):
+                if a.kind == "backshell" and a.target == cid:
+                    shell.addItem(f"{a.id}  {a.part_id or ''}".rstrip(), a.id)
+            if cid is not None:
+                shell.addItem(strings.GD_ADD_BACKSHELL, NEW_BACKSHELL)
+            shell.setCurrentIndex(
+                max(0, shell.findData(place.backshell if place and place.backshell else ""))
+            )
+            self.pins[end], self.shells[end] = pin, shell
+            label = end.upper()
+            rows.append((pin, f"group-pin-{end}", strings.GD_PIN.format(label), strings.GD_PIN_TIP.format(where, label)))  # fmt: skip
+            rows.append((shell, f"group-backshell-{end}", strings.GD_BACKSHELL.format(label), strings.GD_BACKSHELL_TIP.format(where, label)))  # fmt: skip
+        for widget, name, text, tip in rows:
             form.addRow(text, _field(widget, name, text, tip))
         lay.addLayout(form)
+        if not s.manual:  # Generate's: the interface type and the grounding concept decide these
+            for widget in (self.kind, self.end_a, self.end_b, self.wires):
+                widget.setEnabled(False)
         lay.addWidget(QLabel(strings.GD_WIRES))
         _field(self.wires, "group-wires", strings.GD_WIRES, strings.GD_WIRES_TIP)
         lay.addWidget(self.wires)
@@ -314,6 +354,8 @@ class ChangeGroupDialog(Dialog):
         self.end_a.currentIndexChanged.connect(lambda _i: self._refresh())
         self.end_b.currentIndexChanged.connect(lambda _i: self._refresh())
         self.wires.itemChanged.connect(lambda _item: self._refresh())
+        for box in (*self.pins.values(), *self.shells.values()):
+            box.currentIndexChanged.connect(lambda _i: self._refresh())
         self._refresh()
 
     def wire_ids(self) -> list[str]:
@@ -327,18 +369,43 @@ class ChangeGroupDialog(Dialog):
     def ops(self) -> list[Op]:
         return list(self._ops)
 
+    def places(self) -> dict[str, tuple[str | None, str | None]]:
+        """The place of each end as chosen: (pin, backshell), each None when not stated. Only what
+        the kind of end takes: a pin for a pigtail, a backshell for a pigtail or a 360 degree
+        backshell, nothing for a floating end or a twisted pair."""
+        out: dict[str, tuple[str | None, str | None]] = {}
+        twisted = self.kind.currentData() == "twisted_pair"
+        for end, box in (("a", self.end_a), ("b", self.end_b)):
+            kind = str(box.currentData())
+            pin = str(self.pins[end].currentData() or "") or None
+            shell = str(self.shells[end].currentData() or "") or None
+            out[end] = (
+                pin if kind == "pigtail" and not twisted else None,
+                shell if kind in ("pigtail", "backshell_360") and not twisted else None,
+            )
+        return out
+
+    def _enable_places(self) -> None:
+        twisted = self.kind.currentData() == "twisted_pair"
+        for end, box in (("a", self.end_a), ("b", self.end_b)):
+            kind = str(box.currentData())
+            self.pins[end].setEnabled(kind == "pigtail" and not twisted)
+            self.shells[end].setEnabled(kind in ("pigtail", "backshell_360") and not twisted)
+
     def _refresh(self) -> None:
         self._ops = []
         message, error = "", ""
         ids = self.wire_ids()
+        self._enable_places()
         try:
-            self._ops = plan_regroup(
+            self._ops = plan_change_group(
                 self.project,
                 self.group_id,
-                kind=str(self.kind.currentData()),
-                wire_ids=ids,
-                end_a=str(self.end_a.currentData()),
-                end_b=str(self.end_b.currentData()),
+                kind=str(self.kind.currentData()) if self.manual else None,
+                wire_ids=ids if self.manual else None,
+                end_a=str(self.end_a.currentData()) if self.manual else None,
+                end_b=str(self.end_b.currentData()) if self.manual else None,
+                places=self.places(),
             )
             if self._ops:
                 message = strings.GD_READY.format(

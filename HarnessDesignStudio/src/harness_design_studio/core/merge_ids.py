@@ -197,6 +197,11 @@ def _renamed_harness(h: Harness, new: str, parts: dict[str, str]) -> Harness:
     for g in [*d.get("shields", []), *d.get("splices", [])]:
         g["id"] = m(g["id"])
         g["wire_ids"] = [m(x) for x in g["wire_ids"]]
+        for key in ("at_a", "at_b"):  # where a shield end lands (format 5)
+            if g.get(key):
+                g[key]["connector"] = m(g[key]["connector"])
+                if g[key].get("backshell") is not None:
+                    g[key]["backshell"] = m(g[key]["backshell"])
     for b in d.get("branch_points", []):
         b["id"] = m(b["id"])
     for s in d.get("segments", []):

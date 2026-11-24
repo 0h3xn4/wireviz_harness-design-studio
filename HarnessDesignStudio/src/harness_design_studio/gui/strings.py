@@ -4584,3 +4584,25 @@ SP_COL_CURRENTS = "Pin currents"
 SP_CURRENTS_ADD_UP = "{0}: they add up"
 SP_CURRENTS_NOT_ADDING = "{0}: they do not add up"
 SP_CURRENTS_PARTIAL = "{0}: not every pin of the net states one"
+
+# ---- 5.0.0 E5, part D: where a shield end lands (design of 5.0.0 section 7.5)
+GD_INTRO_GENERATED = (
+    "A group that Generate made from the interface type: its kind, wires and ends follow the "
+    "type and the grounding concept. Say where each end lands; Generate keeps it while the group "
+    "stays the same."
+)
+GD_PIN = "End {0} lands on pin"
+GD_PIN_TIP = (
+    "The pin of {0} a pigtail of end {1} is crimped or soldered into (often the pin that mates "
+    "with a shield pin of the device); empty: not stated"
+)
+GD_BACKSHELL = "End {0} backshell"
+GD_BACKSHELL_TIP = (
+    "The backshell on {0} that end {1} is bonded in (360 degrees) or whose lug a pigtail goes to; "
+    "empty: none stated"
+)
+GD_NOT_STATED = "not stated"
+GD_ADD_BACKSHELL = "Add a backshell…"
+GD_NO_CONNECTOR = "no connector"
+WIRE_GROUP_PLACE = "end {0} {1}"
+ACC_PLACES_CLEARED = "{0} is deleted, and the place of {1} no longer names it."

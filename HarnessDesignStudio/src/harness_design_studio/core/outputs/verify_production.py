@@ -9,8 +9,9 @@ rules (`core/label_format.py`) or the shield ends (`core/shield_ends.py`), nor t
 (`core/generate/lengths.py`): it holds its own copies of the folding of spare runs, the far end and
 its brackets, the end of a shield group at a connector (`_end_at`), the length of a wire on the
 one path through the segments (`_length`), where the length comes from (`_length_origin`) and the
-sentences that say what a length is measured from (`_length_lines`, joined by `_length_reference`). The label texts are the
-verifier's own copy in `verify_labels.py`. `tests/test_production_verify.py` reads the imports
+sentences that say what a length is measured from (`_length_lines`, joined by `_length_reference`),
+and where a shield end lands (format 5: `_place_here`, `_landings`, `_end_words`). The label texts
+are the verifier's own copy in `verify_labels.py`. `tests/test_production_verify.py` reads the imports
 and compares every row with the core's on the examples, the fixtures and random harnesses.
 
 `verify.py` (`_build_production`) checks the Production sheet of the build workbook with it, row
@@ -23,7 +24,14 @@ from decimal import Decimal
 from itertools import groupby
 
 from harness_design_studio.core import settings
-from harness_design_studio.core.model import Connector, Harness, Project, ShieldGroup, Wire
+from harness_design_studio.core.model import (
+    Connector,
+    Harness,
+    Project,
+    ShieldEndPlace,
+    ShieldGroup,
+    Wire,
+)
 from harness_design_studio.core.model.physical import LOOSE_ROLE, SPLICE_ROLE
 from harness_design_studio.core.wirecolours import resolve
 
@@ -42,6 +50,8 @@ _UNPLUGGED = "not plugged into a unit"
 _NO_GENDER = "gender not set"
 _LOOSE_TAG = " (loose end)"
 _ACROSS = "here not defined (the group ends on more than two connectors)"
+_PIGTAIL_ROW = "pigtail"  # the Wire cell of the row of a pin a pigtail lands on (format 5)
+_LANDS = "pigtail lands here"
 _END_TEXT = {"backshell_360": "backshell 360", "pigtail": "pigtail", "floating": "floating"}
 _KIND_TEXT = {
     "twisted_pair": "twisted pair", "shielded_pair": "shielded pair",
@@ -294,6 +304,44 @@ def _end_at(h: Harness, s: ShieldGroup, cid: str) -> str | None:
     return {first.to_connector: "b", first.from_connector: "a"}.get(cid)
 
 
+def _place_here(h: Harness, s: ShieldGroup, cid: str) -> ShieldEndPlace | None:
+    """The place of the end of `s` at `cid` while it names `cid` (the verifier's copy of
+    `shield_ends.place_here`)."""
+    end = _end_at(h, s, cid)
+    place = s.at_a if end == "a" else s.at_b if end == "b" else None
+    return place if place is not None and place.connector == cid else None
+
+
+def _landings(h: Harness) -> dict[tuple[str, str], list[str]]:
+    """(connector, pin) -> the IDs of the groups whose pigtail lands there, by ID, for each place
+    with a pin that names the connector at its end (the copy of `shield_ends.landings`)."""
+    out: dict[tuple[str, str], list[str]] = {}
+    for s in sorted(h.shields, key=lambda g: g.id):
+        members = [w for w in h.wires if w.id in set(s.wire_ids)]
+        if not members:
+            continue
+        first = min(members, key=lambda w: w.id)
+        for place, at in ((s.at_a, first.from_connector), (s.at_b, first.to_connector)):
+            if place is not None and place.pin is not None and place.connector == at:
+                out.setdefault((at, place.pin), []).append(s.id)
+    return out
+
+
+def _end_words(end: str, place: ShieldEndPlace | None) -> str:
+    """How an end is terminated and, while its place fits, where it lands."""
+    word = _END_TEXT[end]
+    if place is None:
+        return word
+    if end == "backshell_360":
+        return f"{word} ({place.backshell})" if place.backshell else word
+    named = []
+    if place.pin is not None:
+        named.append("pin " + place.pin)
+    if place.backshell is not None:
+        named.append("backshell " + place.backshell)
+    return f"{word} to {' and '.join(named)}" if named else word
+
+
 def _shield_cell(h: Harness, w: Wire, cid: str) -> str:
     texts = []
     for s in sorted((g for g in h.shields if w.id in g.wire_ids), key=lambda g: _natural(g.id)):
@@ -306,7 +354,7 @@ def _shield_cell(h: Harness, w: Wire, cid: str) -> str:
             texts.append(f"{s.id} {kind}: {_ACROSS}")
             continue
         here, far = (s.end_a, s.end_b) if end == "a" else (s.end_b, s.end_a)
-        texts.append(f"{s.id} {kind}: here {_END_TEXT[here]}, far {_END_TEXT[far]}")
+        texts.append(f"{s.id} {kind}: here {_end_words(here, _place_here(h, s, cid))}, far {_END_TEXT[far]}")  # fmt: skip
     return "; ".join(texts)
 
 
@@ -361,20 +409,22 @@ def _colour(name: str | None) -> str:
     return name if not code or code == name.upper() else f"{name} ({code})"
 
 
-def _rows(project: Project, h: Harness, c: Connector, fmt: str, depths: Depths) -> list[tuple[Value, ...]]:  # fmt: skip
+def _rows(project: Project, h: Harness, c: Connector, fmt: str, depths: Depths, land: dict[tuple[str, str], list[str]]) -> list[tuple[Value, ...]]:  # fmt: skip
     out: list[tuple[Value, ...]] = []
     spare: list[str] = []
     empty = ("",) * 8
+    kinds = {s.id: _KIND_TEXT.get(s.kind, s.kind) for s in h.shields}
     for p in c.pins:
         here = [(w, "a") for w in h.wires if (w.from_connector, w.from_pin) == (c.id, p.id)]
         here += [(w, "b") for w in h.wires if (w.to_connector, w.to_pin) == (c.id, p.id)]
-        if not here and not (p.signal or p.interface_id):
+        landed = land.get((c.id, p.id), [])
+        if not here and not (p.signal or p.interface_id) and not landed:
             spare.append(p.id)
             continue
         if spare:
             out.append((spare[0] if len(spare) == 1 else f"{spare[0]} to {spare[-1]}", "", _SPARE, *empty))  # fmt: skip
             spare = []
-        if not here:
+        if not here and not landed:
             out.append((p.id, p.signal or "", _NO_WIRE, *empty))
         for w, end in sorted(here, key=lambda x: (x[0].id, x[1])):
             far_cid, far_pin = (w.to_connector, w.to_pin) if end == "a" else (w.from_connector, w.from_pin)  # fmt: skip
@@ -388,6 +438,9 @@ def _rows(project: Project, h: Harness, c: Connector, fmt: str, depths: Depths) 
                 _length_origin(h, w, depths), label_a if end == "a" else label_b,
                 _shield_cell(h, w, c.id),
             ))  # fmt: skip
+        if landed:
+            lands = "; ".join(f"{gid} {kinds[gid]}: {_LANDS}" for gid in landed)
+            out.append((p.id, p.signal or "", _PIGTAIL_ROW, *("",) * 7, lands))
     if spare:
         out.append((spare[0] if len(spare) == 1 else f"{spare[0]} to {spare[-1]}", "", _SPARE, *empty))  # fmt: skip
     return out
@@ -399,12 +452,13 @@ def production_rows(project: Project, h: Harness) -> list[Block]:
     fmt = _label_format(project)
     order = sorted(h.connectors, key=lambda c: (c.role == SPLICE_ROLE, _natural(c.id)))
     depths = _end_depths(project, h)
+    land = _landings(h)
     return [
         Block(
             c.id,
             c.role == SPLICE_ROLE,
             _head(project, h, c, fmt),
-            tuple(_rows(project, h, c, fmt, depths)),
+            tuple(_rows(project, h, c, fmt, depths, land)),
         )  # fmt: skip
         for c in order
     ]

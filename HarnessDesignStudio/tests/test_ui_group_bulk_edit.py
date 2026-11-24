@@ -250,7 +250,9 @@ def group_of(ctl, gid):
     return next(s for h in ctl.project.harnesses.values() for s in h.shields if s.id == gid)
 
 
-def test_the_button_shows_for_a_group_you_made_only(grouped):
+def test_the_button_shows_for_a_group_you_made_or_a_generated_shield(grouped):
+    """Since 5.0.0 (format 5, design section 7.5) a group Generate made with a shield is offered
+    too, for the places of its ends; a generated twisted pair has no shield, so it is not."""
     ctl, _view, ed, ids, gid = grouped
     ed.show_wires(ids[:2])
     assert ed.change_group_btn.isVisibleTo(ed) and ed.change_group_btn.isEnabled()
@@ -261,7 +263,7 @@ def test_the_button_shows_for_a_group_you_made_only(grouped):
     generated = ctl.project.harnesses["W009"].shields[0]
     assert not generated.manual  # (the groups of the type stay as they are)
     ed.show_wires(list(generated.wire_ids))
-    assert not ed.change_group_btn.isVisibleTo(ed)
+    assert ed.change_group_btn.isVisibleTo(ed) == (generated.kind != "twisted_pair")
 
 
 def test_the_window_changes_kind_ends_and_wires_in_one_undo_step(grouped):

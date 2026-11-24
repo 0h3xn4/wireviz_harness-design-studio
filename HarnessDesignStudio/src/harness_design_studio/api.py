@@ -111,7 +111,7 @@ from harness_design_studio.core.row_layout_edit import (
 from harness_design_studio.core.templates import TemplateError
 from harness_design_studio.core.templates import create_project as _create_project
 from harness_design_studio.core.validation import validate_folder
-from harness_design_studio.core.wires import find_wire
+from harness_design_studio.core.wires import find_wire, plan_set_shield_place, shield_end_key
 from harness_design_studio.core.workflow import WorkflowReport
 
 __all__ = [
@@ -186,6 +186,7 @@ __all__ = [
     "save_project",
     "set_config",
     "set_length_reference",
+    "set_shield_end",
     "set_override",
     "set_row_layout",
     "start_journal",
@@ -889,3 +890,39 @@ def set_length_reference(
             _save_project(project, path)
     h = project.harnesses[harness]
     return next(c.length_to for c in h.connectors if c.id == connector)
+
+
+def set_shield_end(
+    folder: PathLike,
+    harness: str,
+    group: str,
+    end: str,
+    pin: str | None = None,
+    backshell: str | None = None,
+    *,
+    author: str | None = None,
+) -> dict[str, str] | None:
+    """Say where end `end` (`"A"` or `"B"`) of a shield group lands (format 5, design of 5.0.0
+    section 7.2): the pin of the cable connector at that end a pigtail lands on (`pin`), the
+    backshell on that connector (`backshell`, the ID of an accessory of kind backshell), or both;
+    neither clears the place. Saves the project, through the same plan as the editor
+    (`wires.plan_set_shield_place`); a group Generate made may get a place too, and Generate keeps
+    it while the group stays the same. A released harness, a twisted pair, a floating end, a pin
+    on a 360 degree backshell, a pin the connector lacks and a backshell not on it break with
+    `EditError`, as does a group that is not in `harness`. One undo step, in the journal with
+    `author` when the project keeps one. Takes the project lock. Returns the place as it is now
+    stored (`connector`, and `pin` and/or `backshell`), or None."""
+    path = Path(folder)
+    with _locked(path), _as(author):
+        project = _load(path)
+        _writable(project)
+        h = project.harnesses.get(harness)
+        if h is None or not any(s.id == group for s in h.shields):
+            raise EditError(f"'{group}' is not a shield group of {harness}.")
+        ops = plan_set_shield_place(project, group, end, pin=pin, backshell=backshell)
+        if ops:
+            History(project).execute(f"Place of end {end.upper()} of {group}", ops)
+            _save_project(project, path)
+    g = next(s for s in project.harnesses[harness].shields if s.id == group)
+    place = g.at_a if shield_end_key(end) == "a" else g.at_b
+    return place.model_dump(mode="json") if place is not None else None

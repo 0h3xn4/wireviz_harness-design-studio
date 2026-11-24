@@ -122,13 +122,15 @@ At the bottom of the **Edit wire** tab, **Labels** has a **Harness label**, a li
 
 ## 9. Change a group
 
-For a group you made ([section 6](#6-twist-or-shield-wires-together)): select one of its wires and press **Change group…** (the button shows only for a group of yours). A window opens with:
+For a group you made ([section 6](#6-twist-or-shield-wires-together)), or a group Generate made with a shield (since 5.0.0): select one of its wires and press **Change group…**. A window opens with:
 
 - **Kind**: twisted pair, shielded pair, quad, coax or overall shield.
 - **Shield end A** and **Shield end B**: how the shield ends at the From and the To end of the wires, *360 degree backshell*, *pigtail* or *floating*. The design rule **Shield termination** and the standard rules read them.
+- **End A lands on pin** and **End B lands on pin** (5.0.0, format 5): the pin of the cable connector at that end that a pigtail is crimped or soldered into, often the one that mates with a shield pin of the device; *not stated* leaves it open. Only for an end *pigtail*.
+- **End A backshell** and **End B backshell**: the backshell on that connector that the end is bonded in (360 degrees) or whose lug a pigtail goes to; **Add a backshell…** adds one (an accessory of kind backshell, part to fill in) in the same step. Not for an end *floating*.
 - **Wires of the group**: a tick for each wire of the harness (a wire of another group is not offered). Tick or untick to move wires in and out.
 
-A line under the fields says what is wrong (*A quad is made of 4 wires, not 2.*) and the button **Change group** stays off until the group is valid and different. One undo step; **Generate** keeps the group as it is. A generated group follows the interface type, so the button does not show for it: change the type, or **Group** wires of your own. Nothing in the files changes until you change a group.
+A line under the fields says what is wrong (*A quad is made of 4 wires, not 2.*) and the button **Change group** stays off until the group is valid and different. One undo step; **Generate** keeps the group as it is. A generated group follows the interface type and the grounding concept, so for it only the places of the ends can be changed (its kind, wires and ends are shown but off); Generate keeps them while it makes the group again with the same wires and ends, and never fills one in. The line *In shielded pair W001-S1* of the Edit wire tab then adds *end A pigtail to pin 9 at W001-P1*. The build workbook, the plan and the drawing show where each end lands ([outputs](../OUTPUTS.md#the-place-of-a-shield-end)); `check` warns when a place no longer fits (*W001-S2: end A is now at W001-P2 …*), and deleting a backshell takes it out of the places that named it. A twisted pair has no shield, so the button does not show for one Generate made. Nothing in the files changes until you change a group. From a file: `import-build-data` with the headings `Shield group`, `End`, `Pin`, `Backshell` ([imports](../IMPORTS.md)).
 
 ## 10. Edit all wires
 

@@ -690,6 +690,60 @@ def current_issues(project: Project) -> list[Issue]:
     return out
 
 
+# the roles of a device pin that say it is not a shield contact (a role read from the name is not
+# judged: only a role a person or an import stored, design of 5.0.0 section 7.3)
+_NOT_A_SHIELD_PIN = ("power", "return", "signal", "signal_ground")
+
+
+def shield_place_issues(project: Project) -> list[Issue]:
+    """The checks of the places of the shield ends (format 5, design of 5.0.0 sections 7.3 and
+    10.2). Warnings, so they reach the DRC as `model-inconsistent`: `shield_end_moved` (the place
+    names another connector than the one at its end, as after a change of the group's lowest
+    wire), `shield_pin_missing`, `shield_pin_wired`, `shield_pin_role` and
+    `shield_backshell_missing`. One info, `shield_place_not_stated`, for an end `pigtail` with no
+    place: an info is not a finding, so a project of format 4 keeps its outputs (F11). An end
+    `backshell_360` without a place is not reported. A twisted pair has no shield and no place."""
+    from .shield_ends import ENDS, end_connector, kind_of_end, place_of
+
+    out: list[Issue] = []
+    for h in sorted(project.harnesses.values(), key=lambda x: x.id):
+        cables = {c.id: c for c in h.connectors}
+        for s in sorted(h.shields, key=lambda x: x.id):
+            if s.kind == "twisted_pair":
+                continue
+            for end in ENDS:
+                kind, place, here = kind_of_end(s, end), place_of(s, end), end_connector(h, s, end)
+                label = end.upper()
+                if place is None:
+                    if kind == "pigtail":
+                        at = f"at {here}" if here is not None else f"of end {label}"
+                        out.append(Issue("info", "shield_place_not_stated", f"{s.id}: where the pigtail {at} lands is not stated.", None, s.id))  # fmt: skip
+                    continue
+                if here is None:
+                    continue  # a group with no wire in the harness has no end to compare with
+                if here != place.connector:
+                    out.append(_warn("shield_end_moved", f"{s.id}: end {label} is now at {here} (its lowest wire changed), but its place names {place.connector}. State the place again.", s.id))  # fmt: skip
+                    continue
+                c = cables.get(place.connector)
+                if place.pin is not None:
+                    pins = {p.id for p in c.pins} if c is not None else set()
+                    if place.pin not in pins:
+                        out.append(_warn("shield_pin_missing", f"{s.id}: the pigtail of end {label} lands on pin {place.pin}, which {place.connector} does not have.", s.id))  # fmt: skip
+                    else:
+                        wired = sorted(w.id for w in h.wires if (place.connector, place.pin) in ((w.from_connector, w.from_pin), (w.to_connector, w.to_pin)))  # fmt: skip
+                        if wired:
+                            out.append(_warn("shield_pin_wired", f"{s.id}: the pigtail of end {label} lands on pin {place.pin} of {place.connector}, where the wire{'s' if len(wired) > 1 else ''} {', '.join(wired)} end{'' if len(wired) > 1 else 's'} as well.", s.id))  # fmt: skip
+                        box = project.connectors.get(c.mates_with or "") if c is not None else None
+                        mate = next((p for p in box.pins if p.id == place.pin), None) if box is not None else None  # fmt: skip
+                        if box is not None and mate is not None and mate.role in _NOT_A_SHIELD_PIN:
+                            out.append(_warn("shield_pin_role", f"{s.id}: the pigtail of end {label} lands on pin {place.pin} of {place.connector}, which mates with pin {mate.id} of {box.id}, a pin of role {mate.role}.", s.id))  # fmt: skip
+                if place.backshell is not None:
+                    shell = next((a for a in h.accessories if a.id == place.backshell), None)
+                    if shell is None or shell.kind != "backshell" or shell.target != place.connector:  # fmt: skip
+                        out.append(_warn("shield_backshell_missing", f"{s.id}: end {label} names the backshell {place.backshell}, which is not an accessory of kind backshell on {place.connector}.", s.id))  # fmt: skip
+    return out
+
+
 # The collections whose keys must differ only by more than upper/lower case, with the word the
 # message uses for them.
 _CASEFOLD_KINDS = (
@@ -746,6 +800,7 @@ def check_integrity(project: Project) -> list[Issue]:
     out.extend(row_layout_issues(project))
     out.extend(length_issues(project))
     out.extend(current_issues(project))
+    out.extend(shield_place_issues(project))
     return out
 
 

@@ -38,6 +38,7 @@ from harness_design_studio.core.build_data import plan_set_strip, plan_set_strip
 from harness_design_studio.core.commands import Op, Put
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.model import Harness, ShieldGroup, Wire, evolve
+from harness_design_studio.core.shield_ends import end_text
 from harness_design_studio.core.units import AWG_MAX, AWG_MIN, area_text
 from harness_design_studio.core.wirecolours import COLOURS
 from harness_design_studio.core.wires import (
@@ -592,6 +593,17 @@ class WireEditor(QWidget):
                 found[g.id] = g
         return [found[k] for k in sorted(found)]
 
+    def _places_text(self, g: ShieldGroup) -> list[str]:
+        """Where the ends of the group land, as the outputs say it: "end A pigtail to pin 9 of
+        W001-P1" (format 5, design of 5.0.0 section 7.5); nothing for an end with no place."""
+        out = []
+        for end, kind, place in (("A", g.end_a, g.at_a), ("B", g.end_b, g.at_b)):
+            if place is None:
+                continue
+            text = f"{end_text(kind, place)} at {place.connector}"
+            out.append(strings.WIRE_GROUP_PLACE.format(end, text))
+        return out
+
     def _show_ends(self) -> None:
         """The ends of a single wire that you drew; the Delete button for wires that you drew."""
         wires = self._selected()
@@ -599,9 +611,20 @@ class WireEditor(QWidget):
         self.delete.setVisible(manual)
         groups = self._groups(wires)
         self.ungroup_btn.setVisible(any(g.manual for g in groups))
-        self.change_group_btn.setVisible(len(groups) == 1 and groups[0].manual)
+        # a group of yours, or one of Generate's with a shield, whose ends may be given a place
+        self.change_group_btn.setVisible(
+            len(groups) == 1 and (groups[0].manual or groups[0].kind != "twisted_pair")
+        )
         self.group_label.setText(
-            ", ".join(strings.WIRE_IN_GROUP.format(g.kind.replace("_", " "), g.id) for g in groups)
+            ", ".join(
+                "; ".join(
+                    [
+                        strings.WIRE_IN_GROUP.format(g.kind.replace("_", " "), g.id),
+                        *self._places_text(g),
+                    ]
+                )
+                for g in groups
+            )
         )
         one = len(wires) == 1 and wires[0].manual
         self.ends.setVisible(one)
@@ -920,11 +943,12 @@ class WireEditor(QWidget):
 
     def change_group(self) -> bool:
         """Change the kind, the wires and the shield ends of the group, that you made, of the
-        selected wire (a window asks; one undo step)."""
+        selected wire, and where its shield ends land (also of a group Generate made; a window
+        asks; one undo step)."""
         if not self._ids or not self.change_group_btn.isEnabled():
             return False
-        groups = [g for g in self._groups(self._selected()) if g.manual]
-        if len(groups) != 1:
+        groups = self._groups(self._selected())
+        if len(groups) != 1 or not (groups[0].manual or groups[0].kind != "twisted_pair"):
             return False
         dlg = ChangeGroupDialog(self, self.theme, self.ctl.project, groups[0].id)
         if self.run_dialog(dlg) != QDialog.DialogCode.Accepted or not dlg.ops():

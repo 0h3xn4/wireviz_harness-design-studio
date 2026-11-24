@@ -48,6 +48,23 @@ W003 has the splice outputs of a harness drawn by hand: the column *Via* of its 
 per pair of ends of a net, the splice block of the build workbook. Its wire list is in the golden
 set as text.
 
+Part D (pull request 5) adds where a shield end lands (`ShieldGroup.at_a`, `at_b`):
+
+- the grounding concept says *pigtail* at end A and *backshell 360* at end B
+  (`generation.shield_end_a`, `shield_end_b`), so every shielded pair Generate makes has those
+  ends (and an end A pigtail with no place is the info `shield_place_not_stated`, which no output
+  shows);
+- the pigtails of W001-S1 and W001-S5 land on the spare pin 9 of W001-P1 (two groups on one pin);
+  end B of W001-S2 is bonded in the backshell W001-A1 on W001-P1; the pigtail of W002-S2 goes to
+  the lug of the backshell W002-A1 on W002-P2; the pigtail of W002-S1 lands on pin 3 of W002-P1,
+  where the wire W002-002 ends as well (the warning `shield_pin_wired`, a finding of
+  `model-inconsistent`). The places are set by a person after Generate, which keeps them.
+
+The Production sheet says *here pigtail to pin 9*, *here backshell 360 (W001-A1)* and *here
+pigtail to backshell W002-A1*, pin 9 of W001-P1 gets a row *pigtail*, the *Connectors* sheet says
+*pigtail of W001-S1; pigtail of W001-S5* under *Goes to*, the drawings name the pins and the
+backshells at the ends, and `export.json` holds `at_a` and `at_b`.
+
 The depths, ratings and currents are made up (no real part is shipped, D-12). The later pull requests of the design add
 their data to this project. The golden set `tests/fixtures/outputs/format5*` is made from it.
 """
@@ -65,6 +82,7 @@ from harness_design_studio.core.model import (
     Unit,
     evolve,
 )
+from harness_design_studio.core.wires import plan_set_shield_place
 
 BACKSHELL = "EX-BACKSHELL-25"
 CONNECTOR_PART = "EX-MICROD-25-M"
@@ -159,11 +177,41 @@ def _with_currents(p: Project) -> None:
     )
 
 
+# part D: (group, end) -> (pin, backshell) of the place a person states
+SHIELD_PLACES = {
+    ("W001-S1", "A"): ("9", None),
+    ("W001-S5", "A"): ("9", None),
+    ("W001-S2", "B"): (None, "W001-A1"),
+    ("W002-S2", "A"): (None, "W002-A1"),
+    ("W002-S1", "A"): ("3", None),
+}
+
+
+def _with_grounding(p: Project) -> None:
+    """Part D: the grounding concept, end A pigtail and end B backshell 360."""
+    old = p.config["generation"]
+    p.config = {
+        **p.config,
+        "generation": ConfigFile(
+            name="generation",
+            placeholder=old.placeholder,
+            values={**old.values, "shield_end_a": "pigtail", "shield_end_b": "backshell_360"},
+        ),
+    }
+
+
+def _with_shield_places(p: Project) -> None:
+    """Part D: the places of the shield ends, as a person states them after Generate."""
+    for (gid, end), (pin, backshell) in SHIELD_PLACES.items():
+        apply_ops(p, plan_set_shield_place(p, gid, end, pin=pin, backshell=backshell))
+
+
 def format5_project() -> Project:
     from tests.test_outputs_routing import branching_project
 
     p = branching_project()
     _with_loop(p, 0.1)
+    _with_grounding(p)
     _with_junction_devices(p)
     _with_currents(p)
     for hid in ("W001", "W002"):
@@ -193,6 +241,7 @@ def format5_project() -> Project:
         accessories=[Accessory(id="W002-A1", kind="backshell", target="W002-P2")],
     )
     generate_project(p)
+    _with_shield_places(p)
     _with_junction_harness(p)
     return p
 

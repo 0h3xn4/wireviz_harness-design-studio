@@ -32,10 +32,15 @@ ImportKind = Literal[
     "devices",
     "subsystem",
     "asbuilt",
+    # the two tables of build data of format 5 (design of 5.0.0 sections 4.2 and 7.2): a record of
+    # one is set aside by a 4.x tool, as any object it cannot read
+    "cable-ends",
+    "shield-ends",
 ]
 IMPORT_KINDS: tuple[str, ...] = (
     "parts", "interfaces", "lengths", "strip-lengths", "pin-contacts", "accessories",
     "part-tools", "pinout", "netlist", "ampacity", "devices", "subsystem", "asbuilt",
+    "cable-ends", "shield-ends",
 )  # fmt: skip
 KIND_WORDS: dict[str, str] = {
     "parts": "approved parts",
@@ -51,6 +56,8 @@ KIND_WORDS: dict[str, str] = {
     "devices": "device library",
     "subsystem": "subsystem library",
     "asbuilt": "as-built records",
+    "cable-ends": "cable ends",
+    "shield-ends": "shield ends",
 }
 MAX_LISTED = 200  # rows listed in one record; the counts are always the whole number
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]

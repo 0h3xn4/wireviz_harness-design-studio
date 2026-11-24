@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from harness_design_studio.core.build_data import (
     check_accessory,
+    places_naming,
     plan_delete_accessory,
     plan_next_accessory_id,
     plan_set_accessory,
@@ -407,7 +408,9 @@ class AccessoryEditor(QWidget):
         except EditError as exc:
             self._say(str(exc))
             return False
-        if not self.ctl.run(strings.STEP_DELETE_ACCESSORY.format(aid), ops):
+        places = places_naming(h, aid)  # a backshell a shield end lands in: its place is cleared
+        said = strings.ACC_PLACES_CLEARED.format(aid, ", ".join(places)) if places else None
+        if not self.ctl.run(strings.STEP_DELETE_ACCESSORY.format(aid), ops, message=said):
             return False
         self._say("")
         self._selected = None
