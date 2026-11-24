@@ -2,6 +2,8 @@
 
 This page shows how to read the tool's findings (errors, warnings and notes), fix them or waive them with a reason, and run the same check from the command line.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template overrides-and-deviations` makes a finished example of a waived warning (`connector-lookalike.PCDU1-J01`) and two errors accepted as deviations; `drc` says `Waived: 1. Deviations: 2.` and exits with 0.
+
 ## Contents
 
 - [Before you start](#before-you-start)

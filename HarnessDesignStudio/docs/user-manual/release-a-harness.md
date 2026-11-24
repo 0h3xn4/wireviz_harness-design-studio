@@ -2,6 +2,8 @@
 
 This page shows how to review and release a harness, which freezes it: it, the links it carries, the pins it uses, and the parts, interface types and configuration values it relies on can no longer be changed, and a record is stored.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template released-harness` makes a finished example: the power harness W002 reviewed by Designer 1, checked by Checker 1 and released as version 1.0.0 by Releaser 1, with [different people](#optional-three-different-people), [the review checklist and its ticks](#optional-a-review-checklist-and-its-ticks) and the two reasons for the EXAMPLE values and parts; its version 1.1.0 is started.
+
 > **Two meanings of "release".** This page is about releasing a **harness** of your design. Releasing the **tool itself** (a new version of Harness Design Studio) is a different job for the developers: [`developer/release.md`](../developer/release.md). The release checklist in [`RELEASE.md`](../RELEASE.md) is about the tool, not about your harness.
 
 ## Contents

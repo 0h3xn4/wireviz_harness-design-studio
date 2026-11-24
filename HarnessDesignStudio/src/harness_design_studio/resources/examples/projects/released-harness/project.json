@@ -1,0 +1,6 @@
+{
+  "description": "The power harness W002 was reviewed by Designer 1, checked by Checker 1 and released as version 1.0.0 by Releaser 1, with points 1 to 20 of the review checklist ticked and the EXAMPLE values and parts accepted with a reason; then its version 1.1.0 was started, which makes W002-L1 0.1 m longer. Look at log DIR W002, diff DIR W002, the version report and the Review sheet after an export, and the Releases tab; the manual pages Release a harness, Change a released harness and Versions explain it.",
+  "name": "Released harness (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}

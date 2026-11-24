@@ -2,6 +2,8 @@
 
 This page says how the tool makes the IDs of devices, connectors, interfaces, connections, harnesses and wires, where you see them and what text a label prints. It then shows how to change the IDs the tool gives to harnesses, connectors and wires, and which fields the title block of a drawing shows.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template released-harness` makes a harness released with an author (Designer 1), a checker (Checker 1) and an approver (Releaser 1), kept in its baseline 1.0.0; the title block shows the people of the version being exported, so the draft 1.1.0 shows its author until it is released.
+
 ## Contents
 
 - [Connector IDs and tags](#connector-ids-and-tags)

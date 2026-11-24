@@ -1,0 +1,6 @@
+{
+  "description": "The gauge of W002-001 is set by hand to AWG 24 in place of the AWG 22 that Generate chose, with its reason, so the wire carries more current than it allows and drops more voltage than the limit: both errors are accepted as deviations, each with a reason. The warning that PCDU1-J01 and PCDU1-J02 could be swapped is waived. Look at override DIR, deviation DIR, drc DIR and the flags of the wire list; the manual pages Override a value and keep a history and Read and fix problems explain it.",
+  "name": "Overrides and deviations (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}
