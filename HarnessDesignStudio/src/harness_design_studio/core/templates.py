@@ -3,12 +3,14 @@
 """Starting points shipped with the tool: example projects and import templates.
 
 `create_project` makes a new project folder from an example (so a beginner can start from
-something that works) with a `.gitattributes` for teams that use Git; `copy_import_templates`
-copies the CSV, netlist and script templates.
+something that works) with a `.gitattributes` for teams that use Git, and the files an example
+keeps beside its model (`extensions/`, `device-libraries.json` and the library folders it names);
+`copy_import_templates` copies the CSV, netlist and script templates.
 Both only read the bundled files and write where the caller says; nothing is overwritten.
 """
 
 import csv
+import os
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -17,6 +19,8 @@ from pathlib import Path
 from harness_design_studio.core.errors import HarnessError
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.io.saver import save_project
+from harness_design_studio.core.library_pointer import FILE as LIBRARIES_FILE
+from harness_design_studio.core.library_pointer import PointerError, read_pointer
 from harness_design_studio.core.mergefix import write_gitattributes
 from harness_design_studio.core.model import Project, evolve
 from harness_design_studio.resources import examples_path
@@ -144,6 +148,13 @@ TEMPLATES = (
         FEATURE,
     ),
     TemplateInfo(
+        "device-library",
+        "Device library",
+        "Devices taken from a library folder in the project: one copy, one checked, one the "
+        "library has changed.",
+        FEATURE,
+    ),
+    TemplateInfo(
         "build-data-and-as-built",
         "Build data and as-built (EXAMPLE)",
         "Strip lengths, contacts, accessories, a pin colour code and a Cover for the plans; then a "
@@ -155,6 +166,12 @@ TEMPLATES = (
         "Imports from files (EXAMPLE)",
         "first-steps built from the import templates: parts, lengths, build data, a netlist and a "
         "pinout, each import recorded.",
+        FEATURE,
+    ),
+    TemplateInfo(
+        "extensions",
+        "Extensions (EXAMPLE)",
+        "A rule and a table in data files, and a Python plug-in that stays off until you trust it.",
         FEATURE,
     ),
 )
@@ -197,7 +214,8 @@ def create_project(
     editor's New project ask for it, the builders of the examples and the tests do not, so that the
     files they make do not depend on the time or on who ran them. With `annotate_config` every
     config file carries its comments (`_about`: unit, range, source and use of each key; opt-in,
-    off by default; `core.annotate`)."""
+    off by default; `core.annotate`). The example's `extensions/`, `device-libraries.json` and
+    the library folders it names come with it (`_copy_beside`); a plug-in stays untrusted."""
     known = {t.name: t for t in TEMPLATES}
     if template not in known:
         raise TemplateError(f"Unknown template '{template}'. Choose one of: {', '.join(known)}.")
@@ -217,12 +235,68 @@ def create_project(
         annotate.annotate(project)
     save_project(project, dest)
     write_gitattributes(dest)  # so that two people who both press Generate can merge (merge-fix)
+    _copy_beside(_root() / "projects" / template, dest, template)
     if journal:
         from harness_design_studio.core import journal as journal_module
 
         journal_module.start(project, "New project from the example '" + template + "'.")
         save_project(project, dest)
     return project
+
+
+# The folder of a project's extensions (`core.extensions.manager.FOLDER`, not imported here: a
+# project without extensions never reaches that package).
+EXTENSIONS_FOLDER = "extensions"
+
+
+def _copy_beside(source: Path, dest: Path, template: str) -> None:
+    """Copy the files an example keeps beside its model (design of 5.1.0, part C, T7): the folder
+    `extensions/`, the file `device-libraries.json`, and the library folders it names that lie
+    inside the example's folder. Nothing else: the model is written by `save_project`, so an
+    example cannot carry a stale file into a project. A path with `..`, a link and a folder whose
+    place the new project has taken already (`config`, `.`) are not copied, and no file is written
+    over one that exists. The trust of a plug-in is the person's (`core.extensions.trust`, in the
+    settings folder) and is never copied."""
+    folders = [EXTENSIONS_FOLDER]
+    pointer = source / LIBRARIES_FILE
+    if pointer.is_file() and not pointer.is_symlink():
+        try:
+            paths = read_pointer(source)
+        except PointerError as exc:
+            raise TemplateError(f"The bundled example '{template}' is damaged.") from exc
+        _copy_file(pointer, dest / LIBRARIES_FILE)
+        folders += [os.path.normpath(p) for p in paths]
+    base = source.resolve()
+    for rel in dict.fromkeys(folders):
+        parts = Path(rel).parts
+        if not parts or ".." in parts or rel == os.curdir:
+            continue  # outside the example's folder, or the folder itself
+        folder = source / rel
+        if any((source / Path(*parts[: k + 1])).is_symlink() for k in range(len(parts))):
+            continue  # a link is never followed
+        if not folder.is_dir() or not folder.resolve().is_relative_to(base):
+            continue
+        if (dest / rel).exists() or (dest / rel).is_symlink():
+            continue  # a folder of the model (or a link): never copied into
+        _copy_tree(folder, dest / rel)
+
+
+def _copy_tree(folder: Path, target: Path) -> None:
+    """Every file and folder of `folder` into `target` (a new folder), links left out."""
+    target.mkdir(parents=True)
+    for entry in sorted(folder.iterdir()):
+        if entry.is_symlink():
+            continue
+        if entry.is_dir():
+            _copy_tree(entry, target / entry.name)
+        elif entry.is_file():
+            _copy_file(entry, target / entry.name)
+
+
+def _copy_file(path: Path, target: Path) -> None:
+    """The bytes of `path` into `target`, which must not exist yet."""
+    with target.open("xb") as out:
+        out.write(path.read_bytes())
 
 
 def copy_import_templates(dest: Path) -> list[Path]:

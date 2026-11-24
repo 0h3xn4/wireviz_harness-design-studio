@@ -24,10 +24,14 @@ from harness_design_studio.core import (
     checks,
     configcheck,
     currents,
+    derive,
+    device_check,
     devices,
     drc,
     integrity,
     label_format,
+    library_link,
+    library_pointer,
     links,
     manual_harness,
     review,
@@ -43,6 +47,7 @@ from harness_design_studio.core.configcheck import with_value
 from harness_design_studio.core.derive import explain_wire
 from harness_design_studio.core.edit import EditError
 from harness_design_studio.core.errors import TransactionError
+from harness_design_studio.core.extensions import manager, plugins, trust
 from harness_design_studio.core.generate import lengths
 from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.import_record import file_sha256
@@ -72,8 +77,13 @@ NAMED: dict[str, frozenset[str]] = {
     "released-harness": frozenset(),
     # the waived connector-lookalike and the two deviations are accepted, not open (section 4.10)
     "overrides-and-deviations": frozenset(),
+    # the cross-strap of OBC1 to the copy TTC1-R is waived; the library is not read by drc
+    "device-library": frozenset(),
     "build-data-and-as-built": frozenset(),  # the value out of its limit is not a design rule's
     "imports-from-files": frozenset(),
+    # the plug-in is enabled and not trusted, so it is not loaded: a warning of its own (4.14); the
+    # two data rules are silent on the EXAMPLE gauges (AWG 22, 2 A: at the limit, under the table)
+    "extensions": frozenset({"x-extension-problem"}),
 }
 
 
@@ -1027,3 +1037,215 @@ def test_the_pinout_template_imports_into_a_new_project(
     p = load_project(folder).project
     assert len(p.connectors["GYRO1-J01"].pins) == p.parts["EX-MICROD-9-F"].pin_count == 9
     assert run(capsys, "check", str(folder))["errors"] == 0
+
+
+# ---- device-library (section 4.11) -------------------------------------------------------------
+
+LIBRARY = PROJECTS / "device-library" / "team-library"
+
+
+def test_device_library_names_its_library_folder_and_holds_it() -> None:
+    folder = PROJECTS / "device-library"
+    assert library_pointer.read_pointer(folder) == ["team-library"]
+    assert sorted(p.name for p in LIBRARY.iterdir()) == [
+        "OBC1.device.json",
+        "TTC1.device.json",
+        "subsystem-power.json",
+    ]
+    libs = library_link.project_libraries(folder)
+    assert not libs.problems
+    assert [(d.unit_id, d.file) for d in libs.devices()] == [
+        ("OBC1", "OBC1.device.json"),
+        ("TTC1", "TTC1.device.json"),
+    ]
+
+
+def test_device_library_takes_its_devices_from_the_library() -> None:
+    p = load_project(PROJECTS / "device-library").project
+    assert sorted(p.units) == ["OBC1", "PCDU1", "TTC1", "TTC1-R"]
+    assert p.units["TTC1-R"].side == "redundant"  # a number of the same device: TTC1 and a copy
+    records = {r.id: r for r in p.import_records.values()}
+    assert sorted(records) == [
+        "devices:OBC1.device.json",
+        "devices:TTC1.device.json",
+        "subsystem:subsystem-power.json",
+    ]
+    for rid, rec in records.items():
+        assert rec.source_path == f"team-library/{rec.source_name}", rid  # inside the project
+        assert "Library: not a Git repository" in rec.notes or rec.kind == "subsystem", rid
+    # OBC1 is as the library has it now; TTC1 was added before the team changed it
+    assert records["devices:OBC1.device.json"].sha256 == file_sha256(LIBRARY / "OBC1.device.json")
+    assert records["devices:TTC1.device.json"].sha256 != file_sha256(LIBRARY / "TTC1.device.json")
+    sub = records["subsystem:subsystem-power.json"]
+    assert sub.sha256 == file_sha256(LIBRARY / "subsystem-power.json")
+    assert p.units["PCDU1"].subsystem == "Power"  # the name of the subsystem file
+    ttc = p.connectors["TTC1-J02"]
+    assert [(x.id, x.signal, x.fixed, x.function) for x in ttc.pins[:4]] == [
+        ("1", "TX+", True, "Telecommands in, positive"),
+        ("2", "TX-", True, "Telecommands in, negative"),
+        ("3", "RX+", True, "Telemetry out, positive"),
+        ("4", "RX-", True, "Telemetry out, negative"),
+    ]
+    assert [x.function for x in p.connectors["TTC1-R-J02"].pins[:4]] == [
+        x.function for x in ttc.pins[:4]
+    ]  # the copy has the pinout of its device
+    assert len(p.interfaces) == 3 and all(not e.auto for i in p.interfaces.values() for e in i.endpoints)  # fmt: skip
+    assert sorted(p.harnesses) == ["W001", "W002", "W003"]
+    # OBC1 talks to both transceivers; the link to the copy joins the chains, waived with a reason
+    (to_copy,) = [i.id for i in p.interfaces.values() if i.name.endswith("of TTC1-R")]
+    stored = {w.id: (w.rule, w.object_id, w.justification) for w in p.waivers.values()}
+    assert stored == {
+        f"cross-strap.{to_copy}": (
+            "cross-strap", to_copy,
+            "EXAMPLE: OBC1 talks to both transceivers on purpose, so either can take over",
+        )
+    }  # fmt: skip
+
+
+def test_device_library_obc1_is_checked_and_its_library_file_holds_the_check() -> None:
+    p = load_project(PROJECTS / "device-library").project
+    check = p.units["OBC1"].checked
+    assert check is not None
+    assert (check.by, check.on, check.icd) == (
+        "Reviewer 1",
+        "2026-01-15",
+        "ICD-OBC EXAMPLE Issue 2",
+    )
+    assert device_check.check_state(p, "OBC1") == device_check.CHECKED
+    assert [u for u in sorted(p.units) if p.units[u].checked is not None] == ["OBC1"]
+    saved = json.loads((LIBRARY / "OBC1.device.json").read_text(encoding="utf-8"))
+    (rec,) = saved["devices"]
+    assert rec["unit"]["checked"] == check.model_dump(mode="json")  # saved back with its check
+    by_harness = {}
+    for hid, h in sorted(p.harnesses.items()):
+        view = review.review_view(p, h, [])
+        sources = next(b for b in view.blocks if b.key == "sources")
+        by_harness[hid] = [r.cells[1:3] for r in sources.rows if r.cells[0] == "Device"]
+    obc = ("OBC1", "Checked by Reviewer 1 on 2026-01-15 against ICD-OBC EXAMPLE Issue 2")
+    assert sorted(by_harness.values()) == [
+        [obc, ("PCDU1", "not checked")],
+        [obc, ("TTC1", "not checked")],
+        [obc, ("TTC1-R", "not checked")],
+    ]  # the Review page and sheet of each harness
+
+
+def test_device_library_a_copy_shows_the_change_of_the_library_and_takes_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "device-library"]) == 0
+    doc = run(capsys, "libraries", str(folder), "--devices")
+    assert [(d["device"], d["state"]) for d in doc["devices"]] == [
+        ("OBC1", "up to date"),
+        ("TTC1", "library changed"),
+        ("TTC1-R", "library changed"),
+    ]
+    assert [(lib["path"], lib["devices"]) for lib in doc["libraries"]] == [("team-library", 2)]
+    doc = run(capsys, "update-device", str(folder), "TTC1")
+    (dev,) = doc["devices"]
+    assert [(r["device"], r["connector"], r["pin"], r["field"], r["here"], r["library"]) for r in dev["rows"]] == [
+        ("TTC1", "TTC1-J02", "3", "function", "Telemetry out, positive", "Telemetry and ranging out, positive"),
+        ("TTC1-R", "TTC1-R-J02", "3", "function", "Telemetry out, positive", "Telemetry and ranging out, positive"),
+    ]  # fmt: skip
+    assert not doc["changed"]
+    assert main(["update-device", str(folder), "--check"]) == 1
+    assert main(["imports", str(folder), "--check"]) == 1  # the file differs from its record
+    assert main(["update-device", str(folder), "TTC1", "--apply"]) == 0
+    doc = run(capsys, "libraries", str(folder), "--devices")
+    assert {d["state"] for d in doc["devices"]} == {"up to date"}
+    p = load_project(folder).project
+    assert p.connectors["TTC1-R-J02"].pins[2].function == "Telemetry and ranging out, positive"
+    assert main(["update-device", str(folder), "--check"]) == 0
+
+
+def test_device_library_an_edit_of_the_checked_device_makes_its_check_stale(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "device-library", "--no-journal"]) == 0
+    loaded = load_project(folder)
+    p = loaded.project
+    rows = [{"pin": "1", "signal": "WDOG", "mode": "fixed", "function": "Watchdog out"}]
+    History(p).execute("pin 1 of OBC1-J04", devices.ops_paste_rows(p, "OBC1-J04", rows))
+    from harness_design_studio.core.io.saver import save_project
+
+    save_project(p, folder)
+    doc = run(capsys, "check", str(folder))
+    assert [i["code"] for i in doc["issues"] if i["severity"] == "warning"] == [
+        "device_check_stale"
+    ]
+    assert (
+        run(capsys, "libraries", str(folder), "--devices")["devices"][0]["state"] == "changed here"
+    )
+
+
+# ---- extensions (section 4.14) ---------------------------------------------------------------------
+
+EXTENSION_EXAMPLES = Path(__file__).resolve().parents[1] / "docs" / "examples" / "extensions"
+
+
+def _fresh_extensions() -> None:
+    plugins.forget_loaded()
+    manager._RUNTIMES.clear()
+
+
+def test_extensions_ships_the_example_extensions_of_the_manual() -> None:
+    shipped = files(PROJECTS / "extensions" / "extensions")
+    assert shipped == {
+        rel: data for rel, data in files(EXTENSION_EXAMPLES).items() if rel != "README.md"
+    }  # one copy of the files: docs/examples/extensions/
+    assert sorted(shipped) == [
+        "enabled.json",
+        "minimum-wire-gauge-power.json",
+        "plugins/duplicate-signal-wires.py",
+        "power-wire-table.json",
+    ]
+
+
+def test_extensions_runs_the_data_rules_and_table_and_not_the_untrusted_plugin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "extensions"]) == 0
+    assert not trust.store_path().exists()  # `new` trusts nothing
+    _fresh_extensions()
+    doc = run(capsys, "extensions", str(folder), rc=1)  # 1: a plug-in is enabled and not loaded
+    assert [(f["name"], f["status"]) for f in doc["files"]] == [
+        ("minimum-wire-gauge-power", "applied"),
+        ("power-wire-table", "applied"),
+    ]
+    (plugin,) = doc["plugins"]
+    assert (plugin["name"], plugin["enabled"], plugin["trusted"], plugin["state"]) == (
+        "duplicate-signal-wires", True, False, "untrusted",
+    )  # fmt: skip
+    drc_doc = run(capsys, "drc", str(folder))
+    assert drc_doc["rules_run"] == 45  # the 43 of the tool and the two x- rules of the data files
+    x_rules = {f["id"] for f in drc_doc["findings"] if f["rule"].startswith("x-")}
+    assert x_rules == {"x-extension-problem.duplicate-signal-wires"}
+    project = load_project(folder).project
+    power = [w for h in project.harnesses.values() for w in h.wires if w.signal in ("PWR", "RTN")]
+    assert sorted((w.id, w.gauge_awg) for w in power) == [("W002-001", 22), ("W002-002", 22)]
+    (d,) = derive.explain_finding(project, "x-min-gauge-power", "W002-001")
+    assert d.check is not None and (d.check.actual, d.check.limit, d.check.margin) == (22.0, 22.0, 0.0)  # fmt: skip
+    assert main(["export", str(folder)]) == 0
+    table = _table(folder / "outputs" / "system" / "extensions" / "power-wires.csv")
+    assert [(r["Wire"], r["Gauge (AWG)"], r["Current (A)"], r["Table ampacity (A)"]) for r in table] == [
+        ("W002-001", "22", "2", "7"),
+        ("W002-002", "22", "2", "7"),
+    ]  # fmt: skip
+
+
+def test_extensions_trusting_the_plugin_is_the_exercise(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "extensions", "--no-journal"]) == 0
+    _fresh_extensions()
+    assert main(["trust", str(folder), "duplicate-signal-wires", "--yes"]) == 0
+    _fresh_extensions()
+    drc_doc = run(capsys, "drc", str(folder))
+    assert drc_doc["rules_run"] == 46 and drc_doc["open_errors"] == 0
+    assert not [f for f in drc_doc["findings"] if f["rule"].startswith("x-")]  # silent here
+    assert main(["extensions", str(folder)]) == 0
+    assert main(["trust", str(folder), "duplicate-signal-wires", "--revoke"]) == 0
+    _fresh_extensions()

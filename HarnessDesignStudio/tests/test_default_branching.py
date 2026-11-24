@@ -57,8 +57,10 @@ TEMPLATE_MODES = {
     "lengths-to-the-face": PAIR,
     "released-harness": PAIR,
     "overrides-and-deviations": PAIR,
+    "device-library": PAIR,
     "build-data-and-as-built": PAIR,
     "imports-from-files": PAIR,
+    "extensions": PAIR,
 }
 
 
