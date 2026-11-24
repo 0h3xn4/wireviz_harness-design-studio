@@ -101,6 +101,8 @@ def test_this_tool_writes_format_5_and_has_a_step_for_every_older_format() -> No
 # The feature examples of 5.1.0 that show a field of format 5 (design of 5.1.0, section 4), with the
 # keys of format 5 each one holds; every other example and every fixture holds none.
 FORMAT5_EXAMPLES: dict[str, set[str]] = {
+    "lengths-to-the-face": {"depth_mm", "length_to"},
+    "shields-and-ends": {"at_a", "at_b", "depth_mm"},
     "splice-from-connection": {"current_a"},
 }
 
