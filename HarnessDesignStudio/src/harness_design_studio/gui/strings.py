@@ -4707,3 +4707,17 @@ INS_SG_MOVED_TIP = (
     "changed). State the place again with Change group… in the Edit wire tab."
 )
 INS_SG_END_TIP = "How the end is terminated and where it lands; Change group… in the Edit wire tab"
+# ---- 5.1.0, pull request 1: the groups of the examples (docs/ait/DESIGN_5.1_FEATURE_TEMPLATES.md
+# section 6): a heading per group in the New project dialog, one line for the feature examples on
+# Home
+NP_GROUP_START = "Start"
+NP_GROUP_START_NAME = "Group: Start, the projects to begin with"
+NP_GROUP_FEATURE = "Feature examples"
+NP_GROUP_FEATURE_NAME = "Group: Feature examples, small projects that show one feature each"
+HOME_FEATURES = "{0} feature examples, one per feature: File > New project from an example…"
+HOME_FEATURES_ONE = (
+    "1 feature example, a small project that shows one feature: File > New project from an example…"
+)
+HOME_FEATURES_BUTTON = "Show the feature examples…"
+HOME_FEATURES_NAME = "Show the feature examples"
+HOME_FEATURES_TIP = "Open New project from an example with the first feature example chosen"

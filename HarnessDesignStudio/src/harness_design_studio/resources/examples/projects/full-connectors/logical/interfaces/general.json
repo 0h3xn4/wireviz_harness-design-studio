@@ -1,0 +1,354 @@
+{
+  "interfaces": [
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J01",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "OBC1-J01",
+          "role": null,
+          "unit_id": "OBC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-001",
+      "max_current_a": null,
+      "name": "Main power of OBC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "power_primary",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J01",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "OBC1-J01",
+          "role": null,
+          "unit_id": "OBC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-002",
+      "max_current_a": null,
+      "name": "Keep-alive power of OBC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "power_secondary",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J01",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "OBC1-J01",
+          "role": null,
+          "unit_id": "OBC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-003",
+      "max_current_a": null,
+      "name": "Survival power of OBC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "power_primary",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J01",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "OBC1-J01",
+          "role": null,
+          "unit_id": "OBC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-004",
+      "max_current_a": null,
+      "name": "Heater line of OBC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "heater",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J01",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "OBC1-J01",
+          "role": null,
+          "unit_id": "OBC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-005",
+      "max_current_a": null,
+      "name": "Chassis ground of OBC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "ground",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J02",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J01",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-006",
+      "max_current_a": null,
+      "name": "Main power of TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "power_primary",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J02",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J01",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-007",
+      "max_current_a": null,
+      "name": "Keep-alive power of TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "power_secondary",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J02",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J01",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-008",
+      "max_current_a": null,
+      "name": "Survival power of TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "power_primary",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J02",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J01",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-009",
+      "max_current_a": null,
+      "name": "Heater line of TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "heater",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "PCDU1-J02",
+          "role": null,
+          "unit_id": "PCDU1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J01",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-010",
+      "max_current_a": null,
+      "name": "Chassis ground of TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "ground",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "OBC1-J02",
+          "role": null,
+          "unit_id": "OBC1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J02",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-011",
+      "max_current_a": null,
+      "name": "Telecommands and telemetry to TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "rs422",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "OBC1-J02",
+          "role": null,
+          "unit_id": "OBC1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J02",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-012",
+      "max_current_a": null,
+      "name": "Housekeeping bus to TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "can",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "OBC1-J02",
+          "role": null,
+          "unit_id": "OBC1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J02",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-013",
+      "max_current_a": null,
+      "name": "Reset line to TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "discrete",
+      "voltage_v": null
+    },
+    {
+      "endpoints": [
+        {
+          "auto": false,
+          "connector_id": "OBC1-J02",
+          "role": null,
+          "unit_id": "OBC1"
+        },
+        {
+          "auto": false,
+          "connector_id": "TTC1-J02",
+          "role": null,
+          "unit_id": "TTC1"
+        }
+      ],
+      "flow": "unspecified",
+      "id": "IF-014",
+      "max_current_a": null,
+      "name": "Signal ground to TTC1",
+      "notes": "",
+      "redundancy": "nominal",
+      "requirement_id": null,
+      "type_id": "ground",
+      "voltage_v": null
+    }
+  ]
+}

@@ -18,40 +18,28 @@ from harness_design_studio.core.io.saver import save_project
 from harness_design_studio.core.mergefix import write_gitattributes
 from harness_design_studio.core.model import Project, evolve
 from harness_design_studio.core.samples import new_project, sat15, start_project
+from harness_design_studio.core.templates import TEMPLATES, template_info
+from tools import feature_examples
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = ROOT / "src" / "harness_design_studio" / "resources" / "examples" / "projects"
 
-# name -> (title, one line shown by `harness-design-studio new --list`)
-PROJECTS = {
-    "blank": ("My project", "An empty project: the starter parts and interface types, no units."),
-    "first-steps": (
-        "First steps: reaction wheel link",
-        "Three units, a power link and an RS-422 link. Nothing is generated yet: start here.",
-    ),
-    "minimal-satellite": (
-        "Minimal satellite",
-        "Seven units, nominal only: power, computer, radio, wheel and sun sensor. Adapt it.",
-    ),
-    "small-satellite": (
-        "Small satellite (reference)",
-        "14 units with nominal and redundant chains. Generate it to see a realistic system.",
-    ),
-    "flatsat": (
-        "Flatsat (EXAMPLE numbers, not engineering data)",
-        "A complete bench: 23 flight and ground units, generated, with example numbers.",
-    ),
-}
+
+def _title(name: str) -> str:
+    """The project name of an example: its title in the one list (`core.templates.TEMPLATES`)."""
+    info = template_info(name)
+    assert info is not None, name
+    return info.title
 
 
 def _blank() -> Project:
     # the start of a new project (`new`, the editor's New project): per_connector_group (D-247);
     # the other examples keep the mode their outputs were made with
-    return start_project(PROJECTS["blank"][0])
+    return start_project(_title("blank"))
 
 
 def _first_steps() -> Project:
-    p = new_project(PROJECTS["first-steps"][0])
+    p = new_project(_title("first-steps"))
     p.meta = evolve(
         p.meta,
         description="Power control unit, on-board computer and a reaction wheel. "
@@ -70,7 +58,7 @@ def _first_steps() -> Project:
 
 
 def _minimal_satellite() -> Project:
-    p = new_project(PROJECTS["minimal-satellite"][0])
+    p = new_project(_title("minimal-satellite"))
     p.meta = evolve(
         p.meta,
         description="A small spacecraft without redundancy: solar array, battery, power control unit, "
@@ -191,7 +179,7 @@ def _flatsat() -> Project:
     from harness_design_studio.core.commands import Put, SetZones
     from harness_design_studio.core.generate.engine import generate_project
 
-    p = new_project(PROJECTS["flatsat"][0])
+    p = new_project(_title("flatsat"))
     p.meta = evolve(
         p.meta,
         description="A flatsat: the electronics of a small spacecraft laid out on a bench, with the "
@@ -276,7 +264,7 @@ def _small_satellite() -> Project:
     p = sat15()
     p.meta = evolve(
         p.meta,
-        name=PROJECTS["small-satellite"][0],
+        name=_title("small-satellite"),
         description="Redundant computer and power unit, battery, solar array, transceiver, payload, "
         "star tracker, two wheels, sun sensor, magnetorquer and a heater panel.",
     )
@@ -290,7 +278,9 @@ BUILDERS = {
     "minimal-satellite": _minimal_satellite,
     "small-satellite": _small_satellite,
     "flatsat": _flatsat,
+    **feature_examples.BUILDERS,  # the group Feature examples (design of 5.1.0)
 }
+assert list(BUILDERS) == [t.name for t in TEMPLATES], "one builder per listed example, in order"
 
 
 def build(target: Path = TARGET) -> None:

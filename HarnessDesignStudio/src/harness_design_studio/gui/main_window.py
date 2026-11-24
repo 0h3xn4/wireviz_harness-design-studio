@@ -851,6 +851,7 @@ class MainWindow(QMainWindow):
             open_example=lambda name: self.open_example_flow(name),
             clear_recent=self.clear_recent_flow,
             choose_role=self.choose_role_flow,
+            features=self.new_from_feature_example_flow,
         )
         self.next_page = NextStepPage(
             self.theme,
@@ -6010,8 +6011,18 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         self._new_project_dialog(
-            next((t.name for t in templates.TEMPLATES if t.name != BLANK), None)
+            next((t.name for t in templates.in_group(templates.START) if t.name != BLANK), None)
         )
+
+    def new_from_feature_example_flow(self) -> None:
+        """The same dialog with the first feature example chosen (Home's line of the feature
+        examples, design of 5.1.0 section 6)."""
+        from harness_design_studio.core import templates
+
+        if not self._confirm_discard():
+            return
+        first = next(iter(templates.in_group(templates.FEATURE)), None)
+        self._new_project_dialog(first.name if first is not None else None)
 
     def _new_project_dialog(self, template: str | None) -> None:
         """One dialog for folder, name and starting point (SH-18), then create and open it."""

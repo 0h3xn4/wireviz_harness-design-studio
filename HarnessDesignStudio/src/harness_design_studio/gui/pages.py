@@ -40,10 +40,17 @@ from harness_design_studio.gui.theme import ThemeManager, mark_mono
 
 
 def _example_infos() -> tuple:  # type: ignore[type-arg]
-    """The packaged examples (`core.templates.TEMPLATES`) except the empty project."""
+    """The packaged examples of the group Start (`core.templates.TEMPLATES`) except the empty
+    project: one row each on Home; the feature examples get one line (design of 5.1.0, T9)."""
     from harness_design_studio.core import templates
 
-    return tuple(t for t in templates.TEMPLATES if t.name != "blank")
+    return tuple(t for t in templates.in_group(templates.START) if t.name != "blank")
+
+
+def _feature_count() -> int:
+    from harness_design_studio.core import templates
+
+    return len(templates.in_group(templates.FEATURE))
 
 
 def _page(theme: ThemeManager, name: str, title: str) -> tuple[QScrollArea, QVBoxLayout]:
@@ -152,6 +159,7 @@ class HomePage(QScrollArea):
         open_example: Callable[[str], None] | None = None,
         clear_recent: Callable[[], object] | None = None,
         choose_role: Callable[[str], None] | None = None,
+        features: Callable[[], None] | None = None,
     ) -> None:
         super().__init__()
         self.theme = theme
@@ -288,6 +296,27 @@ class HomePage(QScrollArea):
             line.addWidget(b, 0, Qt.AlignmentFlag.AlignTop)
             ex_lay.addLayout(line)
             self.example_buttons[info.name] = b
+        # the feature examples: one line and a button that opens New project from an example with
+        # the first of them chosen, so nineteen rows do not push the page down
+        count = _feature_count()
+        self.features_line = QLabel(
+            strings.HOME_FEATURES_ONE if count == 1 else strings.HOME_FEATURES.format(count)
+        )
+        self.features_line.setObjectName("home-features")
+        self.features_line.setWordWrap(True)
+        self.features_line.setProperty("muted", True)
+        self.features_button = QPushButton(strings.HOME_FEATURES_BUTTON)
+        self.features_button.setObjectName("home-features-show")
+        self.features_button.setAccessibleName(strings.HOME_FEATURES_NAME)
+        self.features_button.setToolTip(strings.HOME_FEATURES_TIP)
+        if features is not None:
+            self.features_button.clicked.connect(lambda _c=False: features())
+        line = QHBoxLayout()
+        line.addWidget(self.features_line, 1)
+        line.addWidget(self.features_button, 0, Qt.AlignmentFlag.AlignTop)
+        ex_lay.addLayout(line)
+        self.features_line.setVisible(bool(count))
+        self.features_button.setVisible(bool(count))
         column.addWidget(ex)
         column.addStretch(1)
 

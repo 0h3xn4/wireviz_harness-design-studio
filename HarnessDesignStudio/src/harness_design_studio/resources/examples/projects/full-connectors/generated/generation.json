@@ -1,0 +1,375 @@
+{
+  "generator_version": "5.0.0",
+  "input_hash": "20baac3da9b6b8becfcce0410f4f1aa7245a577327f956301969bcc3863e8f5f",
+  "next_harness_number": 4,
+  "placeholders_used": [
+    "derating",
+    "emc",
+    "generation",
+    "segmentation",
+    "segregation",
+    "titleblock"
+  ],
+  "provenance": {
+    "connector:W001-P1": [
+      "mating: cable end for OBC1-J01 (OBC1); part EX-MICROD-9-F mates with EX-MICROD-9-M"
+    ],
+    "connector:W001-P2": [
+      "mating: cable end for PCDU1-J01 (PCDU1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W002-P1": [
+      "mating: cable end for OBC1-J02 (OBC1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W002-P2": [
+      "mating: cable end for TTC1-J02 (TTC1); part EX-MICROD-9-F mates with EX-MICROD-9-M"
+    ],
+    "connector:W003-P1": [
+      "mating: cable end for PCDU1-J02 (PCDU1); part EX-MICROD-9-M mates with EX-MICROD-9-F"
+    ],
+    "connector:W003-P2": [
+      "mating: cable end for TTC1-J01 (TTC1); part EX-MICROD-9-F mates with EX-MICROD-9-M"
+    ],
+    "gauge:W001-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-003": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-004": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-005": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-006": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-007": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-008": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W001-009": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-003": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-004": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-005": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-006": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-007": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-008": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W002-009": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-001": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-002": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-003": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-004": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-005": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-006": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-007": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-008": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "gauge:W003-009": [
+      "wire-sizing: undecided, waiting for interface current (set Max current on the interface)"
+    ],
+    "harness:W001": [
+      "lengths: service loop is a placeholder (0 used); lengths exclude service loops",
+      "shielding: shield termination is a placeholder (floating used); the grounding concept decides it",
+      "segmentation: IF-001, IF-002, IF-003, IF-004, IF-005 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "harness:W002": [
+      "lengths: service loop is a placeholder (0 used); lengths exclude service loops",
+      "shielding: shield termination is a placeholder (floating used); the grounding concept decides it",
+      "segmentation: IF-011, IF-012, IF-013, IF-014 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "harness:W003": [
+      "lengths: service loop is a placeholder (0 used); lengths exclude service loops",
+      "shielding: shield termination is a placeholder (floating used); the grounding concept decides it",
+      "segmentation: IF-006, IF-007, IF-008, IF-009, IF-010 share a harness because they have the same pair of unit connectors and chain (nominal)"
+    ],
+    "pin:OBC1-J01.1": [
+      "pin-allocation: PWR of IF-001 stays on pin 1 because the pin is locked"
+    ],
+    "pin:OBC1-J01.2": [
+      "pin-allocation: PWR of IF-002 stays on pin 2 because the pin is locked"
+    ],
+    "pin:OBC1-J01.3": [
+      "pin-allocation: PWR of IF-003 stays on pin 3 because the pin is locked"
+    ],
+    "pin:OBC1-J01.4": [
+      "pin-allocation: HTR+ of IF-004 stays on pin 4 because the pin is locked"
+    ],
+    "pin:OBC1-J01.5": [
+      "pin-allocation: GND of IF-005 stays on pin 5 because the pin is locked"
+    ],
+    "pin:OBC1-J01.6": [
+      "pin-allocation: RTN of IF-001 stays on pin 6 because the pin is locked"
+    ],
+    "pin:OBC1-J01.7": [
+      "pin-allocation: RTN of IF-002 stays on pin 7 because the pin is locked"
+    ],
+    "pin:OBC1-J01.8": [
+      "pin-allocation: RTN of IF-003 stays on pin 8 because the pin is locked"
+    ],
+    "pin:OBC1-J01.9": [
+      "pin-allocation: HTR- of IF-004 stays on pin 9 because the pin is locked"
+    ],
+    "pin:OBC1-J02.1": [
+      "pin-allocation: TX+ of IF-011 stays on pin 1 because the pin is locked"
+    ],
+    "pin:OBC1-J02.2": [
+      "pin-allocation: TX- of IF-011 stays on pin 2 because the pin is locked"
+    ],
+    "pin:OBC1-J02.3": [
+      "pin-allocation: RX+ of IF-011 stays on pin 3 because the pin is locked"
+    ],
+    "pin:OBC1-J02.4": [
+      "pin-allocation: RX- of IF-011 stays on pin 4 because the pin is locked"
+    ],
+    "pin:OBC1-J02.5": [
+      "pin-allocation: GND of IF-014 stays on pin 5 because the pin is locked"
+    ],
+    "pin:OBC1-J02.6": [
+      "pin-allocation: CANH of IF-012 stays on pin 6 because the pin is locked"
+    ],
+    "pin:OBC1-J02.7": [
+      "pin-allocation: CANL of IF-012 stays on pin 7 because the pin is locked"
+    ],
+    "pin:OBC1-J02.8": [
+      "pin-allocation: SIG of IF-013 stays on pin 8 because the pin is locked"
+    ],
+    "pin:OBC1-J02.9": [
+      "pin-allocation: RTN of IF-013 stays on pin 9 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.1": [
+      "pin-allocation: PWR of IF-001 stays on pin 1 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.2": [
+      "pin-allocation: PWR of IF-002 stays on pin 2 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.3": [
+      "pin-allocation: PWR of IF-003 stays on pin 3 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.4": [
+      "pin-allocation: HTR+ of IF-004 stays on pin 4 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.5": [
+      "pin-allocation: GND of IF-005 stays on pin 5 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.6": [
+      "pin-allocation: RTN of IF-001 stays on pin 6 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.7": [
+      "pin-allocation: RTN of IF-002 stays on pin 7 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.8": [
+      "pin-allocation: RTN of IF-003 stays on pin 8 because the pin is locked"
+    ],
+    "pin:PCDU1-J01.9": [
+      "pin-allocation: HTR- of IF-004 stays on pin 9 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.1": [
+      "pin-allocation: PWR of IF-006 stays on pin 1 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.2": [
+      "pin-allocation: PWR of IF-007 stays on pin 2 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.3": [
+      "pin-allocation: PWR of IF-008 stays on pin 3 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.4": [
+      "pin-allocation: HTR+ of IF-009 stays on pin 4 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.5": [
+      "pin-allocation: GND of IF-010 stays on pin 5 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.6": [
+      "pin-allocation: RTN of IF-006 stays on pin 6 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.7": [
+      "pin-allocation: RTN of IF-007 stays on pin 7 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.8": [
+      "pin-allocation: RTN of IF-008 stays on pin 8 because the pin is locked"
+    ],
+    "pin:PCDU1-J02.9": [
+      "pin-allocation: HTR- of IF-009 stays on pin 9 because the pin is locked"
+    ],
+    "pin:TTC1-J01.1": [
+      "pin-allocation: PWR of IF-006 stays on pin 1 because the pin is locked"
+    ],
+    "pin:TTC1-J01.2": [
+      "pin-allocation: PWR of IF-007 stays on pin 2 because the pin is locked"
+    ],
+    "pin:TTC1-J01.3": [
+      "pin-allocation: PWR of IF-008 stays on pin 3 because the pin is locked"
+    ],
+    "pin:TTC1-J01.4": [
+      "pin-allocation: HTR+ of IF-009 stays on pin 4 because the pin is locked"
+    ],
+    "pin:TTC1-J01.5": [
+      "pin-allocation: GND of IF-010 stays on pin 5 because the pin is locked"
+    ],
+    "pin:TTC1-J01.6": [
+      "pin-allocation: RTN of IF-006 stays on pin 6 because the pin is locked"
+    ],
+    "pin:TTC1-J01.7": [
+      "pin-allocation: RTN of IF-007 stays on pin 7 because the pin is locked"
+    ],
+    "pin:TTC1-J01.8": [
+      "pin-allocation: RTN of IF-008 stays on pin 8 because the pin is locked"
+    ],
+    "pin:TTC1-J01.9": [
+      "pin-allocation: HTR- of IF-009 stays on pin 9 because the pin is locked"
+    ],
+    "pin:TTC1-J02.1": [
+      "pin-allocation: TX+ of IF-011 stays on pin 1 because the pin is locked"
+    ],
+    "pin:TTC1-J02.2": [
+      "pin-allocation: TX- of IF-011 stays on pin 2 because the pin is locked"
+    ],
+    "pin:TTC1-J02.3": [
+      "pin-allocation: RX+ of IF-011 stays on pin 3 because the pin is locked"
+    ],
+    "pin:TTC1-J02.4": [
+      "pin-allocation: RX- of IF-011 stays on pin 4 because the pin is locked"
+    ],
+    "pin:TTC1-J02.5": [
+      "pin-allocation: GND of IF-014 stays on pin 5 because the pin is locked"
+    ],
+    "pin:TTC1-J02.6": [
+      "pin-allocation: CANH of IF-012 stays on pin 6 because the pin is locked"
+    ],
+    "pin:TTC1-J02.7": [
+      "pin-allocation: CANL of IF-012 stays on pin 7 because the pin is locked"
+    ],
+    "pin:TTC1-J02.8": [
+      "pin-allocation: SIG of IF-013 stays on pin 8 because the pin is locked"
+    ],
+    "pin:TTC1-J02.9": [
+      "pin-allocation: RTN of IF-013 stays on pin 9 because the pin is locked"
+    ],
+    "rules": [
+      "pin-allocation: power-to-signal pin gap is a placeholder (0 used)"
+    ],
+    "wire:W001-001": [
+      "wiring: PWR of IF-001 connects OBC1-J01 pin 1 to PCDU1-J01 pin 1 (X drives)"
+    ],
+    "wire:W001-002": [
+      "wiring: RTN of IF-001 connects OBC1-J01 pin 6 to PCDU1-J01 pin 6 (X drives)"
+    ],
+    "wire:W001-003": [
+      "wiring: PWR of IF-002 connects OBC1-J01 pin 2 to PCDU1-J01 pin 2 (X drives)"
+    ],
+    "wire:W001-004": [
+      "wiring: RTN of IF-002 connects OBC1-J01 pin 7 to PCDU1-J01 pin 7 (X drives)"
+    ],
+    "wire:W001-005": [
+      "wiring: PWR of IF-003 connects OBC1-J01 pin 3 to PCDU1-J01 pin 3 (X drives)"
+    ],
+    "wire:W001-006": [
+      "wiring: RTN of IF-003 connects OBC1-J01 pin 8 to PCDU1-J01 pin 8 (X drives)"
+    ],
+    "wire:W001-007": [
+      "wiring: HTR+ of IF-004 connects OBC1-J01 pin 4 to PCDU1-J01 pin 4 (X drives)"
+    ],
+    "wire:W001-008": [
+      "wiring: HTR- of IF-004 connects OBC1-J01 pin 9 to PCDU1-J01 pin 9 (X drives)"
+    ],
+    "wire:W001-009": [
+      "wiring: GND of IF-005 connects OBC1-J01 pin 5 to PCDU1-J01 pin 5 (X drives)"
+    ],
+    "wire:W002-001": [
+      "wiring: TX+/RX+ of IF-011 connects OBC1-J02 pin 1 to TTC1-J02 pin 3 (X drives)"
+    ],
+    "wire:W002-002": [
+      "wiring: TX+/RX+ of IF-011 connects TTC1-J02 pin 1 to OBC1-J02 pin 3 (Y drives)"
+    ],
+    "wire:W002-003": [
+      "wiring: TX-/RX- of IF-011 connects OBC1-J02 pin 2 to TTC1-J02 pin 4 (X drives)"
+    ],
+    "wire:W002-004": [
+      "wiring: TX-/RX- of IF-011 connects TTC1-J02 pin 2 to OBC1-J02 pin 4 (Y drives)"
+    ],
+    "wire:W002-005": [
+      "wiring: CANH of IF-012 connects OBC1-J02 pin 6 to TTC1-J02 pin 6 (X drives)"
+    ],
+    "wire:W002-006": [
+      "wiring: CANL of IF-012 connects OBC1-J02 pin 7 to TTC1-J02 pin 7 (X drives)"
+    ],
+    "wire:W002-007": [
+      "wiring: SIG of IF-013 connects OBC1-J02 pin 8 to TTC1-J02 pin 8 (X drives)"
+    ],
+    "wire:W002-008": [
+      "wiring: RTN of IF-013 connects OBC1-J02 pin 9 to TTC1-J02 pin 9 (X drives)"
+    ],
+    "wire:W002-009": [
+      "wiring: GND of IF-014 connects OBC1-J02 pin 5 to TTC1-J02 pin 5 (X drives)"
+    ],
+    "wire:W003-001": [
+      "wiring: PWR of IF-006 connects PCDU1-J02 pin 1 to TTC1-J01 pin 1 (X drives)"
+    ],
+    "wire:W003-002": [
+      "wiring: RTN of IF-006 connects PCDU1-J02 pin 6 to TTC1-J01 pin 6 (X drives)"
+    ],
+    "wire:W003-003": [
+      "wiring: PWR of IF-007 connects PCDU1-J02 pin 2 to TTC1-J01 pin 2 (X drives)"
+    ],
+    "wire:W003-004": [
+      "wiring: RTN of IF-007 connects PCDU1-J02 pin 7 to TTC1-J01 pin 7 (X drives)"
+    ],
+    "wire:W003-005": [
+      "wiring: PWR of IF-008 connects PCDU1-J02 pin 3 to TTC1-J01 pin 3 (X drives)"
+    ],
+    "wire:W003-006": [
+      "wiring: RTN of IF-008 connects PCDU1-J02 pin 8 to TTC1-J01 pin 8 (X drives)"
+    ],
+    "wire:W003-007": [
+      "wiring: HTR+ of IF-009 connects PCDU1-J02 pin 4 to TTC1-J01 pin 4 (X drives)"
+    ],
+    "wire:W003-008": [
+      "wiring: HTR- of IF-009 connects PCDU1-J02 pin 9 to TTC1-J01 pin 9 (X drives)"
+    ],
+    "wire:W003-009": [
+      "wiring: GND of IF-010 connects PCDU1-J02 pin 5 to TTC1-J01 pin 5 (X drives)"
+    ]
+  }
+}

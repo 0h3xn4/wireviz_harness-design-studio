@@ -823,7 +823,7 @@ def test_new_project_from_an_example(win, tmp_path) -> None:  # type: ignore[no-
     win.new_from_example_flow()
     names = [t.name for t in TEMPLATES]
     assert names[:4] == ["blank", "first-steps", "minimal-satellite", "small-satellite"]
-    assert shown[0].model.rowCount() == len(names)  # type: ignore[attr-defined]  # one list of examples
+    assert shown[0].template_names() == names  # type: ignore[attr-defined]  # one list of examples
     assert (folder / "project.json").exists() and win.ctl.root == folder
     assert set(win.ctl.project.units) == {"PCDU1", "OBC1", "RW1"}  # the first-steps example
     assert win.windowTitle().startswith("Wheel link")

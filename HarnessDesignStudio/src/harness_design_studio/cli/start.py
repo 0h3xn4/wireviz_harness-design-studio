@@ -12,11 +12,17 @@ from harness_design_studio.core import records, templates
 
 COMMANDS = ("new", "templates", "schema")
 
+# the heading line of each group of `new --list` (`core.templates.GROUPS`)
+GROUP_HEADINGS = {
+    templates.START: "Start:",
+    templates.FEATURE: "Feature examples (small projects, one feature each):",
+}
+
 
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     n = sub.add_parser(
         "new",
-        help="create a new project from an example (blank, first-steps, minimal-satellite, small-satellite, flatsat)",
+        help="create a new project from an example (`new --list` shows them)",
         description="Create a project folder from one of the bundled examples. "
         "`harness-design-studio new --list` shows them. The folder must not exist yet or be empty. "
         "The new project starts a change journal (journal.jsonl: who changed what, when and why) "
@@ -76,8 +82,8 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         )  # one order on every platform (Windows sorts paths without regard to case)
         return 0
     if args.list:
-        for t in templates.TEMPLATES:
-            rep.say(f"{t.name:18} {t.summary}")
+        for line in list_lines():
+            rep.say(line)
         rep.put(templates=[i.to_dict() for i in records.template_infos()])
         return 0
     if args.folder is None:
@@ -102,6 +108,20 @@ def _run(args: argparse.Namespace, rep: Report) -> int:
         interfaces=len(project.interfaces),
     )
     return 0
+
+
+def list_lines() -> list[str]:
+    """The text of `new --list`: a heading per group, then one line per example, the names padded
+    to the longest name plus two, so that every summary starts in the same column."""
+    width = max(len(t.name) for t in templates.TEMPLATES) + 2
+    lines: list[str] = []
+    for group in templates.GROUPS:
+        members = templates.in_group(group)
+        if not members:
+            continue
+        lines.append(GROUP_HEADINGS[group])
+        lines += [f"{t.name:{width}}{t.summary}" for t in members]
+    return lines
 
 
 def _schema(folder: Path, rep: Report) -> int:

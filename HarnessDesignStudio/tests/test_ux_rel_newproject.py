@@ -40,8 +40,8 @@ def make(qtbot, **kw) -> NewProjectDialog:
 
 def test_it_starts_empty_with_the_templates_of_the_command_line(qtbot) -> None:
     dlg = make(qtbot)
-    assert [dlg.model.item(r).data(Qt.ItemDataRole.UserRole) for r in range(dlg.model.rowCount())] == [t.name for t in TEMPLATES]  # fmt: skip
-    assert dlg.template() == BLANK and dlg.model.item(0).text() == strings.NP_EMPTY_TITLE
+    assert dlg.template_names() == [t.name for t in TEMPLATES]
+    assert dlg.template() == BLANK and dlg.model.item(1).text() == strings.NP_EMPTY_TITLE
     assert dlg.summary.text() == TEMPLATES[0].summary
     assert not dlg.ok.isEnabled() and dlg.request() is None
     assert (
@@ -174,3 +174,45 @@ def test_escape_cancels_and_names_exist(qtbot, tmp_path: Path) -> None:
     qtbot.waitActive(dlg)
     QTest.keyClick(dlg, Qt.Key.Key_Escape)
     assert dlg.result() == QDialog.DialogCode.Rejected
+
+
+# ---- the groups of the examples (design of 5.1.0 section 6) -----------------------------------
+
+
+def test_the_examples_are_under_a_heading_per_group(qtbot) -> None:
+    dlg = make(qtbot)
+    assert list(dlg.headings) == [templates.START, templates.FEATURE]
+    rows = [dlg.model.item(r) for r in range(dlg.model.rowCount())]
+    titles = [item.text() for item in rows]
+    start, feature = (titles.index(strings.NP_GROUP_START), titles.index(strings.NP_GROUP_FEATURE))
+    assert start == 0 and feature == 1 + len(templates.in_group(templates.START))
+    for group, heading in dlg.headings.items():
+        assert heading.flags() == Qt.ItemFlag.NoItemFlags  # not selectable, not chosen
+        assert heading.data(Qt.ItemDataRole.AccessibleTextRole)
+        assert heading.data(Qt.ItemDataRole.UserRole) is None
+        members = [t.name for t in templates.in_group(group)]
+        at = rows.index(heading)
+        assert [r.data(Qt.ItemDataRole.UserRole) for r in rows[at + 1 : at + 1 + len(members)]] == members  # fmt: skip
+    assert dlg.select_template("full-connectors") and dlg.template() == "full-connectors"
+    assert dlg.summary.text() == templates.template_info("full-connectors").summary  # type: ignore[union-attr]
+
+
+def test_the_arrow_keys_pass_over_the_headings(qtbot) -> None:
+    dlg = make(qtbot)
+    dlg.templates.setFocus()
+    seen = []
+    for _ in range(len(TEMPLATES) + 2):
+        QTest.keyClick(dlg.templates, Qt.Key.Key_Down)
+        seen.append(dlg.template())
+    assert list(dict.fromkeys([BLANK, *seen])) == [t.name for t in TEMPLATES]
+    for _ in range(len(TEMPLATES) + 2):
+        QTest.keyClick(dlg.templates, Qt.Key.Key_Up)
+    assert dlg.template() == BLANK and dlg.templates.currentIndex().row() == 1
+
+
+def test_the_list_shows_the_start_group_and_the_next_heading_without_a_scroll(qtbot) -> None:
+    dlg = make(qtbot)
+    QApplication.processEvents()
+    view = dlg.templates
+    last = dlg.model.indexFromItem(dlg.headings[templates.FEATURE])
+    assert view.visualRect(last).bottom() <= view.viewport().height()
