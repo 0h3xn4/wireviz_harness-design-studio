@@ -214,7 +214,9 @@ def upgraded_mini3(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Path:
     # project.json, the copy of the file it replaced, and the journal's entry of the step
     assert changed - {"journal.jsonl"} == {"project.json", "project.json.bak"}
     old, new = json.loads(before["project.json"]), json.loads(after["project.json"])
-    assert (old.pop("schema_version"), new.pop("schema_version")) == (4, 5) and old == new
+    versions = (old.pop("schema_version"), new.pop("schema_version"))
+    assert versions == (4, 5)
+    assert old == new
     assert (proj / ".migration-backup-v4" / "project.json").read_bytes() == before["project.json"]
     ok(capsys, "migrate", proj)  # up to date: nothing more to do
     ok(capsys, "export", proj, "--drawings")
