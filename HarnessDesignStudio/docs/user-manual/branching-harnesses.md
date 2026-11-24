@@ -48,7 +48,7 @@ The owner's answer B4 of the design:
 - A segment is measured from the **rear of a connector** (where the wires leave the connector body or its backshell) to the **centre of a branch point**, and between the **centres of two branch points**.
 - The length of a wire is its own length when it has one. Else it is the sum of the segments on its path.
 - Generate adds a service loop at each end of a wire it makes (the setting `service_loop_m`, assumption `A-SERVICE-LOOP`). A wire of a harness you drew gets no loops; set its length yourself if it needs them.
-- Nothing reads the depth of a connector.
+- Since 5.0.0 (format 5) the segments that end at a cable connector may run to its **mating face** instead, for the whole project (`model.length_reference`) or for one connector (*Lengths measured to*). At such a face end the depth of the connector part and of each backshell on it is taken off each wire, so the length of a wire stays a length from rear to rear; without a depth the wire has no length ([lengths to the face](lengths-to-the-face.md)). Before 5.0.0 nothing read the depth of a connector.
 
 In the worked example below, the wire from DEV1 to DEV2 runs along three segments: 0.3 m from DEV1-J01 to *Branch X*, 1.5 m of trunk, and 0.25 m from *Branch Y* to DEV2-J01, so it is 2.05 m long.
 

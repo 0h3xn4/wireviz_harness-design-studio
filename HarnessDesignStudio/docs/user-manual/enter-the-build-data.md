@@ -11,6 +11,7 @@ This page shows how to enter what a technician needs to build a harness and the 
 - [1. Strip lengths](#1-strip-lengths)
 - [2. Contacts and crimp tools](#2-contacts-and-crimp-tools)
 - [3. Accessories](#3-accessories)
+- [3a. Cable ends and shield ends (since 5.0.0)](#3a-cable-ends-and-shield-ends-since-500)
 - [4. What the outputs then show](#4-what-the-outputs-then-show)
 - [What Generate does with it](#what-generate-does-with-it)
 - [Common mistakes](#common-mistakes)
@@ -258,6 +259,62 @@ row 2: ERROR 'W001-P9' is not a connector or a wire of W001.
 0 added, 0 changed, 0 unchanged, 1 refused.
 Nothing was changed.
 ```
+
+## 3a. Cable ends and shield ends (since 5.0.0)
+
+Two more tables of `import-build-data` hold build data of format 5 (a project of 4.x is upgraded once first, [upgrade a project](upgrade-a-project.md#9-from-format-4-to-format-5-500)). Like the others, a row with a problem stops the whole import, and an empty cell leaves a value as it is.
+
+**Cable ends** say where the routing segments that end at a cable connector are measured to. The headings are `Connector` and `Lengths to` (`face`, `rear`, or `project` for the project's setting `model.length_reference`); `Harness` is optional while the connector ID is unique. At a face end the depth of the connector and its backshell is taken off each wire ([lengths to the face](lengths-to-the-face.md)). Generate keeps the choice.
+
+```
+Connector,Lengths to
+W002-P2,rear
+```
+
+```
+Read 1 row(s) of cable ends from ends.csv (sha256 86329f8f72f6).
+Columns read: Connector -> connector, Lengths to -> length_to
+Import cable ends: 1 row(s) read.
+row 2: OK lengths to rear
+1 added, 0 changed, 0 unchanged, 0 refused.
+Build data imported. Generate keeps it; the build sheets show it.
+```
+
+**Shield ends** say where an end of a shield group lands. The headings are `Shield group`, `End` (`A` or `B`) and `Pin` and/or `Backshell`; `Harness` is optional while the group ID is unique. `Pin` is the pin of the cable connector at that end that a pigtail lands on, `Backshell` the ID of an accessory of kind backshell on that connector (section 3), for a 360 degree bond or a pigtail to its lug. The kind of the end (pigtail, backshell 360, floating) comes from the group, set by the grounding concept of the project (`generation.shield_end_a`, `shield_end_b`) or by **Change group…** ([edit a wire](edit-a-wire.md)). A pin only for a pigtail, and no place on a floating end or a twisted pair:
+
+```
+Shield group,End,Pin,Backshell
+W002-S1,A,5,
+W002-S1,B,5,
+```
+
+```
+Import shield ends: 2 row(s) read.
+row 2: OK lands on pin 5
+row 3: ERROR End B of W002-S1 is a 360 degree backshell: only a pigtail lands on a pin.
+1 added, 0 changed, 0 unchanged, 1 refused.
+Nothing was changed.
+```
+
+Without the second row, and with end B of `W002-S2` on the backshell `W002-A1`:
+
+```
+Shield group,End,Pin,Backshell
+W002-S1,A,5,
+W002-S2,A,5,
+W002-S2,B,,W002-A1
+```
+
+```
+Import shield ends: 3 row(s) read.
+row 2: OK lands on pin 5
+row 3: OK lands on pin 5
+row 4: OK lands on backshell W002-A1
+3 added, 0 changed, 0 unchanged, 0 refused.
+Build data imported. Generate keeps it; the build sheets show it.
+```
+
+The Production sheet then says *here pigtail to pin 5* and *here backshell 360 (W002-A1)* in the shield cell, and pin 5 gets a row *pigtail* (*W002-S1 shielded pair: pigtail lands here*). Generate keeps a place while the group is made again with the same wires, kind and end. Both tables are recorded as imports of the kinds `cable-ends` and `shield-ends` (`harness-design-studio imports DIR`). The examples are from the walk of `tests/test_e2e_500.py` on the sample `mini3`.
 
 ## 4. What the outputs then show
 
