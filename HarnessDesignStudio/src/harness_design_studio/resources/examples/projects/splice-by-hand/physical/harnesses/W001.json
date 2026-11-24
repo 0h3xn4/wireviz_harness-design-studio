@@ -1,0 +1,279 @@
+{
+  "approver": null,
+  "author": null,
+  "branch_points": [],
+  "checker": null,
+  "connectors": [
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W001-P1",
+      "keying": null,
+      "mates_with": "PCDU1-J01",
+      "name": "P1",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W001-P2",
+      "keying": null,
+      "mates_with": "OBC1-J01",
+      "name": "P2",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W001-P3",
+      "keying": null,
+      "mates_with": "TTC1-J01",
+      "name": "P3",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "unspecified",
+      "id": "W001-X1",
+      "keying": null,
+      "mates_with": null,
+      "name": "PWR",
+      "notes": "",
+      "part_id": "EX-SPLICE-1",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "crimp"
+        }
+      ],
+      "role": "splice",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "unspecified",
+      "id": "W001-X2",
+      "keying": null,
+      "mates_with": null,
+      "name": "RTN",
+      "notes": "",
+      "part_id": "EX-SPLICE-1",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "crimp"
+        }
+      ],
+      "role": "splice",
+      "unit_id": null
+    }
+  ],
+  "generated": false,
+  "group_key": "",
+  "id": "W001",
+  "interfaces": [],
+  "name": "Power Y",
+  "notes": "",
+  "released_on": null,
+  "segments": [
+    {
+      "from_node": "W001-P1",
+      "id": "W001-L1",
+      "length_m": 0.4,
+      "to_node": "W001-X1"
+    },
+    {
+      "from_node": "W001-X1",
+      "id": "W001-L2",
+      "length_m": 0.02,
+      "to_node": "W001-X2"
+    },
+    {
+      "from_node": "W001-X1",
+      "id": "W001-L3",
+      "length_m": 0.6,
+      "to_node": "W001-P2"
+    },
+    {
+      "from_node": "W001-X1",
+      "id": "W001-L4",
+      "length_m": 0.8,
+      "to_node": "W001-P3"
+    }
+  ],
+  "shields": [],
+  "splices": [],
+  "status": "draft",
+  "version": "1.0.0",
+  "wires": [
+    {
+      "colour": "red",
+      "from_connector": "W001-P1",
+      "from_pin": "1",
+      "gauge_awg": 22,
+      "id": "W001-001",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "PWR",
+      "to_connector": "W001-X1",
+      "to_pin": "1"
+    },
+    {
+      "colour": "red",
+      "from_connector": "W001-X1",
+      "from_pin": "1",
+      "gauge_awg": 24,
+      "id": "W001-002",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "PWR",
+      "to_connector": "W001-P2",
+      "to_pin": "1"
+    },
+    {
+      "colour": "red",
+      "from_connector": "W001-X1",
+      "from_pin": "1",
+      "gauge_awg": 24,
+      "id": "W001-003",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "PWR",
+      "to_connector": "W001-P3",
+      "to_pin": "1"
+    },
+    {
+      "colour": "black",
+      "from_connector": "W001-P1",
+      "from_pin": "2",
+      "gauge_awg": 22,
+      "id": "W001-004",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "RTN",
+      "to_connector": "W001-X2",
+      "to_pin": "1"
+    },
+    {
+      "colour": "black",
+      "from_connector": "W001-X2",
+      "from_pin": "1",
+      "gauge_awg": 24,
+      "id": "W001-005",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "RTN",
+      "to_connector": "W001-P2",
+      "to_pin": "2"
+    },
+    {
+      "colour": "black",
+      "from_connector": "W001-X2",
+      "from_pin": "1",
+      "gauge_awg": 24,
+      "id": "W001-006",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "RTN",
+      "to_connector": "W001-P3",
+      "to_pin": "2"
+    }
+  ]
+}

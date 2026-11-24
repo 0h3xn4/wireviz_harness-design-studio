@@ -1,0 +1,205 @@
+{
+  "approver": null,
+  "author": null,
+  "branch_points": [],
+  "checker": null,
+  "connectors": [
+    {
+      "carries": [],
+      "gender": "male",
+      "id": "W002-P1",
+      "keying": null,
+      "mates_with": "PCDU1-J02",
+      "name": "P1",
+      "notes": "",
+      "part_id": "EX-MICROD-9-M",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    },
+    {
+      "carries": [],
+      "gender": "female",
+      "id": "W002-P2",
+      "keying": null,
+      "mates_with": "OBC1-J02",
+      "name": "P2",
+      "notes": "",
+      "part_id": "EX-MICROD-9-F",
+      "pins": [
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "1",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "2",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "3",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        },
+        {
+          "contact_size": null,
+          "fixed": false,
+          "id": "4",
+          "interface_id": null,
+          "locked": false,
+          "signal": null,
+          "termination": "unspecified"
+        }
+      ],
+      "role": "cable",
+      "unit_id": null
+    }
+  ],
+  "generated": false,
+  "group_key": "",
+  "id": "W002",
+  "interfaces": [],
+  "name": "Data of OBC1",
+  "notes": "",
+  "released_on": null,
+  "segments": [],
+  "shields": [
+    {
+      "end_a": "backshell_360",
+      "end_b": "backshell_360",
+      "id": "W002-S1",
+      "kind": "shielded_pair",
+      "manual": true,
+      "wire_ids": [
+        "W002-001",
+        "W002-002"
+      ]
+    },
+    {
+      "end_a": "backshell_360",
+      "end_b": "backshell_360",
+      "id": "W002-S2",
+      "kind": "shielded_pair",
+      "manual": true,
+      "wire_ids": [
+        "W002-003",
+        "W002-004"
+      ]
+    }
+  ],
+  "splices": [],
+  "status": "draft",
+  "version": "1.0.0",
+  "wires": [
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "1",
+      "gauge_awg": null,
+      "id": "W002-001",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "TX+/RX+",
+      "to_connector": "W002-P2",
+      "to_pin": "3"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "2",
+      "gauge_awg": null,
+      "id": "W002-002",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "TX-/RX-",
+      "to_connector": "W002-P2",
+      "to_pin": "4"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "3",
+      "gauge_awg": null,
+      "id": "W002-003",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "RX+/TX+",
+      "to_connector": "W002-P2",
+      "to_pin": "1"
+    },
+    {
+      "colour": null,
+      "from_connector": "W002-P1",
+      "from_pin": "4",
+      "gauge_awg": null,
+      "id": "W002-004",
+      "interface_id": null,
+      "length_m": null,
+      "locked": false,
+      "manual": true,
+      "part_id": null,
+      "signal": "RX-/TX-",
+      "to_connector": "W002-P2",
+      "to_pin": "2"
+    }
+  ]
+}

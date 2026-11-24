@@ -61,7 +61,7 @@ A project can add rules of its own with an extension (a data file or a Python pl
 | `cross-strap` | warning | A nominal device is connected to a redundant one. | One failure could affect both chains. | Connect to a redundant copy, or waive with a reason. |
 | `no-connector` | info | An interface has no connector chosen on an end. | Without connectors it cannot become wires. | Choose connectors (automatic fix available). |
 | `unconfirmed` | info | Connectors were chosen by the tool and not confirmed. | Nobody should assume auto-filled choices were reviewed. | Confirm them (fix available). |
-| `isolated` | info | A device has no interfaces. | It will not appear in any harness. | Connect it, or ignore. |
+| `isolated` | info | A device has no interface, connection or harness. | It will not appear in any harness. | Connect it, or ignore. |
 
 ## Also reported as errors
 

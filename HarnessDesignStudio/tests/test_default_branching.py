@@ -48,6 +48,8 @@ TEMPLATE_MODES = {
     "small-satellite": PAIR,
     "flatsat": "per_zone_pair",
     "full-connectors": PAIR,  # one harness per pair of connectors reads easily (design of 5.1.0)
+    "splice-by-hand": PAIR,  # no interface: Generate makes nothing, the mode is not used
+    "splice-from-connection": PAIR,
 }
 
 

@@ -2,6 +2,8 @@
 
 This page shows how to join several wires inside a harness with a splice: a power line from one device to two others, for example. It says what a splice is, how to place one, what the checks say about it, and what the written files and the harness plan show.
 
+**Examples** (since 5.1.0): `harness-design-studio new practice --template splice-by-hand` makes a finished example: a power line drawn by hand from PCDU1 to OBC1 and TTC1 through two splices; `--template splice-from-connection` makes a connection with a junction whose harness gets its splices, with pin currents.
+
 > **New in 3.0.0** (format 3, milestone M6a, decision D-243, [`DESIGN_2.3_BRANCHING.md`](../ait/DESIGN_2.3_BRANCHING.md) section 6). What each written file holds for a splice is in [`OUTPUTS.md`](../OUTPUTS.md#a-splice).
 
 ## Contents
