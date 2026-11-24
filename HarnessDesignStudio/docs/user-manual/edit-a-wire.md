@@ -2,6 +2,8 @@
 
 This page shows how to change a wire after the tool has generated it (its gauge, type, colour, length, the strip length at each end, a label for the wire labels, and a note), how to draw a wire of your own, how to put several wires on one pin, how to twist or shield wires together and change such a group, how to set the same values on many wires at once, and how to label the harness and its connectors. To change a connector of a harness or its pins see [build a harness by hand](build-a-harness-by-hand.md#change-a-connector-and-its-pins).
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template overrides-and-deviations` makes a finished example of a generated wire whose gauge is overridden with a reason (W002-001), shown in the columns *Locked* and *Overrides* of the wire list.
+
 > **Since 1.4.0.** Before 1.4.0 the app had no way to change or draw a single wire (only the colour of a whole signal, see [set wire colours](set-wire-colours.md)). The steps in the app are described from the program's code and its tests; the program was not watched on a screen while this page was written.
 
 ![The Drawings area with the Edit wire tab beside Why: wire W001-003 is selected and its gauge, type, colour and length are filled in](../img/edit-wire-tab.png)

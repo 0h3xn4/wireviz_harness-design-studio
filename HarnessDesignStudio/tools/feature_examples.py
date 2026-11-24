@@ -10,12 +10,16 @@ a shipped folder differs from what the builder writes. Every name is made up for
 builder that ends with an open design rule error stops the build, so a template cannot ship one.
 """
 
+import csv
 import json
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 
 from harness_design_studio.core import (
     branching,
     build_data,
+    checks,
     configcheck,
     connector_edit,
     devices,
@@ -23,6 +27,7 @@ from harness_design_studio.core import (
     edit,
     links,
     manual_harness,
+    review,
     row_layout_edit,
     splices,
     wires,
@@ -31,8 +36,11 @@ from harness_design_studio.core.commands import History, Op, Put, SetConfig
 from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.model import Part, Project, RowLayout, evolve
 from harness_design_studio.core.model.config import ConfigFile
+from harness_design_studio.core.outputs.build import build_outputs, write_outputs
 from harness_design_studio.core.samples import new_project
 from harness_design_studio.core.templates import template_info
+from harness_design_studio.core.vcs import release
+from harness_design_studio.core.vcs.release import ReleasePlan
 from harness_design_studio.resources import examples_path
 
 
@@ -43,8 +51,8 @@ def _title(name: str) -> str:
 
 
 def _no_errors(name: str, p: Project) -> None:
-    errors = [f for f in drc.run(p) if f.severity == "error"]
-    if errors:  # an example must open without errors
+    errors = [f for f in drc.run(p) if f.severity == "error" and f.waiver is None]
+    if errors:  # an example must open without an open error (a deviation is accepted, not open)
         raise SystemExit(f"{name} has {len(errors)} design rule errors, first: {errors[0].title}")
 
 
@@ -667,6 +675,169 @@ def _lengths_to_the_face() -> Project:
     return p
 
 
+# ---- the devices of first-steps, made by the same calls (sections 4.9 and 4.10) ----------------
+
+
+def _first_steps_devices(history: History, p: Project) -> None:
+    """PCDU1, OBC1 and RW1 with the power link (2 A, EXAMPLE) and the RS-422 link of the example
+    `first-steps`, made by the calls of its builder; each interface names the two connectors that
+    `first-steps` leaves to the tool, so no choice of the tool waits for a person (`unconfirmed`)."""
+    _units(history, p, (("power", 0, 40.0), ("computer", 0, 280.0), ("actuator", 1, 150.0)))
+    for type_id, a, b, ca, cb in (
+        ("power_primary", "PCDU1", "RW1", "PCDU1-J01", "RW1-J01"),
+        ("rs422", "OBC1", "RW1", "OBC1-J01", "RW1-J02"),
+    ):
+        ops, iid = edit.ops_add_interface(p, type_id, a, b, ca, cb)
+        history.execute("add interface", ops)
+        if type_id == "power_primary":
+            history.execute("set current", edit.ops_update_interface(p, iid, max_current_a=2.0))
+
+
+def _template_lengths() -> dict[str, float]:
+    """The EXAMPLE segment lengths of the import template `segment-lengths.csv` (millimetres), in
+    metres, as `import-lengths DIR segment-lengths.csv --unit mm` reads them."""
+    root = examples_path()
+    assert root is not None
+    with (root / "templates" / "segment-lengths.csv").open(newline="", encoding="utf-8") as f:
+        return {row["segment"]: float(row["length"]) / 1000 for row in csv.DictReader(f)}
+
+
+def _exported(p: Project, folder: Path) -> None:
+    """The outputs written into a scratch folder, as `export` writes them; the release gate reads
+    them (`outputs_missing`), and no template ships `outputs/` (section 5.5)."""
+    write_outputs(p, folder, build_outputs(p, drawings=False))
+
+
+def _done(history: History, plan: ReleasePlan) -> None:
+    """A review, release or new version, run as the Releases tab runs it; a blocker stops the
+    build, so the template cannot ship without the step."""
+    if plan.blockers:
+        raise SystemExit(f"{plan.label}: {[b.code + ' ' + b.message for b in plan.blockers]}")
+    history.execute(plan.label, plan.ops)
+
+
+# ---- released-harness: a release and its next version (section 4.9) -----------------------------
+
+# The fixed dates of the template (section 5.4): never today, so a second build gives the same bytes
+EXAMPLE_DATES = {"review": "2026-01-12", "release": "2026-01-15", "new_version": "2026-01-20"}
+_DESIGNER, _CHECKER, _RELEASER = "Designer 1", "Checker 1", "Releaser 1"
+_TICKED = "1-20"  # the points of the review checklist that the person releasing says were ticked
+_LONGER = {"W002-L1": 1.0}  # the one change of version 1.1.0: EXAMPLE, 0.9 m becomes 1.0 m
+
+
+def _released_harness() -> Project:
+    """The devices of first-steps with the EXAMPLE values and lengths, the review checklist of the
+    template and different people in a release; W002 (power) reviewed and released as 1.0.0 with
+    ticks, then its minor version 1.1.0 started with one change (a segment length)."""
+    p = new_project(_title("released-harness"))
+    p.meta = evolve(
+        p.meta,
+        description="The power harness W002 was reviewed by Designer 1, checked by Checker 1 and "
+        "released as version 1.0.0 by Releaser 1, with points 1 to 20 of the review checklist "
+        "ticked and the EXAMPLE values and parts accepted with a reason; then its version 1.1.0 "
+        "was started, which makes W002-L1 0.1 m longer. Look at log DIR W002, diff DIR W002, the "
+        "version report and the Review sheet after an export, and the Releases tab; the manual "
+        "pages Release a harness, Change a released harness and Versions explain it.",
+    )
+    history = History(p)
+    _demo_values(history, p)
+    _first_steps_devices(history, p)
+    history.execute(
+        "review checklist", configcheck.plan_set_checklist(p, review.template_points()).ops
+    )
+    history.execute("different people", configcheck.plan_set_distinct_roles(p, True).ops)
+    generate_project(p)
+    _segment_lengths(history, p, _template_lengths())
+    generate_project(p)
+    with tempfile.TemporaryDirectory() as scratch:
+        outputs = Path(scratch) / "outputs"
+        _exported(p, outputs)
+        when = EXAMPLE_DATES["review"]
+        _done(history, release.plan_submit_review(p, "W002", by=_DESIGNER, when=when))
+        _done(
+            history,
+            release.plan_release(
+                p,
+                "W002",
+                by=_RELEASER,
+                checker=_CHECKER,
+                comment="First release of the power harness of RW1 (EXAMPLE)",
+                when=EXAMPLE_DATES["release"],
+                outputs_folder=outputs,
+                accept_placeholders="EXAMPLE values for learning",
+                accept_unapproved_parts="EXAMPLE parts for learning",
+                ticked=_TICKED,
+            ),
+        )
+    _done(
+        history,
+        release.plan_new_version(
+            p,
+            "W002",
+            kind="minor",
+            by=_DESIGNER,
+            comment="EXAMPLE: the power segment W002-L1 is 0.1 m longer",
+            when=EXAMPLE_DATES["new_version"],
+        ),
+    )
+    _segment_lengths(history, p, _LONGER)
+    generate_project(p)
+    _no_errors("released-harness", p)
+    return p
+
+
+# ---- overrides-and-deviations: three ways to accept (section 4.10) -----------------------------
+
+OVERRIDE_REASON = "EXAMPLE: the thinner wire of a bench cable"
+DEVIATION_REASON = "EXAMPLE: the bench cable carries the load for minutes only"
+WAIVER_REASON = "EXAMPLE: the two connectors are keyed differently on the real unit"
+# EXAMPLE segment lengths (metres): the RS-422 and the RW1 power harness short, W002 2 m
+_BENCH_POWER_METRES = {"W001-L1": 0.85, "W002-L1": 2.0, "W003-L1": 0.9}
+
+
+def _overrides_and_deviations() -> Project:
+    """The devices of first-steps and a second power interface from PCDU1-J02 to OBC1, with the
+    EXAMPLE values and lengths; the gauge of the power wire W002-001 overridden to a thinner one,
+    so two electrical errors that are accepted as deviations; the warning that the two identical
+    power connectors of PCDU1 could be swapped, waived."""
+    p = new_project(_title("overrides-and-deviations"))
+    p.meta = evolve(
+        p.meta,
+        description="The gauge of W002-001 is set by hand to AWG 24 in place of the AWG 22 that "
+        "Generate chose, with its reason, so the wire carries more current than it allows and "
+        "drops more voltage than the limit: both errors are accepted as deviations, each with a "
+        "reason. The warning that PCDU1-J01 and PCDU1-J02 could be swapped is waived. Look at "
+        "override DIR, deviation DIR, drc DIR and the flags of the wire list; the manual pages "
+        "Override a value and keep a history and Read and fix problems explain it.",
+    )
+    history = History(p)
+    _demo_values(history, p)
+    _first_steps_devices(history, p)
+    ops, iid = edit.ops_add_interface(
+        p, "power_primary", "PCDU1", "OBC1", "PCDU1-J02", "OBC1-J02", name="Power of OBC1"
+    )
+    history.execute("add interface Power of OBC1", ops)
+    history.execute("set current", edit.ops_update_interface(p, iid, max_current_a=2.0))
+    generate_project(p)
+    _segment_lengths(history, p, _BENCH_POWER_METRES)
+    generate_project(p)
+    assert p.harnesses["W002"].wires[0].gauge_awg == 22  # what Generate chose
+    history.execute(
+        "override W002-001", wires.plan_override(p, "W002-001", "gauge_awg", 24, OVERRIDE_REASON)
+    )
+    generate_project(p)  # the override is kept, and the outputs are no longer out of date
+    findings = {f.id: f for f in drc.run(p)}
+    ops = [
+        checks.deviate_op(findings[fid], DEVIATION_REASON)
+        for fid in ("current-over-wire.W002-001", "voltage-drop.W002-001")
+    ]
+    history.execute("two deviations", ops)
+    lookalike = findings["connector-lookalike.PCDU1-J01"]
+    history.execute("waive", [checks.waive_op(lookalike, WAIVER_REASON)])
+    _no_errors("overrides-and-deviations", p)
+    return p
+
+
 BUILDERS: dict[str, Callable[[], Project]] = {
     "full-connectors": _full_connectors,
     "splice-by-hand": _splice_by_hand,
@@ -675,4 +846,6 @@ BUILDERS: dict[str, Callable[[], Project]] = {
     "loose-cable-end": _loose_cable_end,
     "shields-and-ends": _shields_and_ends,
     "lengths-to-the-face": _lengths_to_the_face,
+    "released-harness": _released_harness,
+    "overrides-and-deviations": _overrides_and_deviations,
 }

@@ -1,0 +1,28 @@
+{
+  "waivers": [
+    {
+      "finding_hash": "1a6b8f4527a9",
+      "id": "connector-lookalike.PCDU1-J01",
+      "justification": "EXAMPLE: the two connectors are keyed differently on the real unit",
+      "notes": "",
+      "object_id": "PCDU1-J01",
+      "rule": "connector-lookalike"
+    },
+    {
+      "finding_hash": "d38b672fa269",
+      "id": "current-over-wire.W002-001",
+      "justification": "EXAMPLE: the bench cable carries the load for minutes only",
+      "notes": "",
+      "object_id": "W002-001",
+      "rule": "current-over-wire"
+    },
+    {
+      "finding_hash": "8f1c05851613",
+      "id": "voltage-drop.W002-001",
+      "justification": "EXAMPLE: the bench cable carries the load for minutes only",
+      "notes": "",
+      "object_id": "W002-001",
+      "rule": "voltage-drop"
+    }
+  ]
+}

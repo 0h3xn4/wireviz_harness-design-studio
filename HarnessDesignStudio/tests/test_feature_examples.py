@@ -23,21 +23,25 @@ from harness_design_studio.core import (
     build_data,
     checks,
     currents,
+    drc,
     integrity,
     links,
     manual_harness,
+    review,
     shield_ends,
     splices,
     templates,
     wires,
 )
-from harness_design_studio.core.commands import History, SetConfig, apply_ops
+from harness_design_studio.core.commands import History, Put, SetConfig, apply_ops
 from harness_design_studio.core.configcheck import with_value
 from harness_design_studio.core.derive import explain_wire
 from harness_design_studio.core.edit import EditError
+from harness_design_studio.core.errors import TransactionError
 from harness_design_studio.core.generate import lengths
 from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.io.loader import load_project
+from harness_design_studio.core.model import evolve
 from harness_design_studio.core.samples import new_project
 from harness_design_studio.resources import examples_path
 
@@ -58,6 +62,9 @@ NAMED: dict[str, frozenset[str]] = {
     "loose-cable-end": frozenset(),  # the loose ends are the part-unapproved of TBD-CONNECTOR
     "shields-and-ends": frozenset(),  # the end without a place is an info of check, not of drc
     "lengths-to-the-face": frozenset(),
+    "released-harness": frozenset(),
+    # the waived connector-lookalike and the two deviations are accepted, not open (section 4.10)
+    "overrides-and-deviations": frozenset(),
 }
 
 
@@ -582,3 +589,167 @@ def test_lengths_to_the_face_names_the_face_ends_and_a_missing_depth(tmp_path: P
     apply_ops(p, build_data.plan_set_part_depth(p, "EX-MICROD-15-M", None))
     missing = [i for i in integrity.check_integrity(p) if i.code == "length_depth_missing"]
     assert [(i.severity, i.object_id) for i in missing] == [("warning", "W002-P1")], missing
+
+
+# ---- released-harness (section 4.9) -------------------------------------------------------------
+
+RELEASE_DATES = {"review": "2026-01-12", "release": "2026-01-15", "new_version": "2026-01-20"}
+
+
+def test_released_harness_holds_a_release_with_ticks_and_its_next_version() -> None:
+    p = load_project(PROJECTS / "released-harness").project
+    assert sorted(p.units) == ["OBC1", "PCDU1", "RW1"] and len(p.interfaces) == 2
+    naming = p.config["naming"].values
+    assert naming["review_checklist"] == review.template_points() and len(naming["review_checklist"]) == 26  # fmt: skip
+    assert naming["release_distinct_roles"] is True
+    w1, w2 = p.harnesses["W001"], p.harnesses["W002"]
+    assert (w1.status, w1.version) == ("draft", "1.0.0")  # the RS-422 harness stays a draft
+    assert (w2.status, w2.version, w2.author) == ("draft", "1.1.0", "Designer 1")
+    assert (w2.checker, w2.approver, w2.released_on) == (None, None, None)
+    assert list(p.baselines) == ["W002.1.0.0"]  # W001 has none
+    base = p.baselines["W002.1.0.0"]
+    assert (base.harness_id, base.version, base.by, base.released_on) == ("W002", "1.0.0", "Releaser 1", RELEASE_DATES["release"])  # fmt: skip
+    [frozen] = base.snapshot.harnesses
+    assert (frozen.id, frozen.status, frozen.author, frozen.checker, frozen.approver) == ("W002", "released", "Designer 1", "Checker 1", "Releaser 1")  # fmt: skip
+    assert base.comment.startswith("First release of the power harness of RW1 (EXAMPLE)")
+    for words in (
+        "accepted by Releaser 1: EXAMPLE values for learning",
+        "accepted by Releaser 1: EXAMPLE parts for learning",
+        f"[Review checklist (26 points, list {review.list_hash(review.template_points())}), "
+        "recorded by Releaser 1: ticked 1-20; not ticked 21",
+    ):
+        assert words in base.comment, words
+    entries = [(e.id, e.harness_id, e.version, e.kind, e.by, e.when) for e in p.changelog.values()]
+    assert entries == [
+        ("C0001", "W002", "1.0.0", "review", "Designer 1", RELEASE_DATES["review"]),
+        ("C0002", "W002", "1.0.0", "release", "Releaser 1", RELEASE_DATES["release"]),
+        ("C0003", "W002", "1.1.0", "new_version", "Designer 1", RELEASE_DATES["new_version"]),
+    ]
+    # the one change of 1.1.0: the EXAMPLE segment length of segment-lengths.csv, 0.1 m longer
+    assert {s.id: s.length_m for s in w2.segments} == {"W002-L1": 1.0}
+    assert {s.id: s.length_m for s in frozen.segments} == {"W002-L1": 0.9}
+    assert {s.id: s.length_m for s in w1.segments} == {"W001-L1": 0.85}
+
+
+def test_released_harness_shows_its_history_in_log_and_diff(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "released-harness", "--no-journal"]) == 0
+    log = run(capsys, "log", str(folder), "W002")
+    assert [(e["version"], e["event"], e["by"], e["date"]) for e in log["entries"]] == [
+        ("1.0.0", "submitted for review", "Designer 1", RELEASE_DATES["review"]),
+        ("1.0.0", "released", "Releaser 1", RELEASE_DATES["release"]),
+        ("1.1.0", "new version started", "Designer 1", RELEASE_DATES["new_version"]),
+    ]
+    diff = run(capsys, "diff", str(folder), "W002")
+    assert (diff["from"], diff["to"]) == ("1.0.0", "working")
+    changed = {(c["kind"], c["id"]): {f["name"]: (f["before"], f["after"]) for f in c["fields"]} for c in diff["changes"]}  # fmt: skip
+    assert changed[("segment", "W002-L1")] == {"length_m": (0.9, 1.0)}
+    assert changed[("harness", "W002")]["version"] == ("1.0.0", "1.1.0")
+    assert changed[("harness", "W002")]["status"] == ("released", "draft")
+    assert {c["change"] for c in diff["changes"]} == {"changed"}
+    out = _exported(tmp_path, "released-harness")
+    report = (out / "system" / "version_report.md").read_text(encoding="utf-8")
+    assert "## W002 (version 1.1.0, draft)" in report
+    assert "2026-01-15, Releaser 1: version 1.0.0 released: First release" in report
+    assert "recorded by Releaser 1: ticked 1-20" in report
+
+
+def test_released_harness_survives_new_with_a_name_and_its_next_release_freezes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A copy made with another name and annotated config files keeps the release (section 9);
+    releasing 1.1.0 on it locks what W002 uses again (the page's next step)."""
+    folder = tmp_path / "p"
+    argv = ["new", str(folder), "--template", "released-harness", "--name", "Wheel power (EXAMPLE)"]
+    assert main([*argv, "--annotate-config"]) == 0
+    doc = run(capsys, "check", str(folder))
+    assert doc["errors"] == 0 and doc["warnings"] == 0, doc["issues"]
+    assert run(capsys, "drc", str(folder))["open_errors"] == 0
+    p = load_project(folder).project
+    assert p.meta.name == "Wheel power (EXAMPLE)" and list(p.baselines) == ["W002.1.0.0"]
+    assert main(["export", str(folder)]) == 0
+    assert main(["review", str(folder), "W002", "--by", "Designer 1", "--date", "2026-01-21"]) == 0
+    same = ["release", str(folder), "W002", "--by", "Designer 1", "--checker", "Checker 1",
+            "--date", "2026-01-22", "--comment", "Second release of the power harness",
+            "--accept-placeholders", "EXAMPLE values for learning",
+            "--accept-unapproved-parts", "EXAMPLE parts for learning", "--ticked", "all"]  # fmt: skip
+    capsys.readouterr()
+    assert main(same) == 1  # different people in a release: the author does not release
+    assert "[same_person]" in capsys.readouterr().err
+    assert main([*same[:4], "Releaser 1", *same[5:]]) == 0
+    p = load_project(folder).project
+    assert p.harnesses["W002"].status == "released"
+    assert sorted(p.baselines) == ["W002.1.0.0", "W002.1.1.0"]
+    used = next(w for w in p.harnesses["W002"].wires if w.signal == "PWR")
+    box = next(c.mates_with for c in p.harnesses["W002"].connectors if c.id == used.from_connector)
+    assert box is not None
+    c = p.connectors[box]
+    renamed = [evolve(x, signal="MOVED") if x.id == used.from_pin else x for x in c.pins]
+    with pytest.raises(TransactionError, match="touches released items") as refused:
+        History(p).execute("rename a pin W002 uses", [Put("connectors", evolve(c, pins=renamed))])
+    assert any("W002 is released (version 1.1.0)" in why for why in refused.value.problems)
+
+
+# ---- overrides-and-deviations (section 4.10) ----------------------------------------------------
+
+OVERRIDE_REASON = "EXAMPLE: the thinner wire of a bench cable"
+DEVIATION_REASON = "EXAMPLE: the bench cable carries the load for minutes only"
+WAIVER_REASON = "EXAMPLE: the two connectors are keyed differently on the real unit"
+
+
+def test_overrides_and_deviations_stores_the_override_the_waiver_and_the_deviations() -> None:
+    p = load_project(PROJECTS / "overrides-and-deviations").project
+    assert sorted(p.units) == ["OBC1", "PCDU1", "RW1"] and len(p.interfaces) == 3
+    power = {i.name: (e.connector_id for e in i.endpoints) for i in p.interfaces.values()}
+    assert list(power["Power of OBC1"]) == ["PCDU1-J02", "OBC1-J02"]  # both PCDU1 power connectors
+    h = p.harnesses["W002"]
+    assert {c.mates_with for c in h.connectors} == {"PCDU1-J02", "OBC1-J02"}
+    assert {s.id: s.length_m for s in h.segments} == {"W002-L1": 2.0}  # EXAMPLE
+    w1, w2 = h.wires
+    assert (w1.id, w1.signal, w1.gauge_awg, w1.locked, w1.overrides) == ("W002-001", "PWR", 24, True, {"gauge_awg": OVERRIDE_REASON})  # fmt: skip
+    assert (w2.id, w2.gauge_awg, w2.locked, w2.overrides) == ("W002-002", 22, False, {})  # fmt: skip
+    stored = {w.id: (w.rule, w.object_id, w.justification) for w in p.waivers.values()}
+    assert stored == {
+        "connector-lookalike.PCDU1-J01": ("connector-lookalike", "PCDU1-J01", WAIVER_REASON),
+        "current-over-wire.W002-001": ("current-over-wire", "W002-001", DEVIATION_REASON),
+        "voltage-drop.W002-001": ("voltage-drop", "W002-001", DEVIATION_REASON),
+    }
+    found = {f.id: f for f in drc.run(p)}
+    assert found["connector-lookalike.PCDU1-J01"].waiver is not None
+    assert not found["connector-lookalike.PCDU1-J01"].deviation  # a warning is waived
+    for fid in ("current-over-wire.W002-001", "voltage-drop.W002-001"):
+        assert found[fid].severity == "error" and found[fid].deviation, fid  # accepted, not fixed
+
+
+def test_overrides_and_deviations_drc_shows_two_deviations_and_exits_0(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "overrides-and-deviations", "--no-journal"]) == 0
+    capsys.readouterr()
+    assert main(["drc", str(folder)]) == 0
+    said = capsys.readouterr().out
+    assert "Waived: 1. Deviations: 2." in said
+    assert "Wire W002-001 (AWG 24) carries 2 A but allows 1.44 A after derating" in said
+    assert "Wire W002-001 drops 0.706 V, more than the 0.5 V limit" in said
+    doc = run(capsys, "drc", str(folder))
+    assert doc["open_errors"] == 0 and doc["waived"] == 3
+    waived = {f["id"]: (f["severity"], f["waiver_justification"]) for f in doc["findings"] if f["waived"]}  # fmt: skip
+    assert waived == {
+        "connector-lookalike.PCDU1-J01": ("warning", WAIVER_REASON),
+        "current-over-wire.W002-001": ("error", DEVIATION_REASON),
+        "voltage-drop.W002-001": ("error", DEVIATION_REASON),
+    }
+    shown = run(capsys, "override", str(folder), "W002-001")
+    assert shown["overrides"] == [{"field": "gauge_awg", "value": 24, "reason": OVERRIDE_REASON}]
+    gauges = {i["name"]: i["value"] for i in shown["derivation"]["inputs"]}
+    assert gauges == {"Gauge set by the engineer": 24, "Gauge the design would give": 22}
+    capsys.readouterr()
+    assert main(["deviation", str(folder)]) == 0
+    listed = capsys.readouterr().out
+    assert listed.count("DEVIATION ") == 2 and listed.count(f"reason: {DEVIATION_REASON}") == 2
+    out = _exported(tmp_path, "overrides-and-deviations")
+    flags = {r["Wire"]: (r["Locked"], r["Overrides"]) for r in _table(out / "harnesses" / "W002" / "wirelist.csv")}  # fmt: skip
+    assert flags == {"W002-001": ("yes", f"gauge_awg: {OVERRIDE_REASON}"), "W002-002": ("", "")}

@@ -2,6 +2,8 @@
 
 This page shows how to set a value of a generated wire yourself and say why, how the tool keeps what you set and flags it everywhere, how to accept an error of an electrical rule as a recorded deviation, and how to keep and read the change history of a project: who changed what, when, from what to what, and why. Use it when a review asks *who changed this, and on what grounds?*
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template overrides-and-deviations` makes a finished example: the gauge of W002-001 overridden with its reason, the two errors this makes (`current-over-wire.W002-001`, `voltage-drop.W002-001`) accepted as deviations, and a warning waived. It has no journal; `new` starts one, so who and when are recorded from then on.
+
 > **Since stage S4 of the transparency work** (decision D-191). The steps in the editor are described from the program's code and its tests; the program was not watched on a screen while this page was written. Nothing here says that a design meets a requirement: an override or a deviation records that **a person decided**, it does not make the design right.
 
 ## Contents
