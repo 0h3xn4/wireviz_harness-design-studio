@@ -19,8 +19,24 @@ from typing import Any
 import pytest
 
 from harness_design_studio.cli.main import main
-from harness_design_studio.core import checks, currents, links, splices, templates
+from harness_design_studio.core import (
+    build_data,
+    checks,
+    currents,
+    integrity,
+    links,
+    manual_harness,
+    shield_ends,
+    splices,
+    templates,
+    wires,
+)
+from harness_design_studio.core.commands import History, SetConfig, apply_ops
+from harness_design_studio.core.configcheck import with_value
 from harness_design_studio.core.derive import explain_wire
+from harness_design_studio.core.edit import EditError
+from harness_design_studio.core.generate import lengths
+from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.io.loader import load_project
 from harness_design_studio.core.samples import new_project
 from harness_design_studio.resources import examples_path
@@ -38,6 +54,10 @@ NAMED: dict[str, frozenset[str]] = {
     "full-connectors": frozenset(),
     "splice-by-hand": frozenset(),  # no `isolated` since part E (section 4.3)
     "splice-from-connection": frozenset(),
+    "branching-harness": frozenset(),
+    "loose-cable-end": frozenset(),  # the loose ends are the part-unapproved of TBD-CONNECTOR
+    "shields-and-ends": frozenset(),  # the end without a place is an info of check, not of drc
+    "lengths-to-the-face": frozenset(),
 }
 
 
@@ -326,3 +346,239 @@ def test_every_device_connector_has_all_the_pins_of_its_part(name: str) -> None:
         if part is None or part.pin_count is None:
             continue
         assert len(c.pins) == part.pin_count, (cid, len(c.pins), part.pin_count)
+
+
+# ---- branching-harness (section 4.5) ------------------------------------------------------------
+
+
+def test_branching_harness_branches_where_one_connector_serves_two_devices() -> None:
+    p = load_project(PROJECTS / "branching-harness").project
+    assert sorted(p.units) == ["OBC1", "PCDU1", "RW1", "TRX1"]
+    assert p.config["segmentation"].values["mode"] == "per_connector_group"
+    assert len(p.interfaces) == 4 and all(not e.auto for i in p.interfaces.values() for e in i.endpoints)  # fmt: skip
+    want = {
+        "W001": ({"PCDU1-J01", "OBC1-J02", "TRX1-J01"}, "W001-B1"),
+        "W002": ({"OBC1-J03", "RW1-J02", "TRX1-J02"}, "W002-B2"),  # numbered across the project
+    }
+    assert sorted(p.harnesses) == sorted(want)
+    for hid, (plugs, branch) in want.items():
+        h = p.harnesses[hid]
+        assert h.generated and {c.mates_with for c in h.connectors} == plugs
+        assert [b.id for b in h.branch_points] == [branch]
+        assert len(h.segments) == 3 and all(branch in (s.from_node, s.to_node) for s in h.segments)
+        assert all(s.length_m is not None for s in h.segments)  # EXAMPLE lengths, kept by Generate
+    lengths_of = {s.id: s.length_m for h in p.harnesses.values() for s in h.segments}
+    assert lengths_of == {
+        "W001-L1": 0.5, "W001-L2": 0.3, "W001-L3": 0.6,
+        "W002-L1": 0.4, "W002-L2": 0.7, "W002-L3": 0.5,
+    }  # fmt: skip
+
+
+def test_branching_harness_routes_each_wire_through_its_branch_point(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "branching-harness", "--no-journal"]) == 0
+    doc = run(capsys, "routing", str(folder), "W002")
+    assert doc["branches"] is True
+    through = {s["id"]: set(s["wires"]) for s in doc["segments"]}
+    assert through["W002-L1"] == through["W002-L2"] | through["W002-L3"]  # the trunk from OBC1
+    assert not through["W002-L2"] & through["W002-L3"]  # each branch to one device
+    p = load_project(folder).project
+    length = next(d for d in explain_wire(p, "W002-001") if d.id == "wire-length")
+    assert [i.name for i in length.inputs if i.name.startswith("Segment")] == [
+        "Segment W002-L1", "Segment W002-L3",
+    ]  # fmt: skip
+    assert length.value == pytest.approx(0.9)
+    out = _exported(tmp_path, "branching-harness")
+    assert (out / "harnesses" / "W002" / "segments.csv").is_file()
+
+
+# ---- loose-cable-end (section 4.6) --------------------------------------------------------------
+
+
+def test_loose_cable_end_has_a_cable_with_two_loose_ends_and_a_branch_point() -> None:
+    p = load_project(PROJECTS / "loose-cable-end").project
+    assert sorted(p.units) == ["OBC1", "PCDU1"] and len(p.interfaces) == 1
+    assert p.harnesses["W001"].generated
+    h = p.harnesses["W002"]
+    assert h.name == "Bench cable" and not h.generated
+    plug = next(c for c in h.connectors if c.role == "cable")
+    assert (plug.id, plug.mates_with) == ("W002-P1", "OBC1-J03")
+    loose = manual_harness.loose_ends(h)
+    assert [(c.id, c.part_id, c.mates_with) for c in loose] == [
+        ("W002-P2", manual_harness.TBD_PART_ID, None),
+        ("W002-P3", manual_harness.TBD_PART_ID, None),
+    ]
+    assert [[(x.id, x.signal) for x in c.pins] for c in loose] == [
+        [("1", "TM+"), ("2", "TM-")],
+        [("3", "TC+"), ("4", "TC-")],
+    ]
+    ends = {(w.from_connector, w.from_pin, w.to_connector, w.to_pin) for w in h.wires}
+    assert ends == {
+        ("W002-P1", "1", "W002-P2", "1"), ("W002-P1", "2", "W002-P2", "2"),
+        ("W002-P1", "3", "W002-P3", "3"), ("W002-P1", "4", "W002-P3", "4"),
+    }  # fmt: skip
+    assert [b.id for b in h.branch_points] == ["W002-B1"]  # the leg of the TC pins branches off
+    assert {(s.from_node, s.to_node) for s in h.segments} == {
+        ("W002-P1", "W002-B1"), ("W002-B1", "W002-P2"), ("W002-B1", "W002-P3"),
+    }  # fmt: skip
+    assert {g.kind for g in h.shields} == {"twisted_pair"} and len(h.shields) == 2
+    assert not [f for f in checks.find(p) if f.rule == "isolated"]
+
+
+def test_loose_cable_end_names_its_loose_ends_and_a_release_asks_for_a_reason(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "p"
+    assert main(["new", str(folder), "--template", "loose-cable-end", "--no-journal"]) == 0
+    drc = run(capsys, "drc", str(folder))
+    loose = next(f for f in drc["findings"] if f["id"] == "part-unapproved.TBD-CONNECTOR")
+    assert "2 cable end(s) have no connector chosen yet (loose end)" in loose["title"]
+    assert main(["export", str(folder)]) == 0  # the release gate reads the outputs
+    assert main(["review", str(folder), "W002", "--by", "Designer 1", "--date", "2026-01-12"]) == 0
+    release = ["release", str(folder), "W002", "--by", "Checker 1", "--date", "2026-01-15",
+               "--comment", "EXAMPLE release for learning",
+               "--accept-placeholders", "EXAMPLE values for learning",
+               "--accept-unapproved-parts", "EXAMPLE parts for learning"]  # fmt: skip
+    capsys.readouterr()
+    assert main(release) == 1
+    said = capsys.readouterr()
+    blocked = [ln for ln in (said.out + said.err).splitlines() if ln.startswith("blocked:")]
+    assert len(blocked) == 1 and "[loose_end_unresolved]" in blocked[0], blocked  # only that
+    assert "W002-P2, W002-P3" in blocked[0]
+    assert main([*release, "--accept-loose-ends", "EXAMPLE: the bench end is chosen later"]) == 0
+    assert load_project(folder).project.harnesses["W002"].status == "released"
+
+
+# ---- shields-and-ends (section 4.7) -------------------------------------------------------------
+
+
+def _places(p: Any) -> dict[tuple[str, str], tuple[str, str, str | None, str | None] | None]:
+    """(group, end) -> (kind of end, connector, pin, backshell) of its place, or None."""
+    out: dict[tuple[str, str], tuple[str, str, str | None, str | None] | None] = {}
+    for h in p.harnesses.values():
+        for s in h.shields:
+            if s.kind == "twisted_pair":
+                continue
+            for end in shield_ends.ENDS:
+                place = shield_ends.place_of(s, end)
+                kind = shield_ends.kind_of_end(s, end)
+                out[(s.id, end)] = None if place is None else (kind, place.connector, place.pin, place.backshell)  # fmt: skip
+    return out
+
+
+def test_shields_and_ends_lands_each_end_where_its_place_says() -> None:
+    p = load_project(PROJECTS / "shields-and-ends").project
+    assert sorted(p.units) == ["OBC1", "RW1", "TTC1"]
+    gen = p.config["generation"]
+    assert gen.placeholder and (gen.values["shield_end_a"], gen.values["shield_end_b"]) == ("pigtail", "backshell_360")  # fmt: skip
+    part = p.parts["EX-BACKSHELL-MICROD"]
+    assert part.category == "backshell" and part.depth_mm == 30.0
+    assert part.unverified and "EXAMPLE ONLY: not a real part" in (part.description or "")
+    assert all(x.approval != "approved" for x in p.parts.values())  # nothing approved (T5)
+    shells = {
+        (h.id, a.id): (a.kind, a.part_id, a.target) for h in p.harnesses.values() for a in h.accessories
+    }  # fmt: skip
+    assert shells == {
+        ("W001", "W001-A1"): ("backshell", "EX-BACKSHELL-MICROD", "W001-P2"),
+        ("W001", "W001-A2"): ("backshell", "EX-BACKSHELL-MICROD", "W001-P1"),
+        ("W002", "W002-A1"): ("backshell", "EX-BACKSHELL-MICROD", "W002-P2"),
+    }
+    assert _places(p) == {
+        ("W001-S1", "a"): ("pigtail", "W001-P1", "5", None),  # a pigtail to a pin
+        ("W001-S1", "b"): ("backshell_360", "W001-P2", None, "W001-A1"),  # a 360 degree bond
+        ("W001-S2", "a"): ("pigtail", "W001-P2", None, "W001-A1"),  # a pigtail to the lug
+        ("W001-S2", "b"): ("backshell_360", "W001-P1", None, "W001-A2"),
+        ("W002-S2", "a"): None,  # not stated, on purpose
+        ("W002-S2", "b"): ("backshell_360", "W002-P2", None, "W002-A1"),
+    }
+    h = p.harnesses["W001"]  # end A of the two pairs of one harness at different connectors
+    ends_a = {s.id: shield_ends.end_connector(h, s, "a") for s in h.shields}
+    assert ends_a == {"W001-S1": "W001-P1", "W001-S2": "W001-P2"}
+    pin5 = next(x for x in p.connectors["OBC1-J01"].pins if x.id == "5")
+    assert (pin5.signal, pin5.role) == ("SHLD", "shield")  # the device pin the pigtail meets
+    info = [i for i in integrity.check_integrity(p) if i.code.startswith("shield_")]
+    assert [(i.severity, i.code, i.object_id) for i in info] == [
+        ("info", "shield_place_not_stated", "W002-S2")
+    ]
+
+
+def test_shields_and_ends_writes_each_place_into_the_production_sheet(tmp_path: Path) -> None:
+    openpyxl = pytest.importorskip("openpyxl")
+    out = _exported(tmp_path, "shields-and-ends")
+    cells = set()
+    for hid in ("W001", "W002"):
+        sheet = openpyxl.load_workbook(out / "harnesses" / hid / f"{hid}_build.xlsx")["Production"]
+        cells |= {str(c) for row in sheet.iter_rows(values_only=True) for c in row if c}
+    for words in (
+        "W001-S1 shielded pair: here pigtail to pin 5, far backshell 360",
+        "W001-S1 shielded pair: here backshell 360 (W001-A1), far pigtail",
+        "W001-S2 shielded pair: here pigtail to backshell W001-A1, far backshell 360",
+        "W001-S1 shielded pair: pigtail lands here",  # the row of pin 5
+        "W002-S1 twisted pair; W002-S2 overall shield: here pigtail, far backshell 360",
+    ):
+        assert words in cells, words
+
+
+def test_shields_and_ends_a_floating_end_lands_nowhere() -> None:
+    """The fourth kind of end: with end B of the grounding concept floating (the exercise of the
+    page, on a copy), Generate makes every end B floating, its place goes, and no place is taken."""
+    p = load_project(PROJECTS / "shields-and-ends").project
+    gen = p.config["generation"]
+    History(p).execute("end B floating", [SetConfig(with_value(gen, "shield_end_b", "floating"))])
+    generate_project(p)
+    s1 = next(s for s in p.harnesses["W001"].shields if s.id == "W001-S1")
+    assert (s1.end_a, s1.end_b) == ("pigtail", "floating") and s1.at_b is None
+    with pytest.raises(EditError, match="floating, so it lands nowhere"):
+        wires.plan_set_shield_place(p, "W001-S1", "B", backshell="W001-A1")
+    assert not [f for f in checks.find(p) if f.rule == "shield-wrong-end"]
+
+
+# ---- lengths-to-the-face (section 4.8) ----------------------------------------------------------
+
+
+def test_lengths_to_the_face_measures_to_the_face_and_takes_the_depths_off() -> None:
+    p = load_project(PROJECTS / "lengths-to-the-face").project
+    assert sorted(p.units) == ["PCDU1", "RW1"]
+    model = p.config["model"]
+    assert model.placeholder and model.values == {
+        "length_reference": "face",
+        "length_model": "path_loops_allowance_twist",  # the selectable length model of 1.15.0
+        "cut_allowance_m": 0.03,
+        "twist_takeup_fraction": 0.02,
+    }
+    assert lengths.length_reference(p) == "face"
+    depth = {k: p.parts[k].depth_mm for k in ("EX-MICROD-9-M", "EX-MICROD-15-M", "EX-MICROD-21-M", "EX-BACKSHELL-MICROD")}  # fmt: skip
+    assert depth == {"EX-MICROD-9-M": 18.0, "EX-MICROD-15-M": 19.0, "EX-MICROD-21-M": 20.0, "EX-BACKSHELL-MICROD": 30.0}  # fmt: skip
+    w1, w2 = p.harnesses["W001"], p.harnesses["W002"]
+    to = {c.id: (c.length_to, lengths.measured_to(c, "face")) for h in (w1, w2) for c in h.connectors}  # fmt: skip
+    assert to == {
+        "W001-P1": (None, "face"), "W001-P2": (None, "face"),
+        "W002-P1": (None, "face"), "W002-P2": ("rear", "rear"),  # set back to its rear
+    }  # fmt: skip
+    assert [(a.id, a.kind, a.part_id, a.target) for a in w1.accessories] == [
+        ("W001-A1", "backshell", "EX-BACKSHELL-MICROD", "W001-P1")
+    ]
+    assert lengths.end_depths(p, w1).depths == {"W001-P1": 0.048, "W001-P2": 0.018}
+    assert lengths.end_depths(p, w2).depths == {"W002-P1": 0.019}  # nothing at the rear end
+    assert {s.id: s.length_m for h in (w1, w2) for s in h.segments} == {"W001-L1": 1.2, "W002-L1": 0.9}  # fmt: skip
+    # rear to rear, two service loops of 0.05 m, the take-up of twisting and the cut allowance
+    for h, rear in ((w1, 1.2 - 0.066), (w2, 0.9 - 0.019)):
+        want = (rear + 2 * 0.05) * 1.02 + 0.03
+        assert [w.length_m for w in h.wires] == [pytest.approx(want)] * len(h.wires), h.id
+    steps = {s.label: s.expression for d in explain_wire(p, "W001-001") if d.id == "wire-length" for s in d.steps}  # fmt: skip
+    assert steps["Path from rear to rear"] == "1.2 − 0.066"
+
+
+def test_lengths_to_the_face_names_the_face_ends_and_a_missing_depth(tmp_path: Path) -> None:
+    out = _exported(tmp_path, "lengths-to-the-face")
+    p = load_project(PROJECTS / "lengths-to-the-face").project
+    note = lengths.face_line(p, p.harnesses["W002"])
+    assert note is not None and "but at W002-P2" in note
+    exported = json.loads((out / "system" / "export.json").read_text(encoding="utf-8"))
+    assert "length_to" in json.dumps(exported) and "depth_mm" in json.dumps(exported)
+    # the exercise of the page: take the depth off a part at a face end, and check names it
+    apply_ops(p, build_data.plan_set_part_depth(p, "EX-MICROD-15-M", None))
+    missing = [i for i in integrity.check_integrity(p) if i.code == "length_depth_missing"]
+    assert [(i.severity, i.object_id) for i in missing] == [("warning", "W002-P1")], missing

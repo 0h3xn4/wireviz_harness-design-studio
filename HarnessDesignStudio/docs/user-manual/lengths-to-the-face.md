@@ -2,6 +2,8 @@
 
 This page shows how to tell the tool that your segment lengths run to the **mating face** of a cable connector instead of its rear, how to give each connector part and backshell its **depth**, and what the lengths, the checks and the written files then say. A length taken from a mechanical model of the boxes often runs to the face of the connectors; the cut length of a wire runs from rear to rear.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template lengths-to-the-face` makes a finished example: segments measured to the mating face, W002-P2 measured to its rear, EXAMPLE depths on the connector parts and on the backshell of W001-P1, and the length model with a cut allowance and the take-up of twisting.
+
 > **New in 5.0.0** (format 5, decision D-264 proposed, [`DESIGN_5.0_FORMAT_5.md`](../ait/DESIGN_5.0_FORMAT_5.md) part A). A project of 4.x is upgraded once first ([upgrade a project](upgrade-a-project.md#9-from-format-4-to-format-5-500)). The model and its equation are on [wire length](../models/wire-length.md#a-face-end-and-the-depth-of-a-connector); the keys of the files are in [`FILE_FORMAT.md`](../FILE_FORMAT.md#lengths-to-the-face-part-a); what each written file holds is in [`OUTPUTS.md`](../OUTPUTS.md#a-face-end). The examples below are the walk of `tests/test_e2e_500.py` on the sample `mini3`; the depths in them are made up.
 
 ## Contents

@@ -50,6 +50,10 @@ TEMPLATE_MODES = {
     "full-connectors": PAIR,  # one harness per pair of connectors reads easily (design of 5.1.0)
     "splice-by-hand": PAIR,  # no interface: Generate makes nothing, the mode is not used
     "splice-from-connection": PAIR,
+    "branching-harness": GROUP,  # the feature: one harness per device connector that serves two
+    "loose-cable-end": PAIR,
+    "shields-and-ends": PAIR,
+    "lengths-to-the-face": PAIR,
 }
 
 
