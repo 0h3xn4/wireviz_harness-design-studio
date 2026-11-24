@@ -1,0 +1,6 @@
+{
+  "description": "The folder extensions/ adds a rule (x-min-gauge-power: no power wire thinner than AWG 22), a table of the power wires with a lookup table of EXAMPLE ampacities and a rule against it (x-own-ampacity), all written as data, and a Python plug-in (duplicate-signal-wires) that stays off until you trust it. Look at extensions DIR, drc DIR and system/extensions/power-wires.csv after an export; trust DIR duplicate-signal-wires is the exercise. The manual page Extend the tool explains it.",
+  "name": "Extensions (EXAMPLE)",
+  "schema_version": 5,
+  "tool_version": "5.0.0"
+}

@@ -1,0 +1,22 @@
+{
+  "units": [
+    {
+      "id": "TTC1",
+      "mass_relevant": true,
+      "name": "Transceiver",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "comms",
+      "zone": "panel-B"
+    },
+    {
+      "id": "TTC1-R",
+      "mass_relevant": true,
+      "name": "Transceiver (redundant)",
+      "notes": "",
+      "side": "redundant",
+      "subsystem": "comms",
+      "zone": "panel-A"
+    }
+  ]
+}

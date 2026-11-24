@@ -1,0 +1,19 @@
+{
+  "units": [
+    {
+      "checked": {
+        "by": "Reviewer 1",
+        "icd": "ICD-OBC EXAMPLE Issue 2",
+        "on": "2026-01-15",
+        "sha256": "060d47ca01df509b79c0756f2d92f2fb269592c4b7e76329a0a81ca5b8c21e77"
+      },
+      "id": "OBC1",
+      "mass_relevant": true,
+      "name": "On-board computer",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "avionics",
+      "zone": "panel-A"
+    }
+  ]
+}

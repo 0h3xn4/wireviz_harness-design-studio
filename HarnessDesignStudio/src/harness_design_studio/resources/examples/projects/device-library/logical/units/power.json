@@ -1,0 +1,13 @@
+{
+  "units": [
+    {
+      "id": "PCDU1",
+      "mass_relevant": true,
+      "name": "Power control unit",
+      "notes": "",
+      "side": "nominal",
+      "subsystem": "Power",
+      "zone": "panel-B"
+    }
+  ]
+}

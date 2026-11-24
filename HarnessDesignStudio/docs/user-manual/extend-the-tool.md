@@ -2,6 +2,8 @@
 
 This page shows how to add a rule, a table or a reader to a project without changing the tool: first with a data file, which runs no code, and then, if a data file cannot say what you need, with a Python plug-in. Both are off until the project turns them on, and Python code does not run until you have also said that you trust that exact code.
 
+**Example** (since 5.1.0): `harness-design-studio new practice --template extensions` makes a finished example: the devices of `first-steps`, generated with the EXAMPLE values and lengths, and the folder `extensions/` with the files of [`docs/examples/extensions/`](../examples/extensions/README.md) (`new` copies it). `extensions practice` lists the two data files *enabled, applied* and the plug-in *not trusted* (and ends with exit code 1 while it is); `drc practice` says `Rules run: 45`, and the two data rules are silent on its power wires (AWG 22 at 2 A: at the limit of `x-min-gauge-power`, under the 7 A of the table of `x-own-ampacity`); the warning `x-extension-problem.duplicate-signal-wires` says the plug-in was not loaded. `export practice` writes `system/extensions/power-wires.csv`. `trust practice duplicate-signal-wires` is the exercise: `new` never copies a trust.
+
 ## Contents
 
 - [Before you start](#before-you-start)

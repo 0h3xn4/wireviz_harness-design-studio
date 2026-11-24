@@ -1,0 +1,9 @@
+{
+  "format": "harness-project-libraries",
+  "version": 1,
+  "device_libraries": [
+    {
+      "path": "team-library"
+    }
+  ]
+}

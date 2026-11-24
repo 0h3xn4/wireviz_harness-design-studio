@@ -59,6 +59,8 @@ strict = true
 python_version = "3.14"
 plugins = ["pydantic.mypy"]
 files = ["src", "tests", "tools"]
+# the example plug-in of the template `extensions` is data that `new` copies into a project
+exclude = ["^src/harness_design_studio/resources/examples/"]
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

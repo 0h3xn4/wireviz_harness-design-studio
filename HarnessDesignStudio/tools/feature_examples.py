@@ -8,6 +8,9 @@ so each project is valid by construction and in the current format.
 `tools/build_examples.py` merges `BUILDERS` into its own and writes the folders; a test fails while
 a shipped folder differs from what the builder writes. Every name is made up for the example. A
 builder that ends with an open design rule error stops the build, so a template cannot ship one.
+`BESIDE` gives, for the two examples that keep files beside their model (`extensions/`,
+`device-libraries.json` and a library folder; part C of the design), those files by their path in
+the example's folder; `core.templates.create_project` copies them into a new project.
 """
 
 import csv
@@ -24,13 +27,17 @@ from harness_design_studio.core import (
     checks,
     configcheck,
     connector_edit,
+    device_check,
     devices,
     document,
     drc,
     edit,
     import_reports,
     kicad,
+    library_folder,
     library_import,
+    library_link,
+    library_pointer,
     links,
     manual_harness,
     pinout_import,
@@ -42,11 +49,14 @@ from harness_design_studio.core import (
     wires,
 )
 from harness_design_studio.core import imports as imports_table
+from harness_design_studio.core import subsystem_library as subsystems
 from harness_design_studio.core.commands import History, Op, Put, SetConfig
+from harness_design_studio.core.extensions import manager as extensions_manager
 from harness_design_studio.core.generate import lengths
 from harness_design_studio.core.generate.engine import generate_project
 from harness_design_studio.core.import_record import ImportReport, file_sha256, record_ops
 from harness_design_studio.core.imports import read_table_sheet
+from harness_design_studio.core.library_git import library_git
 from harness_design_studio.core.model import Part, Project, RowLayout, evolve
 from harness_design_studio.core.model.config import ConfigFile
 from harness_design_studio.core.outputs.build import build_outputs, write_outputs
@@ -848,7 +858,10 @@ def _done(history: History, plan: ReleasePlan) -> None:
 # ---- released-harness: a release and its next version (section 4.9) -----------------------------
 
 # The fixed dates of the template (section 5.4): never today, so a second build gives the same bytes
-EXAMPLE_DATES = {"review": "2026-01-12", "release": "2026-01-15", "new_version": "2026-01-20"}
+EXAMPLE_DATES = {
+    "review": "2026-01-12", "release": "2026-01-15", "new_version": "2026-01-20",
+    "device_check": "2026-01-15",
+}  # fmt: skip
 _DESIGNER, _CHECKER, _RELEASER = "Designer 1", "Checker 1", "Releaser 1"
 _TICKED = "1-20"  # the points of the review checklist that the person releasing says were ticked
 _LONGER = {"W002-L1": 1.0}  # the one change of version 1.1.0: EXAMPLE, 0.9 m becomes 1.0 m
@@ -1223,6 +1236,204 @@ def _imports_from_files() -> Project:
     return p
 
 
+# ---- device-library: devices from a library folder (section 4.11) ------------------------------
+
+LIBRARY_FOLDER = "team-library"  # inside the project, named by its device-libraries.json
+SUBSYSTEM_NAME = "Power"
+CHECKED_BY = "Reviewer 1"
+CHECKED_ICD = "ICD-OBC EXAMPLE Issue 2"
+CROSS_STRAP_REASON = "EXAMPLE: OBC1 talks to both transceivers on purpose, so either can take over"
+# The pinout of the RS-422 port of the transceiver as its ICD gives it: pin, signal, function
+_TTC_PORT = (
+    ("1", "TX+", "Telecommands in, positive"), ("2", "TX-", "Telecommands in, negative"),
+    ("3", "RX+", "Telemetry out, positive"), ("4", "RX-", "Telemetry out, negative"),
+)  # fmt: skip
+# The one change the team made in the library after the project added TTC1: a pin's function
+_TTC_CHANGED = ("3", "Telemetry and ranging out, positive")
+# (type, from connector, to connector, name); both connectors named, so no `unconfirmed`
+_LIBRARY_LINKS = (
+    ("power_primary", "PCDU1-J01", "OBC1-J02", "Power of OBC1"),
+    ("rs422", "OBC1-J01", "TTC1-J02", "Telecommands and telemetry of TTC1"),
+    ("rs422", "OBC1-J03", "TTC1-R-J02", "Telecommands and telemetry of TTC1-R"),
+)
+
+
+def _team_devices(changed: bool) -> Project:
+    """The project of the team that keeps the library, where the devices were defined: OBC1,
+    TTC1 with the fixed pinout and the functions of its RS-422 port, and PCDU1, all of the starter
+    device kinds. With `changed`, TTC1 has the function of a pin that the team changed later."""
+    p = new_project("Team devices")
+    history = History(p)
+    for kind, uid, name, y in (
+        ("computer", "OBC1", "On-board computer", 40.0),
+        ("transceiver", "TTC1", "Transceiver", 300.0),
+        ("power", "PCDU1", "Power control unit", 560.0),
+    ):
+        ops, _uid = edit.ops_add_unit(p, kind, edit.lane_x(0), y, unit_id=uid, name=name)
+        history.execute(f"add device {uid}", ops)
+    function = dict([_TTC_CHANGED]) if changed else {}
+    rows = [
+        {"pin": pin, "signal": signal, "mode": "fixed", "function": function.get(pin, what)}
+        for pin, signal, what in _TTC_PORT
+    ]
+    history.execute("pinout of TTC1-J02", devices.ops_paste_rows(p, "TTC1-J02", rows))
+    return p
+
+
+def _add_subsystem(history: History, p: Project, path: Path, root: Path) -> None:
+    """`import-subsystem DIR FILE`: the devices of a subsystem file and its import record."""
+    data = subsystems.read_subsystem(path)
+    plan = subsystems.plan_subsystem_import(p, data)
+    if not plan.ok:
+        raise SystemExit(f"{path.name}: {plan.problem}")
+    report = import_reports.library_file_report("subsystem", path, root, len(plan.rows), plan.notes)
+    _recorded(history, p, "Add a subsystem from a library file", plan.ops, report)
+
+
+def _device_library_in(root: Path) -> Project:
+    """The project folder `root` with its library folder: the team saved OBC1 and TTC1 into
+    `team-library/` (a device file each) and PCDU1 as the subsystem *Power*; the project names
+    the folder, adds OBC1 and TTC1 with a copy (TTC1-R) from it and the subsystem from its file,
+    is generated (the link of OBC1 to the copy, which is on the redundant chain, is a cross-strap,
+    waived with its reason), and OBC1 is checked and saved back with its check; then the team
+    changes a pin function of TTC1 in the library, so TTC1 and its copy read *library changed*."""
+    p = new_project(_title("device-library"))
+    p.meta = evolve(
+        p.meta,
+        description="The devices come from the device library team-library/ inside the project "
+        "(named in device-libraries.json): OBC1 checked by Reviewer 1 against ICD-OBC EXAMPLE "
+        "Issue 2 and saved back to the library with its check, TTC1 with its copy TTC1-R, and "
+        "PCDU1 from the subsystem file Power. The team changed a pin function of TTC1 in the "
+        "library after it was added, so update-device DIR TTC1 shows the difference and takes it "
+        "with --apply. TTC1-R is on the redundant chain and OBC1 talks to both transceivers: that "
+        "cross-strap is waived with its reason. Look at libraries DIR --devices and the Review "
+        "page; the manual page Use the library explains it.",
+    )
+    library = root / LIBRARY_FOLDER
+    library.mkdir(parents=True)
+    if library_git(library).kind != "none":  # the record would name a commit: not the same twice
+        raise SystemExit(f"{library} is inside a Git repository; build the examples elsewhere.")
+    team = _team_devices(changed=False)
+    library_folder.save_devices(library, team, ["OBC1", "TTC1"])  # `save-device ... --library`
+    power = library / subsystems.default_file_name(SUBSYSTEM_NAME)
+    subsystems.write_subsystem(
+        power,
+        subsystems.export_subsystem(
+            team, ["PCDU1"], SUBSYSTEM_NAME, "The power control unit of the team"
+        ),
+    )  # `export-subsystem ... --device PCDU1 --name Power`
+    library_pointer.write_pointer(root, [LIBRARY_FOLDER])  # `libraries DIR --add team-library`
+    history = History(p)
+    libraries = library_link.project_libraries(root)
+    if libraries.problems:
+        raise SystemExit(f"{LIBRARY_FOLDER}: {libraries.problems}")
+    for name, count in (("OBC1", 1), ("TTC1", 2)):  # `add-device DIR OBC1`, `... TTC1 --count 2`
+        add = library_link.plan_add_device(p, libraries, name, count, root=root)
+        history.execute(add.label, add.ops)
+    _add_subsystem(history, p, power, root)  # `import-subsystem DIR team-library/...`
+    for type_id, a, b, what in _LIBRARY_LINKS:
+        ua, ub = p.connectors[a].unit_id, p.connectors[b].unit_id
+        assert ua is not None and ub is not None
+        ops, _iid = edit.ops_add_interface(p, type_id, ua, ub, a, b, name=what)
+        history.execute(f"add interface {what}", ops)
+    generate_project(p)
+    # the copy is on the redundant chain: its link to OBC1 joins the two chains, on purpose
+    (strap,) = [f for f in checks.find(p) if f.rule == "cross-strap"]
+    history.execute("waive", [checks.waive_op(strap, CROSS_STRAP_REASON)])
+    check = device_check.plan_set_device_checked(
+        p, "OBC1", by=CHECKED_BY, on=EXAMPLE_DATES["device_check"], icd=CHECKED_ICD
+    )  # `device-checked DIR OBC1 --by ... --icd ... --date ...`
+    history.execute("Mark OBC1 as checked", check.ops)
+    holder = libraries.device("OBC1")
+    assert holder is not None
+    saved = library_link.plan_save_device(p, holder.library, "OBC1", replace=True, root=root)
+    history.execute("Record the library file of OBC1", saved.ops)  # `save-device ... --replace`
+    # later, in the team's project: a pin function of TTC1 changed, saved into the library
+    library_folder.save_devices(library, _team_devices(changed=True), ["TTC1"], replace=True)
+    _no_errors("device-library", p)
+    return p
+
+
+def _files_in(root: Path, rels: Sequence[str]) -> dict[str, bytes]:
+    """The files (path in the example's folder -> bytes) of the files and folders `rels` of
+    `root`, without the `.bak` copies a replaced file leaves."""
+    out: dict[str, bytes] = {}
+    for rel in rels:
+        path = root / rel
+        found = sorted(path.rglob("*")) if path.is_dir() else [path]
+        for f in found:
+            if f.is_file() and f.suffix != ".bak":
+                out[f.relative_to(root).as_posix()] = f.read_bytes()
+    return out
+
+
+def _device_library_build() -> tuple[Project, dict[str, bytes]]:
+    """The project of `device-library` and the files beside it, built in a scratch folder."""
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch) / "device-library"
+        p = _device_library_in(root)
+        return p, _files_in(root, [library_pointer.FILE, LIBRARY_FOLDER])
+
+
+def _device_library() -> Project:
+    return _device_library_build()[0]
+
+
+# ---- extensions: a project that adds a rule (section 4.14) -------------------------------------
+
+# The example extensions of the manual page Extend the tool, the one copy of their files
+_EXTENSION_FILES = Path(__file__).resolve().parents[1] / "docs" / "examples" / "extensions"
+
+
+def _extension_files() -> dict[str, bytes]:
+    """The files of `docs/examples/extensions/` without its page, as `extensions/` of a project:
+    two data files (a rule; a table, a lookup table and a rule), a Python plug-in, `enabled.json`."""
+    folder = extensions_manager.FOLDER
+    return {
+        f"{folder}/{path.relative_to(_EXTENSION_FILES).as_posix()}": path.read_bytes()
+        for path in sorted(_EXTENSION_FILES.rglob("*"))
+        if path.is_file() and path.name != "README.md"
+    }
+
+
+def _extensions() -> Project:
+    """The devices of first-steps with the EXAMPLE values and lengths, generated, and the folder
+    `extensions/` with the example extensions: a rule and a table written as data, both enabled
+    and applied, and a Python plug-in that is enabled but not trusted, so it does not run."""
+    p = new_project(_title("extensions"))
+    p.meta = evolve(
+        p.meta,
+        description="The folder extensions/ adds a rule (x-min-gauge-power: no power wire thinner "
+        "than AWG 22), a table of the power wires with a lookup table of EXAMPLE ampacities and a "
+        "rule against it (x-own-ampacity), all written as data, and a Python plug-in "
+        "(duplicate-signal-wires) that stays off until you trust it. Look at extensions DIR, drc "
+        "DIR and system/extensions/power-wires.csv after an export; trust DIR "
+        "duplicate-signal-wires is the exercise. The manual page Extend the tool explains it.",
+    )
+    history = History(p)
+    _demo_values(history, p)
+    _first_steps_devices(history, p)
+    generate_project(p)
+    _segment_lengths(history, p, _template_lengths())  # so that Generate gives each wire a gauge
+    generate_project(p)
+    with tempfile.TemporaryDirectory() as scratch:  # the rules of the files run on the project
+        root = Path(scratch)
+        for rel, data in _extension_files().items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_bytes(data)
+        extensions_manager.attach(p, root)
+        _no_errors("extensions", p)
+        p.extensions = None  # what the folder offers is read again where the project is opened
+    return p
+
+
+# The files an example keeps beside its model (part C): path in the example's folder -> bytes
+BESIDE: dict[str, Callable[[], dict[str, bytes]]] = {
+    "device-library": lambda: _device_library_build()[1],
+    "extensions": _extension_files,
+}
+
+
 BUILDERS: dict[str, Callable[[], Project]] = {
     "full-connectors": _full_connectors,
     "names-and-ports": _names_and_ports,
@@ -1234,6 +1445,8 @@ BUILDERS: dict[str, Callable[[], Project]] = {
     "lengths-to-the-face": _lengths_to_the_face,
     "released-harness": _released_harness,
     "overrides-and-deviations": _overrides_and_deviations,
+    "device-library": _device_library,
     "build-data-and-as-built": _build_data_and_as_built,
     "imports-from-files": _imports_from_files,
+    "extensions": _extensions,
 }

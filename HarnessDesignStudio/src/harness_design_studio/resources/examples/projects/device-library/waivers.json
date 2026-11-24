@@ -1,0 +1,12 @@
+{
+  "waivers": [
+    {
+      "finding_hash": "cfe26602851e",
+      "id": "cross-strap.IF-003",
+      "justification": "EXAMPLE: OBC1 talks to both transceivers on purpose, so either can take over",
+      "notes": "",
+      "object_id": "IF-003",
+      "rule": "cross-strap"
+    }
+  ]
+}
